@@ -1,0 +1,29 @@
+# JavaScript
+node_modules/
+.next/
+dist/
+.expo/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+htmlcov/
+.coverage
+*.db
+.artifacts-*.png
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
