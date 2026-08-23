@@ -1,4 +1,3 @@
-import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime
@@ -24,7 +23,8 @@ from app.models.entities import (
     Vehicle,
 )
 from app.repositories.business import load_default_business
-from app.schemas.public import BookingCreate, BookingResponse
+from app.schemas.public import BookingCreate, BookingResponse, BookingVehicleSummary
+from app.services.management_tokens import create_management_token, management_token_hash
 from app.services.scheduling import hold_token_hash
 
 
@@ -101,7 +101,7 @@ async def create_booking(
 
     booking_id = uuid.uuid4()
     reference = f"AW-{secrets.token_hex(5).upper()}"
-    management_secret = secrets.token_urlsafe(32)
+    management_token = create_management_token(booking_id)
     confirmed = request.payment_choice == "pay_after_service"
     booking_status = BookingStatus.CONFIRMED if confirmed else BookingStatus.PENDING_PAYMENT
     payment_status = PaymentStatus.UNPAID if confirmed else PaymentStatus.PENDING
@@ -131,11 +131,12 @@ async def create_booking(
         latitude=request.location.latitude,
         longitude=request.location.longitude,
         location_instructions=request.location.instructions,
-        management_token_hash=hashlib.sha256(management_secret.encode()).hexdigest(),
+        management_token_hash=management_token_hash(management_token),
     )
     session.add(booking)
     await session.flush()
 
+    vehicle_summaries: list[BookingVehicleSummary] = []
     for position, requested_vehicle in enumerate(request.vehicles, start=1):
         booking_vehicle = BookingVehicle(
             booking_id=booking.id,
@@ -160,6 +161,18 @@ async def create_booking(
                 service_name=service.name,
                 unit_price_minor=service.price_minor,
                 quantity=1,
+                line_total_minor=service.price_minor,
+            )
+        )
+        vehicle_summaries.append(
+            BookingVehicleSummary(
+                make=requested_vehicle.make,
+                model=requested_vehicle.model,
+                year=requested_vehicle.year,
+                vehicle_type=requested_vehicle.vehicle_type,
+                colour=requested_vehicle.colour,
+                plate_number=requested_vehicle.plate_number,
+                service_name=service.name,
                 line_total_minor=service.price_minor,
             )
         )
@@ -207,7 +220,15 @@ async def create_booking(
                 channel="email",
                 notification_type="booking_confirmed",
                 recipient=booking.customer_email,
-                payload={"booking_reference": booking.reference},
+                payload={
+                    "booking_reference": booking.reference,
+                    "scheduled_start": booking.scheduled_start.isoformat(),
+                    "scheduled_end": booking.scheduled_end.isoformat(),
+                    "vehicle_count": booking.vehicle_count,
+                    "total_amount_minor": booking.total_amount_minor,
+                    "currency_code": booking.currency_code,
+                    "written_address": booking.written_address,
+                },
                 status="pending",
                 next_attempt_at=now,
             )
@@ -229,6 +250,13 @@ async def create_booking(
         total_amount_minor=booking.total_amount_minor,
         currency_code=booking.currency_code,
         resource_id=booking.resource_id,
+        customer_first_name=booking.customer_first_name,
+        customer_surname=booking.customer_surname,
+        written_address=booking.written_address,
+        location_url=booking.location_url,
+        location_instructions=booking.location_instructions,
+        vehicles=vehicle_summaries,
+        management_token=management_token,
     )
 
 

@@ -53,7 +53,13 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "X-Booking-Management-Token",
+        "X-Request-ID",
+    ],
 )
 
 
@@ -80,11 +86,13 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
             response.headers["X-SQL-Duration-Ms"] = f"{query_duration_ms.get():.2f}"
         return response
     finally:
+        route = request.scope.get("route")
+        safe_route = getattr(route, "path", request.url.path)
         logger.info(
             "http_request",
             request_id=request_id,
             method=request.method,
-            route=request.url.path,
+            route=safe_route,
             status=status_code,
             duration_ms=round((time.perf_counter() - started) * 1000, 2),
             sql_query_count=query_count.get(),

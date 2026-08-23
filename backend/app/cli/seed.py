@@ -59,26 +59,71 @@ async def seed() -> None:
                         sort_order=1,
                     )
                 )
-            existing_service = (
+            bootstrap_service = (
                 await session.scalars(
-                    select(Service.id).where(
+                    select(Service).where(
                         Service.business_id == business.id,
                         Service.name == "Development Standard Wash",
                     )
                 )
             ).one_or_none()
-            if existing_service is None:
-                session.add(
-                    Service(
-                        business_id=business.id,
-                        name="Development Standard Wash",
-                        description="Bootstrap-only service for API development and tests.",
-                        price_minor=10000,
-                        estimated_duration_minutes=120,
-                        is_active=True,
-                        sort_order=1,
+            if bootstrap_service is not None:
+                bootstrap_service.is_active = False
+
+            service_seed = [
+                (
+                    "Express Exterior",
+                    "A careful exterior wash, wheel clean, and hand-finished dry.",
+                    8500,
+                    90,
+                    1,
+                ),
+                (
+                    "Signature Inside & Out",
+                    "Complete exterior care with a considered interior refresh.",
+                    14500,
+                    120,
+                    2,
+                ),
+                (
+                    "Premium Detail",
+                    "Our most thorough reset for a car that deserves extra attention.",
+                    22000,
+                    180,
+                    3,
+                ),
+            ]
+            existing_services = {
+                service.name: service
+                for service in (
+                    await session.scalars(
+                        select(Service).where(
+                            Service.business_id == business.id,
+                            Service.name.in_([item[0] for item in service_seed]),
+                        )
                     )
-                )
+                ).all()
+            }
+            for name, description, price, duration, sort_order in service_seed:
+                service = existing_services.get(name)
+                if service is None:
+                    session.add(
+                        Service(
+                            business_id=business.id,
+                            name=name,
+                            description=description,
+                            price_minor=price,
+                            estimated_duration_minutes=duration,
+                            is_active=True,
+                            sort_order=sort_order,
+                        )
+                    )
+                else:
+                    service.description = description
+                    service.price_minor = price
+                    service.estimated_duration_minutes = duration
+                    service.is_active = True
+                    service.sort_order = sort_order
     finally:
         await engine.dispose()
 

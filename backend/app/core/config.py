@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     db_pool_timeout_seconds: float = Field(default=10, gt=0, le=60)
     db_disable_prepared_statements: bool = False
     log_level: str = "INFO"
+    booking_management_signing_key: str = "development-only-abdwash-management-key"
 
     supabase_url: str | None = None
     supabase_jwt_audience: str = "authenticated"
@@ -40,6 +41,14 @@ class Settings(BaseSettings):
         if value.startswith("postgres://"):
             return value.replace("postgres://", "postgresql+asyncpg://", 1)
         return value
+
+    @model_validator(mode="after")
+    def require_production_management_key(self) -> "Settings":
+        if self.is_production and self.booking_management_signing_key.startswith("development-"):
+            raise ValueError("BOOKING_MANAGEMENT_SIGNING_KEY must be set in production")
+        if len(self.booking_management_signing_key) < 32:
+            raise ValueError("BOOKING_MANAGEMENT_SIGNING_KEY must be at least 32 characters")
+        return self
 
     @property
     def is_production(self) -> bool:

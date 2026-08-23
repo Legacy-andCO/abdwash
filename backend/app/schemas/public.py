@@ -127,6 +127,17 @@ class BookingCreate(StrictRequest):
     source: Literal["web", "mobile", "admin"] = "web"
 
 
+class BookingVehicleSummary(BaseModel):
+    make: str
+    model: str
+    year: int | None
+    vehicle_type: str
+    colour: str | None
+    plate_number: str | None
+    service_name: str
+    line_total_minor: int
+
+
 class BookingResponse(BaseModel):
     id: uuid.UUID
     reference: str
@@ -139,6 +150,44 @@ class BookingResponse(BaseModel):
     total_amount_minor: int
     currency_code: str
     resource_id: uuid.UUID
+    customer_first_name: str
+    customer_surname: str
+    written_address: str
+    location_url: str
+    location_instructions: str | None
+    vehicles: list[BookingVehicleSummary]
+    management_token: str
+
+
+class BookingManagementResponse(BaseModel):
+    reference: str
+    status: str
+    payment_choice: str
+    payment_status: str
+    scheduled_start: datetime
+    scheduled_end: datetime
+    total_amount_minor: int
+    currency_code: str
+    customer_first_name: str
+    customer_surname: str
+    written_address: str
+    location_url: str
+    location_instructions: str | None
+    vehicles: list[BookingVehicleSummary]
+    cancellation_eligible: bool
+    cancellation_cutoff_at: datetime
+    cancellation_status: str | None
+    timezone: str
+
+
+class CancellationRequestCreate(StrictRequest):
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+class CancellationRequestResponse(BaseModel):
+    id: uuid.UUID
+    status: str
+    booking: BookingManagementResponse
 
 
 class ErrorBody(BaseModel):

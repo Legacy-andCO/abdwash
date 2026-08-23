@@ -24,6 +24,7 @@ from app.models.entities import (
     BookingService,
     Business,
     BusinessSettings,
+    IdempotencyRecord,
     ScheduleResource,
     ScheduleSlot,
     Service,
@@ -369,3 +370,22 @@ async def test_public_api_guest_booking_and_query_count_guard(
         )
         assert retried.status_code == 201
         assert retried.json() == booking.json()
+        management_token = booking.json()["management_token"]
+        managed = await client.get(
+            "/api/v1/public/bookings/manage",
+            headers={"X-Booking-Management-Token": management_token},
+        )
+        assert managed.status_code == 200
+        assert managed.json()["reference"] == booking.json()["reference"]
+        assert managed.json()["cancellation_eligible"] is False
+
+    async with database() as session:
+        idempotency_record = (
+            await session.scalars(
+                select(IdempotencyRecord).where(
+                    IdempotencyRecord.operation == "create_booking",
+                    IdempotencyRecord.idempotency_key == "api-integration-booking-1",
+                )
+            )
+        ).one()
+        assert "management_token" not in idempotency_record.response_json

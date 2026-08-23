@@ -8,10 +8,18 @@ from app.auth.verifier import VerifiedIdentity
 from app.schemas.public import (
     AvailabilityResponse,
     BookingCreate,
+    BookingManagementResponse,
     BookingResponse,
+    CancellationRequestCreate,
+    CancellationRequestResponse,
     CatalogueResponse,
     HoldCreate,
     HoldResponse,
+)
+from app.services.booking_management import (
+    booking_management_response,
+    load_managed_booking,
+    request_booking_cancellation,
 )
 from app.services.bookings import create_booking
 from app.services.catalogue import get_catalogue
@@ -20,6 +28,7 @@ from app.services.idempotency import (
     find_idempotent_response,
     store_idempotent_response,
 )
+from app.services.management_tokens import create_management_token
 from app.services.scheduling import availability_for_date, create_hold
 
 router = APIRouter(prefix="/api/v1/public", tags=["public"])
@@ -63,9 +72,14 @@ async def booking(
             request_hash=request_hash,
         )
         if existing is not None:
-            return BookingResponse.model_validate(existing.response_json)
+            retry_response = dict(existing.response_json)
+            if existing.resource_id is None:
+                raise RuntimeError("Booking idempotency record is missing its resource id")
+            retry_response["management_token"] = create_management_token(existing.resource_id)
+            return BookingResponse.model_validate(retry_response)
         response = await create_booking(session, request, identity)
         safe_response = response.model_dump(mode="json")
+        safe_response.pop("management_token")
         store_idempotent_response(
             session,
             scope=scope,
@@ -74,6 +88,59 @@ async def booking(
             request_hash=request_hash,
             response_status=201,
             response_json=safe_response,
+            resource_id=response.id,
+        )
+        return response
+
+
+@router.get(
+    "/bookings/manage",
+    response_model=BookingManagementResponse,
+)
+async def manage_booking(
+    session: SessionDep,
+    management_token: Annotated[
+        str, Header(alias="X-Booking-Management-Token", min_length=60, max_length=80)
+    ],
+) -> BookingManagementResponse:
+    booking_record = await load_managed_booking(session, management_token)
+    return await booking_management_response(session, booking_record)
+
+
+@router.post(
+    "/bookings/manage/cancellation-requests",
+    response_model=CancellationRequestResponse,
+    status_code=201,
+)
+async def cancellation_request(
+    request: CancellationRequestCreate,
+    session: SessionDep,
+    management_token: Annotated[
+        str, Header(alias="X-Booking-Management-Token", min_length=60, max_length=80)
+    ],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=255)],
+) -> CancellationRequestResponse:
+    request_hash = canonical_request_hash(request.model_dump(mode="json"))
+    async with session.begin():
+        booking_record = await load_managed_booking(session, management_token, lock=True)
+        existing = await find_idempotent_response(
+            session,
+            scope=f"booking:{booking_record.id}",
+            operation="request_cancellation",
+            key=idempotency_key,
+            request_hash=request_hash,
+        )
+        if existing is not None:
+            return CancellationRequestResponse.model_validate(existing.response_json)
+        response = await request_booking_cancellation(session, booking_record, request)
+        store_idempotent_response(
+            session,
+            scope=f"booking:{booking_record.id}",
+            operation="request_cancellation",
+            key=idempotency_key,
+            request_hash=request_hash,
+            response_status=201,
+            response_json=response.model_dump(mode="json"),
             resource_id=response.id,
         )
         return response
