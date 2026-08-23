@@ -16,11 +16,13 @@ class FakeAutocomplete extends HTMLElement {
   description = "";
 }
 
-function installGoogle(importFailure = false) {
+function installGoogle(importFailure = false, delays: Partial<Record<"maps" | "marker" | "places", number>> = {}) {
   const mapsGlobal = {
     maps: {
       importLibrary: vi.fn(async (name: string) => {
         if (importFailure) throw new Error("library failure");
+        const delay = delays[name as keyof typeof delays];
+        if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay));
         if (name === "maps") return { Map: class {
           center: unknown;
           panTo = vi.fn();
@@ -77,6 +79,7 @@ describe("LocationPicker Maps lifecycle", () => {
     expect(await screen.findByText("Map temporarily unavailable.")).toBeTruthy();
     expect(screen.getByDisplayValue("Al Reem Island, Abu Dhabi")).toBeTruthy();
     expect(screen.queryByLabelText("Selected service location map")).toBeNull();
+    expect(consoleError).toHaveBeenCalledWith("[AbdWash Maps] loader_failed");
     consoleError.mockRestore();
   });
 
@@ -87,6 +90,16 @@ describe("LocationPicker Maps lifecycle", () => {
     expect(screen.getByLabelText("Selected service location map")).toBeTruthy();
     expect(mapInstances).toHaveLength(1);
     expect(markerInstances).toHaveLength(1);
+  });
+
+  it("stays loading until differently delayed valid libraries all resolve, then becomes ready", async () => {
+    installGoogle(false, { maps: 10, marker: 20, places: 30 });
+    const view = renderPicker();
+    expect(screen.getByText("Loading map…")).toBeTruthy();
+    expect(screen.queryByText("Map temporarily unavailable.")).toBeNull();
+    await waitFor(() => expect(view.container.querySelectorAll("fake-place-autocomplete")).toHaveLength(1));
+    expect(screen.queryByText("Loading map…")).toBeNull();
+    expect(screen.queryByText("Map temporarily unavailable.")).toBeNull();
   });
 
   it("uses current saved coordinates as soon as Maps becomes ready", async () => {
@@ -113,6 +126,9 @@ describe("LocationPicker Maps lifecycle", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     renderPicker();
     expect(await screen.findByText("Map temporarily unavailable.")).toBeTruthy();
+    expect(consoleError).toHaveBeenCalledWith("[AbdWash Maps] maps_library_failed");
+    expect(consoleError).toHaveBeenCalledWith("[AbdWash Maps] marker_library_failed");
+    expect(consoleError).toHaveBeenCalledWith("[AbdWash Maps] places_library_failed");
     consoleError.mockRestore();
   });
 });

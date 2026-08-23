@@ -19,6 +19,11 @@ type LocationPickerProps = {
 type PlaceSelectEvent = Event & { placePrediction: google.maps.places.PlacePrediction };
 type MapState = "idle" | "loading" | "ready" | "failed";
 type GpsState = "idle" | "loading" | "success" | "error";
+type MapsFailureStage = "loader_failed" | "maps_library_failed" | "marker_library_failed" | "places_library_failed" | "map_construction_failed" | "geocoder_construction_failed" | "marker_construction_failed" | "autocomplete_construction_failed";
+
+function reportMapsFailure(stage: MapsFailureStage) {
+  console.error(`[AbdWash Maps] ${stage}`);
+}
 
 export function LocationPicker({ location, errors, onFieldChange, onCoordinatesChange }: LocationPickerProps) {
   const mapElement = useRef<HTMLDivElement>(null);
@@ -66,12 +71,26 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
     async function initialize() {
       setMapState("loading");
       try {
-        const mapsGlobal = await loadGoogleMaps(googleMapsApiKey);
+        let mapsGlobal: typeof google;
+        try {
+          mapsGlobal = await loadGoogleMaps(googleMapsApiKey);
+        } catch (error) {
+          reportMapsFailure("loader_failed");
+          throw error;
+        }
         if (!active || !mapNode?.isConnected || !host?.isConnected) return;
+        const importLibrary = async <T,>(name: string, failureStage: MapsFailureStage) => {
+          try {
+            return await mapsGlobal.maps.importLibrary(name) as T;
+          } catch (error) {
+            reportMapsFailure(failureStage);
+            throw error;
+          }
+        };
         const [mapsLibrary, markerLibrary, placesLibrary] = await Promise.all([
-          mapsGlobal.maps.importLibrary("maps") as Promise<google.maps.MapsLibrary>,
-          mapsGlobal.maps.importLibrary("marker") as Promise<google.maps.MarkerLibrary>,
-          mapsGlobal.maps.importLibrary("places") as Promise<google.maps.PlacesLibrary>,
+          importLibrary<google.maps.MapsLibrary>("maps", "maps_library_failed"),
+          importLibrary<google.maps.MarkerLibrary>("marker", "marker_library_failed"),
+          importLibrary<google.maps.PlacesLibrary>("places", "places_library_failed"),
         ]);
         if (!active || !mapNode.isConnected || !host.isConnected) return;
 
@@ -80,21 +99,36 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
         const initialPosition = hasCoordinates
           ? { lat: currentLocation.latitude!, lng: currentLocation.longitude! }
           : uaeCenter;
-        map.current = new mapsLibrary.Map(mapNode, {
-          center: initialPosition,
-          zoom: hasCoordinates ? 17 : 8,
-          mapId: googleMapsMapId,
-          gestureHandling: "cooperative",
-          streetViewControl: false,
-          mapTypeControl: false,
-        });
-        geocoder.current = new mapsGlobal.maps.Geocoder();
-        marker.current = new markerLibrary.AdvancedMarkerElement({
-          map: hasCoordinates ? map.current : null,
-          position: initialPosition,
-          title: "Service location",
-          gmpDraggable: true,
-        });
+        try {
+          map.current = new mapsLibrary.Map(mapNode, {
+            center: initialPosition,
+            zoom: hasCoordinates ? 17 : 8,
+            mapId: googleMapsMapId,
+            gestureHandling: "cooperative",
+            streetViewControl: false,
+            mapTypeControl: false,
+          });
+        } catch (error) {
+          reportMapsFailure("map_construction_failed");
+          throw error;
+        }
+        try {
+          geocoder.current = new mapsGlobal.maps.Geocoder();
+        } catch (error) {
+          reportMapsFailure("geocoder_construction_failed");
+          throw error;
+        }
+        try {
+          marker.current = new markerLibrary.AdvancedMarkerElement({
+            map: hasCoordinates ? map.current : null,
+            position: initialPosition,
+            title: "Service location",
+            gmpDraggable: true,
+          });
+        } catch (error) {
+          reportMapsFailure("marker_construction_failed");
+          throw error;
+        }
         markerListener = marker.current.addListener("dragend", async () => {
           const position = marker.current?.position;
           if (!position) return;
@@ -104,25 +138,29 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
           if (active) coordinatesCallbackRef.current({ latitude, longitude }, address);
         });
 
-        autocomplete = new placesLibrary.PlaceAutocompleteElement({ locationBias: { center: uaeCenter, radius: 250_000 } });
-        autocomplete.placeholder = "Search for an address or place…";
-        autocomplete.description = "Search for an Abu Dhabi service address or place";
-        autocompleteListener = (async (event: PlaceSelectEvent) => {
-          const place = event.placePrediction.toPlace();
-          await place.fetchFields({ fields: ["formattedAddress", "location"] });
-          if (!active || !place.location) return;
-          coordinatesCallbackRef.current(
-            { latitude: place.location.lat(), longitude: place.location.lng() },
-            place.formattedAddress ?? undefined,
-          );
-        }) as unknown as EventListener;
-        autocomplete.addEventListener("gmp-select", autocompleteListener);
-        host.replaceChildren(autocomplete);
+        try {
+          autocomplete = new placesLibrary.PlaceAutocompleteElement({ locationBias: { center: uaeCenter, radius: 250_000 } });
+          autocomplete.placeholder = "Search for an address or place…";
+          autocomplete.description = "Search for an Abu Dhabi service address or place";
+          autocompleteListener = (async (event: PlaceSelectEvent) => {
+            const place = event.placePrediction.toPlace();
+            await place.fetchFields({ fields: ["formattedAddress", "location"] });
+            if (!active || !place.location) return;
+            coordinatesCallbackRef.current(
+              { latitude: place.location.lat(), longitude: place.location.lng() },
+              place.formattedAddress ?? undefined,
+            );
+          }) as unknown as EventListener;
+          autocomplete.addEventListener("gmp-select", autocompleteListener);
+          host.replaceChildren(autocomplete);
+        } catch (error) {
+          reportMapsFailure("autocomplete_construction_failed");
+          throw error;
+        }
         if (active) setMapState("ready");
-      } catch (error) {
+      } catch {
         cleanupComponentObjects();
         if (!active) return;
-        if (process.env.NODE_ENV !== "production") console.error("[AbdWash Maps] Failed to initialize Google Maps", error);
         setMapState("failed");
       }
     }
