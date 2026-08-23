@@ -137,3 +137,35 @@ def test_malformed_booking_is_rejected_before_business_logic() -> None:
             headers={"Idempotency-Key": "malformed-request"},
         )
     assert response.status_code == 422
+
+
+def test_invalid_maps_url_returns_validation_response() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/public/bookings",
+            json={
+                "hold_token": "h" * 40,
+                "contact": {
+                    "first_name": "Amina",
+                    "surname": "Khan",
+                    "email": "amina@example.com",
+                    "phone": "050 123 4567",
+                },
+                "location": {
+                    "written_address": "Yas Acres, Abu Dhabi",
+                    "location_url": "https://google.com.attacker.com/maps/Yas",
+                },
+                "vehicles": [
+                    {
+                        "make": "Toyota",
+                        "model": "Camry",
+                        "vehicle_type": "sedan",
+                        "service_id": str(uuid.uuid4()),
+                    }
+                ],
+                "payment_choice": "pay_after_service",
+            },
+            headers={"Idempotency-Key": "invalid-map-link"},
+        )
+    assert response.status_code == 422
+    assert "supported Google Maps link" in response.text

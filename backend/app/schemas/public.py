@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime, time
 from typing import Annotated, Literal
 
+import phonenumbers
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -9,8 +10,11 @@ from pydantic import (
     Field,
     HttpUrl,
     StringConstraints,
+    field_validator,
     model_validator,
 )
+
+from app.domain.locations import is_supported_google_maps_url
 
 NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -91,6 +95,19 @@ class CustomerContact(StrictRequest):
     email: EmailStr
     phone: NonBlank = Field(max_length=40)
 
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Enter a valid international phone number.")
+        try:
+            number = phonenumbers.parse(value, "AE")
+        except phonenumbers.NumberParseException as exc:
+            raise ValueError("Enter a valid international phone number.") from exc
+        if not phonenumbers.is_valid_number(number):
+            raise ValueError("Enter a valid international phone number.")
+        return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
+
 
 class BookingLocation(StrictRequest):
     written_address: NonBlank = Field(max_length=2000)
@@ -98,6 +115,13 @@ class BookingLocation(StrictRequest):
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     instructions: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("location_url")
+    @classmethod
+    def require_google_maps_url(cls, value: HttpUrl) -> HttpUrl:
+        if not is_supported_google_maps_url(str(value)):
+            raise ValueError("Use a supported Google Maps link.")
+        return value
 
     @model_validator(mode="after")
     def coordinates_together(self) -> "BookingLocation":

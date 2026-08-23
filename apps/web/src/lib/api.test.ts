@@ -8,6 +8,17 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
+function bookingInput(idempotencyKey: string) {
+  return {
+    hold_token: "h".repeat(40),
+    contact: { first_name: "A", surname: "B", email: "a@b.com", phone: "050 123 4567", phone_country: "AE" as const },
+    location: { written_address: "Dubai", location_url: "https://maps.google.com/x", latitude: 25.2, longitude: 55.3, instructions: "" },
+    vehicles: [{ ...emptyVehicle("service"), make: "Toyota", model: "Camry", vehicle_type: "sedan" }],
+    payment_choice: "pay_after_service" as const,
+    idempotencyKey,
+  };
+}
+
 describe("central API client", () => {
   it("does not send JSON content type for catalogue GET requests", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ services: [] })); vi.stubGlobal("fetch", fetchMock);
@@ -32,14 +43,17 @@ describe("central API client", () => {
   });
   it("never sends a client-computed total or paid state", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: "booking" }, 201)); vi.stubGlobal("fetch", fetchMock);
-    await createBooking({ hold_token: "h".repeat(40), contact: { first_name: "A", surname: "B", email: "a@b.com", phone: "+971500000" }, location: { written_address: "Dubai", location_url: "https://maps.google.com/x", instructions: "" }, vehicles: [{ ...emptyVehicle("service"), make: "Toyota", model: "Camry", vehicle_type: "sedan" }], payment_choice: "pay_after_service", idempotencyKey: "booking-key" });
+    await createBooking(bookingInput("booking-key"));
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.total_amount_minor).toBeUndefined();
     expect(body.payment_status).toBeUndefined();
+    expect(body.contact.phone).toBe("+971501234567");
+    expect(body.contact.phone_country).toBeUndefined();
+    expect(body.location).toMatchObject({ latitude: 25.2, longitude: 55.3 });
   });
   it("attaches the booking idempotency key", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, 201)); vi.stubGlobal("fetch", fetchMock);
-    await createBooking({ hold_token: "h".repeat(40), contact: { first_name: "A", surname: "B", email: "a@b.com", phone: "+971500000" }, location: { written_address: "Dubai", location_url: "https://maps.google.com/x", instructions: "" }, vehicles: [{ ...emptyVehicle("service"), make: "Toyota", model: "Camry", vehicle_type: "sedan" }], payment_choice: "pay_after_service", idempotencyKey: "stable-key" });
+    await createBooking(bookingInput("stable-key"));
     const headers = new Headers(fetchMock.mock.calls[0][1].headers);
     expect(headers.get("Content-Type")).toBe("application/json");
     expect(headers.get("Idempotency-Key")).toBe("stable-key");

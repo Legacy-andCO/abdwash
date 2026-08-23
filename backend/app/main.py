@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
 
+from app.api.internal import router as internal_router
 from app.api.public import router as public_router
 from app.api.staff import router as staff_router
 from app.api.system import router as system_router
@@ -23,7 +24,7 @@ from app.core.database import (
 )
 from app.core.logging import configure_logging
 from app.domain.errors import DomainError
-from app.integrations.notifications.log import LogNotificationProvider
+from app.integrations.notifications.factory import create_notification_provider
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -41,7 +42,7 @@ async def lifespan(app: FastAPI) -> Any:
     app.state.session_factory = create_session_factory(engine)
     app.state.http_client = http_client
     app.state.auth_verifier = SupabaseTokenVerifier(settings, http_client)
-    app.state.notification_provider = LogNotificationProvider()
+    app.state.notification_provider = create_notification_provider(settings, http_client)
     yield
     await http_client.aclose()
     await engine.dispose()
@@ -134,5 +135,6 @@ async def database_error_handler(request: Request, exc: DBAPIError) -> JSONRespo
 
 
 app.include_router(system_router)
+app.include_router(internal_router)
 app.include_router(public_router)
 app.include_router(staff_router)

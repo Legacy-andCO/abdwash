@@ -21,7 +21,7 @@ Clients do not write business tables through the Supabase Data API. RLS is enabl
 
 ## External work
 
-Authoritative state and its outbox message are committed together. Provider calls occur after commit and never while a booking transaction is open. The shared async HTTP client has bounded connections and timeouts and is reused for application lifetime.
+Authoritative state and its outbox message are committed together. Provider calls occur after commit and never while a booking transaction is open. The shared async HTTP client has bounded connections and timeouts and is reused for application lifetime. Persistent hosts run the polling worker; serverless hosts invoke the same claim/process functions through one bounded authenticated request. Both paths preserve `FOR UPDATE SKIP LOCKED`, stale-claim recovery, exponential retry, and provider calls outside database transactions.
 
 ## Future local-first mobile
 
@@ -30,4 +30,3 @@ The mobile app is not offline-capable yet. The server foundation supports a futu
 ## Why not microservices
 
 The critical workflows require shared transactions and a small team benefits from one deployable backend. Scale should first come from indexes, pooling, batching, PostgreSQL aggregation, query-count guards, outbox workers, and horizontal API/worker processes. Services can be extracted later only if measured operational boundaries justify it.
-

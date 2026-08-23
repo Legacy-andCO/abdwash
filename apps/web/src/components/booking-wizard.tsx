@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { BrandMark } from "./brand-mark";
+import { LocationPicker } from "./location-picker";
+import { PhoneInput } from "./phone-input";
 import { ApiError, createBooking, createHold, friendlyError, getAvailability, getCatalogue } from "@/lib/api";
 import { bookingReducer, contactErrors, initialBookingState, steps, vehicleErrors, type BookingStep } from "@/lib/booking-state";
 import { calendarCells, dateKey, formatMoney, formatSchedule, todayInTimezone } from "@/lib/dates";
+import { normalizePhone } from "@/lib/phone";
 import type { AvailabilitySlot, Service, Vehicle } from "@/lib/types";
 
 const stepLabels: Record<BookingStep, string> = { service: "Service", details: "Your details", vehicles: "Vehicles", review: "Review", schedule: "Date & time", payment: "Payment", confirmation: "Confirmed" };
@@ -74,9 +77,32 @@ function ServiceStep({ state, dispatch }: StepProps) {
 
 function DetailsStep({ state, dispatch }: StepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const next = () => { const found = contactErrors(state.contact, state.location); setErrors(found); if (!Object.keys(found).length) dispatch({ type: "step", value: "vehicles" }); else setTimeout(() => document.querySelector<HTMLElement>("[aria-invalid=true]")?.focus(), 0); };
-  const contactField = (field: keyof typeof state.contact, label: string, type = "text", autocomplete?: string) => <label><span>{label}</span><input type={type} autoComplete={autocomplete} value={state.contact[field]} aria-invalid={!!errors[field]} aria-describedby={errors[field] ? `${field}-error` : undefined} onChange={(event) => dispatch({ type: "contact", field, value: event.target.value })} /><FieldError id={`${field}-error`}>{errors[field]}</FieldError></label>;
-  return <><StepIntro eyebrow="About you" title="Where should we meet you?" copy="We’ll use these details only to arrange and confirm your service." /><div className="form-section"><h2>Contact details</h2><div className="form-grid two">{contactField("first_name", "First name", "text", "given-name")}{contactField("surname", "Surname", "text", "family-name")}{contactField("email", "Email address", "email", "email")}{contactField("phone", "Phone number", "tel", "tel")}</div></div><div className="form-section"><h2>Service location</h2><div className="form-grid"><label><span>Written address</span><textarea rows={3} value={state.location.written_address} aria-invalid={!!errors.written_address} aria-describedby={errors.written_address ? "address-error" : undefined} onChange={(event) => dispatch({ type: "location", field: "written_address", value: event.target.value })} /><FieldError id="address-error">{errors.written_address}</FieldError></label><label><span>Google Maps or location link</span><input type="url" placeholder="https://maps.google.com/…" value={state.location.location_url} aria-invalid={!!errors.location_url} aria-describedby={errors.location_url ? "map-error" : "map-hint"} onChange={(event) => dispatch({ type: "location", field: "location_url", value: event.target.value })} /><small id="map-hint" className="field-hint">Paste a share link so the team can find you precisely.</small><FieldError id="map-error">{errors.location_url}</FieldError></label><label><span>Location notes <em>Optional</em></span><textarea rows={2} placeholder="Parking access, building entrance, or anything useful" value={state.location.instructions} onChange={(event) => dispatch({ type: "location", field: "instructions", value: event.target.value })} /></label></div></div><StepActions back={() => dispatch({ type: "step", value: "service" })} next={next} /></>;
+  const next = () => {
+    const found = contactErrors(state.contact, state.location);
+    setErrors(found);
+    if (!Object.keys(found).length) {
+      const normalizedPhone = normalizePhone(state.contact.phone, state.contact.phone_country);
+      if (normalizedPhone) dispatch({ type: "contact", field: "phone", value: normalizedPhone });
+      dispatch({ type: "step", value: "vehicles" });
+    } else {
+      setTimeout(() => document.querySelector<HTMLElement>("[aria-invalid=true]")?.focus(), 0);
+    }
+  };
+  const contactField = (
+    field: "first_name" | "surname" | "email",
+    label: string,
+    type = "text",
+    autocomplete?: string,
+  ) => <label><span>{label}</span><input type={type} autoComplete={autocomplete} value={state.contact[field]} aria-invalid={!!errors[field]} aria-describedby={errors[field] ? `${field}-error` : undefined} onChange={(event) => dispatch({ type: "contact", field, value: event.target.value })} /><FieldError id={`${field}-error`}>{errors[field]}</FieldError></label>;
+  const updateLocationField = useCallback((field: "written_address" | "location_url" | "instructions", value: string) => {
+    if (field === "location_url") dispatch({ type: "manual_location_url", value });
+    else dispatch({ type: "location", field, value });
+  }, [dispatch]);
+  const updateCoordinates = useCallback((value: { latitude: number; longitude: number }, writtenAddress?: string) => {
+    dispatch({ type: "location_coordinates", value, writtenAddress });
+  }, [dispatch]);
+
+  return <><StepIntro eyebrow="About you" title="Where should we meet you?" copy="We’ll use these details only to arrange and confirm your service." /><div className="form-section"><h2>Contact details</h2><div className="form-grid two">{contactField("first_name", "First name", "text", "given-name")}{contactField("surname", "Surname", "text", "family-name")}{contactField("email", "Email address", "email", "email")}<PhoneInput value={state.contact.phone} country={state.contact.phone_country} error={errors.phone} onChange={(value) => dispatch({ type: "contact", field: "phone", value })} onCountryChange={(value) => dispatch({ type: "contact", field: "phone_country", value })} /></div></div><div className="form-section"><h2>Service location</h2><LocationPicker location={state.location} errors={errors} onFieldChange={updateLocationField} onCoordinatesChange={updateCoordinates} /></div><StepActions back={() => dispatch({ type: "step", value: "service" })} next={next} /></>;
 }
 
 function VehiclesStep({ state, dispatch }: StepProps) {
@@ -143,7 +169,7 @@ function PaymentStep({ state, dispatch }: StepProps) {
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
   }, [expiresAt, maxHoldSeconds]);
-  const submit = async () => { if (!state.hold || choice !== "pay_after_service") return; setSubmitting(true); setError(""); idempotencyKey.current ||= crypto.randomUUID(); try { dispatch({ type: "booking", value: await createBooking({ hold_token: state.hold.hold_token, contact: state.contact, location: state.location, vehicles: state.vehicles, payment_choice: "pay_after_service", idempotencyKey: idempotencyKey.current }) }); } catch (reason) { setError(friendlyError(reason)); if (reason instanceof ApiError && reason.isSchedulingConflict) dispatch({ type: "step", value: "schedule" }); } finally { setSubmitting(false); } };
+  const submit = async () => { if (!state.hold || choice !== "pay_after_service") return; setSubmitting(true); setError(""); idempotencyKey.current ||= crypto.randomUUID(); try { dispatch({ type: "booking", value: await createBooking({ hold_token: state.hold.hold_token, contact: state.contact, location: state.location, vehicles: state.vehicles, payment_choice: "pay_after_service", idempotencyKey: idempotencyKey.current }) }); } catch (reason) { setError(reason instanceof ApiError && reason.code === "NETWORK_ERROR" ? "The connection was interrupted, so your booking may already be confirmed. Try again to safely recover the same booking." : friendlyError(reason)); if (reason instanceof ApiError && reason.isSchedulingConflict) dispatch({ type: "step", value: "schedule" }); } finally { setSubmitting(false); } };
   const estimate = state.vehicles.reduce((total, vehicle) => total + (state.catalogue!.services.find((service) => service.id === vehicle.service_id)?.price_minor ?? 0), 0);
   return <><StepIntro eyebrow="Payment" title="How would you like to pay?" copy="Your slot is temporarily reserved while you confirm." />{state.hold && <div className={seconds < 60 ? "hold-timer urgent" : "hold-timer"}><span>Time reserved</span><strong>{String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}</strong></div>}<div className="payment-layout"><div className="choice-list"><label className={choice === "pay_after_service" ? "choice-card selected" : "choice-card"}><input type="radio" name="payment" checked={choice === "pay_after_service"} onChange={() => setChoice("pay_after_service")} /><span className="choice-check" /><span className="choice-content"><strong>Pay after service</strong><small>Pay the team once your wash is complete.</small><em>Available now</em></span></label><label className={choice === "pay_now" ? "choice-card selected" : "choice-card"}><input type="radio" name="payment" checked={choice === "pay_now"} onChange={() => setChoice("pay_now")} /><span className="choice-check" /><span className="choice-content"><strong>Pay now</strong><small>Online card payments are not connected yet.</small><em>Coming soon</em></span></label>{choice === "pay_now" && <div className="inline-notice warning" role="status"><strong>Online payment isn’t available yet.</strong><span>Choose “Pay after service” to complete this booking. No card details are collected.</span></div>}</div><aside className="payment-summary"><span>Booking estimate</span><strong>{formatMoney(estimate, state.catalogue!.settings.currency_code)}</strong><p>{state.vehicles.length} {state.vehicles.length === 1 ? "vehicle" : "vehicles"}</p>{state.hold && <small>{formatSchedule(state.hold.starts_at, state.hold.ends_at, state.catalogue!.settings.timezone)}</small>}</aside></div>{error && <div className="error-banner" role="alert">{error}</div>}<StepActions back={() => dispatch({ type: "step", value: "schedule" })} next={submit} nextLabel="Confirm booking" busy={submitting} disabled={choice !== "pay_after_service" || seconds <= 0} /></>;
 }

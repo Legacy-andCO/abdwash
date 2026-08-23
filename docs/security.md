@@ -10,6 +10,8 @@
 - The management secret stays in a browser URL fragment, which is not sent in HTTP requests, and reaches FastAPI only through a dedicated header. It is never part of a server route or idempotency record. The booking reference alone cannot open or cancel a booking.
 - Card PAN, CVV, magnetic-stripe data, and raw payment credentials are not represented in the schema. Saved methods contain provider references and safe display metadata only.
 - Logs mask notification recipients and never include authorization headers, connection URLs, secrets, raw management/hold tokens, or provider credentials.
+- Booking-confirmation outbox rows contain only the booking reference and foreign key. The dispatcher re-derives the signed management token in memory and places it in the email URL fragment; it is never persisted in the outbox or structured logs.
+- The bounded notification endpoint requires a backend-only dispatch secret and compares it in constant time. Google Maps browser credentials are intentionally public but must be restricted to approved HTTPS referrers and only the Maps JavaScript, Places API (New), and Geocoding APIs.
 - Public booking/hold endpoints are isolated behind versioned routers and can receive a gateway or middleware rate limiter later without changing domain services. Deployment should add per-IP and per-idempotency-key limits at the trusted ingress.
 
 Rotate any credential that has appeared in chat, logs, source, or another non-secret channel before production use.

@@ -220,15 +220,7 @@ async def create_booking(
                 channel="email",
                 notification_type="booking_confirmed",
                 recipient=booking.customer_email,
-                payload={
-                    "booking_reference": booking.reference,
-                    "scheduled_start": booking.scheduled_start.isoformat(),
-                    "scheduled_end": booking.scheduled_end.isoformat(),
-                    "vehicle_count": booking.vehicle_count,
-                    "total_amount_minor": booking.total_amount_minor,
-                    "currency_code": booking.currency_code,
-                    "written_address": booking.written_address,
-                },
+                payload={"booking_reference": booking.reference},
                 status="pending",
                 next_attempt_at=now,
             )

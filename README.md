@@ -2,7 +2,7 @@
 
 AbdWash is a mobile car-care platform. This monorepo contains the production-ready customer booking website, a placeholder staff mobile app, shared TypeScript concepts, and the authoritative FastAPI/PostgreSQL backend.
 
-The customer guest booking and cancellation-request journeys are implemented. The staff interface, online payment gateway, and production notification provider remain future work.
+The customer guest booking and cancellation-request journeys are implemented, including precise service-location capture and durable transactional booking email. The staff interface and online payment gateway remain future work.
 
 ## Repository structure
 
@@ -30,7 +30,7 @@ npm run web
 npm run mobile
 ```
 
-Copy each app's `.env.example` to `.env.local` or the environment mechanism appropriate to the host. The web application needs only `NEXT_PUBLIC_API_URL`. Never expose a database, signing, JWT, or service-role secret.
+Copy each app's `.env.example` to `.env.local` or the environment mechanism appropriate to the host. The web application needs `NEXT_PUBLIC_API_URL` and, for Places/map assistance, a browser-restricted `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`. `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` is optional locally and recommended for the production advanced-marker map. Without Maps configuration, the written-address and manual Google Maps-link fallback remains usable. Never expose a database, Resend, signing, dispatch, JWT, or service-role secret.
 
 ## Backend
 
@@ -66,6 +66,8 @@ cd backend
 python -m app.workers.notifications
 ```
 
+Persistent hosts can keep using that worker. Serverless production can instead call the bounded, authenticated `POST /api/v1/internal/notifications/dispatch` endpoint. See [deployment](docs/deployment.md) for the Supabase Cron flow.
+
 ## Tests and checks
 
 ```bash
@@ -90,6 +92,6 @@ Real scheduling concurrency tests require `TEST_DATABASE_URL` pointing to a **lo
 
 ## Environment variables
 
-Backend configuration is documented in `backend/.env.example`. Important values include `DATABASE_URL`, `SUPABASE_URL`, JWT/JWKS configuration, `BOOKING_MANAGEMENT_SIGNING_KEY`, explicit `CORS_ORIGINS`, bounded database pool settings, log level, and worker settings. `SUPABASE_SERVICE_ROLE_KEY` is optional backend-only configuration and is not required for normal SQL operations.
+Backend configuration is documented in `backend/.env.example`. Important values include `DATABASE_URL`, `SUPABASE_URL`, JWT/JWKS configuration, `BOOKING_MANAGEMENT_SIGNING_KEY`, explicit `CORS_ORIGINS`, Resend sender configuration, `PUBLIC_WEB_URL`, `OUTBOX_DISPATCH_SECRET`, bounded database pool settings, log level, and worker settings. `SUPABASE_SERVICE_ROLE_KEY` is optional backend-only configuration and is not required for normal SQL operations.
 
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), [scheduling](docs/scheduling.md), [state machines](docs/state-machines.md), [performance](docs/performance.md), [security](docs/security.md), and [deployment](docs/deployment.md).

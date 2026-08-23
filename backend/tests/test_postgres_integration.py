@@ -25,6 +25,7 @@ from app.models.entities import (
     Business,
     BusinessSettings,
     IdempotencyRecord,
+    NotificationOutbox,
     ScheduleResource,
     ScheduleSlot,
     Service,
@@ -38,6 +39,7 @@ from app.services.idempotency import (
     store_idempotent_response,
 )
 from app.services.scheduling import create_hold, hold_token_hash
+from app.workers.notifications import claim_batch
 
 RAW_TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 
@@ -231,10 +233,25 @@ async def test_expired_hold_is_reclaimed_and_booking_snapshots_price(
                 select(BookingService).where(BookingService.booking_id == response.id)
             )
         ).one()
+        outbox = (
+            await session.scalars(
+                select(NotificationOutbox).where(NotificationOutbox.booking_id == response.id)
+            )
+        ).one()
     assert booking is not None
     assert booking.customer_first_name == "Amina"
+    assert booking.customer_phone == "+971500000000"
     assert snapshot.service_name == "Integration Wash"
     assert snapshot.unit_price_minor == 12500
+    assert outbox.recipient == "amina@example.com"
+    assert outbox.notification_type == "booking_confirmed"
+    assert outbox.payload == {"booking_reference": response.reference}
+    assert "management_token" not in outbox.payload
+
+    first_claim = await claim_batch(database, worker_id="worker-a", batch_size=10)
+    duplicate_claim = await claim_batch(database, worker_id="worker-b", batch_size=10)
+    assert first_claim == [outbox.id]
+    assert duplicate_claim == []
 
 
 @pytest.mark.asyncio

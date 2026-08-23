@@ -7,7 +7,13 @@ logger = structlog.get_logger()
 
 class LogNotificationProvider:
     async def send(
-        self, *, channel: str, recipient: str, notification_type: str, payload: dict[str, Any]
+        self,
+        *,
+        channel: str,
+        recipient: str,
+        notification_type: str,
+        payload: dict[str, Any],
+        idempotency_key: str,
     ) -> None:
         logger.info(
             "development_notification",

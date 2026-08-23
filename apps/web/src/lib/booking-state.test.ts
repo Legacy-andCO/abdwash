@@ -8,7 +8,10 @@ import {
   initialBookingState,
   vehicleErrors,
 } from "./booking-state";
-import type { Catalogue } from "./types";
+import type { Catalogue, Contact, Location } from "./types";
+
+const contact: Contact = { first_name: "A", surname: "B", email: "a@b.com", phone: "+971 50 123 4567", phone_country: "AE" };
+const location: Location = { written_address: "Dubai Marina", location_url: "https://maps.google.com/x", latitude: null, longitude: null, instructions: "" };
 
 const catalogue: Catalogue = {
   business_name: "AbdWash",
@@ -48,13 +51,13 @@ describe("booking state", () => {
     expect(bookingReducer(state, { type: "vehicle", key: state.vehicles[0].key, field: "make", value: "Toyota" }).hold).toBeNull();
   });
   it("accepts complete contact and secure location details", () => {
-    expect(contactErrors({ first_name: "A", surname: "B", email: "a@b.com", phone: "+971 50 000 0000" }, { written_address: "Dubai Marina", location_url: "https://maps.google.com/x", instructions: "" })).toEqual({});
+    expect(contactErrors(contact, location)).toEqual({});
   });
   it("rejects an invalid email address", () => {
-    expect(contactErrors({ first_name: "A", surname: "B", email: "wrong", phone: "+971500000" }, { written_address: "Dubai Marina", location_url: "https://maps.google.com/x", instructions: "" }).email).toBeTruthy();
+    expect(contactErrors({ ...contact, email: "wrong" }, location).email).toBeTruthy();
   });
   it("rejects a non-secure map link", () => {
-    expect(contactErrors({ first_name: "A", surname: "B", email: "a@b.com", phone: "+971500000" }, { written_address: "Dubai Marina", location_url: "http://maps.google.com/x", instructions: "" }).location_url).toContain("secure");
+    expect(contactErrors(contact, { ...location, location_url: "http://maps.google.com/x" }).location_url).toContain("supported");
   });
   it("requires core details and a service on every vehicle", () => {
     expect(Object.keys(vehicleErrors([emptyVehicle()]))).toHaveLength(4);

@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     db_disable_prepared_statements: bool = False
     log_level: str = "INFO"
     booking_management_signing_key: str = "development-only-abdwash-management-key"
+    resend_api_key: str | None = None
+    email_from: str | None = None
+    public_web_url: str | None = None
+    outbox_dispatch_secret: str | None = None
 
     supabase_url: str | None = None
     supabase_jwt_audience: str = "authenticated"

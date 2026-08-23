@@ -1,4 +1,6 @@
 import type { Availability, Booking, Catalogue, Contact, Hold, Location, Vehicle } from "./types";
+import { coordinatesAreValid, isSupportedGoogleMapsUrl, type Coordinates } from "./location";
+import { normalizePhone } from "./phone";
 
 export const steps = ["service", "details", "vehicles", "review", "schedule", "payment", "confirmation"] as const;
 export type BookingStep = (typeof steps)[number];
@@ -33,8 +35,8 @@ export const initialBookingState: BookingState = {
   step: "service",
   catalogue: null,
   defaultServiceId: "",
-  contact: { first_name: "", surname: "", email: "", phone: "" },
-  location: { written_address: "", location_url: "", instructions: "" },
+  contact: { first_name: "", surname: "", email: "", phone: "", phone_country: "AE" },
+  location: { written_address: "", location_url: "", latitude: null, longitude: null, instructions: "" },
   vehicles: [emptyVehicle()],
   selectedDate: "",
   availability: null,
@@ -48,7 +50,9 @@ export type BookingAction =
   | { type: "step"; value: BookingStep }
   | { type: "service"; value: string }
   | { type: "contact"; field: keyof Contact; value: string }
-  | { type: "location"; field: keyof Location; value: string }
+  | { type: "location"; field: "written_address" | "location_url" | "instructions"; value: string }
+  | { type: "manual_location_url"; value: string }
+  | { type: "location_coordinates"; value: Coordinates; writtenAddress?: string }
   | { type: "vehicle"; key: string; field: keyof Vehicle; value: string }
   | { type: "add_vehicle" }
   | { type: "remove_vehicle"; key: string }
@@ -77,6 +81,25 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
     };
     case "contact": return { ...state, contact: { ...state.contact, [action.field]: action.value } };
     case "location": return { ...state, location: { ...state.location, [action.field]: action.value } };
+    case "manual_location_url": return {
+      ...state,
+      location: {
+        ...state.location,
+        location_url: action.value,
+        latitude: null,
+        longitude: null,
+      },
+    };
+    case "location_coordinates": return {
+      ...state,
+      location: {
+        ...state.location,
+        written_address: action.writtenAddress || state.location.written_address,
+        latitude: action.value.latitude,
+        longitude: action.value.longitude,
+        location_url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${action.value.latitude},${action.value.longitude}`)}`,
+      },
+    };
     case "vehicle": return {
       ...state,
       vehicles: state.vehicles.map((vehicle) => vehicle.key === action.key ? { ...vehicle, [action.field]: action.value } : vehicle),
@@ -99,10 +122,13 @@ export function contactErrors(contact: Contact, location: Location): Record<stri
   if (!contact.first_name.trim()) errors.first_name = "Enter your first name.";
   if (!contact.surname.trim()) errors.surname = "Enter your surname.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) errors.email = "Enter a valid email address.";
-  if (!/^\+?[0-9 ()-]{7,20}$/.test(contact.phone)) errors.phone = "Enter a valid phone number.";
+  if (!normalizePhone(contact.phone, contact.phone_country)) errors.phone = "Enter a valid international phone number.";
   if (location.written_address.trim().length < 5) errors.written_address = "Enter the service address.";
-  try { new URL(location.location_url); } catch { errors.location_url = "Paste a valid map link beginning with https://."; }
-  if (!location.location_url.startsWith("https://")) errors.location_url = "Paste a secure map link beginning with https://.";
+  if (!isSupportedGoogleMapsUrl(location.location_url)) errors.location_url = "Select a location or paste a supported Google Maps link.";
+  const hasLatitude = location.latitude !== null;
+  const hasLongitude = location.longitude !== null;
+  if (hasLatitude !== hasLongitude) errors.location = "Select the service location again.";
+  if (hasLatitude && hasLongitude && !coordinatesAreValid({ latitude: location.latitude!, longitude: location.longitude! })) errors.location = "Select a valid service location.";
   return errors;
 }
 

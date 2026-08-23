@@ -138,6 +138,13 @@
   input, select, textarea { background: #fcfdfb; border: 1px solid #cedbd7; border-radius: 9px; color: var(--ink); padding: .72rem .85rem; transition: border-color 140ms ease, box-shadow 140ms ease; width: 100%; }
   textarea { resize: vertical; } input:focus, select:focus, textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(12,119,117,.1); outline: 0; } [aria-invalid="true"] { border-color: #c85c5c; }
   .field-hint { color: var(--muted); font-size: .68rem; font-weight: 500; } .field-error { color: #a23333; font-size: .7rem; font-weight: 650; }
+  .phone-field { grid-column: span 2; } .phone-control { display: grid; gap: .55rem; grid-template-columns: minmax(180px, .8fr) 1.2fr; } .phone-control select, .phone-control input { min-width: 0; }
+  .location-picker { display: flex; flex-direction: column; gap: 1rem; } .location-button { align-self: flex-start; } .location-status { color: var(--danger); font-size: .72rem; min-height: 1px; }
+  .location-divider { align-items: center; color: var(--muted); display: flex; font-size: .68rem; gap: .8rem; text-transform: uppercase; } .location-divider::before, .location-divider::after { background: var(--line); content: ""; flex: 1; height: 1px; }
+  .places-search { display: flex; flex-direction: column; font-size: .8rem; font-weight: 750; gap: .35rem; } .places-search gmp-place-autocomplete { color-scheme: light; width: 100%; }
+  .map-preview { border: 1px solid var(--line); border-radius: 14px; height: clamp(220px, 34vw, 300px); overflow: hidden; opacity: .72; transition: opacity 180ms ease, border-color 180ms ease; } .map-preview.visible { border-color: #99bdb5; opacity: 1; } .map-preview > div { height: 100%; width: 100%; }
+  .pin-hint { color: var(--teal); font-size: .72rem; font-weight: 750; text-align: center; }
+  .manual-map-link { border-top: 1px solid var(--line); padding-top: 1rem; } .manual-map-link summary { color: var(--teal); cursor: pointer; font-size: .78rem; font-weight: 800; } .manual-map-link label { margin-top: 1rem; }
   .vehicle-stack { display: flex; flex-direction: column; gap: 1.2rem; } .vehicle-card { border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 1rem; margin: 0; padding: 1.25rem; }
   .vehicle-card legend { align-items: center; display: flex; font-weight: 850; justify-content: space-between; padding: 0 .25rem; width: 100%; } .vehicle-card legend button { background: none; border: 0; color: var(--danger); cursor: pointer; font-size: .72rem; }
   .add-button { align-items: center; background: transparent; border: 1px dashed #a9bdb8; border-radius: 12px; color: var(--teal); cursor: pointer; display: flex; font-size: .82rem; font-weight: 800; gap: .6rem; justify-content: center; margin-top: 1rem; padding: .9rem; width: 100%; } .add-button span { font-size: 1.2rem; }
@@ -184,6 +191,7 @@
     .section { padding-block: 5rem; } .service-grid, .promo-card, .steps-grid, .footer-grid { grid-template-columns: 1fr; } .service-card:last-child { grid-column: auto; } .promo-visual { min-height: 300px; } .steps-grid article + article::before { display: none; } .steps-grid { gap: 3rem; }
     .footer-grid { gap: 2rem; } .footer-bottom { flex-direction: column; gap: .3rem; }
     .booking-page { padding-top: 1.3rem; } .booking-layout { gap: 1.3rem; } .wizard-card { border-radius: 18px; } .form-grid.two, .schedule-grid, .payment-layout, .confirmation-grid { grid-template-columns: 1fr; }
+    .phone-field { grid-column: auto; } .phone-control { grid-template-columns: 1fr; }
     .confirmation-grid > div:nth-child(even) { border-left: 0; } .confirmation-grid > div + div { border-top: 1px solid var(--line); } .payment-summary { order: -1; }
     .step-actions { align-items: stretch; flex-direction: column-reverse; } .step-actions .button { width: 100%; } .confirmation-actions { align-items: stretch; flex-direction: column; } .confirmed-vehicles > div, .review-vehicle { align-items: start; flex-direction: column !important; }
     .confirmation-page, .manage-page { padding: 2rem .75rem 4rem; } .manage-title { flex-direction: column; gap: .8rem; }

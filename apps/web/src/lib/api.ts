@@ -8,6 +8,7 @@ import type {
   ManagedBooking,
   Vehicle,
 } from "./types";
+import { normalizePhone } from "./phone";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -102,8 +103,19 @@ export function createBooking(input: {
 }): Promise<Booking> {
   const body = {
     hold_token: input.hold_token,
-    contact: input.contact,
-    location: input.location,
+    contact: {
+      first_name: input.contact.first_name,
+      surname: input.contact.surname,
+      email: input.contact.email,
+      phone: normalizePhone(input.contact.phone, input.contact.phone_country) ?? input.contact.phone,
+    },
+    location: {
+      written_address: input.location.written_address,
+      location_url: input.location.location_url,
+      latitude: input.location.latitude,
+      longitude: input.location.longitude,
+      instructions: input.location.instructions,
+    },
     vehicles: input.vehicles.map(({ key: _key, year, ...vehicle }) => ({
       ...vehicle,
       year: year ? Number(year) : null,

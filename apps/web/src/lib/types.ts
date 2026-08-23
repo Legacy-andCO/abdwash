@@ -1,3 +1,5 @@
+import type { CountryCode } from "libphonenumber-js/min";
+
 export type Service = {
   id: string;
   name: string;
@@ -54,10 +56,18 @@ export type Hold = {
   required_slot_count: number;
 };
 
-export type Contact = { first_name: string; surname: string; email: string; phone: string };
+export type Contact = {
+  first_name: string;
+  surname: string;
+  email: string;
+  phone: string;
+  phone_country: CountryCode;
+};
 export type Location = {
   written_address: string;
   location_url: string;
+  latitude: number | null;
+  longitude: number | null;
   instructions: string;
 };
 
