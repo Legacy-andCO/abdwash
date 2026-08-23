@@ -9,6 +9,7 @@ import type {
   Vehicle,
 } from "./types";
 import { normalizePhone } from "./phone";
+import { getSupabaseAccessToken } from "./supabase-client";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -41,6 +42,10 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   const headers = new Headers(init?.headers);
+  const accessToken = await getSupabaseAccessToken();
+  if (accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
   if (init?.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }

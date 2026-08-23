@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, createBooking, createHold, friendlyError, getAvailability, getCatalogue, getManagedBooking, requestCancellation } from "./api";
 import { emptyVehicle } from "./booking-state";
+import * as supabaseClient from "./supabase-client";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -12,7 +13,7 @@ function bookingInput(idempotencyKey: string) {
   return {
     hold_token: "h".repeat(40),
     contact: { first_name: "A", surname: "B", email: "a@b.com", phone: "050 123 4567", phone_country: "AE" as const },
-    location: { written_address: "Dubai", location_url: "https://maps.google.com/x", latitude: 25.2, longitude: 55.3, instructions: "" },
+    location: { written_address: "Abu Dhabi", location_url: "https://maps.google.com/x", latitude: 24.45, longitude: 54.37, instructions: "" },
     vehicles: [{ ...emptyVehicle("service"), make: "Toyota", model: "Camry", vehicle_type: "sedan" }],
     payment_choice: "pay_after_service" as const,
     idempotencyKey,
@@ -49,7 +50,7 @@ describe("central API client", () => {
     expect(body.payment_status).toBeUndefined();
     expect(body.contact.phone).toBe("+971501234567");
     expect(body.contact.phone_country).toBeUndefined();
-    expect(body.location).toMatchObject({ latitude: 25.2, longitude: 55.3 });
+    expect(body.location).toMatchObject({ latitude: 24.45, longitude: 54.37 });
   });
   it("attaches the booking idempotency key", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, 201)); vi.stubGlobal("fetch", fetchMock);
@@ -79,5 +80,17 @@ describe("central API client", () => {
     expect(headers.get("Content-Type")).toBe("application/json");
     expect(headers.get("X-Booking-Management-Token")).toBe("secure-token");
     expect(headers.get("Idempotency-Key")).toBe("cancel-key");
+  });
+  it("attaches a Supabase bearer token when a customer session exists", async () => {
+    vi.spyOn(supabaseClient, "getSupabaseAccessToken").mockResolvedValue("customer-access-token");
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ slots: [] })); vi.stubGlobal("fetch", fetchMock);
+    await getAvailability("2030-01-02", 1);
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get("Authorization")).toBe("Bearer customer-access-token");
+  });
+  it("keeps guest requests free of an Authorization header", async () => {
+    vi.spyOn(supabaseClient, "getSupabaseAccessToken").mockResolvedValue(null);
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ hold_token: "x" }, 201)); vi.stubGlobal("fetch", fetchMock);
+    await createHold({ date: "2030-01-02", start_time: "09:00:00", vehicle_count: 1 });
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).has("Authorization")).toBe(false);
   });
 });
