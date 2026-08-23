@@ -1,10 +1,13 @@
 import uuid
 
+import pytest
 from fastapi.testclient import TestClient
 
+import app.api.public as public_api
 from app.auth.dependencies import StaffContext, staff_context
 from app.domain.enums import StaffRole
 from app.main import app
+from app.schemas.public import CatalogueResponse
 
 
 def test_health_is_lightweight() -> None:
@@ -14,6 +17,51 @@ def test_health_is_lightweight() -> None:
     assert response.json() == {"status": "ok"}
     assert response.headers["x-sql-query-count"] == "0"
     assert response.headers.get("x-request-id")
+
+
+class StubSession:
+    async def __aenter__(self) -> "StubSession":
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+def test_catalogue_injects_request_scoped_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = StubSession()
+    received_sessions: list[object] = []
+
+    async def fake_get_catalogue(received_session: object) -> CatalogueResponse:
+        received_sessions.append(received_session)
+        return CatalogueResponse.model_validate(
+            {
+                "business_name": "AbdWash",
+                "settings": {
+                    "timezone": "Asia/Dubai",
+                    "currency_code": "AED",
+                    "opening_time": "09:00:00",
+                    "closing_time": "21:00:00",
+                    "slot_duration_minutes": 120,
+                    "multi_vehicle_threshold": 3,
+                    "multi_vehicle_required_slots": 2,
+                    "hold_duration_minutes": 10,
+                    "cancellation_cutoff_hours": 24,
+                },
+                "services": [],
+            }
+        )
+
+    monkeypatch.setattr(public_api, "get_catalogue", fake_get_catalogue)
+
+    with TestClient(app) as client:
+        app.state.session_factory = lambda: session
+        response = client.get("/api/v1/public/catalogue")
+
+    assert response.status_code == 200
+    assert response.status_code != 422
+    assert received_sessions == [session]
 
 
 def test_unauthorized_staff_route() -> None:

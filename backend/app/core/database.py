@@ -1,8 +1,9 @@
 import contextvars
 import time
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 
+from fastapi import Request
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -51,7 +52,7 @@ def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSessi
     return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False, autoflush=False)
 
 
-async def session_dependency(request: object) -> AsyncIterator[AsyncSession]:
-    factory = request.app.state.session_factory  # type: ignore[attr-defined]
+async def session_dependency(request: Request) -> AsyncIterator[AsyncSession]:
+    factory = cast(async_sessionmaker[AsyncSession], request.app.state.session_factory)
     async with factory() as session:
         yield session
