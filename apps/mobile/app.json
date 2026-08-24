@@ -26,8 +26,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "84667cd8-54dd-412a-9cfd-461009be9854"
+        "projectId": "8ace044f-315e-40dc-955b-4bedcc350687"
       }
-    }
+    },
+    "owner": "bboost"
   }
 }

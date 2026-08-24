@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     supabase_jwt_audience: str = "authenticated"
     supabase_jwt_secret: str | None = None
     supabase_service_role_key: str | None = None
+    demo_staff_password: str | None = None
     jwks_cache_ttl_seconds: int = Field(default=600, ge=60, le=3600)
 
     outbox_poll_seconds: float = Field(default=2, ge=0.1, le=60)

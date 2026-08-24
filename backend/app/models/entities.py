@@ -16,6 +16,7 @@ from sqlalchemy import (
     Time,
     UniqueConstraint,
     Uuid,
+    func,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -99,11 +100,14 @@ class StaffProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
     auth_user_id: Mapped[uuid.UUID] = mapped_column(Uuid, unique=True, nullable=False)
+    username: Mapped[str] = mapped_column(String(80), nullable=False)
     display_name: Mapped[str] = mapped_column(String(160), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, default=StaffRole.EMPLOYEE)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     __table_args__ = (
         CheckConstraint("role IN ('employee','manager','admin')", name="staff_role"),
+        CheckConstraint("username = lower(username)", name="staff_username_lowercase"),
+        Index("uq_staff_profiles_username_ci", func.lower(username), unique=True),
         Index("ix_staff_profiles_business_active", "business_id", "is_active"),
     )
 
