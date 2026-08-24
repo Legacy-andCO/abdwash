@@ -73,6 +73,7 @@ export type Location = {
 
 export type Vehicle = {
   key: string;
+  vehicle_id?: string;
   make: string;
   model: string;
   year: string;
@@ -81,6 +82,16 @@ export type Vehicle = {
   plate_number: string;
   notes: string;
   service_id: string;
+};
+
+export type CustomerProfile = { id: string; first_name: string; surname: string; email: string; phone: string };
+export type CustomerSavedAddress = { id: string; label: string; written_address: string; location_url: string; latitude: number | null; longitude: number | null; location_instructions: string | null; is_default: boolean };
+export type CustomerSavedVehicle = { id: string; make: string; model: string; year: number | null; vehicle_type: string; colour: string | null; plate_number: string | null; notes: string | null };
+export type CustomerProfileBootstrap = {
+  authenticated_email: string;
+  profile: CustomerProfile | null;
+  addresses: CustomerSavedAddress[];
+  vehicles: CustomerSavedVehicle[];
 };
 
 export type BookingVehicleSummary = {

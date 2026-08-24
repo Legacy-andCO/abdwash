@@ -67,7 +67,7 @@ async def test_authenticated_booking_atomically_provisions_or_updates_profile() 
     result.one_or_none.return_value = profile_id
     session = AsyncMock()
     session.scalars.return_value = result
-    identity = VerifiedIdentity(user_id=uuid.uuid4(), claims={})
+    identity = VerifiedIdentity(user_id=uuid.uuid4(), claims={"email": "noor@example.com"})
     contact = CustomerContact(
         first_name="Noor",
         surname="Ali",

@@ -1,4 +1,4 @@
-import type { Availability, Booking, Catalogue, Contact, Hold, Location, Vehicle } from "./types";
+import type { Availability, Booking, Catalogue, Contact, CustomerProfileBootstrap, CustomerSavedAddress, CustomerSavedVehicle, Hold, Location, Vehicle } from "./types";
 import { coordinatesAreValid, isSupportedGoogleMapsUrl, type Coordinates } from "./location";
 import { normalizePhone } from "./phone";
 
@@ -17,6 +17,7 @@ export type BookingState = {
   selectedSlotTime: string;
   hold: Hold | null;
   booking: Booking | null;
+  customerProfile: CustomerProfileBootstrap | null;
 };
 
 export const emptyVehicle = (serviceId = ""): Vehicle => ({
@@ -43,10 +44,14 @@ export const initialBookingState: BookingState = {
   selectedSlotTime: "",
   hold: null,
   booking: null,
+  customerProfile: null,
 };
 
 export type BookingAction =
   | { type: "catalogue"; value: Catalogue }
+  | { type: "customer_bootstrap"; value: CustomerProfileBootstrap }
+  | { type: "saved_location"; value: CustomerSavedAddress }
+  | { type: "saved_vehicle"; value: CustomerSavedVehicle }
   | { type: "step"; value: BookingStep }
   | { type: "service"; value: string }
   | { type: "contact"; field: keyof Contact; value: string }
@@ -73,6 +78,18 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
         vehicles: state.vehicles.map((vehicle) => ({ ...vehicle, service_id: vehicle.service_id || first })),
       };
     }
+    case "customer_bootstrap": {
+      const profile = action.value.profile;
+      const defaultAddress = action.value.addresses.find((address) => address.is_default);
+      return {
+        ...state,
+        customerProfile: action.value,
+        contact: profile ? { ...state.contact, first_name: profile.first_name, surname: profile.surname, email: action.value.authenticated_email, phone: profile.phone } : { ...state.contact, email: action.value.authenticated_email },
+        location: defaultAddress ? { written_address: defaultAddress.written_address, location_url: defaultAddress.location_url, latitude: defaultAddress.latitude, longitude: defaultAddress.longitude, instructions: defaultAddress.location_instructions ?? "" } : state.location,
+      };
+    }
+    case "saved_location": return { ...state, location: { written_address: action.value.written_address, location_url: action.value.location_url, latitude: action.value.latitude, longitude: action.value.longitude, instructions: action.value.location_instructions ?? "" } };
+    case "saved_vehicle": return { ...state, vehicles: [{ key: emptyVehicle().key, vehicle_id: action.value.id, make: action.value.make, model: action.value.model, year: action.value.year?.toString() ?? "", vehicle_type: action.value.vehicle_type, colour: action.value.colour ?? "", plate_number: action.value.plate_number ?? "", notes: action.value.notes ?? "", service_id: state.defaultServiceId }, ...state.vehicles.filter((vehicle) => (vehicle.make || vehicle.model) && vehicle.vehicle_id !== action.value.id)], availability: null, selectedSlotTime: "", hold: null };
     case "step": return { ...state, step: action.value };
     case "service": return {
       ...state,

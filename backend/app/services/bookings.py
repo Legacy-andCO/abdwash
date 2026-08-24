@@ -3,7 +3,6 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.verifier import VerifiedIdentity
@@ -13,7 +12,6 @@ from app.models.entities import (
     Booking,
     BookingService,
     BookingVehicle,
-    CustomerProfile,
     Job,
     JobEvent,
     NotificationOutbox,
@@ -30,6 +28,7 @@ from app.schemas.public import (
     BookingVehicleSummary,
     CustomerContact,
 )
+from app.services.customer_profiles import provision_customer_profile
 from app.services.management_tokens import create_management_token, management_token_hash
 from app.services.scheduling import hold_token_hash
 
@@ -270,35 +269,15 @@ async def _resolve_customer_profile(
 ) -> uuid.UUID | None:
     if identity is None:
         return None
-    statement = (
-        insert(CustomerProfile)
-        .values(
-            business_id=business_id,
-            auth_user_id=identity.user_id,
-            first_name=contact.first_name,
-            surname=contact.surname,
-            email=str(contact.email),
-            phone=contact.phone,
-        )
-        .on_conflict_do_update(
-            index_elements=[CustomerProfile.auth_user_id],
-            set_={
-                "first_name": contact.first_name,
-                "surname": contact.surname,
-                "phone": contact.phone,
-            },
-            where=CustomerProfile.business_id == business_id,
-        )
-        .returning(CustomerProfile.id)
+    return await provision_customer_profile(
+        session,
+        identity=identity,
+        business_id=business_id,
+        first_name=contact.first_name,
+        surname=contact.surname,
+        phone=contact.phone,
+        update_existing=False,
     )
-    profile_id = (await session.scalars(statement)).one_or_none()
-    if profile_id is None:
-        raise DomainError(
-            "CUSTOMER_PROFILE_CONFLICT",
-            "This customer identity is already linked to another business.",
-            status_code=409,
-        )
-    return profile_id
 
 
 async def _validate_saved_vehicles(

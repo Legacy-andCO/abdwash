@@ -2,7 +2,6 @@ import uuid
 from datetime import date, datetime, time
 from typing import Annotated, Literal
 
-import phonenumbers
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -15,6 +14,7 @@ from pydantic import (
 )
 
 from app.domain.locations import is_supported_google_maps_url
+from app.domain.phones import normalize_phone_number
 
 NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -98,15 +98,7 @@ class CustomerContact(StrictRequest):
     @field_validator("phone", mode="before")
     @classmethod
     def normalize_phone(cls, value: object) -> str:
-        if not isinstance(value, str):
-            raise ValueError("Enter a valid international phone number.")
-        try:
-            number = phonenumbers.parse(value, "AE")
-        except phonenumbers.NumberParseException as exc:
-            raise ValueError("Enter a valid international phone number.") from exc
-        if not phonenumbers.is_valid_number(number):
-            raise ValueError("Enter a valid international phone number.")
-        return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
+        return normalize_phone_number(value)
 
 
 class BookingLocation(StrictRequest):

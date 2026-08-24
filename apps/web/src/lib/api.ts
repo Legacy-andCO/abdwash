@@ -6,6 +6,9 @@ import type {
   CustomerBookingDetail,
   CustomerBookingSummary,
   CustomerContext,
+  CustomerProfileBootstrap,
+  CustomerSavedAddress,
+  CustomerSavedVehicle,
   Hold,
   Location,
   ManagedBooking,
@@ -74,6 +77,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       body.details,
     );
   }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
@@ -161,6 +165,24 @@ export function requestCancellation(token: string, reason: string, idempotencyKe
 export function getCustomerContext(): Promise<CustomerContext> {
   return request<CustomerContext>("/api/v1/customer/context");
 }
+
+export function getCustomerProfile(): Promise<CustomerProfileBootstrap> {
+  return request<CustomerProfileBootstrap>("/api/v1/customer/profile");
+}
+
+export function updateCustomerProfile(input: { first_name: string; surname: string; phone: string }) {
+  return request<CustomerProfileBootstrap>("/api/v1/customer/profile", { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export type SavedAddressInput = Omit<CustomerSavedAddress, "id" | "location_instructions"> & { instructions: string };
+export const createCustomerAddress = (input: SavedAddressInput) => request<CustomerSavedAddress>("/api/v1/customer/addresses", { method: "POST", body: JSON.stringify(input) });
+export const updateCustomerAddress = (id: string, input: SavedAddressInput) => request<CustomerSavedAddress>(`/api/v1/customer/addresses/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) });
+export const deleteCustomerAddress = (id: string) => request<void>(`/api/v1/customer/addresses/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export type SavedVehicleInput = Omit<CustomerSavedVehicle, "id">;
+export const createCustomerVehicle = (input: SavedVehicleInput) => request<CustomerSavedVehicle>("/api/v1/customer/vehicles", { method: "POST", body: JSON.stringify(input) });
+export const updateCustomerVehicle = (id: string, input: SavedVehicleInput) => request<CustomerSavedVehicle>(`/api/v1/customer/vehicles/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) });
+export const deleteCustomerVehicle = (id: string) => request<void>(`/api/v1/customer/vehicles/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export async function getCustomerBookings(): Promise<CustomerBookingSummary[]> {
   const response = await request<{ bookings: CustomerBookingSummary[] }>("/api/v1/customer/bookings");

@@ -27,6 +27,26 @@ const catalogue: Catalogue = {
 };
 
 describe("booking state", () => {
+  const customerProfile = {
+    authenticated_email: "noor@example.com",
+    profile: { id: "profile-1", first_name: "Noor", surname: "Ali", email: "noor@example.com", phone: "+971501234567" },
+    addresses: [{ id: "address-1", label: "Home", written_address: "Al Reem Island, Abu Dhabi", location_url: "https://maps.google.com/x", latitude: 24.49, longitude: 54.4, location_instructions: "Gate 2", is_default: true }],
+    vehicles: [{ id: "vehicle-1", make: "BMW", model: "X5", year: 2024, vehicle_type: "suv", colour: "Black", plate_number: "ABC 123", notes: null }],
+  };
+  it("prefills contact and the default saved location", () => {
+    const state = bookingReducer(initialBookingState, { type: "customer_bootstrap", value: customerProfile });
+    expect(state.contact.first_name).toBe("Noor");
+    expect(state.location.written_address).toContain("Al Reem");
+  });
+  it("selects another saved location without mutating the bootstrap data", () => {
+    const state = bookingReducer({ ...initialBookingState, customerProfile }, { type: "saved_location", value: { ...customerProfile.addresses[0], written_address: "Yas Island" } });
+    expect(state.location.written_address).toBe("Yas Island");
+    expect(state.customerProfile?.addresses[0].written_address).toContain("Al Reem");
+  });
+  it("populates a booking vehicle with its authorized saved id", () => {
+    const state = bookingReducer({ ...initialBookingState, defaultServiceId: "basic", customerProfile }, { type: "saved_vehicle", value: customerProfile.vehicles[0] });
+    expect(state.vehicles[0]).toMatchObject({ vehicle_id: "vehicle-1", make: "BMW", service_id: "basic" });
+  });
   it("loads the first real service as the default", () => {
     expect(bookingReducer(initialBookingState, { type: "catalogue", value: catalogue }).defaultServiceId).toBe("basic");
   });

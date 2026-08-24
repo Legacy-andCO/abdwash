@@ -2,22 +2,83 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
-from app.schemas.public import BookingVehicleSummary, StrictRequest
+from app.domain.phones import normalize_phone_number
+from app.schemas.public import (
+    BookingLocation,
+    BookingVehicleSummary,
+    NonBlank,
+    StrictRequest,
+)
 
 
 class CustomerProfileResponse(BaseModel):
     id: uuid.UUID
     first_name: str
     surname: str
-    email: str
+    email: EmailStr
     phone: str
 
 
 class CustomerContextResponse(BaseModel):
     profile: CustomerProfileResponse | None
     booking_count: int
+
+
+class CustomerProfileUpdate(StrictRequest):
+    first_name: NonBlank = Field(max_length=100)
+    surname: NonBlank = Field(max_length=100)
+    phone: NonBlank = Field(max_length=40)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: object) -> str:
+        return normalize_phone_number(value)
+
+
+class CustomerAddressWrite(BookingLocation):
+    label: NonBlank = Field(max_length=80)
+    is_default: bool = False
+
+
+class CustomerAddressResponse(BaseModel):
+    id: uuid.UUID
+    label: str
+    written_address: str
+    location_url: str
+    latitude: float | None
+    longitude: float | None
+    location_instructions: str | None
+    is_default: bool
+
+
+class CustomerVehicleWrite(StrictRequest):
+    make: NonBlank = Field(max_length=100)
+    model: NonBlank = Field(max_length=100)
+    year: int | None = Field(default=None, ge=1900, le=2200)
+    vehicle_type: NonBlank = Field(max_length=80)
+    colour: str | None = Field(default=None, max_length=80)
+    plate_number: str | None = Field(default=None, max_length=40)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class CustomerVehicleResponse(BaseModel):
+    id: uuid.UUID
+    make: str
+    model: str
+    year: int | None
+    vehicle_type: str
+    colour: str | None
+    plate_number: str | None
+    notes: str | None
+
+
+class CustomerProfileBootstrap(BaseModel):
+    authenticated_email: EmailStr
+    profile: CustomerProfileResponse | None
+    addresses: list[CustomerAddressResponse]
+    vehicles: list[CustomerVehicleResponse]
 
 
 class CustomerBookingStatus(BaseModel):
