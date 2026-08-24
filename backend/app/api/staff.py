@@ -12,20 +12,51 @@ from app.core.config import get_settings
 from app.domain.enums import JobStatus
 from app.domain.errors import DomainError
 from app.integrations.eta import GoogleRoutesEtaProvider
+from app.integrations.supabase_admin import SupabaseAdminClient
 from app.models.entities import Booking, Job, JobEvent
 from app.schemas.customer import CustomerRescheduleCreate
 from app.schemas.staff import (
     AssignmentAction,
+    AttendanceAction,
+    AttendanceList,
+    AttendanceRecord,
     CancellationItem,
     CancellationReview,
     JobAction,
+    LeaveCreate,
+    LeaveReview,
+    LeaveView,
+    OperationsDashboard,
+    OwnProfileUpdate,
     ReportSummary,
+    ReportV2,
+    ShiftAssignmentCreate,
+    ShiftAssignmentView,
+    ShiftCreate,
+    ShiftView,
+    StaffAccountCreate,
+    StaffAccountUpdate,
     StaffJob,
     StaffJobList,
     StaffMember,
+    StaffProfileView,
     StartTripAction,
+    TeamCreate,
+    TeamDetail,
+    TeamMembersUpdate,
+    TeamSummary,
+    TeamUpdate,
+    TemporaryPasswordUpdate,
 )
 from app.services.customers import reschedule_customer_booking
+from app.services.staff_accounts import (
+    create_staff_account,
+    get_own_profile,
+    list_staff_accounts,
+    reset_staff_password,
+    update_own_profile,
+    update_staff_account,
+)
 from app.services.staff_operations import (
     assign_job,
     get_job,
@@ -38,20 +69,276 @@ from app.services.staff_operations import (
     start_trip,
     transition_job,
 )
+from app.services.workforce import (
+    assign_shift,
+    clock_in,
+    clock_out,
+    create_leave,
+    create_shift,
+    create_team,
+    get_team,
+    list_attendance,
+    list_leave,
+    list_shift_assignments,
+    list_shifts,
+    list_teams,
+    operations_dashboard,
+    replace_team_members,
+    report_v2,
+    review_leave,
+    update_team,
+)
 
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 logger = structlog.get_logger()
+StaffDep = Annotated[StaffContext, Depends(staff_context)]
 
 
 @router.get("/context")
-async def context(value: Annotated[StaffContext, Depends(staff_context)]) -> dict[str, str]:
+async def context(
+    value: Annotated[StaffContext, Depends(staff_context)],
+) -> dict[str, str | None]:
     return {
         "staff_id": str(value.staff_id),
         "business_id": str(value.business_id),
         "business_name": value.business_name,
         "role": value.role,
         "timezone": value.timezone,
+        "display_name": value.display_name,
+        "username": value.username,
+        "phone": value.phone,
     }
+
+
+def _admin(request: Request) -> SupabaseAdminClient:
+    settings = get_settings()
+    return SupabaseAdminClient(
+        cast(httpx.AsyncClient, request.app.state.http_client),
+        supabase_url=settings.supabase_url,
+        service_role_key=settings.supabase_service_role_key,
+    )
+
+
+@router.get("/profile", response_model=StaffProfileView)
+async def own_profile(session: SessionDep, context: StaffDep) -> StaffProfileView:
+    return await get_own_profile(session, context)
+
+
+@router.patch("/profile", response_model=StaffProfileView)
+async def own_profile_update(
+    payload: OwnProfileUpdate,
+    request: Request,
+    session: SessionDep,
+    context: StaffDep,
+) -> StaffProfileView:
+    async with session.begin():
+        return await update_own_profile(
+            session,
+            context,
+            payload,
+            _admin(request) if payload.password is not None else None,
+        )
+
+
+@router.get("/users", response_model=list[StaffProfileView])
+async def staff_users(session: SessionDep, context: ManagerContext) -> list[StaffProfileView]:
+    return await list_staff_accounts(session, context)
+
+
+@router.post("/users", response_model=StaffProfileView, status_code=201)
+async def staff_user_create(
+    payload: StaffAccountCreate,
+    request: Request,
+    session: SessionDep,
+    context: ManagerContext,
+) -> StaffProfileView:
+    async with session.begin():
+        return await create_staff_account(session, context, payload, _admin(request))
+
+
+@router.patch("/users/{staff_id}", response_model=StaffProfileView)
+async def staff_user_update(
+    staff_id: uuid.UUID,
+    payload: StaffAccountUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> StaffProfileView:
+    async with session.begin():
+        return await update_staff_account(session, context, staff_id, payload)
+
+
+@router.post("/users/{staff_id}/temporary-password", status_code=204)
+async def staff_user_password(
+    staff_id: uuid.UUID,
+    payload: TemporaryPasswordUpdate,
+    request: Request,
+    session: SessionDep,
+    context: ManagerContext,
+) -> None:
+    async with session.begin():
+        await reset_staff_password(
+            session, context, staff_id, payload.temporary_password, _admin(request)
+        )
+
+
+@router.get("/teams", response_model=list[TeamSummary])
+async def teams(session: SessionDep, context: StaffDep) -> list[TeamSummary]:
+    return await list_teams(session, context)
+
+
+@router.post("/teams", response_model=TeamDetail, status_code=201)
+async def team_create(
+    payload: TeamCreate, session: SessionDep, context: ManagerContext
+) -> TeamDetail:
+    async with session.begin():
+        return await create_team(session, context, payload)
+
+
+@router.get("/teams/{team_id}", response_model=TeamDetail)
+async def team_get(
+    team_id: uuid.UUID, session: SessionDep, context: StaffDep
+) -> TeamDetail:
+    return await get_team(session, context, team_id)
+
+
+@router.patch("/teams/{team_id}", response_model=TeamDetail)
+async def team_update(
+    team_id: uuid.UUID,
+    payload: TeamUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> TeamDetail:
+    async with session.begin():
+        return await update_team(session, context, team_id, payload)
+
+
+@router.put("/teams/{team_id}/members", response_model=TeamDetail)
+async def team_members(
+    team_id: uuid.UUID,
+    payload: TeamMembersUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> TeamDetail:
+    async with session.begin():
+        return await replace_team_members(session, context, team_id, payload)
+
+
+@router.get("/attendance", response_model=AttendanceList)
+async def attendance(
+    session: SessionDep,
+    context: StaffDep,
+    start_date: date,
+    end_date: date,
+    staff_id: uuid.UUID | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+) -> AttendanceList:
+    return await list_attendance(
+        session,
+        context,
+        start_date=start_date,
+        end_date=end_date,
+        staff_id=staff_id,
+        offset=offset,
+        limit=limit,
+    )
+
+
+@router.post("/attendance/clock-in", response_model=AttendanceRecord)
+async def attendance_clock_in(
+    payload: AttendanceAction, session: SessionDep, context: StaffDep
+) -> AttendanceRecord:
+    async with session.begin():
+        return await clock_in(session, context, payload)
+
+
+@router.post("/attendance/clock-out", response_model=AttendanceRecord)
+async def attendance_clock_out(
+    payload: AttendanceAction, session: SessionDep, context: StaffDep
+) -> AttendanceRecord:
+    async with session.begin():
+        return await clock_out(session, context, payload)
+
+
+@router.get("/shifts", response_model=list[ShiftView])
+async def shifts(session: SessionDep, context: StaffDep) -> list[ShiftView]:
+    return await list_shifts(session, context)
+
+
+@router.post("/shifts", response_model=ShiftView, status_code=201)
+async def shift_create(
+    payload: ShiftCreate, session: SessionDep, context: ManagerContext
+) -> ShiftView:
+    async with session.begin():
+        return await create_shift(session, context, payload)
+
+
+@router.get("/shift-assignments", response_model=list[ShiftAssignmentView])
+async def shift_assignments(
+    start_date: date,
+    end_date: date,
+    session: SessionDep,
+    context: StaffDep,
+) -> list[ShiftAssignmentView]:
+    return await list_shift_assignments(
+        session, context, start_date=start_date, end_date=end_date
+    )
+
+
+@router.put("/shift-assignments", response_model=ShiftAssignmentView)
+async def shift_assignment(
+    payload: ShiftAssignmentCreate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ShiftAssignmentView:
+    async with session.begin():
+        return await assign_shift(session, context, payload)
+
+
+@router.get("/leave", response_model=list[LeaveView])
+async def leave(
+    session: SessionDep, context: StaffDep, status: str | None = None
+) -> list[LeaveView]:
+    return await list_leave(session, context, status=status)
+
+
+@router.post("/leave", response_model=LeaveView, status_code=201)
+async def leave_create(
+    payload: LeaveCreate, session: SessionDep, context: StaffDep
+) -> LeaveView:
+    async with session.begin():
+        return await create_leave(session, context, payload)
+
+
+@router.post("/leave/{leave_id}/review", response_model=LeaveView)
+async def leave_review(
+    leave_id: uuid.UUID,
+    payload: LeaveReview,
+    session: SessionDep,
+    context: ManagerContext,
+) -> LeaveView:
+    async with session.begin():
+        return await review_leave(session, context, leave_id, payload)
+
+
+@router.get("/dashboard", response_model=OperationsDashboard)
+async def dashboard(
+    session: SessionDep,
+    context: ManagerContext,
+    day: date | None = None,
+) -> OperationsDashboard:
+    target = day or date.today()
+    return await operations_dashboard(session, context, day=target)
+
+
+@router.get("/reports/v2", response_model=ReportV2)
+async def reports_v2(
+    start_date: date,
+    end_date: date,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ReportV2:
+    return await report_v2(session, context, start_date, end_date)
 
 
 @router.get("/management-check")

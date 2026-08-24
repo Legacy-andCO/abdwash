@@ -4,7 +4,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import structlog
-from sqlalchemy import case, func, select, update
+from sqlalchemy import case, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import StaffContext
@@ -17,6 +17,7 @@ from app.domain.enums import (
     StaffRole,
 )
 from app.domain.errors import ConflictError, DomainError
+from app.domain.scheduling import SlotWindow
 from app.domain.state_machines import JOB_TRANSITIONS, validate_transition
 from app.integrations.eta import EtaResult
 from app.models.entities import (
@@ -29,8 +30,10 @@ from app.models.entities import (
     NotificationOutbox,
     Payment,
     PaymentTransaction,
+    ScheduleResource,
     ScheduleSlot,
     StaffProfile,
+    TeamMembership,
 )
 from app.schemas.staff import (
     AssignmentAction,
@@ -44,6 +47,7 @@ from app.schemas.staff import (
     StaffVehicle,
     StartTripAction,
 )
+from app.services.scheduling import _lock_slot_sequence
 
 logger = structlog.get_logger()
 
@@ -60,6 +64,7 @@ async def _job_rows(
     day: date | None = None,
     scope: str = "my",
     status: str | None = None,
+    team_id: uuid.UUID | None = None,
     offset: int = 0,
     limit: int = 50,
     lock: bool = False,
@@ -74,7 +79,16 @@ async def _job_rows(
     if job_id:
         statement = statement.where(Job.id == job_id)
     if not _can_manage(context) or scope != "all":
-        statement = statement.where(Job.assigned_staff_id == context.staff_id)
+        team_job = exists(
+            select(TeamMembership.id).where(
+                TeamMembership.resource_id == Job.assigned_resource_id,
+                TeamMembership.staff_profile_id == context.staff_id,
+                TeamMembership.is_active.is_(True),
+            )
+        )
+        statement = statement.where(
+            or_(Job.assigned_staff_id == context.staff_id, team_job)
+        )
     if day:
         zone = ZoneInfo(context.timezone)
         start = datetime.combine(day, time.min, zone).astimezone(UTC)
@@ -82,6 +96,8 @@ async def _job_rows(
         statement = statement.where(Job.scheduled_start >= start, Job.scheduled_start < end)
     if status:
         statement = statement.where(Job.status == status)
+    if team_id:
+        statement = statement.where(Job.assigned_resource_id == team_id)
     statement = statement.order_by(Job.scheduled_start).offset(offset).limit(limit)
     if lock:
         statement = statement.with_for_update(of=Job)
@@ -90,6 +106,21 @@ async def _job_rows(
 
 async def _serialize_jobs(session: AsyncSession, rows: Any) -> list[StaffJob]:
     booking_ids = [booking.id for _job, booking, _payment, _name in rows]
+    resource_ids = {
+        job.assigned_resource_id
+        for job, _booking, _payment, _name in rows
+        if job.assigned_resource_id is not None
+    }
+    team_names: dict[uuid.UUID, str] = {}
+    if resource_ids:
+        team_rows = (
+            await session.execute(
+                select(ScheduleResource.id, ScheduleResource.name).where(
+                    ScheduleResource.id.in_(resource_ids)
+                )
+            )
+        ).all()
+        team_names = {team_id: team_name for team_id, team_name in team_rows}
     vehicle_rows = (
         (
             await session.execute(
@@ -124,6 +155,8 @@ async def _serialize_jobs(session: AsyncSession, rows: Any) -> list[StaffJob]:
             booking_reference=booking.reference,
             assigned_staff_id=job.assigned_staff_id,
             assigned_staff_name=name,
+            assigned_team_id=job.assigned_resource_id,
+            assigned_team_name=team_names.get(job.assigned_resource_id),
             status=job.status,
             scheduled_start=job.scheduled_start,
             scheduled_end=job.scheduled_end,
@@ -332,19 +365,43 @@ async def assign_job(
             "ACTIVE_JOB_REASSIGNMENT_CONFIRMATION_REQUIRED",
             "Active work requires explicit confirmation.",
         )
-    staff = (
-        await session.scalars(
-            select(StaffProfile).where(
-                StaffProfile.id == request.staff_id,
-                StaffProfile.business_id == context.business_id,
-                StaffProfile.is_active.is_(True),
+    staff = None
+    if request.staff_id is not None:
+        staff = (
+            await session.scalars(
+                select(StaffProfile).where(
+                    StaffProfile.id == request.staff_id,
+                    StaffProfile.business_id == context.business_id,
+                    StaffProfile.is_active.is_(True),
+                )
             )
-        )
-    ).one_or_none()
-    if not staff:
-        raise DomainError("STAFF_NOT_FOUND", "Active staff member not found.", status_code=404)
-    previous = job.assigned_staff_id
-    job.assigned_staff_id = staff.id
+        ).one_or_none()
+        if staff is None:
+            raise DomainError(
+                "STAFF_NOT_FOUND", "Active staff member not found.", status_code=404
+            )
+    team = None
+    if request.team_id is not None:
+        team = (
+            await session.scalars(
+                select(ScheduleResource).where(
+                    ScheduleResource.id == request.team_id,
+                    ScheduleResource.business_id == context.business_id,
+                    ScheduleResource.resource_type == "mobile_team",
+                    ScheduleResource.is_active.is_(True),
+                )
+            )
+        ).one_or_none()
+        if team is None:
+            raise DomainError("TEAM_NOT_FOUND", "Active team not found.", status_code=404)
+        if team.id != job.assigned_resource_id:
+            await _move_booking_capacity(session, context, job, booking, team)
+    previous_staff = job.assigned_staff_id
+    previous_team = job.assigned_resource_id
+    if staff is not None:
+        job.assigned_staff_id = staff.id
+    if team is not None:
+        job.assigned_resource_id = team.id
     job.status = JobStatus.ASSIGNED if job.status == JobStatus.UNASSIGNED else job.status
     job.version += 1
     session.add(
@@ -352,17 +409,83 @@ async def assign_job(
             job_id=job.id,
             booking_id=booking.id,
             actor_staff_id=context.staff_id,
-            event_type="job_assigned" if previous is None else "job_reassigned",
+            event_type=(
+                "job_assigned"
+                if previous_staff is None and previous_team is None
+                else "job_reassigned"
+            ),
             client_event_id=request.client_event_id,
             client_timestamp=request.client_timestamp,
             metadata_json={
-                "previous_staff_id": str(previous) if previous else None,
-                "staff_id": str(staff.id),
+                "previous_staff_id": str(previous_staff) if previous_staff else None,
+                "previous_team_id": str(previous_team) if previous_team else None,
+                "staff_id": str(staff.id) if staff else None,
+                "team_id": str(team.id) if team else None,
             },
         )
     )
     await session.flush()
     return await get_job(session, context, job.id)
+
+
+async def _move_booking_capacity(
+    session: AsyncSession,
+    context: StaffContext,
+    job: Job,
+    booking: Booking,
+    team: ScheduleResource,
+) -> None:
+    source_slots = list(
+        (
+            await session.scalars(
+                select(ScheduleSlot)
+                .where(ScheduleSlot.booking_id == booking.id)
+                .order_by(ScheduleSlot.slot_start)
+                .with_for_update()
+            )
+        ).all()
+    )
+    conflict = await session.scalar(
+        select(Job.id).where(
+            Job.business_id == context.business_id,
+            Job.assigned_resource_id == team.id,
+            Job.id != job.id,
+            Job.status.not_in([JobStatus.COMPLETED, JobStatus.CANCELLED]),
+            Job.scheduled_start < job.scheduled_end,
+            Job.scheduled_end > job.scheduled_start,
+        )
+    )
+    if conflict is not None:
+        raise ConflictError(
+            "TEAM_ASSIGNMENT_CONFLICT",
+            f"{team.name} already has another job during this appointment.",
+        )
+    if source_slots:
+        windows = [SlotWindow(start=slot.slot_start, end=slot.slot_end) for slot in source_slots]
+        target_slots = await _lock_slot_sequence(
+            session,
+            business_id=context.business_id,
+            resource_id=team.id,
+            windows=windows,
+        )
+        if target_slots is None:
+            raise ConflictError(
+                "TEAM_ASSIGNMENT_CONFLICT",
+                f"{team.name} has unavailable scheduling capacity for this appointment.",
+            )
+        for slot in target_slots:
+            slot.status = SlotStatus.RESERVED
+            slot.booking_id = booking.id
+            slot.hold_group_id = None
+            slot.hold_expires_at = None
+            slot.version += 1
+        for slot in source_slots:
+            slot.status = SlotStatus.FREE
+            slot.booking_id = None
+            slot.hold_group_id = None
+            slot.hold_expires_at = None
+            slot.version += 1
+    booking.resource_id = team.id
 
 
 async def list_team(session: AsyncSession, context: StaffContext) -> list[StaffMember]:

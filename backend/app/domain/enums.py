@@ -38,6 +38,13 @@ class StaffRole(StrEnum):
     ADMIN = "admin"
 
 
+class LeaveStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+
+
 class CancellationStatus(StrEnum):
     REQUESTED = "requested"
     APPROVED = "approved"

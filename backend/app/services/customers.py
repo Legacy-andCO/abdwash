@@ -442,6 +442,7 @@ async def reschedule_customer_booking(
     booking.version += 1
     job.scheduled_start = hold.slot_start
     job.scheduled_end = hold.slot_end
+    job.assigned_resource_id = hold.resource_id
     job.version += 1
     session.add(
         JobEvent(

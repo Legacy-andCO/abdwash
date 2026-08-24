@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import Any
 
 from sqlalchemy import (
@@ -25,6 +25,7 @@ from app.domain.enums import (
     CancellationStatus,
     HoldStatus,
     JobStatus,
+    LeaveStatus,
     OutboxStatus,
     PaymentStatus,
     SlotStatus,
@@ -56,11 +57,15 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     multi_vehicle_required_slots: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
     cancellation_cutoff_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=24)
     hold_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    attendance_grace_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=5, server_default=text("5")
+    )
     __table_args__ = (
         CheckConstraint("slot_duration_minutes > 0", name="positive_slot_duration"),
         CheckConstraint("multi_vehicle_threshold > 0", name="positive_vehicle_threshold"),
         CheckConstraint("multi_vehicle_required_slots > 0", name="positive_required_slots"),
         CheckConstraint("closing_time > opening_time", name="valid_business_hours"),
+        CheckConstraint("attendance_grace_minutes >= 0", name="nonnegative_attendance_grace"),
     )
 
 
@@ -102,6 +107,7 @@ class StaffProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     auth_user_id: Mapped[uuid.UUID] = mapped_column(Uuid, unique=True, nullable=False)
     username: Mapped[str] = mapped_column(String(80), nullable=False)
     display_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(40))
     role: Mapped[str] = mapped_column(String(20), nullable=False, default=StaffRole.EMPLOYEE)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     __table_args__ = (
@@ -168,6 +174,110 @@ class ScheduleResource(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     __table_args__ = (UniqueConstraint("business_id", "name"),)
+
+
+class TeamMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "team_memberships"
+
+    resource_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("schedule_resources.id", ondelete="CASCADE"), nullable=False
+    )
+    staff_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    __table_args__ = (
+        UniqueConstraint(
+            "resource_id",
+            "staff_profile_id",
+            name="uq_team_membership_resource_staff",
+        ),
+        Index("ix_team_memberships_staff_active", "staff_profile_id", "is_active"),
+    )
+
+
+class AttendanceSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "attendance_sessions"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    staff_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    clock_in_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    clock_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    clock_in_client_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    clock_out_client_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        CheckConstraint(
+            "clock_out_at IS NULL OR clock_out_at >= clock_in_at",
+            name="attendance_chronological",
+        ),
+        Index("ix_attendance_business_clock_in", "business_id", "clock_in_at"),
+        Index(
+            "uq_attendance_open_staff",
+            "staff_profile_id",
+            unique=True,
+            postgresql_where=text("clock_out_at IS NULL"),
+        ),
+    )
+
+
+class Shift(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "shifts"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    __table_args__ = (
+        UniqueConstraint("business_id", "name", name="uq_shift_business_name"),
+        CheckConstraint("end_time > start_time", name="shift_time_order"),
+    )
+
+
+class StaffShiftAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "staff_shift_assignments"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    staff_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    shift_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("shifts.id", ondelete="CASCADE"), nullable=False
+    )
+    work_date: Mapped[date] = mapped_column(nullable=False)
+    resource_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("schedule_resources.id"))
+    __table_args__ = (
+        UniqueConstraint("staff_profile_id", "work_date", name="uq_staff_shift_work_date"),
+        Index("ix_shift_assignments_business_date", "business_id", "work_date"),
+    )
+
+
+class LeaveRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "leave_requests"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    staff_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    start_date: Mapped[date] = mapped_column(nullable=False)
+    end_date: Mapped[date] = mapped_column(nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default=LeaveStatus.PENDING)
+    reviewed_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("staff_profiles.id")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="leave_date_order"),
+        CheckConstraint(
+            "status IN ('pending','approved','rejected','cancelled')", name="leave_status"
+        ),
+        Index("ix_leave_business_status_dates", "business_id", "status", "start_date"),
+        Index("ix_leave_staff_dates", "staff_profile_id", "start_date", "end_date"),
+    )
 
 
 class SlotHoldGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -317,6 +427,9 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
     assigned_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    assigned_resource_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("schedule_resources.id")
+    )
     status: Mapped[str] = mapped_column(String(30), nullable=False, default=JobStatus.UNASSIGNED)
     scheduled_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     scheduled_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -334,6 +447,7 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_jobs_staff_status_schedule", "assigned_staff_id", "status", "scheduled_start"),
         Index("ix_jobs_business_status", "business_id", "status"),
+        Index("ix_jobs_resource_schedule", "assigned_resource_id", "scheduled_start"),
     )
 
 

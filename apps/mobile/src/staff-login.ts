@@ -1,4 +1,4 @@
-const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,62}[a-z0-9])?$/;
+const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,30}[a-z0-9])?$/;
 const staffEmailDomain = "staff.abdwash.local";
 
 export function normalizeStaffUsername(value: string): string {

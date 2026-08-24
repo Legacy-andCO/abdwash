@@ -20,9 +20,9 @@ from app.models.entities import StaffProfile
 
 
 def test_staff_username_is_normalized_and_converted_to_synthetic_email() -> None:
-    assert normalize_staff_username("  Demo.Manager ") == "demo.manager"
-    assert staff_synthetic_email(" Demo.Employee ") == (
-        "demo.employee@staff.abdwash.local"
+    assert normalize_staff_username("  Manager ") == "manager"
+    assert staff_synthetic_email(" Employee ") == (
+        "employee@staff.abdwash.local"
     )
 
 
@@ -44,7 +44,7 @@ async def test_existing_demo_auth_user_is_updated_idempotently() -> None:
                     "users": [
                         {
                             "id": str(auth_user_id),
-                            "email": "demo.manager@staff.abdwash.local",
+                            "email": "manager@staff.abdwash.local",
                         }
                     ]
                 },
@@ -56,7 +56,7 @@ async def test_existing_demo_auth_user_is_updated_idempotently() -> None:
             client,
             supabase_url="https://example.supabase.co",
             service_role_key="private-service-role",
-            username="Demo.Manager",
+            username="Manager",
             password=str(uuid.uuid4()),
         )
 
@@ -116,7 +116,7 @@ async def test_conflicting_duplicate_demo_profiles_fail_clearly() -> None:
         id=uuid.uuid4(),
         business_id=uuid.uuid4(),
         auth_user_id=uuid.uuid4(),
-        username="demo.manager",
+        username="manager",
         display_name="First",
         role=StaffRole.MANAGER,
     )
@@ -124,7 +124,7 @@ async def test_conflicting_duplicate_demo_profiles_fail_clearly() -> None:
         id=uuid.uuid4(),
         business_id=first.business_id,
         auth_user_id=uuid.uuid4(),
-        username="demo.manager",
+        username="manager",
         display_name="Second",
         role=StaffRole.MANAGER,
     )

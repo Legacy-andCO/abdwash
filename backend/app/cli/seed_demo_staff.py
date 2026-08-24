@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.database import create_engine, create_session_factory
 from app.domain.enums import StaffRole
-from app.domain.staff_usernames import normalize_staff_username, staff_synthetic_email
+from app.domain.staff_usernames import normalize_staff_username
+from app.integrations.supabase_admin import SupabaseAdminClient
 from app.models.entities import Business, StaffProfile
 
 
@@ -21,8 +22,8 @@ class DemoStaff:
 
 
 DEMO_STAFF = (
-    DemoStaff("demo.manager", "Demo Manager", StaffRole.MANAGER),
-    DemoStaff("demo.employee", "Demo Employee", StaffRole.EMPLOYEE),
+    DemoStaff("manager", "Demo Manager", StaffRole.MANAGER),
+    DemoStaff("employee", "Demo Employee", StaffRole.EMPLOYEE),
 )
 
 
@@ -48,43 +49,12 @@ async def ensure_auth_user(
     username: str,
     password: str,
 ) -> uuid.UUID:
-    normalized = normalize_staff_username(username)
-    email = staff_synthetic_email(normalized)
-    headers = {
-        "apikey": service_role_key,
-        "Authorization": f"Bearer {service_role_key}",
-    }
-    response = await client.get(
-        f"{supabase_url}/auth/v1/admin/users",
-        headers=headers,
-        params={"page": 1, "per_page": 1000},
+    admin = SupabaseAdminClient(
+        client,
+        supabase_url=supabase_url,
+        service_role_key=service_role_key,
     )
-    response.raise_for_status()
-    users = response.json().get("users", [])
-    existing = next(
-        (user for user in users if str(user.get("email", "")).lower() == email),
-        None,
-    )
-    body = {
-        "email": email,
-        "password": password,
-        "email_confirm": True,
-        "app_metadata": {"account_type": "staff", "staff_username": normalized},
-    }
-    if existing is None:
-        response = await client.post(
-            f"{supabase_url}/auth/v1/admin/users", headers=headers, json=body
-        )
-    else:
-        response = await client.put(
-            f"{supabase_url}/auth/v1/admin/users/{existing['id']}",
-            headers=headers,
-            json=body,
-        )
-    response.raise_for_status()
-    payload = response.json()
-    user = payload.get("user", payload)
-    return uuid.UUID(str(user["id"]))
+    return await admin.ensure_staff_user(username, password)
 
 
 async def upsert_staff_profile(
@@ -169,8 +139,8 @@ async def seed_demo_staff(settings: Settings) -> None:
 
 def main() -> None:
     asyncio.run(seed_demo_staff(get_settings()))
-    print("Demo manager: demo.manager")
-    print("Demo employee: demo.employee")
+    print("Demo manager: manager")
+    print("Demo employee: employee")
     print("Password: configured through DEMO_STAFF_PASSWORD")
 
 

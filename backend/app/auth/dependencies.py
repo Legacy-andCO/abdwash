@@ -24,6 +24,9 @@ class StaffContext:
     business_name: str
     role: StaffRole
     timezone: str
+    display_name: str = ""
+    username: str = ""
+    phone: str | None = None
 
 
 async def optional_identity(
@@ -67,6 +70,9 @@ async def staff_context(
         business_name=business_name,
         role=StaffRole(staff.role),
         timezone=timezone,
+        display_name=staff.display_name,
+        username=staff.username,
+        phone=staff.phone,
     )
 
 

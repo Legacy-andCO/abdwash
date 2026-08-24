@@ -207,7 +207,8 @@ async def create_booking(
         job = Job(
             booking_id=booking.id,
             business_id=booking.business_id,
-            status=JobStatus.UNASSIGNED,
+            assigned_resource_id=booking.resource_id,
+            status=JobStatus.ASSIGNED,
             scheduled_start=booking.scheduled_start,
             scheduled_end=booking.scheduled_end,
         )

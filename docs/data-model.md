@@ -5,20 +5,25 @@ All primary keys are UUIDs, money uses integer minor units plus ISO currency cod
 ## Tables
 
 - `businesses` — business scope and activation state.
-- `business_settings` — timezone, currency, business hours, slot rules, cancellation cutoff, and hold timeout.
+- `business_settings` — timezone, currency, business hours, slot rules, cancellation cutoff, hold timeout, and attendance grace policy.
 - `customer_profiles` — optional link to a Supabase Auth user plus reusable contact data.
 - `customer_addresses` — saved written/map addresses and optional coordinates.
-- `staff_profiles` — authoritative employee/manager/admin role and active state linked to Auth.
+- `staff_profiles` — lowercase staff username, contact details, authoritative role, active state, and Supabase Auth link.
 - `vehicles` — reusable customer vehicles.
 - `services` — active catalogue and authoritative minor-unit pricing.
 - `service_addons` — future bounded catalogue extensions.
 - `schedule_resources` — teams/vans that can work concurrently.
+- `team_memberships` — active many-to-many staff membership of mobile-team scheduling resources.
+- `attendance_sessions` — authoritative server clock-in/out timestamps with optional client timestamps.
+- `shifts` — reusable same-business shift definitions.
+- `staff_shift_assignments` — one staff shift per work date, optionally linked to a mobile team.
+- `leave_requests` — staff date-range request and manager/admin review workflow.
 - `slot_hold_groups` — one hashed opaque token and expiry for an atomic group of held slots.
 - `schedule_slots` — current resource/time occupancy; uniqueness on resource plus start prevents double booking.
 - `bookings` — lifecycle, payment summary, schedule, resource, customer/location snapshot, hashed management secret, and concurrency version.
 - `booking_vehicles` — immutable booking-time vehicle snapshots.
 - `booking_services` — immutable service name and price snapshots per booking vehicle.
-- `jobs` — operational lifecycle, assignment, authoritative start/completion times, and version.
+- `jobs` — operational lifecycle, optional primary staff and scheduling-resource team assignment, authoritative timing, and version.
 - `job_events` — append-only event timeline with server/client timestamps, actor, device, metadata, and client-event deduplication.
 - `payments` — local payment aggregate/status; no card credentials.
 - `payment_transactions` — provider operation/reconciliation history and indexed provider reference.
@@ -29,4 +34,3 @@ All primary keys are UUIDs, money uses integer minor units plus ISO currency cod
 - `audit_events` — security/administrative audit history that does not duplicate operational job events.
 
 Booking snapshots intentionally remain unchanged if reusable customer, vehicle, address, or service rows change later.
-

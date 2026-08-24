@@ -14,7 +14,20 @@ Never put service-role, database, Resend, dispatch, payment, or Google Routes se
 
 Set `GOOGLE_ROUTES_API_KEY` only on the API deployment. Enable Google Routes API, restrict the key to that API and the backend deployment's appropriate application/IP controls. Start-trip still enters `en_route` if routing is unavailable.
 
-Apply Alembic revision `d8cc0a1bf349` before deploying the API. Redeploy the web project so `en_route` and `estimated_arrival_at` are displayed to customers.
+Apply Alembic through revision `96493956784a` before deploying the V2 API. The V2 release adds staff phone data, scheduling-resource team memberships, attendance, shifts, shift assignments, leave requests, and team assignment on jobs. All new tables have RLS enabled and remain backend-owned.
+
+## Operations V2
+
+- `schedule_resources` remain the source of booking capacity and now act as operational teams.
+- Team reassignment locks and moves the booking's reserved slots so availability and operations cannot diverge.
+- Employees see direct assignments plus jobs belonging to an active team membership; the API enforces this scope.
+- Managers create employee accounts; admins may also create managers. Supabase Admin calls remain server-only.
+- Attendance uses server timestamps and a partial unique index prevents multiple open sessions.
+- Shifts use the business timezone and `attendance_grace_minutes` policy.
+- Leave approval blocks while future direct/team work remains assigned.
+- Dashboard and report graph series are aggregated by the backend and bounded before reaching Expo.
+
+The V2 primary tabs are `Today`, `Jobs`, and `Profile` for employees and add `Team` and `Reports` for managers/admins. Staff, shifts, attendance, leave approvals, and cancellation review are nested workflows rather than extra tabs.
 
 ## Notification contract
 
@@ -30,6 +43,6 @@ Apply Alembic revision `d8cc0a1bf349` before deploying the API. Redeploy the web
 
 The report uses bounded SQL aggregation. History/job lists use offset/limit pagination rather than downloading all records.
 
-## Deferred hardening
+## Deferred domains
 
-Background/live GPS, WhatsApp delivery, card/NFC/Tap-to-Pay, refunds, a durable offline mutation replay queue, advanced reporting, branch switching, and live employee surveillance remain out of scope.
+Inventory, van stock, service photos/checklists, subscriptions, loyalty, corporate credit, expenses, commissions, complaints/rewash, WhatsApp, card/NFC/Tap-to-Pay, background/live GPS, AI assistance, multi-branch management, and a durable offline mutation replay queue remain out of scope.
