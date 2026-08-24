@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
+import { getPublicSiteUrl } from "@/lib/site-url";
 
 type SignUpInput = { firstName: string; surname: string; email: string; password: string };
 type AuthContextValue = {
@@ -52,7 +53,10 @@ export function AuthProvider({ children, client: clientOverride }: { children: R
       const { data, error } = await client.auth.signUp({
         email,
         password,
-        options: { data: { first_name: firstName, surname } },
+        options: {
+          data: { first_name: firstName, surname },
+          emailRedirectTo: `${getPublicSiteUrl()}/auth/confirm`,
+        },
       });
       if (error) throw new Error(error.message);
       setSession(data.session);

@@ -31,7 +31,11 @@ def test_management_token_hash_never_contains_raw_token() -> None:
 
 def test_production_rejects_development_management_key() -> None:
     with pytest.raises(ValidationError, match="BOOKING_MANAGEMENT_SIGNING_KEY"):
-        Settings(app_env="production", database_url="postgresql://localhost/abdwash")
+        Settings(
+            app_env="production",
+            database_url="postgresql://localhost/abdwash",
+            booking_management_signing_key="development-only-abdwash-management-key",
+        )
 
 
 def test_production_accepts_a_strong_management_key() -> None:

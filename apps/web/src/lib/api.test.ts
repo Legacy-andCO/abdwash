@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, createBooking, createHold, friendlyError, getAvailability, getCatalogue, getManagedBooking, requestCancellation } from "./api";
+import { ApiError, createBooking, createHold, friendlyError, getAvailability, getCatalogue, getCustomerBooking, getCustomerBookings, getManagedBooking, requestCancellation, requestCustomerCancellation, rescheduleCustomerBooking } from "./api";
 import { emptyVehicle } from "./booking-state";
 import * as supabaseClient from "./supabase-client";
 
@@ -92,5 +92,30 @@ describe("central API client", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ hold_token: "x" }, 201)); vi.stubGlobal("fetch", fetchMock);
     await createHold({ date: "2030-01-02", start_time: "09:00:00", vehicle_count: 1 });
     expect(new Headers(fetchMock.mock.calls[0][1].headers).has("Authorization")).toBe(false);
+  });
+  it("uses authenticated customer routes without placing identity in the URL", async () => {
+    vi.spyOn(supabaseClient, "getSupabaseAccessToken").mockResolvedValue("customer-token");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ bookings: [] }))
+      .mockResolvedValueOnce(jsonResponse({ id: "booking-id" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await getCustomerBookings();
+    await getCustomerBooking("booking-id");
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8000/api/v1/customer/bookings");
+    expect(fetchMock.mock.calls[1][0]).toBe("http://localhost:8000/api/v1/customer/bookings/booking-id");
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get("Authorization")).toBe("Bearer customer-token");
+  });
+  it("protects customer cancellation and reschedule mutations with idempotency", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ booking: { id: "booking-id" } }))
+      .mockResolvedValueOnce(jsonResponse({ booking: { id: "booking-id" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await requestCustomerCancellation("booking-id", "Changed plans", "customer-cancel-key");
+    await rescheduleCustomerBooking("booking-id", "h".repeat(40), "customer-reschedule-key");
+    const cancelHeaders = new Headers(fetchMock.mock.calls[0][1].headers);
+    const rescheduleHeaders = new Headers(fetchMock.mock.calls[1][1].headers);
+    expect(cancelHeaders.get("Idempotency-Key")).toBe("customer-cancel-key");
+    expect(rescheduleHeaders.get("Idempotency-Key")).toBe("customer-reschedule-key");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ hold_token: "h".repeat(40) });
   });
 });

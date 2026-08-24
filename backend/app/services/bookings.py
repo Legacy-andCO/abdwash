@@ -3,6 +3,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.verifier import VerifiedIdentity
@@ -23,7 +24,12 @@ from app.models.entities import (
     Vehicle,
 )
 from app.repositories.business import load_default_business
-from app.schemas.public import BookingCreate, BookingResponse, BookingVehicleSummary
+from app.schemas.public import (
+    BookingCreate,
+    BookingResponse,
+    BookingVehicleSummary,
+    CustomerContact,
+)
 from app.services.management_tokens import create_management_token, management_token_hash
 from app.services.scheduling import hold_token_hash
 
@@ -91,7 +97,10 @@ async def create_booking(
         raise DomainError("INVALID_SERVICE", "One or more selected services are unavailable.")
 
     customer_profile_id = await _resolve_customer_profile(
-        session, identity=identity, business_id=hold.business_id
+        session,
+        identity=identity,
+        business_id=hold.business_id,
+        contact=request.contact,
     )
     await _validate_saved_vehicles(
         session,
@@ -257,18 +266,39 @@ async def _resolve_customer_profile(
     *,
     identity: VerifiedIdentity | None,
     business_id: uuid.UUID,
+    contact: CustomerContact,
 ) -> uuid.UUID | None:
     if identity is None:
         return None
-    return (
-        await session.scalars(
-            select(CustomerProfile.id).where(
-                CustomerProfile.auth_user_id == identity.user_id,
-                CustomerProfile.business_id == business_id,
-                CustomerProfile.is_active.is_(True),
-            )
+    statement = (
+        insert(CustomerProfile)
+        .values(
+            business_id=business_id,
+            auth_user_id=identity.user_id,
+            first_name=contact.first_name,
+            surname=contact.surname,
+            email=str(contact.email),
+            phone=contact.phone,
         )
-    ).one_or_none()
+        .on_conflict_do_update(
+            index_elements=[CustomerProfile.auth_user_id],
+            set_={
+                "first_name": contact.first_name,
+                "surname": contact.surname,
+                "phone": contact.phone,
+            },
+            where=CustomerProfile.business_id == business_id,
+        )
+        .returning(CustomerProfile.id)
+    )
+    profile_id = (await session.scalars(statement)).one_or_none()
+    if profile_id is None:
+        raise DomainError(
+            "CUSTOMER_PROFILE_CONFLICT",
+            "This customer identity is already linked to another business.",
+            status_code=409,
+        )
+    return profile_id
 
 
 async def _validate_saved_vehicles(

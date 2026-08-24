@@ -32,7 +32,7 @@ export function SiteHeader() {
       <Link href="/#how-it-works" onClick={() => setOpen(false)}>How it works</Link>
       <Link href="/contact" onClick={() => setOpen(false)}>Contact</Link>
       {!loading && !user && <Link href={loginHref} onClick={() => setOpen(false)}>Log in</Link>}
-      {!loading && user && <div className="account-links"><span>{firstName ? `Hi, ${firstName}` : "Account"}</span><button type="button" onClick={() => void handleLogout()}>Log out</button></div>}
+      {!loading && user && <div className="account-links"><Link href="/account" onClick={() => setOpen(false)}>{firstName ? `Hi, ${firstName}` : "Account"}</Link><button type="button" onClick={() => void handleLogout()}>Log out</button></div>}
       <Link className="button button-small" href="/book" onClick={() => setOpen(false)}>Book a wash</Link>
     </nav>
     {logoutError && <span className="header-auth-error" role="alert">{logoutError}</span>}

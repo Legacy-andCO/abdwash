@@ -44,12 +44,15 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
     let autocomplete: google.maps.places.PlaceAutocompleteElement | null = null;
     let autocompleteListener: EventListener | null = null;
     let markerListener: google.maps.MapsEventListener | null = null;
+    let mapClickListener: google.maps.MapsEventListener | null = null;
     const host = autocompleteHost.current;
     const mapNode = mapElement.current;
 
     const cleanupComponentObjects = () => {
       markerListener?.remove();
       markerListener = null;
+      mapClickListener?.remove();
+      mapClickListener = null;
       if (marker.current) marker.current.map = null;
       marker.current = null;
       if (autocomplete && autocompleteListener) autocomplete.removeEventListener("gmp-select", autocompleteListener);
@@ -66,6 +69,11 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
       } catch {
         return undefined;
       }
+    }
+
+    async function selectCoordinates(coordinates: Coordinates) {
+      const address = await reverseGeocode(coordinates);
+      if (active) coordinatesCallbackRef.current(coordinates, address);
     }
 
     async function initialize() {
@@ -134,8 +142,14 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
           if (!position) return;
           const latitude = typeof position.lat === "function" ? position.lat() : Number(position.lat);
           const longitude = typeof position.lng === "function" ? position.lng() : Number(position.lng);
-          const address = await reverseGeocode({ latitude, longitude });
-          if (active) coordinatesCallbackRef.current({ latitude, longitude }, address);
+          await selectCoordinates({ latitude, longitude });
+        });
+        mapClickListener = map.current.addListener("click", (event: google.maps.MapMouseEvent) => {
+          if (!event.latLng) return;
+          void selectCoordinates({
+            latitude: event.latLng.lat(),
+            longitude: event.latLng.lng(),
+          });
         });
 
         try {
@@ -211,7 +225,7 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
       <div className={hasCoordinates ? "map-preview visible" : "map-preview"} aria-busy={mapIsPending}><div ref={mapElement} className="map-canvas" aria-label="Selected service location map" />{mapIsPending && <div className="map-loading" role="status"><span className="spinner dark" /> Loading map…</div>}</div>
     </> : <div className="inline-notice map-fallback" role="status"><strong>Map temporarily unavailable.</strong><span>You can still enter your address or share a Google Maps link.</span></div>}
 
-    {hasCoordinates && <p className="pin-hint">{mapState === "ready" ? "Drag the pin to the exact service location." : "Location coordinates are saved for this booking."}</p>}
+    {hasCoordinates && <p className="pin-hint">{mapState === "ready" ? "Tap the map to choose your location, or drag the pin to fine-tune it." : "Location coordinates are saved for this booking."}</p>}
     {errors.location && <span className="field-error" role="alert">{errors.location}</span>}
     <label><span>Address</span><textarea rows={3} value={location.written_address} aria-invalid={!!errors.written_address} aria-describedby={errors.written_address ? "address-error" : undefined} onChange={(event) => onFieldChange("written_address", event.target.value)} />{errors.written_address && <span className="field-error" id="address-error" role="alert">{errors.written_address}</span>}</label>
     <label><span>Location notes <em>Optional</em></span><textarea rows={2} placeholder="Parking access, building entrance, or anything useful" value={location.instructions} onChange={(event) => onFieldChange("instructions", event.target.value)} /></label>

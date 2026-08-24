@@ -95,7 +95,14 @@ describe("customer authentication", () => {
     await user.type(screen.getByLabelText("Password"), "strong-password");
     await user.type(screen.getByLabelText("Confirm password"), "strong-password");
     await user.click(screen.getByRole("button", { name: "Create account" }));
-    await waitFor(() => expect(auth.signUp).toHaveBeenCalledWith({ email: "noor@example.com", password: "strong-password", options: { data: { first_name: "Noor", surname: "Ali" } } }));
+    await waitFor(() => expect(auth.signUp).toHaveBeenCalledWith({
+      email: "noor@example.com",
+      password: "strong-password",
+      options: {
+        data: { first_name: "Noor", surname: "Ali" },
+        emailRedirectTo: "http://localhost:3000/auth/confirm",
+      },
+    }));
     expect(await screen.findByText(/check your email/i)).toBeTruthy();
   });
 });

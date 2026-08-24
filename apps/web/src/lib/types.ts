@@ -121,3 +121,52 @@ export type ManagedBooking = Omit<Booking, "id" | "vehicle_count" | "resource_id
   cancellation_status: string | null;
   timezone: string;
 };
+
+export type CustomerBookingStatus = {
+  key: string;
+  label: string;
+  stage: number;
+  job_status: string | null;
+};
+
+export type CustomerBookingSummary = {
+  id: string;
+  reference: string;
+  status: CustomerBookingStatus;
+  payment_status: string;
+  scheduled_start: string;
+  scheduled_end: string;
+  vehicle_count: number;
+  total_amount_minor: number;
+  currency_code: string;
+  written_address: string;
+  vehicles: BookingVehicleSummary[];
+  created_at: string;
+  cancellation_eligible: boolean;
+  reschedule_eligible: boolean;
+  estimated_arrival_at: string | null;
+  category: "upcoming" | "past" | "cancelled";
+};
+
+export type CustomerBookingDetail = CustomerBookingSummary & {
+  payment_choice: string;
+  payment_status: string;
+  location_url: string;
+  location_instructions: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  cancellation_cutoff_at: string;
+  cancellation_status: string | null;
+  timezone: string;
+};
+
+export type CustomerContext = {
+  profile: null | {
+    id: string;
+    first_name: string;
+    surname: string;
+    email: string;
+    phone: string;
+  };
+  booking_count: number;
+};

@@ -7,7 +7,7 @@ import type { Location } from "@/lib/types";
 
 vi.mock("@/lib/google-maps-loader", () => ({ loadGoogleMaps: vi.fn() }));
 
-const mapInstances: Array<{ center: unknown; panTo: ReturnType<typeof vi.fn>; setZoom: ReturnType<typeof vi.fn> }> = [];
+const mapInstances: Array<{ center: unknown; panTo: ReturnType<typeof vi.fn>; setZoom: ReturnType<typeof vi.fn>; listeners: Record<string, (event: unknown) => void> }> = [];
 const markerInstances: Array<{ map: unknown; position: unknown }> = [];
 let LocationPicker: typeof import("./location-picker").LocationPicker;
 
@@ -27,7 +27,9 @@ function installGoogle(importFailure = false, delays: Partial<Record<"maps" | "m
           center: unknown;
           panTo = vi.fn();
           setZoom = vi.fn();
+          listeners: Record<string, (event: unknown) => void> = {};
           constructor(_node: HTMLElement, options: { center: unknown }) { this.center = options.center; mapInstances.push(this); }
+          addListener(name: string, callback: (event: unknown) => void) { this.listeners[name] = callback; return { remove: vi.fn() }; }
         } };
         if (name === "marker") return { AdvancedMarkerElement: class {
           map: unknown;
@@ -52,8 +54,8 @@ const baseLocation: Location = {
   instructions: "",
 };
 
-function renderPicker(location = baseLocation) {
-  return render(<LocationPicker location={location} errors={{}} onFieldChange={vi.fn()} onCoordinatesChange={vi.fn()} />);
+function renderPicker(location = baseLocation, onCoordinatesChange = vi.fn()) {
+  return render(<LocationPicker location={location} errors={{}} onFieldChange={vi.fn()} onCoordinatesChange={onCoordinatesChange} />);
 }
 
 beforeAll(async () => {
@@ -108,6 +110,18 @@ describe("LocationPicker Maps lifecycle", () => {
     await waitFor(() => expect(markerInstances).toHaveLength(1));
     expect(markerInstances[0].position).toEqual({ lat: 24.4539, lng: 54.3773 });
     expect(markerInstances[0].map).toBeTruthy();
+  });
+
+  it("selects coordinates when the customer taps the map", async () => {
+    installGoogle();
+    const onCoordinatesChange = vi.fn();
+    renderPicker(baseLocation, onCoordinatesChange);
+    await waitFor(() => expect(mapInstances).toHaveLength(1));
+    mapInstances[0].listeners.click({ latLng: { lat: () => 24.47, lng: () => 54.36 } });
+    await waitFor(() => expect(onCoordinatesChange).toHaveBeenCalledWith(
+      { latitude: 24.47, longitude: 54.36 },
+      undefined,
+    ));
   });
 
   it("cleans component widgets and initializes once again after a remount", async () => {

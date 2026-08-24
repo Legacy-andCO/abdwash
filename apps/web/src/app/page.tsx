@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ServicesPreview } from "@/components/services-preview";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { HomeBookingStatus } from "@/components/home-booking-status";
 
 const benefits = [
   ["01", "We come to you", "Home, work, or wherever your car is parked."],
@@ -11,7 +12,7 @@ const benefits = [
 
 export default function HomePage() {
   return (
-    <><SiteHeader /><main>
+    <><SiteHeader /><main><HomeBookingStatus />
       <section className="hero"><div className="shell hero-grid">
         <div className="hero-copy"><p className="eyebrow"><span /> Mobile car care in Abu Dhabi</p><h1>Your car, cared for. <em>Wherever you are.</em></h1><p className="hero-lead">Professional car washing brought to your home or workplace. Simple booking, honest pricing, and a finish you’ll notice.</p><div className="hero-actions"><Link className="button" href="/book">Book your wash <span aria-hidden="true">→</span></Link><a className="text-link" href="#services">Explore services <span aria-hidden="true">↓</span></a></div><div className="trust-row" aria-label="Service highlights"><span>✓ Mobile service</span><span>✓ Secure booking</span><span>✓ Pay after service</span></div></div>
         <div className="hero-art" aria-label="A clean car represented by a calm water-inspired illustration"><div className="hero-orbit orbit-one" /><div className="hero-orbit orbit-two" /><div className="car-silhouette"><div className="car-roof" /><div className="car-body" /><i /><i /></div><div className="hero-stat"><span>Care, on your schedule</span><strong>09:00—21:00</strong><small>Daily availability</small></div><span className="sparkle sparkle-one">✦</span><span className="sparkle sparkle-two">✦</span></div>

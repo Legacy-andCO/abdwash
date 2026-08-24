@@ -3,6 +3,9 @@ import type {
   Booking,
   Catalogue,
   Contact,
+  CustomerBookingDetail,
+  CustomerBookingSummary,
+  CustomerContext,
   Hold,
   Location,
   ManagedBooking,
@@ -153,6 +156,51 @@ export function requestCancellation(token: string, reason: string, idempotencyKe
       body: JSON.stringify({ reason: reason || null }),
     },
   );
+}
+
+export function getCustomerContext(): Promise<CustomerContext> {
+  return request<CustomerContext>("/api/v1/customer/context");
+}
+
+export async function getCustomerBookings(): Promise<CustomerBookingSummary[]> {
+  const response = await request<{ bookings: CustomerBookingSummary[] }>("/api/v1/customer/bookings");
+  return response.bookings;
+}
+
+export function getCustomerBooking(bookingId: string): Promise<CustomerBookingDetail> {
+  return request<CustomerBookingDetail>(`/api/v1/customer/bookings/${encodeURIComponent(bookingId)}`);
+}
+
+export async function requestCustomerCancellation(
+  bookingId: string,
+  reason: string,
+  idempotencyKey: string,
+): Promise<CustomerBookingDetail> {
+  const response = await request<{ booking: CustomerBookingDetail }>(
+    `/api/v1/customer/bookings/${encodeURIComponent(bookingId)}/cancellation-requests`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ reason: reason || null }),
+    },
+  );
+  return response.booking;
+}
+
+export async function rescheduleCustomerBooking(
+  bookingId: string,
+  holdToken: string,
+  idempotencyKey: string,
+): Promise<CustomerBookingDetail> {
+  const response = await request<{ booking: CustomerBookingDetail }>(
+    `/api/v1/customer/bookings/${encodeURIComponent(bookingId)}/reschedule`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ hold_token: holdToken }),
+    },
+  );
+  return response.booking;
 }
 
 export function friendlyError(error: unknown): string {

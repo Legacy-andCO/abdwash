@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
 
+from app.api.customer import router as customer_router
 from app.api.internal import router as internal_router
 from app.api.public import router as public_router
 from app.api.staff import router as staff_router
@@ -137,4 +138,5 @@ async def database_error_handler(request: Request, exc: DBAPIError) -> JSONRespo
 app.include_router(system_router)
 app.include_router(internal_router)
 app.include_router(public_router)
+app.include_router(customer_router)
 app.include_router(staff_router)
