@@ -179,7 +179,11 @@ async def list_customer_bookings(
     ).one()
     rows = (
         await session.execute(
-            select(Booking, Job.status, Job.estimated_arrival_at)
+            select(
+                Booking,
+                Job.status.label("job_status"),
+                Job.estimated_arrival_at.label("estimated_arrival_at"),
+            )
             .outerjoin(Job, Job.booking_id == Booking.id)
             .where(Booking.customer_profile_id == scope.profile.id)
             .order_by(
@@ -200,7 +204,8 @@ async def list_customer_bookings(
             .limit(100)
         )
     ).all()
-    booking_ids = [booking.id for booking, _job_status in rows]
+    # Named row fields keep consumers stable if the SELECT gains another scalar.
+    booking_ids = [row.Booking.id for row in rows]
     vehicle_rows = (
         (
             await session.execute(
@@ -228,7 +233,10 @@ async def list_customer_bookings(
             )
         )
     bookings = []
-    for booking, job_status, estimated_arrival_at in rows:
+    for row in rows:
+        booking = row.Booking
+        job_status = row.job_status
+        estimated_arrival_at = row.estimated_arrival_at
         cancellation_eligible, reschedule_eligible = _action_eligibility(
             booking, settings, job_status
         )

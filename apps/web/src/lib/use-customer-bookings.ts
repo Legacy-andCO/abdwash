@@ -32,6 +32,10 @@ export function useCustomerBookings({ polling = false }: { polling?: boolean } =
     if (!user) return;
     const userId = user.id;
     async function load() {
+      await Promise.resolve();
+      if (!active) return;
+      setLoading(true);
+      setError("");
       try {
         const nextBookings = await getCustomerBookings();
         if (!active) return;
@@ -40,6 +44,11 @@ export function useCustomerBookings({ polling = false }: { polling?: boolean } =
         setError("");
       } catch {
         if (active) setError("We couldn’t load your bookings. Please try again.");
+      } finally {
+        if (active) {
+          setLoadedUserId(userId);
+          setLoading(false);
+        }
       }
     }
     void load();
@@ -56,7 +65,7 @@ export function useCustomerBookings({ polling = false }: { polling?: boolean } =
 
   return {
     bookings: user && loadedUserId === user.id ? bookings : [],
-    loading: authLoading || (user !== null && (loading || loadedUserId !== user.id)),
+    loading: authLoading || (user !== null && !error && (loading || loadedUserId !== user.id)),
     error: user ? error : "",
     refresh,
   };

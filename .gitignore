@@ -27,3 +27,4 @@ htmlcov/
 .vscode/
 .DS_Store
 Thumbs.db
+apps/mobile/.env

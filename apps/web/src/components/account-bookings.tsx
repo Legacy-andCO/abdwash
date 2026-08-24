@@ -35,7 +35,7 @@ export function AccountBookings() {
   return <main className="account-page"><div className="shell account-shell">
     <header className="account-heading"><div><p className="eyebrow"><span /> Your account</p><h1>Hi, {firstName}.</h1><p>Track upcoming visits and manage changes from one place.</p></div><Link className="button" href="/book">Book another wash</Link></header>
     {error && <div className="error-banner" role="alert">{error}<button type="button" onClick={() => void refresh()}>Try again</button></div>}
-    {loading && !bookings.length && <div className="loading-panel"><span className="spinner dark" /><strong>Loading bookings…</strong></div>}
+    {!error && loading && !bookings.length && <div className="loading-panel"><span className="spinner dark" /><strong>Loading bookings…</strong></div>}
     {!loading && !bookings.length && <section className="account-empty"><h2>No linked bookings yet.</h2><p>Bookings you make while logged in will appear here. Guest bookings stay available through their secure management link.</p><Link className="button" href="/book">Book your first wash</Link></section>}
     {upcoming.length > 0 && <section className="account-group"><h2>Your upcoming wash</h2><BookingCard booking={upcoming[0]} featured />{upcoming.slice(1).map((booking) => <BookingCard booking={booking} key={booking.id} />)}</section>}
     {past.length > 0 && <section className="account-group"><h2>Past bookings</h2>{past.map((booking) => <BookingCard booking={booking} key={booking.id} />)}</section>}

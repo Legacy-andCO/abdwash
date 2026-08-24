@@ -36,4 +36,13 @@ describe("useCustomerBookings", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(25_000); });
     expect(getCustomerBookings).toHaveBeenCalledTimes(2);
   });
+
+  it("clears loading when the initial booking request fails", async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: "customer" }, loading: false } as ReturnType<typeof useAuth>);
+    vi.mocked(getCustomerBookings).mockRejectedValue(new Error("production failure"));
+    const { result } = renderHook(() => useCustomerBookings());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.error).toBe("We couldn’t load your bookings. Please try again.");
+    expect(result.current.loading).toBe(false);
+  });
 });

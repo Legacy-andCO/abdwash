@@ -7,15 +7,27 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "infoPlist": { "NSLocationWhenInUseUsageDescription": "AbdWash uses your location once when starting a trip to calculate the customer's arrival estimate." }
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "AbdWash uses your location once when starting a trip to calculate the customer's arrival estimate."
+      }
     },
     "android": {
       "package": "com.abdwash.staff",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
       "expo-secure-store",
       "expo-location"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "84667cd8-54dd-412a-9cfd-461009be9854"
+      }
+    }
   }
 }
