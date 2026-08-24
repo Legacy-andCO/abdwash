@@ -18,6 +18,7 @@ from app.models.entities import (
     AttendanceSession,
     AuditEvent,
     Booking,
+    BookingService,
     BusinessSettings,
     CancellationRequest,
     Job,
@@ -32,12 +33,14 @@ from app.models.entities import (
 from app.schemas.staff import (
     AttendanceAction,
     AttendanceList,
+    AttendanceOverviewItem,
     AttendanceRecord,
     AttentionItem,
     DashboardMetric,
     LeaveCreate,
     LeaveReview,
     LeaveView,
+    MixRow,
     OperationsDashboard,
     PerformanceRow,
     ReportPoint,
@@ -49,6 +52,7 @@ from app.schemas.staff import (
     TeamCreate,
     TeamDetail,
     TeamMembersUpdate,
+    TeamPerformanceRow,
     TeamReference,
     TeamSummary,
     TeamUpdate,
@@ -76,6 +80,30 @@ def attendance_late_minutes(
         0,
         int((clock_in_at - scheduled).total_seconds() // 60) - grace_minutes,
     )
+
+
+def attendance_category(
+    *,
+    has_open_session: bool,
+    has_closed_session: bool,
+    late_minutes: int,
+    has_shift: bool,
+    shift_started: bool,
+    on_approved_leave: bool,
+    shift_ended: bool,
+) -> tuple[str, bool]:
+    """Return the operational status and whether a scheduled shift was missed."""
+    if has_open_session:
+        return ("late" if late_minutes else "working", False)
+    if has_closed_session:
+        return ("clocked_out", False)
+    if on_approved_leave:
+        return ("approved_leave", False)
+    if not has_shift:
+        return ("off_today", False)
+    if not shift_started:
+        return ("scheduled", False)
+    return ("not_clocked_in", shift_ended)
 
 
 def _audit(
@@ -122,9 +150,7 @@ async def list_teams(
                     )
                 ),
                 func.max(
-                    case(
-                        (Job.status.in_([JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS]), Job.status)
-                    )
+                    case((Job.status.in_([JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS]), Job.status))
                 ),
             )
             .outerjoin(TeamMembership, TeamMembership.resource_id == ScheduleResource.id)
@@ -158,9 +184,7 @@ async def list_teams(
     ]
 
 
-async def get_team(
-    session: AsyncSession, context: StaffContext, team_id: uuid.UUID
-) -> TeamDetail:
+async def get_team(session: AsyncSession, context: StaffContext, team_id: uuid.UUID) -> TeamDetail:
     summary = next(
         (team for team in await list_teams(session, context) if team.id == team_id),
         None,
@@ -298,10 +322,7 @@ async def replace_team_members(
     )
     by_staff = {membership.staff_profile_id: membership for membership in memberships}
     for existing_membership in memberships:
-        if (
-            existing_membership.is_active
-            and existing_membership.staff_profile_id not in staff_ids
-        ):
+        if existing_membership.is_active and existing_membership.staff_profile_id not in staff_ids:
             existing_membership.is_active = False
             _audit(
                 session,
@@ -361,6 +382,17 @@ async def clock_in(
     context: StaffContext,
     request: AttendanceAction,
 ) -> AttendanceRecord:
+    # Serialize clock-in attempts on the owned staff row before checking the partial
+    # unique index. This makes simultaneous device taps idempotent instead of surfacing
+    # a database uniqueness error from two transactions that both observed no open row.
+    await session.scalar(
+        select(StaffProfile.id)
+        .where(
+            StaffProfile.id == context.staff_id,
+            StaffProfile.business_id == context.business_id,
+        )
+        .with_for_update()
+    )
     existing = (
         await session.scalars(
             select(AttendanceSession)
@@ -436,9 +468,7 @@ async def list_attendance(
         statement = statement.where(AttendanceSession.staff_profile_id == staff_id)
     rows = (
         await session.execute(
-            statement.order_by(AttendanceSession.clock_in_at.desc())
-            .offset(offset)
-            .limit(limit + 1)
+            statement.order_by(AttendanceSession.clock_in_at.desc()).offset(offset).limit(limit + 1)
         )
     ).all()
     selected = rows[:limit]
@@ -493,6 +523,149 @@ async def list_attendance(
     )
 
 
+async def attendance_overview(
+    session: AsyncSession,
+    context: StaffContext,
+    *,
+    day: date,
+    now: datetime | None = None,
+) -> list[AttendanceOverviewItem]:
+    """Categorize every visible staff member with a bounded set of bulk queries."""
+    start, end = _day_bounds(day, context.timezone)
+    current = now or datetime.now(UTC)
+    staff_statement = select(StaffProfile.id, StaffProfile.display_name).where(
+        StaffProfile.business_id == context.business_id,
+        StaffProfile.is_active.is_(True),
+    )
+    if context.role == "employee":
+        staff_statement = staff_statement.where(StaffProfile.id == context.staff_id)
+    staff_rows = (await session.execute(staff_statement.order_by(StaffProfile.display_name))).all()
+    staff_ids = [staff_id for staff_id, _name in staff_rows]
+    if not staff_ids:
+        return []
+
+    assignment_rows = (
+        await session.execute(
+            select(
+                StaffShiftAssignment.staff_profile_id,
+                Shift.name,
+                Shift.start_time,
+                Shift.end_time,
+            )
+            .join(Shift, Shift.id == StaffShiftAssignment.shift_id)
+            .where(
+                StaffShiftAssignment.business_id == context.business_id,
+                StaffShiftAssignment.staff_profile_id.in_(staff_ids),
+                StaffShiftAssignment.work_date == day,
+            )
+        )
+    ).all()
+    assignments = {
+        staff_id: (shift_name, shift_start, shift_end)
+        for staff_id, shift_name, shift_start, shift_end in assignment_rows
+    }
+    attendance_rows = (
+        (
+            await session.execute(
+                select(AttendanceSession)
+                .where(
+                    AttendanceSession.business_id == context.business_id,
+                    AttendanceSession.staff_profile_id.in_(staff_ids),
+                    AttendanceSession.clock_in_at >= start,
+                    AttendanceSession.clock_in_at < end,
+                )
+                .order_by(AttendanceSession.clock_in_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    sessions: dict[uuid.UUID, AttendanceSession] = {}
+    for attendance_session in attendance_rows:
+        existing = sessions.get(attendance_session.staff_profile_id)
+        if existing is None or (
+            existing.clock_out_at is not None and attendance_session.clock_out_at is None
+        ):
+            sessions[attendance_session.staff_profile_id] = attendance_session
+    leave_staff_ids = set(
+        (
+            await session.scalars(
+                select(LeaveRequest.staff_profile_id).where(
+                    LeaveRequest.business_id == context.business_id,
+                    LeaveRequest.staff_profile_id.in_(staff_ids),
+                    LeaveRequest.status == LeaveStatus.APPROVED,
+                    LeaveRequest.start_date <= day,
+                    LeaveRequest.end_date >= day,
+                )
+            )
+        ).all()
+    )
+    grace_minutes = (
+        await session.scalar(
+            select(BusinessSettings.attendance_grace_minutes).where(
+                BusinessSettings.business_id == context.business_id
+            )
+        )
+    ) or 0
+    result: list[AttendanceOverviewItem] = []
+    zone = ZoneInfo(context.timezone)
+    for staff_id, staff_name in staff_rows:
+        assignment = assignments.get(staff_id)
+        staff_session = sessions.get(staff_id)
+        shift_start = assignment[1] if assignment else None
+        shift_end = assignment[2] if assignment else None
+        late = (
+            attendance_late_minutes(
+                staff_session.clock_in_at,
+                day,
+                shift_start,
+                context.timezone,
+                grace_minutes,
+            )
+            if staff_session is not None
+            else 0
+        )
+        shift_ended = bool(
+            shift_end is not None
+            and current >= datetime.combine(day, shift_end, zone).astimezone(UTC)
+        )
+        shift_started = bool(
+            shift_start is not None
+            and current >= datetime.combine(day, shift_start, zone).astimezone(UTC)
+        )
+        status, missed = attendance_category(
+            has_open_session=staff_session is not None and staff_session.clock_out_at is None,
+            has_closed_session=staff_session is not None and staff_session.clock_out_at is not None,
+            late_minutes=late,
+            has_shift=assignment is not None,
+            shift_started=shift_started,
+            on_approved_leave=staff_id in leave_staff_ids,
+            shift_ended=shift_ended,
+        )
+        finished = (staff_session.clock_out_at or current) if staff_session is not None else current
+        worked = (
+            max(0, int((finished - staff_session.clock_in_at).total_seconds() // 60))
+            if staff_session is not None
+            else 0
+        )
+        result.append(
+            AttendanceOverviewItem(
+                staff_id=staff_id,
+                staff_name=staff_name,
+                status=status,
+                shift_name=assignment[0] if assignment else None,
+                shift_start=shift_start,
+                shift_end=shift_end,
+                clock_in_at=staff_session.clock_in_at if staff_session else None,
+                clock_out_at=staff_session.clock_out_at if staff_session else None,
+                worked_minutes=worked,
+                late_minutes=late,
+                missed_shift=missed,
+            )
+        )
+    return result
+
+
 async def _attendance_view(
     session: AsyncSession,
     context: StaffContext,
@@ -506,9 +679,7 @@ async def _attendance_view(
     if staff_name is None:
         staff_name = (
             await session.scalar(
-                select(StaffProfile.display_name).where(
-                    StaffProfile.id == item.staff_profile_id
-                )
+                select(StaffProfile.display_name).where(StaffProfile.id == item.staff_profile_id)
             )
         ) or "Staff"
     local_day = item.clock_in_at.astimezone(ZoneInfo(context.timezone)).date()
@@ -556,6 +727,14 @@ async def _attendance_view(
 async def create_shift(
     session: AsyncSession, context: StaffContext, request: ShiftCreate
 ) -> ShiftView:
+    duplicate = await session.scalar(
+        select(Shift.id).where(
+            Shift.business_id == context.business_id,
+            func.lower(Shift.name) == request.name.strip().lower(),
+        )
+    )
+    if duplicate is not None:
+        raise ConflictError("SHIFT_NAME_TAKEN", "A shift with this name already exists.")
     shift = Shift(
         business_id=context.business_id,
         name=request.name.strip(),
@@ -597,11 +776,13 @@ async def assign_shift(
     request: ShiftAssignmentCreate,
 ) -> ShiftAssignmentView:
     staff = await session.scalar(
-        select(StaffProfile.id).where(
+        select(StaffProfile.id)
+        .where(
             StaffProfile.id == request.staff_id,
             StaffProfile.business_id == context.business_id,
             StaffProfile.is_active.is_(True),
         )
+        .with_for_update()
     )
     shift = (
         await session.scalars(
@@ -620,6 +801,18 @@ async def assign_shift(
         )
     if request.team_id is not None:
         await _owned_team(session, context, request.team_id)
+        membership = await session.scalar(
+            select(TeamMembership.id).where(
+                TeamMembership.resource_id == request.team_id,
+                TeamMembership.staff_profile_id == request.staff_id,
+                TeamMembership.is_active.is_(True),
+            )
+        )
+        if membership is None:
+            raise ConflictError(
+                "STAFF_NOT_ON_TEAM",
+                "Add this employee to the selected team before assigning the shift.",
+            )
     assignment = (
         await session.scalars(
             select(StaffShiftAssignment)
@@ -630,24 +823,23 @@ async def assign_shift(
             .with_for_update()
         )
     ).one_or_none()
-    event = "shift_assigned"
-    if assignment is None:
-        assignment = StaffShiftAssignment(
-            business_id=context.business_id,
-            staff_profile_id=request.staff_id,
-            shift_id=request.shift_id,
-            work_date=request.work_date,
-            resource_id=request.team_id,
-        )
-        session.add(assignment)
-    else:
+    if assignment is not None:
         if assignment.business_id != context.business_id:
             raise DomainError("SHIFT_NOT_FOUND", "Shift assignment not found.", status_code=404)
-        assignment.shift_id = request.shift_id
-        assignment.resource_id = request.team_id
-        event = "shift_changed"
+        raise ConflictError(
+            "SHIFT_ASSIGNMENT_CONFLICT",
+            f"This employee already has a shift assigned on {request.work_date.isoformat()}.",
+        )
+    assignment = StaffShiftAssignment(
+        business_id=context.business_id,
+        staff_profile_id=request.staff_id,
+        shift_id=request.shift_id,
+        work_date=request.work_date,
+        resource_id=request.team_id,
+    )
+    session.add(assignment)
     await session.flush()
-    _audit(session, context, event, "shift_assignment", assignment.id)
+    _audit(session, context, "shift_assigned", "shift_assignment", assignment.id)
     return await _shift_assignment_view(session, assignment)
 
 
@@ -705,9 +897,7 @@ async def _shift_assignment_view(
         )
     ).one()
     staff_name, shift_name, start_time, end_time, team_name = row
-    return _shift_assignment_data(
-        item, staff_name, shift_name, start_time, end_time, team_name
-    )
+    return _shift_assignment_data(item, staff_name, shift_name, start_time, end_time, team_name)
 
 
 def _shift_assignment_data(
@@ -772,9 +962,7 @@ async def list_leave(
     if status:
         statement = statement.where(LeaveRequest.status == status)
     rows = (
-        await session.execute(
-            statement.order_by(LeaveRequest.created_at.desc()).limit(200)
-        )
+        await session.execute(statement.order_by(LeaveRequest.created_at.desc()).limit(200))
     ).all()
     return [_leave_data(item, staff_name) for item, staff_name in rows]
 
@@ -894,13 +1082,10 @@ async def operations_dashboard(
         )
     ).one()
     jobs, completed, unassigned, en_route, washing, booked, collected, currency = financial
-    clocked_in = await session.scalar(
-        select(func.count(AttendanceSession.id)).where(
-            AttendanceSession.business_id == context.business_id,
-            AttendanceSession.clock_in_at < end,
-            or_(AttendanceSession.clock_out_at.is_(None), AttendanceSession.clock_out_at >= start),
-        )
-    )
+    attendance_snapshot = await attendance_overview(session, context, day=day)
+    clocked_in = sum(item.status in {"working", "late"} for item in attendance_snapshot)
+    late_staff = sum(item.status == "late" for item in attendance_snapshot)
+    missed_staff = sum(item.missed_shift for item in attendance_snapshot)
     pending_leave = await session.scalar(
         select(func.count(LeaveRequest.id)).where(
             LeaveRequest.business_id == context.business_id,
@@ -920,14 +1105,14 @@ async def operations_dashboard(
         ("unassigned_jobs", unassigned, "unassigned jobs"),
         ("leave_requests", pending_leave, "pending leave requests"),
         ("cancellations", cancellations, "cancellation requests"),
+        ("late_staff", late_staff, "employees late"),
+        ("missed_shifts", missed_staff, "missed shifts"),
     ):
         if count:
             attention.append(AttentionItem(kind=kind, count=count, label=label))
     all_jobs = await list_jobs(session, context, day=day, scope="all", limit=100)
     active = [
-        job
-        for job in all_jobs.jobs
-        if job.status in {JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS}
+        job for job in all_jobs.jobs if job.status in {JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS}
     ]
     metrics = [
         DashboardMetric(key="collected", label="Collected", value=collected),
@@ -953,6 +1138,12 @@ async def report_v2(
     start_date: date,
     end_date: date,
 ) -> ReportV2:
+    if end_date < start_date or (end_date - start_date).days > 366:
+        raise DomainError(
+            "INVALID_REPORT_RANGE",
+            "Choose a report range of up to 366 days.",
+            status_code=422,
+        )
     summary = await report_summary(session, context, start_date, end_date)
     start, _ = _day_bounds(start_date, context.timezone)
     _, end = _day_bounds(end_date, context.timezone)
@@ -1026,9 +1217,9 @@ async def report_v2(
             Job.assigned_staff_id.label("staff_id"),
             func.count(Job.id).filter(Job.status == JobStatus.COMPLETED).label("completed"),
             func.coalesce(
-                func.avg(
-                    func.extract("epoch", Job.completed_at - Job.started_at) / 60.0
-                ).filter(Job.status == JobStatus.COMPLETED),
+                func.avg(func.extract("epoch", Job.completed_at - Job.started_at) / 60.0).filter(
+                    Job.status == JobStatus.COMPLETED
+                ),
                 0,
             ).label("average_minutes"),
             func.coalesce(func.sum(Booking.total_amount_minor), 0).label("handled"),
@@ -1062,6 +1253,44 @@ async def report_v2(
             .order_by(StaffProfile.display_name)
         )
     ).all()
+    late_rows = (
+        await session.execute(
+            select(
+                AttendanceSession.staff_profile_id,
+                AttendanceSession.clock_in_at,
+                StaffShiftAssignment.work_date,
+                Shift.start_time,
+            )
+            .join(
+                StaffShiftAssignment,
+                (StaffShiftAssignment.staff_profile_id == AttendanceSession.staff_profile_id)
+                & (
+                    StaffShiftAssignment.work_date
+                    == func.date(func.timezone(context.timezone, AttendanceSession.clock_in_at))
+                ),
+            )
+            .join(Shift, Shift.id == StaffShiftAssignment.shift_id)
+            .where(
+                AttendanceSession.business_id == context.business_id,
+                AttendanceSession.clock_in_at >= start,
+                AttendanceSession.clock_in_at < end,
+            )
+        )
+    ).all()
+    grace_minutes = (
+        await session.scalar(
+            select(BusinessSettings.attendance_grace_minutes).where(
+                BusinessSettings.business_id == context.business_id
+            )
+        )
+    ) or 0
+    late_by_staff: dict[uuid.UUID, int] = {}
+    for staff_id, clock_in_at, work_date, shift_start in late_rows:
+        if attendance_late_minutes(
+            clock_in_at, work_date, shift_start, context.timezone, grace_minutes
+        ):
+            late_by_staff[staff_id] = late_by_staff.get(staff_id, 0) + 1
+
     performance = []
     for staff_id, name, hours, completed, average_minutes, handled in performance_rows:
         worked = float(hours)
@@ -1070,11 +1299,137 @@ async def report_v2(
                 id=staff_id,
                 name=name,
                 hours_worked=round(worked, 2),
-                late_arrivals=0,
+                late_arrivals=late_by_staff.get(staff_id, 0),
                 jobs_completed=completed,
                 average_wash_minutes=int(average_minutes),
                 jobs_per_worked_hour=round(completed / worked, 2) if worked else 0,
                 job_value_handled_minor=handled,
             )
         )
-    return ReportV2(summary=summary, series=series, staff_performance=performance)
+    service_rows = (
+        await session.execute(
+            select(
+                BookingService.service_id,
+                BookingService.service_name,
+                func.count(BookingService.id),
+                func.coalesce(func.sum(BookingService.line_total_minor), 0),
+            )
+            .join(Booking, Booking.id == BookingService.booking_id)
+            .where(
+                Booking.business_id == context.business_id,
+                Booking.scheduled_start >= start,
+                Booking.scheduled_start < end,
+                Booking.status != BookingStatus.CANCELLED,
+            )
+            .group_by(BookingService.service_id, BookingService.service_name)
+            .order_by(func.count(BookingService.id).desc())
+        )
+    ).all()
+    service_total = sum(int(count) for _key, _label, count, _amount in service_rows)
+    service_mix = [
+        MixRow(
+            key=str(key),
+            label=label,
+            count=count,
+            amount_minor=amount,
+            percentage=round(count * 100 / service_total, 1) if service_total else 0,
+        )
+        for key, label, count, amount in service_rows
+    ]
+
+    payment_rows = (
+        await session.execute(
+            select(
+                Payment.method,
+                func.count(Payment.id),
+                func.coalesce(func.sum(Payment.amount_minor), 0),
+            )
+            .join(Booking, Booking.id == Payment.booking_id)
+            .where(
+                Booking.business_id == context.business_id,
+                Booking.scheduled_start >= start,
+                Booking.scheduled_start < end,
+                Payment.status == PaymentStatus.PAID,
+                Payment.method.is_not(None),
+            )
+            .group_by(Payment.method)
+            .order_by(func.sum(Payment.amount_minor).desc())
+        )
+    ).all()
+    payment_total = sum(int(amount) for _method, _count, amount in payment_rows)
+    payment_mix = [
+        MixRow(
+            key=method,
+            label=method.replace("_", " ").title(),
+            count=count,
+            amount_minor=amount,
+            percentage=round(amount * 100 / payment_total, 1) if payment_total else 0,
+        )
+        for method, count, amount in payment_rows
+        if method is not None
+    ]
+
+    active_day = func.date(func.timezone(context.timezone, Job.scheduled_start))
+    team_rows = (
+        await session.execute(
+            select(
+                ScheduleResource.id,
+                ScheduleResource.name,
+                func.count(Job.id).filter(Job.status == JobStatus.COMPLETED),
+                func.coalesce(
+                    func.avg(
+                        func.extract("epoch", Job.completed_at - Job.started_at) / 60.0
+                    ).filter(Job.status == JobStatus.COMPLETED),
+                    0,
+                ),
+                func.coalesce(
+                    func.avg(
+                        func.extract("epoch", Job.completed_at - Job.scheduled_start) / 60.0
+                    ).filter(Job.status == JobStatus.COMPLETED),
+                    0,
+                ),
+                func.coalesce(
+                    func.sum(Booking.total_amount_minor).filter(Job.status == JobStatus.COMPLETED),
+                    0,
+                ),
+                func.count(distinct(active_day)),
+            )
+            .join(Job, Job.assigned_resource_id == ScheduleResource.id)
+            .join(Booking, Booking.id == Job.booking_id)
+            .where(
+                ScheduleResource.business_id == context.business_id,
+                Job.scheduled_start >= start,
+                Job.scheduled_start < end,
+            )
+            .group_by(ScheduleResource.id, ScheduleResource.name)
+            .order_by(func.count(Job.id).filter(Job.status == JobStatus.COMPLETED).desc())
+        )
+    ).all()
+    team_performance = [
+        TeamPerformanceRow(
+            id=team_id,
+            name=name,
+            completed_jobs=completed,
+            average_wash_minutes=int(average_wash),
+            average_operational_minutes=int(average_operational),
+            job_value_handled_minor=handled,
+            jobs_per_active_day=round(completed / active_days, 2) if active_days else 0,
+        )
+        for (
+            team_id,
+            name,
+            completed,
+            average_wash,
+            average_operational,
+            handled,
+            active_days,
+        ) in team_rows
+    ]
+    return ReportV2(
+        summary=summary,
+        series=series,
+        staff_performance=performance,
+        service_mix=service_mix,
+        payment_mix=payment_mix,
+        team_performance=team_performance,
+    )

@@ -1,6 +1,7 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, cast
+from zoneinfo import ZoneInfo
 
 import httpx
 import structlog
@@ -19,6 +20,7 @@ from app.schemas.staff import (
     AssignmentAction,
     AttendanceAction,
     AttendanceList,
+    AttendanceOverviewItem,
     AttendanceRecord,
     CancellationItem,
     CancellationReview,
@@ -71,6 +73,7 @@ from app.services.staff_operations import (
 )
 from app.services.workforce import (
     assign_shift,
+    attendance_overview,
     clock_in,
     clock_out,
     create_leave,
@@ -195,9 +198,7 @@ async def team_create(
 
 
 @router.get("/teams/{team_id}", response_model=TeamDetail)
-async def team_get(
-    team_id: uuid.UUID, session: SessionDep, context: StaffDep
-) -> TeamDetail:
+async def team_get(team_id: uuid.UUID, session: SessionDep, context: StaffDep) -> TeamDetail:
     return await get_team(session, context, team_id)
 
 
@@ -244,6 +245,16 @@ async def attendance(
     )
 
 
+@router.get("/attendance/overview", response_model=list[AttendanceOverviewItem])
+async def attendance_status_overview(
+    session: SessionDep,
+    context: StaffDep,
+    day: date | None = None,
+) -> list[AttendanceOverviewItem]:
+    target = day or datetime.now(ZoneInfo(context.timezone)).date()
+    return await attendance_overview(session, context, day=target)
+
+
 @router.post("/attendance/clock-in", response_model=AttendanceRecord)
 async def attendance_clock_in(
     payload: AttendanceAction, session: SessionDep, context: StaffDep
@@ -280,9 +291,7 @@ async def shift_assignments(
     session: SessionDep,
     context: StaffDep,
 ) -> list[ShiftAssignmentView]:
-    return await list_shift_assignments(
-        session, context, start_date=start_date, end_date=end_date
-    )
+    return await list_shift_assignments(session, context, start_date=start_date, end_date=end_date)
 
 
 @router.put("/shift-assignments", response_model=ShiftAssignmentView)
@@ -303,9 +312,7 @@ async def leave(
 
 
 @router.post("/leave", response_model=LeaveView, status_code=201)
-async def leave_create(
-    payload: LeaveCreate, session: SessionDep, context: StaffDep
-) -> LeaveView:
+async def leave_create(payload: LeaveCreate, session: SessionDep, context: StaffDep) -> LeaveView:
     async with session.begin():
         return await create_leave(session, context, payload)
 
@@ -327,7 +334,7 @@ async def dashboard(
     context: ManagerContext,
     day: date | None = None,
 ) -> OperationsDashboard:
-    target = day or date.today()
+    target = day or datetime.now(ZoneInfo(context.timezone)).date()
     return await operations_dashboard(session, context, day=target)
 
 
@@ -351,13 +358,33 @@ async def jobs(
     session: SessionDep,
     context: Annotated[StaffContext, Depends(staff_context)],
     day: Annotated[date | None, Query(alias="date")] = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    view: Annotated[str | None, Query(pattern="^(today|upcoming|history|unassigned|all)$")] = None,
     status: str | None = None,
     scope: Annotated[str, Query(pattern="^(my|all)$")] = "my",
+    team_id: uuid.UUID | None = None,
+    employee_id: uuid.UUID | None = None,
+    payment_method: str | None = None,
+    service_id: uuid.UUID | None = None,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
 ) -> StaffJobList:
     return await list_jobs(
-        session, context, day=day, status=status, scope=scope, offset=offset, limit=limit
+        session,
+        context,
+        day=day,
+        start_date=start_date,
+        end_date=end_date,
+        view=view,
+        status=status,
+        scope=scope,
+        team_id=team_id,
+        staff_id=employee_id,
+        payment_method=payment_method,
+        service_id=service_id,
+        offset=offset,
+        limit=limit,
     )
 
 

@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime, time
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -16,6 +17,14 @@ class StaffVehicle(BaseModel):
     notes: str | None
     service_name: str
     amount_minor: int
+
+
+class JobTimelineEvent(BaseModel):
+    id: uuid.UUID
+    occurred_at: datetime
+    event: str
+    actor: str | None
+    detail: str | None = None
 
 
 class StaffJob(BaseModel):
@@ -45,6 +54,7 @@ class StaffJob(BaseModel):
     total_amount_minor: int
     currency_code: str
     vehicles: list[StaffVehicle]
+    timeline: list[JobTimelineEvent] = Field(default_factory=list)
 
 
 class StaffJobList(BaseModel):
@@ -208,6 +218,28 @@ class AttendanceList(BaseModel):
     next_offset: int | None
 
 
+class AttendanceOverviewItem(BaseModel):
+    staff_id: uuid.UUID
+    staff_name: str
+    status: Literal[
+        "scheduled",
+        "working",
+        "late",
+        "clocked_out",
+        "not_clocked_in",
+        "off_today",
+        "approved_leave",
+    ]
+    shift_name: str | None = None
+    shift_start: time | None = None
+    shift_end: time | None = None
+    clock_in_at: datetime | None = None
+    clock_out_at: datetime | None = None
+    worked_minutes: int = 0
+    late_minutes: int = 0
+    missed_shift: bool = False
+
+
 class ShiftCreate(StrictRequest):
     name: str = Field(min_length=2, max_length=100)
     start_time: time
@@ -317,7 +349,28 @@ class PerformanceRow(BaseModel):
     job_value_handled_minor: int
 
 
+class MixRow(BaseModel):
+    key: str
+    label: str
+    count: int
+    amount_minor: int
+    percentage: float
+
+
+class TeamPerformanceRow(BaseModel):
+    id: uuid.UUID
+    name: str
+    completed_jobs: int
+    average_wash_minutes: int
+    average_operational_minutes: int
+    job_value_handled_minor: int
+    jobs_per_active_day: float
+
+
 class ReportV2(BaseModel):
     summary: ReportSummary
     series: list[ReportPoint]
     staff_performance: list[PerformanceRow]
+    service_mix: list[MixRow] = Field(default_factory=list)
+    payment_mix: list[MixRow] = Field(default_factory=list)
+    team_performance: list[TeamPerformanceRow] = Field(default_factory=list)

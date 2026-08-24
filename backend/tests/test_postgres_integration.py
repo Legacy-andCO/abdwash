@@ -13,13 +13,14 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.public import router as public_router
-from app.auth.dependencies import optional_identity
+from app.auth.dependencies import StaffContext, optional_identity
 from app.core.config import Settings
 from app.core.database import create_engine, query_count, session_dependency
-from app.domain.enums import SlotStatus
+from app.domain.enums import SlotStatus, StaffRole
 from app.domain.errors import ConflictError, DomainError
 from app.models import Base
 from app.models.entities import (
+    AttendanceSession,
     Booking,
     BookingService,
     Business,
@@ -30,8 +31,10 @@ from app.models.entities import (
     ScheduleSlot,
     Service,
     SlotHoldGroup,
+    StaffProfile,
 )
 from app.schemas.public import BookingCreate, HoldCreate, HoldResponse
+from app.schemas.staff import AttendanceAction, ShiftAssignmentCreate, ShiftCreate
 from app.services.bookings import create_booking
 from app.services.idempotency import (
     canonical_request_hash,
@@ -39,6 +42,7 @@ from app.services.idempotency import (
     store_idempotent_response,
 )
 from app.services.scheduling import create_hold, hold_token_hash
+from app.services.workforce import assign_shift, clock_in, create_shift
 from app.workers.notifications import claim_batch
 
 RAW_TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
@@ -300,6 +304,82 @@ async def test_idempotency_retry_and_conflicting_reuse(
                 key="same-network-request",
                 request_hash=canonical_request_hash({"vehicle_count": 2}),
             )
+
+
+async def _staff_context(factory: async_sessionmaker[AsyncSession], *, suffix: str) -> StaffContext:
+    async with factory() as session, session.begin():
+        business = (await session.scalars(select(Business))).one()
+        profile = StaffProfile(
+            business_id=business.id,
+            auth_user_id=uuid.uuid4(),
+            username=f"integration-{suffix}-{uuid.uuid4().hex[:8]}",
+            display_name=f"Integration {suffix}",
+            role=StaffRole.MANAGER,
+            is_active=True,
+        )
+        session.add(profile)
+        await session.flush()
+        return StaffContext(
+            auth_user_id=profile.auth_user_id,
+            staff_id=profile.id,
+            business_id=business.id,
+            business_name=business.name,
+            role=StaffRole.MANAGER,
+            timezone="Asia/Dubai",
+        )
+
+
+@pytest.mark.asyncio
+async def test_concurrent_clock_in_returns_one_open_session(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    context = await _staff_context(database, suffix="attendance")
+
+    async def attempt() -> uuid.UUID:
+        async with database() as session, session.begin():
+            record = await clock_in(session, context, AttendanceAction())
+            return record.id
+
+    results = await asyncio.gather(attempt(), attempt())
+    assert results[0] == results[1]
+    async with database() as session:
+        open_sessions = list(
+            (
+                await session.scalars(
+                    select(AttendanceSession).where(
+                        AttendanceSession.staff_profile_id == context.staff_id,
+                        AttendanceSession.clock_out_at.is_(None),
+                    )
+                )
+            ).all()
+        )
+    assert len(open_sessions) == 1
+
+
+@pytest.mark.asyncio
+async def test_shift_creation_assignment_and_duplicate_conflict(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    context = await _staff_context(database, suffix="shift")
+    async with database() as session, session.begin():
+        shift = await create_shift(
+            session,
+            context,
+            ShiftCreate(
+                name=f"Morning {uuid.uuid4().hex[:6]}", start_time=time(9), end_time=time(18)
+            ),
+        )
+    request = ShiftAssignmentCreate(
+        staff_id=context.staff_id,
+        shift_id=shift.id,
+        work_date=date(2035, 1, 7),
+    )
+    async with database() as session, session.begin():
+        assigned = await assign_shift(session, context, request)
+    assert assigned.staff_id == context.staff_id
+    with pytest.raises(ConflictError, match="already has a shift"):
+        async with database() as session, session.begin():
+            await assign_shift(session, context, request)
 
 
 @pytest.mark.asyncio

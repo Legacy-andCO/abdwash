@@ -1,5 +1,11 @@
 package com.abdwash.staff
 
+// ABDWASH_IME_IMPORTS
+import android.view.View
+import android.view.WindowManager
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+
 import android.os.Build
 import android.os.Bundle
 
@@ -17,6 +23,8 @@ class MainActivity : ReactActivity() {
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
     super.onCreate(null)
+    // ABDWASH_IME_INSTALL
+    installAbdWashImeInsets()
   }
 
   /**
@@ -57,5 +65,32 @@ class MainActivity : ReactActivity() {
       // Use the default back button implementation on Android S
       // because it's doing more than [Activity.moveTaskToBack] in fact.
       super.invokeDefaultOnBackPressed()
+  }
+
+  // ABDWASH_IME_HANDLER
+  /**
+   * Edge-to-edge windows are not resized reliably by adjustResize on every Android version.
+   * Apply the complete IME obstruction to the activity content root so React Native lays out
+   * against the genuinely usable viewport. Insets continue to descendants for safe-area use.
+   */
+  private fun installAbdWashImeInsets() {
+    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+    val content = findViewById<View>(android.R.id.content)
+    val initialLeft = content.paddingLeft
+    val initialTop = content.paddingTop
+    val initialRight = content.paddingRight
+    val initialBottom = content.paddingBottom
+    ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
+      val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+      val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+      view.setPadding(
+        initialLeft,
+        initialTop,
+        initialRight,
+        initialBottom + if (imeVisible) imeBottom else 0,
+      )
+      insets
+    }
+    ViewCompat.requestApplyInsets(content)
   }
 }

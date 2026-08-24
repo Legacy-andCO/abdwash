@@ -178,6 +178,8 @@ select cron.unschedule('abdwash-notification-dispatch');
 
 The Expo app is independently built and distributed. Only public Supabase/Auth and API base URL configuration may be embedded. Backend/service-role/database credentials must never enter an Expo variable or bundle.
 
+For Operations V2 hardening, upgrade the API database through Alembic revision `a41f3b7820d6`, deploy the API, then create a new Android binary. The checked-in Android project must be regenerated with `npx expo prebuild --platform android --no-install --no-clean` so `withAndroidImeInsets.js` stays synchronized with `MainActivity.kt`. Build with JDK 17 and perform the real-device keyboard matrix in `docs/mobile-operations.md`; an OTA JavaScript update cannot deliver the native IME listener.
+
 For Operations V2, apply Alembic revision `96493956784a`, deploy the API, then run `python -m app.cli.seed_demo_staff` with backend-only `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, and `DEMO_STAFF_PASSWORD`. The demo usernames are `manager` and `employee`; the shared password value is never printed. Rebuild the native app because V2 adds the Expo Haptics module.
 
 ## Release order

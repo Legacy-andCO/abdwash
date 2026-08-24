@@ -22,7 +22,8 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-location"
+      "expo-location",
+      "./plugins/withAndroidImeInsets"
     ],
     "extra": {
       "eas": {

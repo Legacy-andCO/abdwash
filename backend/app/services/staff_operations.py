@@ -40,6 +40,7 @@ from app.schemas.staff import (
     CancellationItem,
     CancellationReview,
     JobAction,
+    JobTimelineEvent,
     ReportSummary,
     StaffJob,
     StaffJobList,
@@ -62,9 +63,15 @@ async def _job_rows(
     *,
     job_id: uuid.UUID | None = None,
     day: date | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    view: str | None = None,
     scope: str = "my",
     status: str | None = None,
     team_id: uuid.UUID | None = None,
+    staff_id: uuid.UUID | None = None,
+    payment_method: str | None = None,
+    service_id: uuid.UUID | None = None,
     offset: int = 0,
     limit: int = 50,
     lock: bool = False,
@@ -86,25 +93,67 @@ async def _job_rows(
                 TeamMembership.is_active.is_(True),
             )
         )
-        statement = statement.where(
-            or_(Job.assigned_staff_id == context.staff_id, team_job)
-        )
+        statement = statement.where(or_(Job.assigned_staff_id == context.staff_id, team_job))
     if day:
         zone = ZoneInfo(context.timezone)
         start = datetime.combine(day, time.min, zone).astimezone(UTC)
         end = start + timedelta(days=1)
         statement = statement.where(Job.scheduled_start >= start, Job.scheduled_start < end)
+    elif start_date or end_date:
+        zone = ZoneInfo(context.timezone)
+        if start_date:
+            start = datetime.combine(start_date, time.min, zone).astimezone(UTC)
+            statement = statement.where(Job.scheduled_start >= start)
+        if end_date:
+            end = datetime.combine(end_date + timedelta(days=1), time.min, zone).astimezone(UTC)
+            statement = statement.where(Job.scheduled_start < end)
+    if view == "upcoming":
+        statement = statement.where(
+            Job.scheduled_start >= datetime.now(UTC),
+            Job.status.not_in([JobStatus.COMPLETED, JobStatus.CANCELLED]),
+        )
+    elif view == "history":
+        statement = statement.where(Job.status.in_([JobStatus.COMPLETED, JobStatus.CANCELLED]))
+    elif view == "unassigned":
+        statement = statement.where(Job.status == JobStatus.UNASSIGNED)
     if status:
         statement = statement.where(Job.status == status)
     if team_id:
         statement = statement.where(Job.assigned_resource_id == team_id)
-    statement = statement.order_by(Job.scheduled_start).offset(offset).limit(limit)
+    if staff_id:
+        statement = statement.where(Job.assigned_staff_id == staff_id)
+    if payment_method:
+        statement = statement.where(Payment.method == payment_method)
+    if service_id:
+        statement = statement.where(
+            exists(
+                select(BookingService.id).where(
+                    BookingService.booking_id == Booking.id,
+                    BookingService.service_id == service_id,
+                )
+            )
+        )
+    ordering = Job.scheduled_start.desc() if view == "history" else Job.scheduled_start
+    statement = statement.order_by(ordering).offset(offset).limit(limit)
     if lock:
         statement = statement.with_for_update(of=Job)
     return (await session.execute(statement)).all()
 
 
-async def _serialize_jobs(session: AsyncSession, rows: Any) -> list[StaffJob]:
+_EVENT_LABELS = {
+    "job_assigned": "Assigned",
+    "job_reassigned": "Assignment changed",
+    "trip_started": "Trip started",
+    "job_started": "Wash started",
+    "job_completed": "Wash completed",
+    "cash_payment_recorded": "Cash payment recorded",
+    "booking_rescheduled_by_staff": "Appointment rescheduled",
+}
+
+
+async def _serialize_jobs(
+    session: AsyncSession, rows: Any, *, include_timeline: bool = False
+) -> list[StaffJob]:
     booking_ids = [booking.id for _job, booking, _payment, _name in rows]
     resource_ids = {
         job.assigned_resource_id
@@ -148,6 +197,32 @@ async def _serialize_jobs(session: AsyncSession, rows: Any) -> list[StaffJob]:
                 amount_minor=service.line_total_minor,
             )
         )
+    timeline_by_job: dict[uuid.UUID, list[JobTimelineEvent]] = {}
+    if include_timeline and rows:
+        job_ids = [job.id for job, _booking, _payment, _name in rows]
+        event_rows = (
+            await session.execute(
+                select(JobEvent, StaffProfile.display_name)
+                .outerjoin(StaffProfile, StaffProfile.id == JobEvent.actor_staff_id)
+                .where(JobEvent.job_id.in_(job_ids))
+                .order_by(JobEvent.server_timestamp.desc())
+                .limit(500)
+            )
+        ).all()
+        for event, actor in event_rows:
+            amount = event.metadata_json.get("amount_minor")
+            detail = f"Amount recorded: {int(amount) / 100:.2f}" if amount is not None else None
+            timeline_by_job.setdefault(event.job_id, []).append(
+                JobTimelineEvent(
+                    id=event.id,
+                    occurred_at=event.server_timestamp,
+                    event=_EVENT_LABELS.get(
+                        event.event_type, event.event_type.replace("_", " ").title()
+                    ),
+                    actor=actor,
+                    detail=detail,
+                )
+            )
     return [
         StaffJob(
             id=job.id,
@@ -176,6 +251,7 @@ async def _serialize_jobs(session: AsyncSession, rows: Any) -> list[StaffJob]:
             total_amount_minor=booking.total_amount_minor,
             currency_code=booking.currency_code,
             vehicles=by_booking.get(booking.id, []),
+            timeline=timeline_by_job.get(job.id, []),
         )
         for job, booking, payment, name in rows
     ]
@@ -198,7 +274,7 @@ async def get_job(session: AsyncSession, context: StaffContext, job_id: uuid.UUI
     )
     if not rows:
         raise DomainError("JOB_NOT_FOUND", "Job not found.", status_code=404)
-    return (await _serialize_jobs(session, rows))[0]
+    return (await _serialize_jobs(session, rows, include_timeline=True))[0]
 
 
 async def _locked_job(session: AsyncSession, context: StaffContext, job_id: uuid.UUID) -> Any:
@@ -377,9 +453,7 @@ async def assign_job(
             )
         ).one_or_none()
         if staff is None:
-            raise DomainError(
-                "STAFF_NOT_FOUND", "Active staff member not found.", status_code=404
-            )
+            raise DomainError("STAFF_NOT_FOUND", "Active staff member not found.", status_code=404)
     team = None
     if request.team_id is not None:
         team = (

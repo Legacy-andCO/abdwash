@@ -193,6 +193,12 @@ class TeamMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="uq_team_membership_resource_staff",
         ),
         Index("ix_team_memberships_staff_active", "staff_profile_id", "is_active"),
+        Index(
+            "ix_team_memberships_resource_active_staff",
+            "resource_id",
+            "is_active",
+            "staff_profile_id",
+        ),
     )
 
 
@@ -213,6 +219,7 @@ class AttendanceSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="attendance_chronological",
         ),
         Index("ix_attendance_business_clock_in", "business_id", "clock_in_at"),
+        Index("ix_attendance_staff_clock_in", "staff_profile_id", "clock_in_at"),
         Index(
             "uq_attendance_open_staff",
             "staff_profile_id",
@@ -265,9 +272,7 @@ class LeaveRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     end_date: Mapped[date] = mapped_column(nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=LeaveStatus.PENDING)
-    reviewed_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("staff_profiles.id")
-    )
+    reviewed_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     review_note: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (
@@ -416,7 +421,10 @@ class BookingService(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     unit_price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     line_total_minor: Mapped[int] = mapped_column(Integer, nullable=False)
-    __table_args__ = (CheckConstraint("quantity > 0", name="positive_booking_service_quantity"),)
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="positive_booking_service_quantity"),
+        Index("ix_booking_services_booking_service", "booking_id", "service_id"),
+    )
 
 
 class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -447,6 +455,12 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_jobs_staff_status_schedule", "assigned_staff_id", "status", "scheduled_start"),
         Index("ix_jobs_business_status", "business_id", "status"),
+        Index(
+            "ix_jobs_business_schedule_status",
+            "business_id",
+            "scheduled_start",
+            "status",
+        ),
         Index("ix_jobs_resource_schedule", "assigned_resource_id", "scheduled_start"),
     )
 
@@ -494,6 +508,13 @@ class Payment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         CheckConstraint("amount_minor >= 0", name="nonnegative_payment_amount"),
         Index("ix_payments_booking", "booking_id"),
+        Index(
+            "ix_payments_paid_method_date",
+            "status",
+            "method",
+            "paid_at",
+            postgresql_where=text("status = 'paid'"),
+        ),
         Index("ix_payments_provider_id", "provider", "provider_payment_id"),
     )
 
