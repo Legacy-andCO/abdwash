@@ -42,9 +42,7 @@ class CustomerScope:
     profile: CustomerProfile | None
 
 
-async def load_customer_scope(
-    session: AsyncSession, identity: VerifiedIdentity
-) -> CustomerScope:
+async def load_customer_scope(session: AsyncSession, identity: VerifiedIdentity) -> CustomerScope:
     configuration = await load_default_business(session)
     profile = (
         await session.scalars(
@@ -66,9 +64,7 @@ async def customer_context(
         return CustomerContextResponse(profile=None, booking_count=0)
     booking_count = (
         await session.scalar(
-            select(func.count(Booking.id)).where(
-                Booking.customer_profile_id == scope.profile.id
-            )
+            select(func.count(Booking.id)).where(Booking.customer_profile_id == scope.profile.id)
         )
     ) or 0
     return CustomerContextResponse(
@@ -103,7 +99,7 @@ def map_customer_status(booking_status: str, job_status: str | None) -> Customer
         return CustomerBookingStatus(
             key="in_progress", label="Wash in progress", stage=3, job_status=job_status
         )
-    if job_status == "en_route":
+    if job_status == JobStatus.EN_ROUTE:
         return CustomerBookingStatus(
             key="en_route", label="Driver on the way", stage=2, job_status=job_status
         )
@@ -130,7 +126,7 @@ def _action_eligibility(
         JobStatus.IN_PROGRESS,
         JobStatus.COMPLETED,
         JobStatus.CANCELLED,
-        "en_route",
+        JobStatus.EN_ROUTE,
     }
     return eligible, reschedule
 
@@ -142,6 +138,7 @@ def _summary(
     cancellation_eligible: bool,
     reschedule_eligible: bool,
     vehicles: list[BookingVehicleSummary],
+    estimated_arrival_at: datetime | None = None,
 ) -> CustomerBookingSummary:
     if booking.status == BookingStatus.CANCELLED:
         category = "cancelled"
@@ -164,6 +161,7 @@ def _summary(
         created_at=booking.created_at,
         cancellation_eligible=cancellation_eligible,
         reschedule_eligible=reschedule_eligible,
+        estimated_arrival_at=estimated_arrival_at,
         category=category,
     )
 
@@ -181,7 +179,7 @@ async def list_customer_bookings(
     ).one()
     rows = (
         await session.execute(
-            select(Booking, Job.status)
+            select(Booking, Job.status, Job.estimated_arrival_at)
             .outerjoin(Job, Job.booking_id == Booking.id)
             .where(Booking.customer_profile_id == scope.profile.id)
             .order_by(
@@ -204,13 +202,17 @@ async def list_customer_bookings(
     ).all()
     booking_ids = [booking.id for booking, _job_status in rows]
     vehicle_rows = (
-        await session.execute(
-            select(BookingVehicle, BookingService)
-            .join(BookingService, BookingService.booking_vehicle_id == BookingVehicle.id)
-            .where(BookingVehicle.booking_id.in_(booking_ids))
-            .order_by(BookingVehicle.booking_id, BookingVehicle.position)
-        )
-    ).all() if booking_ids else []
+        (
+            await session.execute(
+                select(BookingVehicle, BookingService)
+                .join(BookingService, BookingService.booking_vehicle_id == BookingVehicle.id)
+                .where(BookingVehicle.booking_id.in_(booking_ids))
+                .order_by(BookingVehicle.booking_id, BookingVehicle.position)
+            )
+        ).all()
+        if booking_ids
+        else []
+    )
     vehicles_by_booking: dict[uuid.UUID, list[BookingVehicleSummary]] = {}
     for vehicle, service in vehicle_rows:
         vehicles_by_booking.setdefault(vehicle.booking_id, []).append(
@@ -226,7 +228,7 @@ async def list_customer_bookings(
             )
         )
     bookings = []
-    for booking, job_status in rows:
+    for booking, job_status, estimated_arrival_at in rows:
         cancellation_eligible, reschedule_eligible = _action_eligibility(
             booking, settings, job_status
         )
@@ -237,6 +239,7 @@ async def list_customer_bookings(
                 cancellation_eligible=cancellation_eligible,
                 reschedule_eligible=reschedule_eligible,
                 vehicles=vehicles_by_booking.get(booking.id, []),
+                estimated_arrival_at=estimated_arrival_at,
             )
         )
     return CustomerBookingListResponse(bookings=bookings)
@@ -286,9 +289,12 @@ async def customer_booking_detail_for_record(
             .order_by(BookingVehicle.position)
         )
     ).all()
-    job_status = (
-        await session.scalars(select(Job.status).where(Job.booking_id == booking.id))
+    job_row = (
+        await session.execute(
+            select(Job.status, Job.estimated_arrival_at).where(Job.booking_id == booking.id)
+        )
     ).one_or_none()
+    job_status = job_row[0] if job_row else None
     settings = (
         await session.scalars(
             select(BusinessSettings).where(BusinessSettings.business_id == booking.business_id)
@@ -302,9 +308,7 @@ async def customer_booking_detail_for_record(
             .limit(1)
         )
     ).one_or_none()
-    cancellation_eligible, reschedule_eligible = _action_eligibility(
-        booking, settings, job_status
-    )
+    cancellation_eligible, reschedule_eligible = _action_eligibility(booking, settings, job_status)
     summary = _summary(
         booking,
         job_status,
@@ -323,6 +327,7 @@ async def customer_booking_detail_for_record(
             )
             for vehicle, service in vehicle_rows
         ],
+        estimated_arrival_at=job_row[1] if job_row else None,
     )
     return CustomerBookingDetail(
         **summary.model_dump(),
@@ -354,9 +359,7 @@ async def reschedule_customer_booking(
     job = (
         await session.scalars(select(Job).where(Job.booking_id == booking.id).with_for_update())
     ).one()
-    _cancellation_eligible, reschedule_eligible = _action_eligibility(
-        booking, settings, job.status
-    )
+    _cancellation_eligible, reschedule_eligible = _action_eligibility(booking, settings, job.status)
     if not reschedule_eligible:
         raise ConflictError(
             "RESCHEDULE_NOT_AVAILABLE", "This booking can no longer be rescheduled online."

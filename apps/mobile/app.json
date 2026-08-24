@@ -5,7 +5,17 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": true },
-    "android": { "package": "com.abdwash.staff" }
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": { "NSLocationWhenInUseUsageDescription": "AbdWash uses your location once when starting a trip to calculate the customer's arrival estimate." }
+    },
+    "android": {
+      "package": "com.abdwash.staff",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-location"
+    ]
   }
 }

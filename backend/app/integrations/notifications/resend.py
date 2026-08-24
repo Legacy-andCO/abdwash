@@ -43,6 +43,8 @@ class ResendNotificationProvider:
 def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, str]:
     if notification_type == "booking_confirmed":
         return render_booking_confirmation(payload)
+    if notification_type == "driver_en_route":
+        return render_driver_en_route(payload)
     if notification_type == "cancellation_requested":
         reference = escape(str(payload["booking_reference"]))
         return (
@@ -55,6 +57,43 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
             ),
         )
     raise ValueError(f"Unsupported notification type {notification_type!r}")
+
+
+def render_driver_en_route(payload: dict[str, Any]) -> tuple[str, str]:
+    reference = escape(str(payload["booking_reference"]))
+    first_name = escape(str(payload["customer_first_name"]))
+    timezone = ZoneInfo(str(payload["timezone"]))
+    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
+    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(timezone)
+    eta_value = payload.get("estimated_arrival_at")
+    eta = datetime.fromisoformat(str(eta_value)).astimezone(timezone) if eta_value else None
+    manage_url = escape(str(payload["management_url"]), quote=True)
+    vehicles = payload.get("vehicles", [])
+    vehicle = vehicles[0] if isinstance(vehicles, list) and vehicles else None
+    vehicle_detail = (
+        _detail(
+            "Vehicle",
+            f"{escape(str(vehicle['make']))} {escape(str(vehicle['model']))}",
+        )
+        if vehicle
+        else ""
+    )
+    manage_button = (
+        f'<p style="margin:30px 0"><a href="{manage_url}" '
+        'style="background:#0b6b5f;color:#fff;text-decoration:none;padding:13px 22px;'
+        'border-radius:8px;display:inline-block;font-weight:700">View booking</a></p>'
+    )
+    content = f"""
+      <p style="margin:0 0 24px">Hi {first_name},</p>
+      <p style="margin:0 0 24px">Your AbdWash team has started heading to your location.</p>
+      {(_detail("Estimated arrival", eta.strftime("%H:%M")) if eta else "")}
+      {_detail("Appointment", f"{start:%H:%M}–{end:%H:%M}")}
+      {vehicle_detail}
+      {manage_button}
+    """
+    return f"Your AbdWash team is on the way — {reference}", _email_shell(
+        "Your AbdWash team is on the way", content
+    )
 
 
 def render_booking_confirmation(payload: dict[str, Any]) -> tuple[str, str]:

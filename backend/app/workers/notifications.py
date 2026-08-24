@@ -119,7 +119,7 @@ async def delivery_payload(
     public_web_url: str | None,
 ) -> dict[str, object]:
     payload: dict[str, object] = dict(record.payload)
-    if record.notification_type != "booking_confirmed":
+    if record.notification_type not in {"booking_confirmed", "driver_en_route"}:
         return payload
     if record.booking_id is None or not public_web_url:
         raise RuntimeError("Booking email delivery configuration is incomplete")
@@ -171,9 +171,7 @@ def mark_delivery_succeeded(record: NotificationOutbox, *, now: datetime) -> Non
     record.last_error = None
 
 
-def mark_delivery_failed(
-    record: NotificationOutbox, exc: Exception, *, now: datetime
-) -> None:
+def mark_delivery_failed(record: NotificationOutbox, exc: Exception, *, now: datetime) -> None:
     record.attempt_count += 1
     record.last_error = f"{type(exc).__name__}: {str(exc)[:300]}"
     record.locked_at = None

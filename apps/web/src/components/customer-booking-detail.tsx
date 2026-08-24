@@ -112,6 +112,7 @@ export function CustomerBookingDetail({ bookingId }: { bookingId: string }) {
     <section className="customer-detail-card">
       <header className="customer-detail-heading"><div><p className="eyebrow"><span /> Booking</p><h1>{booking.reference}</h1></div><CustomerStatus status={booking.status} compact /></header>
       <CustomerStatus status={booking.status} />
+      {booking.estimated_arrival_at && <div className="inline-notice"><strong>Estimated arrival</strong><span>{new Intl.DateTimeFormat("en-AE", { hour: "numeric", minute: "2-digit", timeZone: booking.timezone }).format(new Date(booking.estimated_arrival_at))}</span></div>}
       {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="customer-detail-grid">
         <div><span>Date & time</span><strong>{formatSchedule(booking.scheduled_start, booking.scheduled_end, booking.timezone)}</strong></div>

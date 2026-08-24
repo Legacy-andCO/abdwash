@@ -317,13 +317,15 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     scheduled_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     scheduled_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    en_route_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    estimated_arrival_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default=text("1")
     )
     __table_args__ = (
         CheckConstraint(
-            "status IN ('unassigned','assigned','in_progress','completed','cancelled')",
+            "status IN ('unassigned','assigned','en_route','in_progress','completed','cancelled')",
             name="job_status",
         ),
         Index("ix_jobs_staff_status_schedule", "assigned_staff_id", "status", "scheduled_start"),

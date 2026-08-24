@@ -11,7 +11,8 @@ from app.domain.state_machines import (
 
 
 def test_valid_job_transition() -> None:
-    validate_transition(JobStatus.ASSIGNED, JobStatus.IN_PROGRESS, JOB_TRANSITIONS)
+    validate_transition(JobStatus.ASSIGNED, JobStatus.EN_ROUTE, JOB_TRANSITIONS)
+    validate_transition(JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS, JOB_TRANSITIONS)
 
 
 def test_completed_job_cannot_restart() -> None:

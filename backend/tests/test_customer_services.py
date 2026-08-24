@@ -38,6 +38,7 @@ def scalar_result(*, one: object | None = None, all_items: list[object] | None =
 def test_customer_status_mapping_tracks_operational_job_state() -> None:
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.UNASSIGNED).key == "confirmed"
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.ASSIGNED).key == "assigned"
+    assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.EN_ROUTE).key == "en_route"
     assert map_customer_status(BookingStatus.CONFIRMED, "en_route").key == "en_route"
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.IN_PROGRESS).key == "in_progress"
     assert map_customer_status(BookingStatus.COMPLETED, JobStatus.COMPLETED).key == "completed"
@@ -238,14 +239,15 @@ async def test_reschedule_atomically_swaps_slots_and_updates_job() -> None:
             scalar_result(one=job),
             scalar_result(one=hold),
             scalar_result(all_items=[old_slot, new_slot]),
-            scalar_result(one=job.status),
-            scalar_result(one=settings),
-            scalar_result(one=None),
+                scalar_result(one=settings),
+                scalar_result(one=None),
         ]
     )
     vehicle_rows = MagicMock()
     vehicle_rows.all.return_value = [(vehicle, service)]
-    session.execute = AsyncMock(return_value=vehicle_rows)
+    job_status_row = MagicMock()
+    job_status_row.one_or_none.return_value = (job.status, None)
+    session.execute = AsyncMock(side_effect=[vehicle_rows, job_status_row])
     session.flush = AsyncMock()
 
     response = await reschedule_customer_booking(

@@ -49,9 +49,7 @@ from app.services.idempotency import (
 
 router = APIRouter(prefix="/api/v1/customer", tags=["customer"])
 IdentityDep = Annotated[VerifiedIdentity, Depends(required_identity)]
-IdempotencyKey = Annotated[
-    str, Header(alias="Idempotency-Key", min_length=8, max_length=255)
-]
+IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=255)]
 
 
 @router.get("/context", response_model=CustomerContextResponse)
@@ -73,9 +71,7 @@ async def profile_update(
 
 
 @router.get("/addresses", response_model=list[CustomerAddressResponse])
-async def addresses(
-    session: SessionDep, identity: IdentityDep
-) -> list[CustomerAddressResponse]:
+async def addresses(session: SessionDep, identity: IdentityDep) -> list[CustomerAddressResponse]:
     return await list_customer_addresses(session, identity)
 
 
@@ -108,9 +104,7 @@ async def address_delete(
 
 
 @router.get("/vehicles", response_model=list[CustomerVehicleResponse])
-async def vehicles(
-    session: SessionDep, identity: IdentityDep
-) -> list[CustomerVehicleResponse]:
+async def vehicles(session: SessionDep, identity: IdentityDep) -> list[CustomerVehicleResponse]:
     return await list_customer_vehicles(session, identity)
 
 
@@ -143,9 +137,7 @@ async def vehicle_delete(
 
 
 @router.get("/bookings", response_model=CustomerBookingListResponse)
-async def bookings(
-    session: SessionDep, identity: IdentityDep
-) -> CustomerBookingListResponse:
+async def bookings(session: SessionDep, identity: IdentityDep) -> CustomerBookingListResponse:
     return await list_customer_bookings(session, identity)
 
 

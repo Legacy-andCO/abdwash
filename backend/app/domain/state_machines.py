@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from app.domain.enums import BookingStatus, JobStatus, PaymentStatus
 from app.domain.errors import ConflictError
 
@@ -14,7 +16,8 @@ BOOKING_TRANSITIONS: dict[BookingStatus, set[BookingStatus]] = {
 
 JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.UNASSIGNED: {JobStatus.ASSIGNED, JobStatus.CANCELLED},
-    JobStatus.ASSIGNED: {JobStatus.UNASSIGNED, JobStatus.IN_PROGRESS, JobStatus.CANCELLED},
+    JobStatus.ASSIGNED: {JobStatus.UNASSIGNED, JobStatus.EN_ROUTE, JobStatus.CANCELLED},
+    JobStatus.EN_ROUTE: {JobStatus.IN_PROGRESS, JobStatus.CANCELLED},
     JobStatus.IN_PROGRESS: {JobStatus.COMPLETED, JobStatus.CANCELLED},
     JobStatus.COMPLETED: set(),
     JobStatus.CANCELLED: set(),
@@ -30,8 +33,10 @@ PAYMENT_TRANSITIONS: dict[PaymentStatus, set[PaymentStatus]] = {
 }
 
 
-def validate_transition(
-    current: object, target: object, transitions: dict[object, set[object]]
+def validate_transition[TransitionState](
+    current: TransitionState,
+    target: TransitionState,
+    transitions: Mapping[TransitionState, set[TransitionState]],
 ) -> None:
     if target == current:
         return

@@ -12,6 +12,7 @@ class BookingStatus(StrEnum):
 class JobStatus(StrEnum):
     UNASSIGNED = "unassigned"
     ASSIGNED = "assigned"
+    EN_ROUTE = "en_route"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"

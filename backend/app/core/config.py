@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     email_from: str | None = None
     public_web_url: str | None = None
     outbox_dispatch_secret: str | None = None
+    google_routes_api_key: str | None = None
 
     supabase_url: str | None = None
     supabase_jwt_audience: str = "authenticated"

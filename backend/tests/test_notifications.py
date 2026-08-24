@@ -61,6 +61,14 @@ def test_booking_email_contains_reference_and_management_url() -> None:
     assert "Pay after service" in html
 
 
+def test_driver_en_route_email_includes_real_eta_and_management_url() -> None:
+    payload = confirmation_payload() | {"estimated_arrival_at": "2026-08-28T13:24:00+04:00"}
+    subject, html = render_email("driver_en_route", payload)
+    assert "on the way" in subject
+    assert "13:24" in html
+    assert payload["management_url"] in html
+
+
 @pytest.mark.asyncio
 async def test_resend_uses_correct_recipient_and_marks_success_possible() -> None:
     captured: list[httpx.Request] = []

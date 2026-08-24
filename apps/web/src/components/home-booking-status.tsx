@@ -15,7 +15,7 @@ export function HomeBookingStatus() {
     .sort((left, right) => Date.parse(left.scheduled_start) - Date.parse(right.scheduled_start))[0];
   if (!active) return null;
   return <section className="shell home-status-card" aria-label="Upcoming booking status">
-    <div><CustomerStatus status={active.status} compact /><h2>{active.status.label}</h2><p>{formatSchedule(active.scheduled_start, active.scheduled_end, "Asia/Dubai")}</p></div>
+    <div><CustomerStatus status={active.status} compact /><h2>{active.status.label}</h2><p>{formatSchedule(active.scheduled_start, active.scheduled_end, "Asia/Dubai")}</p>{active.estimated_arrival_at && <strong>Estimated arrival: {new Intl.DateTimeFormat("en-AE", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Dubai" }).format(new Date(active.estimated_arrival_at))}</strong>}</div>
     <Link className="button button-ghost" href={`/account/bookings/${active.id}`}>View booking</Link>
   </section>;
 }

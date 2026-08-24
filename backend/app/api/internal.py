@@ -16,9 +16,7 @@ router = APIRouter(prefix="/api/v1/internal", tags=["internal"])
 @router.post("/notifications/dispatch")
 async def dispatch_notifications(
     request: Request,
-    supplied_secret: Annotated[
-        str | None, Header(alias="X-Outbox-Dispatch-Secret")
-    ] = None,
+    supplied_secret: Annotated[str | None, Header(alias="X-Outbox-Dispatch-Secret")] = None,
 ) -> dict[str, int]:
     settings = get_settings()
     expected_secret = settings.outbox_dispatch_secret
