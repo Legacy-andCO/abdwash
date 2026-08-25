@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,11 @@ import {
   TextInput,
   View,
 } from "react-native";
+import {
+  DatePickerField,
+  TimePickerField,
+  toIsoDate,
+} from "../components/pickers";
 import {
   AppButton,
   Card,
@@ -21,7 +25,6 @@ import {
 import { successHaptic } from "../haptics";
 import {
   createStaff,
-  createTeam,
   getAttendance,
   getCancellations,
   getLeave,
@@ -32,7 +35,6 @@ import {
   reviewLeave,
   setTemporaryPassword,
   updateStaff,
-  updateTeamMembers,
   type Attendance,
   type AttendanceOverview,
   type Cancellation,
@@ -51,6 +53,7 @@ import {
   useAssignShiftMutation,
   useAttendanceOverviewQuery,
   useCreateShiftMutation,
+  useCreateTeamMutation,
   useJobsQuery,
   useLeaveQuery,
   useReportQuery,
@@ -58,6 +61,8 @@ import {
   useShiftsQuery,
   useStaffQuery,
   useTeamsQuery,
+  useUpdateTeamMutation,
+  useUpdateTeamMembersMutation,
 } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
 
@@ -103,6 +108,9 @@ export function TeamScreen({ context }: { context: StaffContext }) {
 function TeamsPane({ context }: { context: StaffContext }) {
   const teamsQuery = useTeamsQuery(context);
   const staffQuery = useStaffQuery(context);
+  const createMutation = useCreateTeamMutation(context);
+  const updateMutation = useUpdateTeamMutation(context);
+  const membersMutation = useUpdateTeamMembersMutation(context);
   const items = teamsQuery.data ?? [];
   const [add, setAdd] = useState(false);
   const [detail, setDetail] = useState<TeamDetail | null>(null);
@@ -115,6 +123,45 @@ function TeamsPane({ context }: { context: StaffContext }) {
         domainErrorMessage(error, "Please try again."),
       );
     }
+  }
+  if (add) {
+    return (
+      <SimpleCreate
+        visible
+        title="Create team"
+        label="TEAM NAME"
+        placeholder="Mobile Team 2"
+        onClose={() => setAdd(false)}
+        onSave={async (name) => {
+          await createMutation.mutateAsync(name);
+          await successHaptic();
+          setAdd(false);
+        }}
+      />
+    );
+  }
+  if (detail) {
+    return (
+      <TeamMembersSheet
+        detail={detail}
+        staff={(staffQuery.data ?? []).filter((member) => member.is_active)}
+        saving={membersMutation.isPending}
+        updating={updateMutation.isPending}
+        onSave={(staffIds) =>
+          membersMutation.mutateAsync({ teamId: detail.id, staffIds })
+        }
+        onUpdate={(body) =>
+          updateMutation.mutateAsync({ teamId: detail.id, body })
+        }
+        onClose={() => setDetail(null)}
+        onSaved={(team) => {
+          setDetail(team);
+        }}
+        onMembersSaved={() => {
+          setDetail(null);
+        }}
+      />
+    );
   }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
@@ -165,28 +212,6 @@ function TeamsPane({ context }: { context: StaffContext }) {
           body="Create the first mobile team to add booking capacity."
         />
       )}
-      <SimpleCreate
-        visible={add}
-        title="Create team"
-        label="TEAM NAME"
-        placeholder="Mobile Team 2"
-        onClose={() => setAdd(false)}
-        onSave={async (name) => {
-          await createTeam(name);
-          await successHaptic();
-          setAdd(false);
-          await teamsQuery.refetch();
-        }}
-      />
-      <TeamMembersSheet
-        detail={detail}
-        staff={(staffQuery.data ?? []).filter((member) => member.is_active)}
-        onClose={() => setDetail(null)}
-        onSaved={async () => {
-          setDetail(null);
-          await Promise.all([teamsQuery.refetch(), staffQuery.refetch()]);
-        }}
-      />
     </ScrollView>
   );
 }
@@ -213,7 +238,9 @@ function StaffPane({ context }: { context: StaffContext }) {
   const [selected, setSelected] = useState<Profile | null>(null);
   const [editTarget, setEditTarget] = useState<Profile | null>(null);
   const [passwordTarget, setPasswordTarget] = useState<Profile | null>(null);
+  const [updatingStaffId, setUpdatingStaffId] = useState<string | null>(null);
   async function toggle(item: Profile) {
+    setUpdatingStaffId(item.id);
     try {
       await updateStaff(item.id, { is_active: !item.is_active });
       await staffQuery.refetch();
@@ -223,7 +250,59 @@ function StaffPane({ context }: { context: StaffContext }) {
         "Update failed",
         domainErrorMessage(error, "The account could not be changed."),
       );
+    } finally {
+      setUpdatingStaffId(null);
     }
+  }
+  if (add) {
+    return (
+      <AddStaffSheet
+        visible
+        canCreateManager={context.role === "admin"}
+        onClose={() => setAdd(false)}
+        onCreated={async () => {
+          setAdd(false);
+          await staffQuery.refetch();
+        }}
+      />
+    );
+  }
+  if (editTarget) {
+    return (
+      <EditStaffSheet
+        profile={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSaved={async () => {
+          setEditTarget(null);
+          await staffQuery.refetch();
+        }}
+      />
+    );
+  }
+  if (passwordTarget) {
+    return (
+      <PasswordSheet
+        profile={passwordTarget}
+        onClose={() => setPasswordTarget(null)}
+      />
+    );
+  }
+  if (selected) {
+    return (
+      <StaffDetailSheet
+        profile={selected}
+        attendance={attendance.data?.find(
+          (item) => item.staff_id === selected.id,
+        )}
+        jobs={(jobs.data?.jobs ?? []).filter(
+          (item) => item.assigned_staff_id === selected.id,
+        )}
+        performance={report.data?.staff_performance.find(
+          (item) => item.id === selected.id,
+        )}
+        onClose={() => setSelected(null)}
+      />
+    );
   }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
@@ -286,47 +365,20 @@ function StaffPane({ context }: { context: StaffContext }) {
               </View>
             </View>
             <AppButton
-              title={item.is_active ? "Deactivate" : "Reactivate"}
+              title={
+                updatingStaffId === item.id
+                  ? "Saving…"
+                  : item.is_active
+                    ? "Deactivate"
+                    : "Reactivate"
+              }
               tone={item.is_active ? "danger" : "secondary"}
+              disabled={updatingStaffId === item.id}
               onPress={() => void toggle(item)}
             />
           </Card>
         ))
       )}
-      <AddStaffSheet
-        visible={add}
-        canCreateManager={context.role === "admin"}
-        onClose={() => setAdd(false)}
-        onCreated={async () => {
-          setAdd(false);
-          await staffQuery.refetch();
-        }}
-      />
-      <EditStaffSheet
-        profile={editTarget}
-        onClose={() => setEditTarget(null)}
-        onSaved={async () => {
-          setEditTarget(null);
-          await staffQuery.refetch();
-        }}
-      />
-      <PasswordSheet
-        profile={passwordTarget}
-        onClose={() => setPasswordTarget(null)}
-      />
-      <StaffDetailSheet
-        profile={selected}
-        attendance={attendance.data?.find(
-          (item) => item.staff_id === selected?.id,
-        )}
-        jobs={(jobs.data?.jobs ?? []).filter(
-          (item) => item.assigned_staff_id === selected?.id,
-        )}
-        performance={report.data?.staff_performance.find(
-          (item) => item.id === selected?.id,
-        )}
-        onClose={() => setSelected(null)}
-      />
     </ScrollView>
   );
 }
@@ -352,6 +404,27 @@ function ShiftsPane({ context }: { context: StaffContext }) {
     assignmentsQuery.error ??
     staffQuery.error ??
     teamsQuery.error;
+  if (add) {
+    return (
+      <CreateShiftSheet
+        visible
+        context={context}
+        onClose={() => setAdd(false)}
+      />
+    );
+  }
+  if (assigning) {
+    return (
+      <ShiftAssignmentSheet
+        visible
+        context={context}
+        shifts={shifts}
+        staff={staff}
+        teams={teams}
+        onClose={() => setAssigning(false)}
+      />
+    );
+  }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <ScreenTitle
@@ -396,19 +469,6 @@ function ShiftsPane({ context }: { context: StaffContext }) {
           {shifts.length} shift templates available
         </Text>
       ) : null}
-      <CreateShiftSheet
-        visible={add}
-        context={context}
-        onClose={() => setAdd(false)}
-      />
-      <ShiftAssignmentSheet
-        visible={assigning}
-        context={context}
-        shifts={shifts}
-        staff={staff}
-        teams={teams}
-        onClose={() => setAssigning(false)}
-      />
     </ScrollView>
   );
 }
@@ -419,10 +479,28 @@ function AttendancePane({ context }: { context: StaffContext }) {
   const items = attendance.data ?? [];
   const leave = leaveQuery.data ?? [];
   const [cancellations, setCancellations] = useState<Cancellation[]>([]);
+  const [cancellationsLoading, setCancellationsLoading] = useState(true);
+  const [cancellationsError, setCancellationsError] = useState<unknown>(null);
+  const [decisionKey, setDecisionKey] = useState<string | null>(null);
   useEffect(() => {
-    void getCancellations().then(setCancellations);
+    let active = true;
+    void getCancellations()
+      .then((values) => {
+        if (active) setCancellations(values);
+      })
+      .catch((error) => {
+        if (active) setCancellationsError(error);
+      })
+      .finally(() => {
+        if (active) setCancellationsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
   async function decideLeave(item: Leave, decision: "approved" | "rejected") {
+    const key = `${item.id}:${decision}`;
+    setDecisionKey(key);
     try {
       await reviewLeave(item.id, decision);
       await Promise.all([leaveQuery.refetch(), attendance.refetch()]);
@@ -432,12 +510,16 @@ function AttendancePane({ context }: { context: StaffContext }) {
         "Decision not saved",
         domainErrorMessage(reason, "Please retry."),
       );
+    } finally {
+      setDecisionKey(null);
     }
   }
   async function decideCancellation(
     item: Cancellation,
     decision: "approved" | "rejected",
   ) {
+    const key = `${item.id}:${decision}`;
+    setDecisionKey(key);
     try {
       await reviewCancellation(item.id, decision);
       setCancellations((current) =>
@@ -449,6 +531,8 @@ function AttendancePane({ context }: { context: StaffContext }) {
         "Decision not saved",
         domainErrorMessage(error, "Please retry."),
       );
+    } finally {
+      setDecisionKey(null);
     }
   }
   return (
@@ -514,14 +598,24 @@ function AttendancePane({ context }: { context: StaffContext }) {
             <View style={styles.actions}>
               <View style={{ flex: 1 }}>
                 <AppButton
-                  title="Reject"
+                  title={
+                    decisionKey === `${item.id}:rejected`
+                      ? "Rejecting…"
+                      : "Reject"
+                  }
                   tone="danger"
+                  disabled={decisionKey !== null}
                   onPress={() => void decideLeave(item, "rejected")}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <AppButton
-                  title="Approve"
+                  title={
+                    decisionKey === `${item.id}:approved`
+                      ? "Approving…"
+                      : "Approve"
+                  }
+                  disabled={decisionKey !== null}
                   onPress={() => void decideLeave(item, "approved")}
                 />
               </View>
@@ -532,7 +626,16 @@ function AttendancePane({ context }: { context: StaffContext }) {
         <EmptyState title="No pending leave requests" />
       )}
       <Text style={styles.section}>CANCELLATIONS</Text>
-      {cancellations.length ? (
+      {cancellationsLoading ? (
+        <Skeleton />
+      ) : cancellationsError ? (
+        <Text style={uiStyles.error}>
+          {domainErrorMessage(
+            cancellationsError,
+            "Cancellation requests could not load.",
+          )}
+        </Text>
+      ) : cancellations.length ? (
         cancellations.map((item) => (
           <Card key={item.id}>
             <Text style={styles.cardTitle}>{item.customer_name}</Text>
@@ -547,14 +650,24 @@ function AttendancePane({ context }: { context: StaffContext }) {
             <View style={styles.actions}>
               <View style={{ flex: 1 }}>
                 <AppButton
-                  title="Reject"
+                  title={
+                    decisionKey === `${item.id}:rejected`
+                      ? "Rejecting…"
+                      : "Reject"
+                  }
                   tone="danger"
+                  disabled={decisionKey !== null}
                   onPress={() => void decideCancellation(item, "rejected")}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <AppButton
-                  title="Approve"
+                  title={
+                    decisionKey === `${item.id}:approved`
+                      ? "Approving…"
+                      : "Approve"
+                  }
+                  disabled={decisionKey !== null}
                   onPress={() => void decideCancellation(item, "approved")}
                 />
               </View>
@@ -608,74 +721,64 @@ function AddStaffSheet({
       setBusy(false);
     }
   }
+  if (!visible) return null;
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={uiStyles.content}
     >
-      <View style={styles.backdrop}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheet}>
-          <View style={uiStyles.row}>
-            <Text style={styles.sheetTitle}>Add staff</Text>
-            <Pressable onPress={onClose}>
-              <Text style={uiStyles.link}>Close</Text>
-            </Pressable>
-          </View>
-          {[
-            ["FULL NAME", name, setName, "Mohammed Ali"],
-            ["USERNAME", username, setUsername, "mohammed"],
-            ["PHONE", phone, setPhone, "+971 50 123 4567"],
-            [
-              "TEMPORARY PASSWORD",
-              password,
-              setPassword,
-              "At least 8 characters",
-            ],
-          ].map(([label, value, setter, placeholder]) => (
-            <View key={label as string}>
-              <Text style={uiStyles.label}>{label as string}</Text>
-              <TextInput
-                style={uiStyles.field}
-                value={value as string}
-                onChangeText={setter as (value: string) => void}
-                placeholder={placeholder as string}
-                secureTextEntry={label === "TEMPORARY PASSWORD"}
-                autoCapitalize="none"
-              />
-            </View>
-          ))}
-          {canCreateManager ? (
-            <View style={styles.actions}>
-              <Pressable
-                onPress={() => setRole("employee")}
-                style={[
-                  styles.roleChoice,
-                  role === "employee" ? styles.roleActive : undefined,
-                ]}
-              >
-                <Text>Employee</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setRole("manager")}
-                style={[
-                  styles.roleChoice,
-                  role === "manager" ? styles.roleActive : undefined,
-                ]}
-              >
-                <Text>Manager</Text>
-              </Pressable>
-            </View>
-          ) : null}
-          <AppButton
-            title="Create account"
-            disabled={busy || !name || !username || password.length < 8}
-            onPress={() => void save()}
-          />
-        </ScrollView>
+      <View style={uiStyles.row}>
+        <Text style={styles.sheetTitle}>Add staff</Text>
+        <Pressable onPress={onClose}>
+          <Text style={uiStyles.link}>Back</Text>
+        </Pressable>
       </View>
-    </Modal>
+      {[
+        ["FULL NAME", name, setName, "Mohammed Ali"],
+        ["USERNAME", username, setUsername, "mohammed"],
+        ["PHONE", phone, setPhone, "+971 50 123 4567"],
+        ["TEMPORARY PASSWORD", password, setPassword, "At least 8 characters"],
+      ].map(([label, value, setter, placeholder]) => (
+        <View key={label as string}>
+          <Text style={uiStyles.label}>{label as string}</Text>
+          <TextInput
+            style={uiStyles.field}
+            value={value as string}
+            onChangeText={setter as (value: string) => void}
+            placeholder={placeholder as string}
+            secureTextEntry={label === "TEMPORARY PASSWORD"}
+            autoCapitalize="none"
+          />
+        </View>
+      ))}
+      {canCreateManager ? (
+        <View style={styles.actions}>
+          <Pressable
+            onPress={() => setRole("employee")}
+            style={[
+              styles.roleChoice,
+              role === "employee" ? styles.roleActive : undefined,
+            ]}
+          >
+            <Text>Employee</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setRole("manager")}
+            style={[
+              styles.roleChoice,
+              role === "manager" ? styles.roleActive : undefined,
+            ]}
+          >
+            <Text>Manager</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      <AppButton
+        title={busy ? "Creating…" : "Create account"}
+        disabled={busy || !name || !username || password.length < 8}
+        onPress={() => void save()}
+      />
+    </ScrollView>
   );
 }
 function SimpleCreate({
@@ -695,57 +798,72 @@ function SimpleCreate({
 }) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  if (!visible) return null;
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={uiStyles.content}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <View style={uiStyles.row}>
-            <Text style={styles.sheetTitle}>{title}</Text>
-            <Pressable onPress={onClose}>
-              <Text style={uiStyles.link}>Close</Text>
-            </Pressable>
-          </View>
-          <Text style={uiStyles.label}>{label}</Text>
-          <TextInput
-            style={uiStyles.field}
-            value={value}
-            onChangeText={setValue}
-            placeholder={placeholder}
-          />
-          <AppButton
-            title="Save"
-            disabled={busy || value.trim().length < 2}
-            onPress={() => {
-              setBusy(true);
-              void onSave(value.trim())
-                .catch(() => Alert.alert("Not saved", "Please try again."))
-                .finally(() => setBusy(false));
-            }}
-          />
-        </View>
+      <View style={uiStyles.row}>
+        <Text style={styles.sheetTitle}>{title}</Text>
+        <Pressable onPress={onClose}>
+          <Text style={uiStyles.link}>Back</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <Text style={uiStyles.label}>{label}</Text>
+      <TextInput
+        style={uiStyles.field}
+        value={value}
+        onChangeText={setValue}
+        placeholder={placeholder}
+      />
+      <AppButton
+        title={busy ? "Creating…" : "Create team"}
+        disabled={busy || value.trim().length < 2}
+        onPress={() => {
+          setBusy(true);
+          void onSave(value.trim())
+            .catch((error) =>
+              Alert.alert(
+                "Team not created",
+                domainErrorMessage(
+                  error,
+                  "Something went wrong while creating the team. Please try again.",
+                ),
+              ),
+            )
+            .finally(() => setBusy(false));
+        }}
+      />
+    </ScrollView>
   );
 }
 function TeamMembersSheet({
   detail,
   staff,
+  saving,
+  updating,
+  onSave,
+  onUpdate,
   onClose,
   onSaved,
+  onMembersSaved,
 }: {
   detail: TeamDetail | null;
   staff: Profile[];
+  saving: boolean;
+  updating: boolean;
+  onSave: (staffIds: string[]) => Promise<TeamDetail>;
+  onUpdate: (body: object) => Promise<TeamDetail>;
   onClose: () => void;
   onSaved: (team: TeamDetail) => void;
+  onMembersSaved: (team: TeamDetail) => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
+  const [teamName, setTeamName] = useState("");
   useEffect(() => {
     setSelected(detail?.members.map((member) => member.id) ?? []);
+    setTeamName(detail?.name ?? "");
   }, [detail?.id]);
   function toggle(id: string) {
     setSelected((values) =>
@@ -756,54 +874,100 @@ function TeamMembersSheet({
   }
   async function save() {
     if (!detail) return;
-    const next = await updateTeamMembers(detail.id, selected);
-    await successHaptic();
-    onSaved(next);
+    try {
+      const next = await onSave(selected);
+      await successHaptic();
+      onMembersSaved(next);
+    } catch (error) {
+      Alert.alert(
+        "Members not saved",
+        domainErrorMessage(
+          error,
+          "The team membership could not be updated. Please try again.",
+        ),
+      );
+    }
   }
+  async function saveTeam(body: object) {
+    try {
+      const next = await onUpdate(body);
+      await successHaptic();
+      onSaved(next);
+    } catch (error) {
+      Alert.alert(
+        "Team not updated",
+        domainErrorMessage(
+          error,
+          "The team details could not be updated. Please try again.",
+        ),
+      );
+    }
+  }
+  if (!detail) return null;
   return (
-    <Modal
-      visible={detail !== null}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.backdrop}>
-        <ScrollView contentContainerStyle={styles.sheet}>
-          <View style={uiStyles.row}>
-            <Text style={styles.sheetTitle}>{detail?.name}</Text>
-            <Pressable onPress={onClose}>
-              <Text style={uiStyles.link}>Close</Text>
-            </Pressable>
-          </View>
-          <Text style={uiStyles.muted}>
-            {detail?.jobs_today ?? 0} jobs today
-          </Text>
-          {staff.map((member) => (
-            <Pressable
-              key={member.id}
-              style={[
-                styles.memberChoice,
-                selected.includes(member.id)
-                  ? styles.memberSelected
-                  : undefined,
-              ]}
-              onPress={() => toggle(member.id)}
-            >
-              <View>
-                <Text style={styles.cardTitle}>{member.display_name}</Text>
-                <Text style={uiStyles.muted}>
-                  @{member.username} · {member.role}
-                </Text>
-              </View>
-              <Text style={styles.check}>
-                {selected.includes(member.id) ? "✓" : "+"}
-              </Text>
-            </Pressable>
-          ))}
-          <AppButton title="Save members" onPress={() => void save()} />
-        </ScrollView>
+    <ScrollView contentContainerStyle={uiStyles.content}>
+      <View style={uiStyles.row}>
+        <Text style={styles.sheetTitle}>{detail.name}</Text>
+        <Pressable onPress={onClose}>
+          <Text style={uiStyles.link}>Back</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <Text style={uiStyles.muted}>{detail.jobs_today} jobs today</Text>
+      <Text style={uiStyles.label}>TEAM NAME</Text>
+      <TextInput
+        style={uiStyles.field}
+        value={teamName}
+        onChangeText={setTeamName}
+      />
+      <View style={styles.actions}>
+        <View style={{ flex: 1 }}>
+          <AppButton
+            title={updating ? "Saving…" : "Save name"}
+            tone="secondary"
+            disabled={
+              updating ||
+              teamName.trim().length < 2 ||
+              teamName.trim() === detail.name
+            }
+            onPress={() => void saveTeam({ name: teamName.trim() })}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <AppButton
+            title={detail.is_active ? "Deactivate" : "Reactivate"}
+            tone={detail.is_active ? "danger" : "secondary"}
+            disabled={updating}
+            onPress={() => void saveTeam({ is_active: !detail.is_active })}
+          />
+        </View>
+      </View>
+      <Text style={styles.section}>MEMBERS</Text>
+      {staff.map((member) => (
+        <Pressable
+          key={member.id}
+          style={[
+            styles.memberChoice,
+            selected.includes(member.id) ? styles.memberSelected : undefined,
+          ]}
+          onPress={() => toggle(member.id)}
+        >
+          <View>
+            <Text style={styles.cardTitle}>{member.display_name}</Text>
+            <Text style={uiStyles.muted}>
+              @{member.username} · {member.role}
+            </Text>
+          </View>
+          <Text style={styles.check}>
+            {selected.includes(member.id) ? "✓" : "+"}
+          </Text>
+        </Pressable>
+      ))}
+      <AppButton
+        title={saving ? "Saving…" : "Save members"}
+        disabled={saving}
+        onPress={() => void save()}
+      />
+    </ScrollView>
   );
 }
 function EditStaffSheet({
@@ -841,41 +1005,34 @@ function EditStaffSheet({
       setBusy(false);
     }
   }
+  if (!profile) return null;
   return (
-    <Modal
-      visible={profile !== null}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={uiStyles.content}
     >
-      <View style={styles.backdrop}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.sheet}
-        >
-          <Text style={styles.sheetTitle}>Edit staff</Text>
-          <Text style={uiStyles.label}>FULL NAME</Text>
-          <TextInput
-            style={uiStyles.field}
-            value={name}
-            onChangeText={setName}
-          />
-          <Text style={uiStyles.label}>PHONE</Text>
-          <TextInput
-            style={uiStyles.field}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-          />
-          <AppButton
-            title={busy ? "Saving…" : "Save changes"}
-            disabled={busy || name.trim().length < 2}
-            onPress={() => void save()}
-          />
-          <AppButton title="Cancel" tone="secondary" onPress={onClose} />
-        </ScrollView>
+      <View style={uiStyles.row}>
+        <Text style={styles.sheetTitle}>Edit staff</Text>
+        <Pressable onPress={onClose}>
+          <Text style={uiStyles.link}>Back</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <Text style={uiStyles.label}>FULL NAME</Text>
+      <TextInput style={uiStyles.field} value={name} onChangeText={setName} />
+      <Text style={uiStyles.label}>PHONE</Text>
+      <TextInput
+        style={uiStyles.field}
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+      />
+      <AppButton
+        title={busy ? "Saving…" : "Save changes"}
+        disabled={busy || name.trim().length < 2}
+        onPress={() => void save()}
+      />
+      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+    </ScrollView>
   );
 }
 function StaffDetailSheet({
@@ -891,68 +1048,59 @@ function StaffDetailSheet({
   performance?: Performance;
   onClose: () => void;
 }) {
+  if (!profile) return null;
   return (
-    <Modal
-      visible={profile !== null}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.backdrop}>
-        <ScrollView contentContainerStyle={styles.sheet}>
-          <View style={uiStyles.row}>
-            <View>
-              <Text style={styles.sheetTitle}>{profile?.display_name}</Text>
-              <Text style={uiStyles.muted}>
-                @{profile?.username} · {profile?.role}
-              </Text>
-            </View>
-            <Pressable onPress={onClose}>
-              <Text style={uiStyles.link}>Close</Text>
-            </Pressable>
-          </View>
-          <Text style={styles.section}>TEAMS</Text>
-          <Text style={uiStyles.body}>
-            {profile?.teams.length
-              ? profile.teams.map((team) => team.name).join(", ")
-              : "No team membership"}
+    <ScrollView contentContainerStyle={uiStyles.content}>
+      <View style={uiStyles.row}>
+        <View>
+          <Text style={styles.sheetTitle}>{profile.display_name}</Text>
+          <Text style={uiStyles.muted}>
+            @{profile.username} · {profile.role}
           </Text>
-          <Text style={styles.section}>TODAY'S ATTENDANCE</Text>
-          {attendance ? (
-            <Card>
-              <StatusChip value={attendance.status} />
-              <Text style={uiStyles.muted}>
-                {attendance.worked_minutes} minutes worked ·{" "}
-                {attendance.late_minutes} minutes late
-              </Text>
-            </Card>
-          ) : (
-            <EmptyState title="No attendance recorded" />
-          )}
-          <Text style={styles.section}>TODAY'S JOBS</Text>
-          <Text style={styles.cardTitle}>{jobs.length}</Text>
-          <Text style={styles.section}>LAST 30 DAYS</Text>
-          {performance ? (
-            <Card>
-              <Text style={uiStyles.body}>
-                {performance.jobs_completed} completed ·{" "}
-                {performance.hours_worked.toFixed(1)} hours
-              </Text>
-              <Text style={uiStyles.muted}>
-                Average wash {performance.average_wash_minutes} min ·{" "}
-                {performance.late_arrivals} late arrivals
-              </Text>
-              <Text style={uiStyles.muted}>
-                {performance.jobs_per_worked_hour.toFixed(2)} jobs per worked
-                hour
-              </Text>
-            </Card>
-          ) : (
-            <EmptyState title="No performance data" />
-          )}
-        </ScrollView>
+        </View>
+        <Pressable onPress={onClose}>
+          <Text style={uiStyles.link}>Close</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <Text style={styles.section}>TEAMS</Text>
+      <Text style={uiStyles.body}>
+        {profile.teams.length
+          ? profile.teams.map((team) => team.name).join(", ")
+          : "No team membership"}
+      </Text>
+      <Text style={styles.section}>TODAY'S ATTENDANCE</Text>
+      {attendance ? (
+        <Card>
+          <StatusChip value={attendance.status} />
+          <Text style={uiStyles.muted}>
+            {attendance.worked_minutes} minutes worked ·{" "}
+            {attendance.late_minutes} minutes late
+          </Text>
+        </Card>
+      ) : (
+        <EmptyState title="No attendance recorded" />
+      )}
+      <Text style={styles.section}>TODAY'S JOBS</Text>
+      <Text style={styles.cardTitle}>{jobs.length}</Text>
+      <Text style={styles.section}>LAST 30 DAYS</Text>
+      {performance ? (
+        <Card>
+          <Text style={uiStyles.body}>
+            {performance.jobs_completed} completed ·{" "}
+            {performance.hours_worked.toFixed(1)} hours
+          </Text>
+          <Text style={uiStyles.muted}>
+            Average wash {performance.average_wash_minutes} min ·{" "}
+            {performance.late_arrivals} late arrivals
+          </Text>
+          <Text style={uiStyles.muted}>
+            {performance.jobs_per_worked_hour.toFixed(2)} jobs per worked hour
+          </Text>
+        </Card>
+      ) : (
+        <EmptyState title="No performance data" />
+      )}
+    </ScrollView>
   );
 }
 function PasswordSheet({
@@ -963,44 +1111,54 @@ function PasswordSheet({
   onClose: () => void;
 }) {
   const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
   async function save() {
     if (!profile) return;
+    setBusy(true);
     try {
       await setTemporaryPassword(profile.id, password);
       await successHaptic();
       setPassword("");
       onClose();
-    } catch {
-      Alert.alert("Password not changed", "Please try again.");
+    } catch (error) {
+      Alert.alert(
+        "Password not changed",
+        domainErrorMessage(
+          error,
+          "The temporary password could not be changed. Please try again.",
+        ),
+      );
+    } finally {
+      setBusy(false);
     }
   }
+  if (!profile) return null;
   return (
-    <Modal
-      visible={profile !== null}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={uiStyles.content}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Temporary password</Text>
-          <Text style={uiStyles.muted}>{profile?.display_name}</Text>
-          <TextInput
-            style={uiStyles.field}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="At least 8 characters"
-          />
-          <AppButton
-            title="Set password"
-            disabled={password.length < 8}
-            onPress={() => void save()}
-          />
-          <AppButton title="Cancel" tone="secondary" onPress={onClose} />
-        </View>
+      <View style={uiStyles.row}>
+        <Text style={styles.sheetTitle}>Temporary password</Text>
+        <Pressable onPress={onClose}>
+          <Text style={uiStyles.link}>Back</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <Text style={uiStyles.muted}>{profile.display_name}</Text>
+      <TextInput
+        style={uiStyles.field}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        placeholder="At least 8 characters"
+      />
+      <AppButton
+        title={busy ? "Saving…" : "Set password"}
+        disabled={busy || password.length < 8}
+        onPress={() => void save()}
+      />
+      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+    </ScrollView>
   );
 }
 function CreateShiftSheet({
@@ -1016,12 +1174,7 @@ function CreateShiftSheet({
   const [name, setName] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
-  const validTime = /^([01]\d|2[0-3]):[0-5]\d$/;
-  const valid =
-    name.trim().length >= 2 &&
-    validTime.test(startTime) &&
-    validTime.test(endTime) &&
-    startTime < endTime;
+  const valid = name.trim().length >= 2 && startTime < endTime;
   async function save() {
     try {
       await mutation.mutateAsync({
@@ -1039,59 +1192,44 @@ function CreateShiftSheet({
       );
     }
   }
+  if (!visible) return null;
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={uiStyles.content}
     >
-      <View style={styles.backdrop}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.sheet}
-        >
-          <Text style={styles.sheetTitle}>Create shift</Text>
-          <Text style={uiStyles.label}>SHIFT NAME</Text>
-          <TextInput
-            accessibilityLabel="Shift name"
-            style={uiStyles.field}
-            value={name}
-            onChangeText={setName}
-            placeholder="Morning"
-          />
-          <Text style={uiStyles.label}>START</Text>
-          <TextInput
-            accessibilityLabel="Shift start time"
-            style={uiStyles.field}
-            value={startTime}
-            onChangeText={setStartTime}
-            placeholder="09:00"
-            keyboardType="numbers-and-punctuation"
-          />
-          <Text style={uiStyles.label}>END</Text>
-          <TextInput
-            accessibilityLabel="Shift end time"
-            style={uiStyles.field}
-            value={endTime}
-            onChangeText={setEndTime}
-            placeholder="18:00"
-            keyboardType="numbers-and-punctuation"
-          />
-          {name && !valid ? (
-            <Text style={uiStyles.error}>
-              Use valid same-day times; the end must be after the start.
-            </Text>
-          ) : null}
-          <AppButton
-            title={mutation.isPending ? "Creating…" : "Create shift"}
-            disabled={mutation.isPending || !valid}
-            onPress={() => void save()}
-          />
-          <AppButton title="Cancel" tone="secondary" onPress={onClose} />
-        </ScrollView>
+      <View style={uiStyles.row}>
+        <Text style={styles.sheetTitle}>Create shift</Text>
+        <Pressable onPress={onClose}>
+          <Text style={uiStyles.link}>Back</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <Text style={uiStyles.label}>SHIFT NAME</Text>
+      <TextInput
+        accessibilityLabel="Shift name"
+        style={uiStyles.field}
+        value={name}
+        onChangeText={setName}
+        placeholder="Morning"
+      />
+      <TimePickerField
+        label="Start time"
+        value={startTime}
+        onChange={setStartTime}
+      />
+      <TimePickerField label="End time" value={endTime} onChange={setEndTime} />
+      {name && !valid ? (
+        <Text style={uiStyles.error}>
+          The end time must be after the start time.
+        </Text>
+      ) : null}
+      <AppButton
+        title={mutation.isPending ? "Creating…" : "Create shift"}
+        disabled={mutation.isPending || !valid}
+        onPress={() => void save()}
+      />
+      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+    </ScrollView>
   );
 }
 function ShiftAssignmentSheet({
@@ -1113,9 +1251,7 @@ function ShiftAssignmentSheet({
   const [staffId, setStaffId] = useState("");
   const [shiftId, setShiftId] = useState("");
   const [teamId, setTeamId] = useState("");
-  const [workDate, setWorkDate] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [workDate, setWorkDate] = useState(() => toIsoDate(new Date()));
   async function save() {
     try {
       await mutation.mutateAsync({
@@ -1133,77 +1269,73 @@ function ShiftAssignmentSheet({
       );
     }
   }
+  if (!visible) return null;
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={uiStyles.content}
     >
-      <View style={styles.backdrop}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.sheet}
-        >
-          <Text style={styles.sheetTitle}>Assign shift</Text>
-          <TextInput
-            accessibilityLabel="Shift work date"
-            style={uiStyles.field}
-            value={workDate}
-            onChangeText={setWorkDate}
-            placeholder="YYYY-MM-DD"
-          />
-          <Text style={uiStyles.label}>STAFF</Text>
-          {staff.map((item) => (
-            <Pressable
-              key={item.id}
-              style={[
-                styles.memberChoice,
-                staffId === item.id ? styles.memberSelected : undefined,
-              ]}
-              onPress={() => setStaffId(item.id)}
-            >
-              <Text style={styles.cardTitle}>{item.display_name}</Text>
-            </Pressable>
-          ))}
-          <Text style={uiStyles.label}>SHIFT</Text>
-          {shifts.map((item) => (
-            <Pressable
-              key={item.id}
-              style={[
-                styles.memberChoice,
-                shiftId === item.id ? styles.memberSelected : undefined,
-              ]}
-              onPress={() => setShiftId(item.id)}
-            >
-              <Text style={styles.cardTitle}>
-                {item.name} · {item.start_time.slice(0, 5)}–
-                {item.end_time.slice(0, 5)}
-              </Text>
-            </Pressable>
-          ))}
-          <Text style={uiStyles.label}>TEAM (OPTIONAL)</Text>
-          {teams.map((item) => (
-            <Pressable
-              key={item.id}
-              style={[
-                styles.memberChoice,
-                teamId === item.id ? styles.memberSelected : undefined,
-              ]}
-              onPress={() => setTeamId(item.id)}
-            >
-              <Text style={styles.cardTitle}>{item.name}</Text>
-            </Pressable>
-          ))}
-          <AppButton
-            title={mutation.isPending ? "Assigning…" : "Assign shift"}
-            disabled={mutation.isPending || !staffId || !shiftId || !workDate}
-            onPress={() => void save()}
-          />
-          <AppButton title="Cancel" tone="secondary" onPress={onClose} />
-        </ScrollView>
+      <View style={uiStyles.row}>
+        <Text style={styles.sheetTitle}>Assign shift</Text>
+        <Pressable onPress={onClose}>
+          <Text style={uiStyles.link}>Back</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <DatePickerField
+        label="Date"
+        value={workDate}
+        minimumDate={new Date()}
+        onChange={setWorkDate}
+      />
+      <Text style={uiStyles.label}>STAFF</Text>
+      {staff.map((item) => (
+        <Pressable
+          key={item.id}
+          style={[
+            styles.memberChoice,
+            staffId === item.id ? styles.memberSelected : undefined,
+          ]}
+          onPress={() => setStaffId(item.id)}
+        >
+          <Text style={styles.cardTitle}>{item.display_name}</Text>
+        </Pressable>
+      ))}
+      <Text style={uiStyles.label}>SHIFT</Text>
+      {shifts.map((item) => (
+        <Pressable
+          key={item.id}
+          style={[
+            styles.memberChoice,
+            shiftId === item.id ? styles.memberSelected : undefined,
+          ]}
+          onPress={() => setShiftId(item.id)}
+        >
+          <Text style={styles.cardTitle}>
+            {item.name} · {item.start_time.slice(0, 5)}–
+            {item.end_time.slice(0, 5)}
+          </Text>
+        </Pressable>
+      ))}
+      <Text style={uiStyles.label}>TEAM (OPTIONAL)</Text>
+      {teams.map((item) => (
+        <Pressable
+          key={item.id}
+          style={[
+            styles.memberChoice,
+            teamId === item.id ? styles.memberSelected : undefined,
+          ]}
+          onPress={() => setTeamId(item.id)}
+        >
+          <Text style={styles.cardTitle}>{item.name}</Text>
+        </Pressable>
+      ))}
+      <AppButton
+        title={mutation.isPending ? "Assigning…" : "Assign shift"}
+        disabled={mutation.isPending || !staffId || !shiftId || !workDate}
+        onPress={() => void save()}
+      />
+      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+    </ScrollView>
   );
 }
 const initials = (name: string) =>
@@ -1250,18 +1382,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   actions: { flexDirection: "row", gap: spacing.sm },
-  backdrop: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(10,30,26,0.38)",
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    padding: spacing.xl,
-    gap: spacing.md,
-  },
   sheetTitle: { fontSize: 26, fontWeight: "900", color: colors.text },
   roleChoice: {
     flex: 1,

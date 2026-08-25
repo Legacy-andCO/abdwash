@@ -3,6 +3,8 @@ export class ApiError extends Error {
     public readonly code: string,
     public readonly status: number,
     message?: string,
+    public readonly requestId?: string,
+    public readonly endpoint?: string,
   ) {
     super(message ?? code);
     this.name = "ApiError";
@@ -28,8 +30,11 @@ const messages: Record<string, string> = {
 };
 
 export function domainErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof ApiError)
-    return messages[error.code] ?? error.message ?? fallback;
+  if (error instanceof ApiError) {
+    if (messages[error.code]) return messages[error.code];
+    if (error.status >= 500 || error.code === "REQUEST_FAILED") return fallback;
+    return error.message || fallback;
+  }
   if (error instanceof Error && messages[error.message])
     return messages[error.message];
   return fallback;

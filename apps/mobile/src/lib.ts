@@ -257,22 +257,40 @@ export async function api<T>(
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError")
       throw error;
-    throw new ApiError("OFFLINE", 0);
+    if (__DEV__) {
+      console.warn("[AbdWash API] request_failed", {
+        endpoint: path,
+        status: 0,
+      });
+    }
+    throw new ApiError("OFFLINE", 0, undefined, undefined, path);
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as {
       code?: string;
       message?: string;
+      request_id?: string;
       detail?: { code?: string; message?: string };
     };
     const code =
       body.code ??
       body.detail?.code ??
       (response.status === 401 ? "UNAUTHORIZED" : "REQUEST_FAILED");
+    const requestId =
+      body.request_id ?? response.headers.get("X-Request-ID") ?? undefined;
+    if (__DEV__) {
+      console.warn("[AbdWash API] response_failed", {
+        request_id: requestId,
+        endpoint: path,
+        status: response.status,
+      });
+    }
     throw new ApiError(
       code,
       response.status,
       body.message ?? body.detail?.message ?? code,
+      requestId,
+      path,
     );
   }
   if (response.status === 204) return undefined as T;

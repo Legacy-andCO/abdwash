@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { capabilities } from "../capabilities";
@@ -22,6 +21,7 @@ import {
   StatusChip,
   uiStyles,
 } from "../components/ui";
+import { DatePickerField, toIsoDate } from "../components/pickers";
 import { domainErrorMessage } from "../errors/domainErrors";
 import { successHaptic } from "../haptics";
 import type {
@@ -32,7 +32,6 @@ import type {
   StaffContext,
   Team,
 } from "../lib";
-import { availabilityOptions, isIsoBookingDate } from "../operations";
 import {
   useAssignJobMutation,
   useAvailabilityQuery,
@@ -382,25 +381,27 @@ function JobDetail({
       </Card>
       {job.status === "assigned" ? (
         <AppButton
-          title="Start trip"
+          title={actionMutation.isPending ? "Starting…" : "Start trip"}
           disabled={actionMutation.isPending}
           onPress={() => void action("start-trip")}
         />
       ) : job.status === "en_route" ? (
         <AppButton
-          title="Start wash"
+          title={actionMutation.isPending ? "Starting…" : "Start wash"}
           disabled={actionMutation.isPending}
           onPress={() => void action("start")}
         />
       ) : job.status === "in_progress" ? (
         <AppButton
-          title="Complete wash"
+          title={actionMutation.isPending ? "Completing…" : "Complete wash"}
           disabled={actionMutation.isPending}
           onPress={() => void action("complete")}
         />
       ) : job.status === "completed" && job.payment_status !== "paid" ? (
         <AppButton
-          title="Record cash received"
+          title={
+            actionMutation.isPending ? "Recording…" : "Record cash received"
+          }
           disabled={actionMutation.isPending}
           onPress={() =>
             Alert.alert(
@@ -542,32 +543,37 @@ function RescheduleSheet({
   job: Job;
   onClose: () => void;
 }) {
-  const [selectedDay, setSelectedDay] = useState("");
-  const [selection, setSelection] = useState<{
-    slot: AvailabilitySlot;
-    resourceId: string;
-  } | null>(null);
+  const [selectedDay, setSelectedDay] = useState(() => toIsoDate(new Date()));
+  const [selection, setSelection] = useState<AvailabilitySlot | null>(null);
+  const [resourceId, setResourceId] = useState("");
   const vehicleCount = Math.max(1, job.vehicles.length);
-  const validDay = isIsoBookingDate(selectedDay);
   const availability = useAvailabilityQuery(
     job.booking_id,
     selectedDay,
     vehicleCount,
-    visible && validDay,
+    visible,
   );
   const mutation = useRescheduleMutation(context, job);
-  const options = availabilityOptions(availability.data?.slots ?? []);
+  const slots = availability.data?.slots ?? [];
+  const availableSlots = slots.filter((slot) => slot.available);
+  const dateChoices = upcomingDates(10);
   function changeDay(value: string) {
     setSelectedDay(value);
     setSelection(null);
+    setResourceId("");
+  }
+  function chooseSlot(slot: AvailabilitySlot) {
+    if (!slot.available || slot.resources.length === 0) return;
+    setSelection(slot);
+    setResourceId(slot.resources[0].resource_id);
   }
   async function confirm() {
-    if (!selection) return;
+    if (!selection || !resourceId) return;
     try {
       await mutation.mutateAsync({
         selectedDay,
-        startTime: selection.slot.time,
-        resourceId: selection.resourceId,
+        startTime: selection.time,
+        resourceId,
       });
       await successHaptic();
       onClose();
@@ -602,22 +608,53 @@ function RescheduleSheet({
           <Text style={uiStyles.muted}>
             Current · {new Date(job.scheduled_start).toLocaleString()}
           </Text>
-          <Text style={uiStyles.label}>NEW DATE</Text>
-          <TextInput
-            accessibilityLabel="New appointment date"
-            style={uiStyles.field}
+          <Text style={styles.sectionTitle}>CHOOSE DATE</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dateStrip}
+          >
+            {dateChoices.map((value) => {
+              const dateValue = toIsoDate(value);
+              const selected = selectedDay === dateValue;
+              return (
+                <Pressable
+                  key={dateValue}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  style={[
+                    styles.dateChip,
+                    selected ? styles.dateChipSelected : undefined,
+                  ]}
+                  onPress={() => changeDay(dateValue)}
+                >
+                  <Text
+                    style={[
+                      styles.dateWeekday,
+                      selected ? styles.dateSelectedText : undefined,
+                    ]}
+                  >
+                    {value.toLocaleDateString(undefined, { weekday: "short" })}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dateNumber,
+                      selected ? styles.dateSelectedText : undefined,
+                    ]}
+                  >
+                    {value.getDate()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <DatePickerField
+            label="Another date"
             value={selectedDay}
-            onChangeText={changeDay}
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
+            minimumDate={new Date()}
+            onChange={changeDay}
           />
-          {!selectedDay ? (
-            <EmptyState title="Choose a date to see times" />
-          ) : !validDay ? (
-            <Text accessibilityRole="alert" style={uiStyles.error}>
-              Use the YYYY-MM-DD date format.
-            </Text>
-          ) : availability.isPending || availability.isFetching ? (
+          {availability.isPending ? (
             <>
               <Text style={uiStyles.muted}>Loading available times…</Text>
               <Skeleton rows={3} />
@@ -633,33 +670,81 @@ function RescheduleSheet({
                 />
               }
             />
-          ) : options.length === 0 ? (
+          ) : availableSlots.length === 0 ? (
             <EmptyState
-              title="No available appointments on this date"
+              title="No appointments available on this date"
               body="Choose another day."
             />
           ) : (
             <>
-              <Text style={styles.sectionTitle}>AVAILABLE TIMES</Text>
-              {options.map(({ slot, resource }) => (
-                <Choice
-                  key={`${slot.starts_at}:${resource.resource_id}`}
-                  selected={
-                    selection?.slot.starts_at === slot.starts_at &&
-                    selection.resourceId === resource.resource_id
-                  }
-                  title={`${formatTime(slot.starts_at)}–${formatTime(slot.ends_at)}`}
-                  detail={resource.resource_name}
-                  onPress={() =>
-                    setSelection({ slot, resourceId: resource.resource_id })
-                  }
-                />
-              ))}
+              <Text style={styles.sectionTitle}>CHOOSE TIME</Text>
+              <View style={styles.slotGrid}>
+                {slots.map((slot) => {
+                  const selected = selection?.starts_at === slot.starts_at;
+                  return (
+                    <Pressable
+                      key={slot.starts_at}
+                      disabled={!slot.available}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        disabled: !slot.available,
+                        selected,
+                      }}
+                      style={[
+                        styles.slotButton,
+                        !slot.available ? styles.slotUnavailable : undefined,
+                        selected ? styles.slotSelected : undefined,
+                      ]}
+                      onPress={() => chooseSlot(slot)}
+                    >
+                      <Text
+                        style={[
+                          styles.slotTime,
+                          selected ? styles.dateSelectedText : undefined,
+                        ]}
+                      >
+                        {formatTime(slot.starts_at)}
+                      </Text>
+                      {slot.required_slot_count > 1 ? (
+                        <Text
+                          style={[
+                            styles.slotEnd,
+                            selected ? styles.dateSelectedText : undefined,
+                          ]}
+                        >
+                          until {formatTime(slot.ends_at)}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {selection?.resources.length ? (
+                <Card>
+                  <Text style={styles.sectionTitle}>AVAILABLE TEAM</Text>
+                  {selection.resources.map((resource) => (
+                    <Choice
+                      key={resource.resource_id}
+                      selected={resourceId === resource.resource_id}
+                      title={resource.resource_name}
+                      detail="Available for this appointment"
+                      onPress={() => setResourceId(resource.resource_id)}
+                    />
+                  ))}
+                </Card>
+              ) : null}
+              {availability.data?.required_slot_count &&
+              availability.data.required_slot_count > 1 ? (
+                <Text style={uiStyles.muted}>
+                  This booking reserves {availability.data.required_slot_count}{" "}
+                  consecutive slots for {vehicleCount} vehicles.
+                </Text>
+              ) : null}
               <AppButton
                 title={
                   mutation.isPending ? "Rescheduling…" : "Confirm reschedule"
                 }
-                disabled={mutation.isPending || !selection}
+                disabled={mutation.isPending || !selection || !resourceId}
                 onPress={() => void confirm()}
               />
             </>
@@ -696,6 +781,15 @@ function Choice({
     </Pressable>
   );
 }
+function upcomingDates(count: number): Date[] {
+  const start = new Date();
+  start.setHours(12, 0, 0, 0);
+  return Array.from({ length: count }, (_, index) => {
+    const value = new Date(start);
+    value.setDate(start.getDate() + index);
+    return value;
+  });
+}
 const label = (value: JobView) => value[0].toUpperCase() + value.slice(1);
 const styles = StyleSheet.create({
   segment: {
@@ -731,6 +825,41 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
   },
+  dateStrip: { gap: spacing.sm },
+  dateChip: {
+    width: 62,
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+  },
+  dateChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dateWeekday: { color: colors.textSecondary, fontSize: 11, fontWeight: "800" },
+  dateNumber: { color: colors.text, fontSize: 20, fontWeight: "900" },
+  dateSelectedText: { color: colors.white },
+  slotGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  slotButton: {
+    width: "47%",
+    minHeight: 58,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+  },
+  slotSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  slotUnavailable: { opacity: 0.35, backgroundColor: colors.surfaceElevated },
+  slotTime: { color: colors.text, fontSize: 18, fontWeight: "900" },
+  slotEnd: { color: colors.textSecondary, fontSize: 11, fontWeight: "700" },
   backdrop: {
     flex: 1,
     justifyContent: "flex-end",

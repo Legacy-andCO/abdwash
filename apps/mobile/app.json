@@ -23,7 +23,8 @@
     "plugins": [
       "expo-secure-store",
       "expo-location",
-      "./plugins/withAndroidImeInsets"
+      "./plugins/withAndroidImeInsets",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

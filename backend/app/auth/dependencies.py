@@ -59,21 +59,26 @@ async def staff_context(
         .join(BusinessSettings, BusinessSettings.business_id == Business.id)
         .where(StaffProfile.auth_user_id == identity.user_id, StaffProfile.is_active.is_(True))
     )
-    row = (await session.execute(statement)).one_or_none()
-    if row is None:
-        raise HTTPException(status_code=403, detail={"code": "STAFF_ACCESS_REQUIRED"})
-    staff, business_name, timezone = row
-    return StaffContext(
-        auth_user_id=identity.user_id,
-        staff_id=staff.id,
-        business_id=staff.business_id,
-        business_name=business_name,
-        role=StaffRole(staff.role),
-        timezone=timezone,
-        display_name=staff.display_name,
-        username=staff.username,
-        phone=staff.phone,
-    )
+    # SQLAlchemy SELECTs autobegin a transaction. Resolve the immutable request
+    # context inside an explicit read boundary so staff mutation routes receive
+    # the shared request session with no transaction still active.
+    async with session.begin():
+        row = (await session.execute(statement)).one_or_none()
+        if row is None:
+            raise HTTPException(status_code=403, detail={"code": "STAFF_ACCESS_REQUIRED"})
+        staff, business_name, timezone = row
+        context = StaffContext(
+            auth_user_id=identity.user_id,
+            staff_id=staff.id,
+            business_id=staff.business_id,
+            business_name=business_name,
+            role=StaffRole(staff.role),
+            timezone=timezone,
+            display_name=staff.display_name,
+            username=staff.username,
+            phone=staff.phone,
+        )
+    return context
 
 
 def require_roles(*roles: StaffRole) -> Any:

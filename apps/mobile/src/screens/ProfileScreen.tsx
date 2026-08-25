@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { clearOperationalCache } from "../cache/queryClient";
+import { DatePickerField, fromIsoDate, toIsoDate } from "../components/pickers";
 import {
   AppButton,
   Card,
@@ -46,7 +47,8 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [startDate, setStartDate] = useState("");
+  const [startDate, setStartDate] = useState(() => toIsoDate(new Date()));
+  const [endDate, setEndDate] = useState(() => toIsoDate(new Date()));
   const [reason, setReason] = useState("");
   function beginEdit() {
     if (!profile) return;
@@ -75,10 +77,12 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
     try {
       await leaveMutation.mutateAsync({
         start_date: startDate,
-        end_date: startDate,
+        end_date: endDate,
         reason,
       });
-      setStartDate("");
+      const current = toIsoDate(new Date());
+      setStartDate(current);
+      setEndDate(current);
       setReason("");
       await successHaptic();
     } catch (error) {
@@ -95,12 +99,31 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       leaveQuery.refetch(),
     ]);
   }
-  if (profileQuery.isPending || !profile)
+  if (profileQuery.isPending)
     return (
       <ScrollView contentContainerStyle={uiStyles.content}>
         <Skeleton rows={5} />
       </ScrollView>
     );
+  if (profileQuery.isError && !profile)
+    return (
+      <ScrollView contentContainerStyle={uiStyles.content}>
+        <EmptyState
+          title="Profile unavailable"
+          body={domainErrorMessage(
+            profileQuery.error,
+            "We couldn't load your profile.",
+          )}
+          action={
+            <AppButton
+              title="Try again"
+              onPress={() => void profileQuery.refetch()}
+            />
+          }
+        />
+      </ScrollView>
+    );
+  if (!profile) return null;
   const attendance = attendanceQuery.data?.items ?? [];
   const leave = leaveQuery.data ?? [];
   return (
@@ -134,7 +157,8 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       </View>
       {profileQuery.error ? (
         <Text style={styles.offline}>
-          Offline · profile updated {new Date(profileQuery.dataUpdatedAt).toLocaleTimeString()}
+          Offline · profile updated{" "}
+          {new Date(profileQuery.dataUpdatedAt).toLocaleTimeString()}
         </Text>
       ) : null}
       <Card>
@@ -193,12 +217,20 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       <Text style={styles.section}>TIME OFF</Text>
       <Card>
         <Text style={uiStyles.label}>REQUEST A DAY OFF</Text>
-        <TextInput
-          accessibilityLabel="Leave date"
-          style={uiStyles.field}
+        <DatePickerField
+          label="From"
           value={startDate}
-          onChangeText={setStartDate}
-          placeholder="YYYY-MM-DD"
+          minimumDate={new Date()}
+          onChange={(value) => {
+            setStartDate(value);
+            if (endDate < value) setEndDate(value);
+          }}
+        />
+        <DatePickerField
+          label="To"
+          value={endDate}
+          minimumDate={fromIsoDate(startDate)}
+          onChange={setEndDate}
         />
         <TextInput
           accessibilityLabel="Leave reason"
@@ -210,7 +242,9 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
         />
         <AppButton
           title={leaveMutation.isPending ? "Requesting…" : "Request day off"}
-          disabled={leaveMutation.isPending || !startDate || reason.length < 2}
+          disabled={
+            leaveMutation.isPending || endDate < startDate || reason.length < 2
+          }
           onPress={() => void addLeave()}
         />
       </Card>

@@ -5,6 +5,7 @@ import {
   clockAttendance,
   createHold,
   createShift,
+  createTeam,
   getAttendance,
   getAttendanceOverview,
   getAvailability,
@@ -22,10 +23,13 @@ import {
   rescheduleJob,
   requestLeave,
   updateProfile,
+  updateTeam,
+  updateTeamMembers,
   type Attendance,
   type Job,
   type JobFilters,
   type StaffContext,
+  type Team,
 } from "../lib";
 import { cacheTimes, queryKeys, replaceJobInResponse } from "../cache/policy";
 import { reschedulePayload } from "../operations";
@@ -86,6 +90,70 @@ export function useTeamsQuery(context: StaffContext) {
     queryKey: queryKeys.teams(scopeOf(context)),
     queryFn: getTeams,
     staleTime: cacheTimes.teams,
+  });
+}
+
+export function useCreateTeamMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = scopeOf(context);
+  return useMutation({
+    mutationFn: createTeam,
+    onSuccess: (created) => {
+      client.setQueryData(queryKeys.team(scope, created.id), created);
+      client.setQueryData(queryKeys.teams(scope), (current: unknown) =>
+        Array.isArray(current) ? [...current, created] : [created],
+      );
+    },
+  });
+}
+
+export function useUpdateTeamMembersMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = scopeOf(context);
+  return useMutation({
+    mutationFn: ({
+      teamId,
+      staffIds,
+    }: {
+      teamId: string;
+      staffIds: string[];
+    }) => updateTeamMembers(teamId, staffIds),
+    onSuccess: (team) => {
+      client.setQueryData(queryKeys.team(scope, team.id), team);
+      client.setQueryData<Team[]>(
+        queryKeys.teams(scope),
+        (current) =>
+          current?.map((item) =>
+            item.id === team.id
+              ? { ...item, member_count: team.members.length }
+              : item,
+          ) ?? [team],
+      );
+      void client.invalidateQueries({ queryKey: ["staff", scope] });
+      void client.invalidateQueries({ queryKey: ["jobs", scope] });
+      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+    },
+  });
+}
+
+export function useUpdateTeamMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = scopeOf(context);
+  return useMutation({
+    mutationFn: ({ teamId, body }: { teamId: string; body: object }) =>
+      updateTeam(teamId, body),
+    onSuccess: (team) => {
+      client.setQueryData(queryKeys.team(scope, team.id), team);
+      client.setQueryData<Team[]>(
+        queryKeys.teams(scope),
+        (current) =>
+          current?.map((item) =>
+            item.id === team.id ? { ...item, ...team } : item,
+          ) ?? [team],
+      );
+      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+      void client.invalidateQueries({ queryKey: ["jobs", scope] });
+    },
   });
 }
 
@@ -203,6 +271,7 @@ export function useJobActionMutation(context: StaffContext) {
     }) => mutateJob(jobId, action, body),
     onSuccess: (job) => {
       updateJobCaches(client, scope, job);
+      void client.invalidateQueries({ queryKey: ["jobs", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
       void client.invalidateQueries({ queryKey: ["attendance", scope] });
     },
@@ -217,6 +286,7 @@ export function useAssignJobMutation(context: StaffContext) {
       assignJob(jobId, body),
     onSuccess: (job) => {
       updateJobCaches(client, scope, job);
+      void client.invalidateQueries({ queryKey: ["jobs", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
       void client.invalidateQueries({ queryKey: ["teams", scope] });
       void client.invalidateQueries({ queryKey: ["team", scope] });
@@ -247,6 +317,7 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
     },
     onSuccess: (next) => {
       updateJobCaches(client, scope, next);
+      void client.invalidateQueries({ queryKey: ["jobs", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
       void client.invalidateQueries({
         queryKey: ["availability", job.booking_id],

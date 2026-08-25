@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import {
@@ -16,6 +15,7 @@ import {
   Skeleton,
   uiStyles,
 } from "../components/ui";
+import { DatePickerField, fromIsoDate } from "../components/pickers";
 import { domainErrorMessage } from "../errors/domainErrors";
 import type { MixRow, ReportV2, StaffContext } from "../lib";
 import { useReportQuery } from "../queries/operations";
@@ -69,19 +69,18 @@ export function ReportsScreen({ context }: { context: StaffContext }) {
       </View>
       {period === "custom" ? (
         <View style={styles.custom}>
-          <TextInput
-            accessibilityLabel="Report start date"
-            style={[uiStyles.field, styles.date]}
+          <DatePickerField
+            label="From"
             value={customStart}
-            onChangeText={setCustomStart}
-            placeholder="YYYY-MM-DD"
+            maximumDate={fromIsoDate(customEnd)}
+            onChange={setCustomStart}
           />
-          <TextInput
-            accessibilityLabel="Report end date"
-            style={[uiStyles.field, styles.date]}
+          <DatePickerField
+            label="To"
             value={customEnd}
-            onChangeText={setCustomEnd}
-            placeholder="YYYY-MM-DD"
+            minimumDate={fromIsoDate(customStart)}
+            maximumDate={new Date()}
+            onChange={setCustomEnd}
           />
         </View>
       ) : null}
@@ -292,8 +291,7 @@ const styles = StyleSheet.create({
   },
   periodActive: { backgroundColor: colors.surface },
   periodText: { color: colors.text, fontSize: 10, fontWeight: "900" },
-  custom: { flexDirection: "row", gap: spacing.sm },
-  date: { flex: 1 },
+  custom: { gap: spacing.sm },
   metrics: {
     flexDirection: "row",
     flexWrap: "wrap",

@@ -3,17 +3,22 @@ import os
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, time, timedelta
+from types import SimpleNamespace
+from typing import Annotated
 
 import httpx
 import pytest
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+import app.api.staff as staff_api
 from app.api.public import router as public_router
-from app.auth.dependencies import StaffContext, optional_identity
+from app.api.staff import router as staff_router
+from app.auth.dependencies import StaffContext, optional_identity, staff_context
+from app.auth.verifier import AuthenticationError, VerifiedIdentity
 from app.core.config import Settings
 from app.core.database import create_engine, query_count, session_dependency
 from app.domain.enums import SlotStatus, StaffRole
@@ -25,7 +30,9 @@ from app.models.entities import (
     BookingService,
     Business,
     BusinessSettings,
+    CancellationRequest,
     IdempotencyRecord,
+    Job,
     NotificationOutbox,
     ScheduleResource,
     ScheduleSlot,
@@ -65,6 +72,37 @@ pytestmark = [
     pytest.mark.postgres,
     pytest.mark.skipif(_skip_reason() is not None, reason=_skip_reason() or "unavailable"),
 ]
+
+
+class StubAuthVerifier:
+    def __init__(self, identities: dict[str, uuid.UUID]) -> None:
+        self.identities = identities
+
+    async def verify(self, token: str) -> VerifiedIdentity:
+        user_id = self.identities.get(token)
+        if user_id is None:
+            raise AuthenticationError("Unknown integration token")
+        return VerifiedIdentity(user_id=user_id, claims={"sub": str(user_id)})
+
+
+class StubSupabaseAdmin:
+    def __init__(self, created_user_id: uuid.UUID) -> None:
+        self.created_user_id = created_user_id
+
+    async def create_staff_user(self, username: str, password: str) -> uuid.UUID:
+        assert username
+        assert len(password) >= 8
+        return self.created_user_id
+
+    async def update_staff_user(
+        self,
+        user_id: uuid.UUID,
+        *,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> None:
+        assert user_id
+        assert username is not None or password is not None
 
 
 @pytest.fixture(scope="module")
@@ -380,6 +418,400 @@ async def test_shift_creation_assignment_and_duplicate_conflict(
     with pytest.raises(ConflictError, match="already has a shift"):
         async with database() as session, session.begin():
             await assign_shift(session, context, request)
+
+
+@pytest.mark.asyncio
+async def test_staff_write_workflow_uses_real_context_dependency_without_leaking_transaction(
+    database: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager_auth_id = uuid.uuid4()
+    employee_auth_id = uuid.uuid4()
+    async with database() as session, session.begin():
+        business = (await session.scalars(select(Business))).one()
+        manager = StaffProfile(
+            business_id=business.id,
+            auth_user_id=manager_auth_id,
+            username=f"workflow-manager-{uuid.uuid4().hex[:6]}",
+            display_name="Workflow Manager",
+            role=StaffRole.MANAGER,
+            is_active=True,
+        )
+        session.add(manager)
+
+    initial_hold = await _attempt_hold(
+        database,
+        HoldCreate(date=date(2035, 2, 1), start_time=time(9), vehicle_count=1),
+    )
+    async with database() as session:
+        service_id = (await session.scalars(select(Service.id))).one()
+    booking_request = BookingCreate.model_validate(
+        {
+            "hold_token": initial_hold.hold_token,
+            "contact": {
+                "first_name": "Write",
+                "surname": "Workflow",
+                "email": "write-workflow@example.com",
+                "phone": "+971500000002",
+            },
+            "location": {
+                "written_address": "Yas Island, Abu Dhabi",
+                "location_url": "https://maps.google.com/?q=Yas+Island",
+            },
+            "vehicles": [
+                {
+                    "make": "Toyota",
+                    "model": "Land Cruiser",
+                    "vehicle_type": "suv",
+                    "service_id": service_id,
+                }
+            ],
+            "payment_choice": "pay_after_service",
+        }
+    )
+    async with database() as session, session.begin():
+        booking = await create_booking(session, booking_request, None)
+    async with database() as session:
+        job_id = (await session.scalars(select(Job.id).where(Job.booking_id == booking.id))).one()
+
+    cancellation_hold = await _attempt_hold(
+        database,
+        HoldCreate(date=date(2035, 2, 3), start_time=time(13), vehicle_count=1),
+    )
+    cancellation_booking_request = booking_request.model_copy(
+        update={"hold_token": cancellation_hold.hold_token}
+    )
+    async with database() as session, session.begin():
+        cancellation_booking = await create_booking(session, cancellation_booking_request, None)
+        rejected_cancellation = CancellationRequest(
+            booking_id=cancellation_booking.id,
+            requester_type="customer",
+            reason="Reject this integration request",
+            status="requested",
+            requested_at=datetime.now(UTC),
+        )
+        approved_cancellation = CancellationRequest(
+            booking_id=cancellation_booking.id,
+            requester_type="customer",
+            reason="Approve this integration request",
+            status="requested",
+            requested_at=datetime.now(UTC),
+        )
+        session.add_all([rejected_cancellation, approved_cancellation])
+        await session.flush()
+        rejected_cancellation_id = rejected_cancellation.id
+        approved_cancellation_id = approved_cancellation.id
+
+    test_app = FastAPI()
+    test_app.include_router(staff_router)
+
+    async def sessions() -> AsyncIterator[AsyncSession]:
+        async with database() as session:
+            yield session
+
+    test_app.dependency_overrides[session_dependency] = sessions
+    test_app.state.auth_verifier = StubAuthVerifier(
+        {"manager-token": manager_auth_id, "employee-token": employee_auth_id}
+    )
+    test_app.state.http_client = httpx.AsyncClient()
+    monkeypatch.setattr(staff_api, "_admin", lambda _request: StubSupabaseAdmin(employee_auth_id))
+    monkeypatch.setattr(
+        staff_api,
+        "get_settings",
+        lambda: SimpleNamespace(google_routes_api_key=None),
+    )
+
+    @test_app.exception_handler(DomainError)
+    async def error_handler(_request: Request, exc: DomainError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"code": exc.code, "message": exc.message},
+        )
+
+    @test_app.get("/_staff-transaction-state")
+    async def transaction_state(
+        session: Annotated[AsyncSession, Depends(session_dependency)],
+        _context: Annotated[StaffContext, Depends(staff_context)],
+    ) -> dict[str, bool]:
+        return {"in_transaction": session.in_transaction()}
+
+    manager_headers = {"Authorization": "Bearer manager-token"}
+    employee_headers = {"Authorization": "Bearer employee-token"}
+    transport = httpx.ASGITransport(app=test_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        context_response = await client.get("/api/v1/staff/context", headers=manager_headers)
+        assert context_response.status_code == 200
+        transaction_response = await client.get(
+            "/_staff-transaction-state", headers=manager_headers
+        )
+        assert transaction_response.json() == {"in_transaction": False}
+
+        employee_response = await client.post(
+            "/api/v1/staff/users",
+            headers=manager_headers,
+            json={
+                "display_name": "Workflow Employee",
+                "username": f"workflow-employee-{uuid.uuid4().hex[:6]}",
+                "phone": "+971501234567",
+                "role": "employee",
+                "temporary_password": "Integration-Only-123!",
+            },
+        )
+        assert employee_response.status_code == 201, employee_response.text
+        employee_id = employee_response.json()["id"]
+
+        updated_employee = await client.patch(
+            f"/api/v1/staff/users/{employee_id}",
+            headers=manager_headers,
+            json={"display_name": "Workflow Employee Updated"},
+        )
+        assert updated_employee.status_code == 200, updated_employee.text
+        assert updated_employee.json()["display_name"] == "Workflow Employee Updated"
+        deactivated_employee = await client.patch(
+            f"/api/v1/staff/users/{employee_id}",
+            headers=manager_headers,
+            json={"is_active": False},
+        )
+        assert deactivated_employee.status_code == 200, deactivated_employee.text
+        assert deactivated_employee.json()["is_active"] is False
+        reactivated_employee = await client.patch(
+            f"/api/v1/staff/users/{employee_id}",
+            headers=manager_headers,
+            json={"is_active": True},
+        )
+        assert reactivated_employee.status_code == 200, reactivated_employee.text
+        temporary_password = await client.post(
+            f"/api/v1/staff/users/{employee_id}/temporary-password",
+            headers=manager_headers,
+            json={"temporary_password": "Replacement-Only-123!"},
+        )
+        assert temporary_password.status_code == 204, temporary_password.text
+
+        team_response = await client.post(
+            "/api/v1/staff/teams",
+            headers=manager_headers,
+            json={"name": f"Workflow Team {uuid.uuid4().hex[:6]}"},
+        )
+        assert team_response.status_code == 201, team_response.text
+        team_id = team_response.json()["id"]
+
+        renamed_team = await client.patch(
+            f"/api/v1/staff/teams/{team_id}",
+            headers=manager_headers,
+            json={"name": f"Renamed Workflow Team {uuid.uuid4().hex[:6]}"},
+        )
+        assert renamed_team.status_code == 200, renamed_team.text
+
+        members_response = await client.put(
+            f"/api/v1/staff/teams/{team_id}/members",
+            headers=manager_headers,
+            json={"staff_ids": [employee_id]},
+        )
+        assert members_response.status_code == 200, members_response.text
+        assert [member["id"] for member in members_response.json()["members"]] == [employee_id]
+        removed_response = await client.put(
+            f"/api/v1/staff/teams/{team_id}/members",
+            headers=manager_headers,
+            json={"staff_ids": []},
+        )
+        assert removed_response.status_code == 200
+        restored_response = await client.put(
+            f"/api/v1/staff/teams/{team_id}/members",
+            headers=manager_headers,
+            json={"staff_ids": [employee_id]},
+        )
+        assert restored_response.status_code == 200
+        deactivated_team = await client.patch(
+            f"/api/v1/staff/teams/{team_id}",
+            headers=manager_headers,
+            json={"is_active": False},
+        )
+        assert deactivated_team.status_code == 200, deactivated_team.text
+        assert deactivated_team.json()["is_active"] is False
+        reactivated_team = await client.patch(
+            f"/api/v1/staff/teams/{team_id}",
+            headers=manager_headers,
+            json={"is_active": True},
+        )
+        assert reactivated_team.status_code == 200, reactivated_team.text
+
+        shift_response = await client.post(
+            "/api/v1/staff/shifts",
+            headers=manager_headers,
+            json={
+                "name": f"Workflow Morning {uuid.uuid4().hex[:6]}",
+                "start_time": "09:00:00",
+                "end_time": "18:00:00",
+            },
+        )
+        assert shift_response.status_code == 201, shift_response.text
+        assignment_response = await client.put(
+            "/api/v1/staff/shift-assignments",
+            headers=manager_headers,
+            json={
+                "staff_id": employee_id,
+                "shift_id": shift_response.json()["id"],
+                "work_date": "2035-02-05",
+                "team_id": team_id,
+            },
+        )
+        assert assignment_response.status_code == 200, assignment_response.text
+
+        leave_response = await client.post(
+            "/api/v1/staff/leave",
+            headers=employee_headers,
+            json={
+                "start_date": "2035-03-01",
+                "end_date": "2035-03-01",
+                "reason": "Integration workflow",
+            },
+        )
+        assert leave_response.status_code == 201, leave_response.text
+        review_response = await client.post(
+            f"/api/v1/staff/leave/{leave_response.json()['id']}/review",
+            headers=manager_headers,
+            json={"decision": "approved"},
+        )
+        assert review_response.status_code == 200, review_response.text
+
+        second_leave_response = await client.post(
+            "/api/v1/staff/leave",
+            headers=employee_headers,
+            json={
+                "start_date": "2035-03-02",
+                "end_date": "2035-03-02",
+                "reason": "Rejected integration workflow",
+            },
+        )
+        assert second_leave_response.status_code == 201, second_leave_response.text
+        rejected_leave_response = await client.post(
+            f"/api/v1/staff/leave/{second_leave_response.json()['id']}/review",
+            headers=manager_headers,
+            json={"decision": "rejected"},
+        )
+        assert rejected_leave_response.status_code == 200, rejected_leave_response.text
+
+        manager_profile = await client.patch(
+            "/api/v1/staff/profile",
+            headers=manager_headers,
+            json={"display_name": "Workflow Manager Updated"},
+        )
+        assert manager_profile.status_code == 200, manager_profile.text
+
+        employee_profile = await client.patch(
+            "/api/v1/staff/profile",
+            headers=employee_headers,
+            json={
+                "display_name": "Workflow Employee Self Updated",
+                "password": "Employee-Replacement-123!",
+            },
+        )
+        assert employee_profile.status_code == 200, employee_profile.text
+
+        clock_in_response = await client.post(
+            "/api/v1/staff/attendance/clock-in",
+            headers=employee_headers,
+            json={},
+        )
+        assert clock_in_response.status_code == 200, clock_in_response.text
+        clock_out_response = await client.post(
+            "/api/v1/staff/attendance/clock-out",
+            headers=employee_headers,
+            json={},
+        )
+        assert clock_out_response.status_code == 200, clock_out_response.text
+        assert clock_out_response.json()["clock_out_at"] is not None
+
+        job_assignment_response = await client.patch(
+            f"/api/v1/staff/jobs/{job_id}/assignment",
+            headers=manager_headers,
+            json={"team_id": team_id, "client_event_id": str(uuid.uuid4())},
+        )
+        assert job_assignment_response.status_code == 200, job_assignment_response.text
+        assert job_assignment_response.json()["assigned_team_id"] == team_id
+
+        reassignment_response = await client.patch(
+            f"/api/v1/staff/jobs/{job_id}/assignment",
+            headers=manager_headers,
+            json={"staff_id": employee_id, "client_event_id": str(uuid.uuid4())},
+        )
+        assert reassignment_response.status_code == 200, reassignment_response.text
+        assert reassignment_response.json()["assigned_staff_id"] == employee_id
+
+        employee_jobs = await client.get(
+            "/api/v1/staff/jobs",
+            headers=employee_headers,
+            params={"view": "all", "scope": "my"},
+        )
+        assert employee_jobs.status_code == 200, employee_jobs.text
+        assert job_id in {uuid.UUID(item["id"]) for item in employee_jobs.json()["jobs"]}
+
+        replacement_hold = await _attempt_hold(
+            database,
+            HoldCreate(date=date(2035, 2, 2), start_time=time(11), vehicle_count=1),
+        )
+        reschedule_response = await client.post(
+            f"/api/v1/staff/bookings/{booking.id}/reschedule",
+            headers=manager_headers,
+            json={"hold_token": replacement_hold.hold_token},
+        )
+        assert reschedule_response.status_code == 200, reschedule_response.text
+        assert reschedule_response.json()["scheduled_start"].startswith("2035-02-02")
+
+        start_trip_response = await client.post(
+            f"/api/v1/staff/jobs/{job_id}/start-trip",
+            headers=employee_headers,
+            json={
+                "client_event_id": str(uuid.uuid4()),
+                "origin": {"latitude": 24.4539, "longitude": 54.3773},
+            },
+        )
+        assert start_trip_response.status_code == 200, start_trip_response.text
+        assert start_trip_response.json()["status"] == "en_route"
+        start_response = await client.post(
+            f"/api/v1/staff/jobs/{job_id}/start",
+            headers=employee_headers,
+            json={"client_event_id": str(uuid.uuid4())},
+        )
+        assert start_response.status_code == 200, start_response.text
+        assert start_response.json()["status"] == "in_progress"
+        complete_response = await client.post(
+            f"/api/v1/staff/jobs/{job_id}/complete",
+            headers=employee_headers,
+            json={"client_event_id": str(uuid.uuid4())},
+        )
+        assert complete_response.status_code == 200, complete_response.text
+        assert complete_response.json()["status"] == "completed"
+        cash_response = await client.post(
+            f"/api/v1/staff/jobs/{job_id}/cash-payment",
+            headers=employee_headers,
+            json={"client_event_id": str(uuid.uuid4())},
+        )
+        assert cash_response.status_code == 200, cash_response.text
+        assert cash_response.json()["payment_status"] == "paid"
+
+        rejected_response = await client.post(
+            f"/api/v1/staff/cancellations/{rejected_cancellation_id}/review",
+            headers=manager_headers,
+            json={
+                "decision": "rejected",
+                "client_event_id": str(uuid.uuid4()),
+            },
+        )
+        assert rejected_response.status_code == 200, rejected_response.text
+        assert rejected_response.json()["status"] == "rejected"
+        approved_response = await client.post(
+            f"/api/v1/staff/cancellations/{approved_cancellation_id}/review",
+            headers=manager_headers,
+            json={
+                "decision": "approved",
+                "client_event_id": str(uuid.uuid4()),
+            },
+        )
+        assert approved_response.status_code == 200, approved_response.text
+        assert approved_response.json()["status"] == "approved"
+
+    await test_app.state.http_client.aclose()
 
 
 @pytest.mark.asyncio
