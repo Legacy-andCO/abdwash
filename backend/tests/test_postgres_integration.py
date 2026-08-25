@@ -40,6 +40,7 @@ from app.models.entities import (
     Service,
     SlotHoldGroup,
     StaffProfile,
+    TeamMembership,
 )
 from app.schemas.public import BookingCreate, HoldCreate, HoldResponse
 from app.schemas.staff import AttendanceAction, ShiftAssignmentCreate, ShiftCreate
@@ -408,10 +409,37 @@ async def test_shift_creation_assignment_and_duplicate_conflict(
                 name=f"Morning {uuid.uuid4().hex[:6]}", start_time=time(9), end_time=time(18)
             ),
         )
+        team = ScheduleResource(
+            business_id=context.business_id,
+            name=f"Shift Team {uuid.uuid4().hex[:6]}",
+            resource_type="mobile_team",
+            is_active=True,
+        )
+        session.add(team)
+        await session.flush()
+    invalid_membership = ShiftAssignmentCreate(
+        staff_id=context.staff_id,
+        shift_id=shift.id,
+        work_date=date(2035, 1, 6),
+        team_id=team.id,
+    )
+    with pytest.raises(ConflictError) as membership_error:
+        async with database() as session, session.begin():
+            await assign_shift(session, context, invalid_membership)
+    assert membership_error.value.code == "STAFF_NOT_ON_TEAM"
+    async with database() as session, session.begin():
+        session.add(
+            TeamMembership(
+                resource_id=team.id,
+                staff_profile_id=context.staff_id,
+                is_active=True,
+            )
+        )
     request = ShiftAssignmentCreate(
         staff_id=context.staff_id,
         shift_id=shift.id,
         work_date=date(2035, 1, 7),
+        team_id=team.id,
     )
     async with database() as session, session.begin():
         assigned = await assign_shift(session, context, request)

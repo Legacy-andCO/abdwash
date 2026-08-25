@@ -1,4 +1,3 @@
-import * as Location from "expo-location";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -24,6 +23,12 @@ import {
 import { DatePickerField, toIsoDate } from "../components/pickers";
 import { domainErrorMessage } from "../errors/domainErrors";
 import { successHaptic } from "../haptics";
+import {
+  acquireTripOrigin,
+  tripLocationFailureMessage,
+  type TripOrigin,
+} from "../location/startTripLocation";
+import { expoTripLocationSource } from "../location/expoTripLocation";
 import type {
   AvailabilitySlot,
   Job,
@@ -45,7 +50,8 @@ import {
 import { assignmentLabel, shouldShowPagination } from "../cache/policy";
 import { colors, radii, spacing } from "../theme";
 
-type JobView = "today" | "upcoming" | "history" | "unassigned" | "all";
+export type JobView = "today" | "upcoming" | "history" | "unassigned" | "all";
+export type JobsNavigationState = { view: JobView; offset: number };
 const today = () => new Date().toISOString().slice(0, 10);
 const formatTime = (value: string) =>
   new Date(value).toLocaleTimeString([], {
@@ -53,14 +59,27 @@ const formatTime = (value: string) =>
     minute: "2-digit",
   });
 
-export function JobsScreen({ context }: { context: StaffContext }) {
+export function JobsScreen({
+  context,
+  navigationState = { view: "today", offset: 0 },
+  onNavigationStateChange,
+}: {
+  context: StaffContext;
+  navigationState?: JobsNavigationState;
+  onNavigationStateChange?: (value: JobsNavigationState) => void;
+}) {
   const canManage = capabilities(context.role).canViewAllJobs;
   const views: JobView[] = canManage
     ? ["today", "upcoming", "unassigned", "history", "all"]
     : ["today", "upcoming", "history"];
-  const [view, setView] = useState<JobView>("today");
-  const [offset, setOffset] = useState(0);
+  const [view, setView] = useState<JobView>(navigationState.view);
+  const [offset, setOffset] = useState(navigationState.offset);
   const [selected, setSelected] = useState<Job | null>(null);
+  function updateNavigation(value: JobsNavigationState) {
+    setView(value.view);
+    setOffset(value.offset);
+    onNavigationStateChange?.(value);
+  }
   const filters = useMemo<JobFilters>(
     () => ({
       view,
@@ -107,8 +126,7 @@ export function JobsScreen({ context }: { context: StaffContext }) {
               view === item ? styles.segmentActive : undefined,
             ]}
             onPress={() => {
-              setView(item);
-              setOffset(0);
+              updateNavigation({ view: item, offset: 0 });
             }}
           >
             <Text style={styles.segmentText}>{label(item)}</Text>
@@ -149,7 +167,12 @@ export function JobsScreen({ context }: { context: StaffContext }) {
                   title="Previous"
                   tone="secondary"
                   disabled={offset === 0}
-                  onPress={() => setOffset(Math.max(0, offset - 50))}
+                  onPress={() =>
+                    updateNavigation({
+                      view,
+                      offset: Math.max(0, offset - 50),
+                    })
+                  }
                 />
               </View>
               <View style={styles.action}>
@@ -157,7 +180,12 @@ export function JobsScreen({ context }: { context: StaffContext }) {
                   title="Next"
                   tone="secondary"
                   disabled={query.data?.next_offset === null}
-                  onPress={() => setOffset(query.data?.next_offset ?? offset)}
+                  onPress={() =>
+                    updateNavigation({
+                      view,
+                      offset: query.data?.next_offset ?? offset,
+                    })
+                  }
                 />
               </View>
             </View>
@@ -228,6 +256,36 @@ function JobDetail({
   const actionMutation = useJobActionMutation(context);
   const [assignment, setAssignment] = useState(false);
   const [reschedule, setReschedule] = useState(false);
+  const [tripStage, setTripStage] = useState<
+    "idle" | "getting_location" | "starting_trip"
+  >("idle");
+  async function submitTrip(origin: TripOrigin | null) {
+    setTripStage("starting_trip");
+    try {
+      const updated = await actionMutation.mutateAsync({
+        jobId: job.id,
+        action: "start-trip",
+        body: {
+          client_event_id: crypto.randomUUID(),
+          client_timestamp: new Date().toISOString(),
+          origin,
+        },
+      });
+      await successHaptic();
+      if (!updated.estimated_arrival_at)
+        Alert.alert("Trip started", "Trip started, but ETA is unavailable.");
+    } catch (error) {
+      Alert.alert(
+        "Unable to start trip",
+        domainErrorMessage(
+          error,
+          "The server did not confirm this action. Retry safely.",
+        ),
+      );
+    } finally {
+      setTripStage("idle");
+    }
+  }
   async function action(
     name: "start-trip" | "start" | "complete" | "cash-payment",
   ) {
@@ -237,28 +295,30 @@ function JobDetail({
     };
     try {
       if (name === "start-trip") {
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert(
-            "Location needed",
-            "Location is used once to calculate the customer ETA.",
-          );
+        setTripStage("getting_location");
+        const result = await acquireTripOrigin(expoTripLocationSource);
+        if (result.origin) {
+          await submitTrip(result.origin);
           return;
         }
-        const origin = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        body = {
-          ...body,
-          origin: {
-            latitude: origin.coords.latitude,
-            longitude: origin.coords.longitude,
-          },
-        };
+        setTripStage("idle");
+        Alert.alert(
+          "Location unavailable",
+          tripLocationFailureMessage(result.failure),
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Start without ETA",
+              onPress: () => void submitTrip(null),
+            },
+          ],
+        );
+        return;
       }
       await actionMutation.mutateAsync({ jobId: job.id, action: name, body });
       await successHaptic();
     } catch (error) {
+      if (name === "start-trip") setTripStage("idle");
       Alert.alert(
         "Action not completed",
         domainErrorMessage(
@@ -397,9 +457,15 @@ function JobDetail({
       </Card>
       {job.status === "assigned" ? (
         <AppButton
-          title={actionMutation.isPending ? "Starting…" : "Start trip"}
-          disabled={actionMutation.isPending}
-          loading={actionMutation.isPending}
+          title={
+            tripStage === "getting_location"
+              ? "Getting location…"
+              : tripStage === "starting_trip"
+                ? "Starting trip…"
+                : "Start trip"
+          }
+          disabled={tripStage !== "idle" || actionMutation.isPending}
+          loading={tripStage !== "idle"}
           onPress={() => void action("start-trip")}
         />
       ) : job.status === "en_route" ? (
@@ -569,6 +635,7 @@ function RescheduleSheet({
   const [resourceId, setResourceId] = useState("");
   const vehicleCount = Math.max(1, job.vehicles.length);
   const availability = useAvailabilityQuery(
+    context,
     job.booking_id,
     selectedDay,
     vehicleCount,

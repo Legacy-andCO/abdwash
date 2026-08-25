@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -24,16 +24,7 @@ import {
 } from "../components/ui";
 import { successHaptic } from "../haptics";
 import {
-  getAttendance,
-  getCancellations,
-  getLeave,
-  getStaff,
-  getTeam,
-  getTeams,
-  reviewCancellation,
-  reviewLeave,
   setTemporaryPassword,
-  updateStaff,
   type Attendance,
   type AttendanceOverview,
   type Cancellation,
@@ -47,36 +38,58 @@ import {
   type Team,
   type TeamDetail,
 } from "../lib";
-import { domainErrorMessage } from "../errors/domainErrors";
+import { ApiError, domainErrorMessage } from "../errors/domainErrors";
+import {
+  eligibleTeamsForStaff,
+  normalizeStaffPhone,
+  normalizeStaffUsername,
+  validateAddStaff,
+} from "../forms/staffForm";
 import {
   useAssignShiftMutation,
   useAttendanceOverviewQuery,
+  useCancellationsQuery,
   useCreateShiftMutation,
   useCreateStaffMutation,
   useCreateTeamMutation,
   useJobsQuery,
   useLeaveQuery,
   useReportQuery,
+  useReviewCancellationMutation,
+  useReviewLeaveMutation,
   useShiftAssignmentsQuery,
   useShiftsQuery,
   useStaffQuery,
+  useTeamQuery,
   useTeamsQuery,
+  useUpdateStaffMutation,
   useUpdateTeamMutation,
   useUpdateTeamMembersMutation,
 } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
 import { sameStringSet } from "../operations";
 
-type Section = "teams" | "staff" | "shifts" | "attendance";
-export function TeamScreen({ context }: { context: StaffContext }) {
-  const [section, setSection] = useState<Section>("teams");
+export type TeamSection = "teams" | "staff" | "shifts" | "attendance";
+export function TeamScreen({
+  context,
+  initialSection = "teams",
+  onSectionChange,
+}: {
+  context: StaffContext;
+  initialSection?: TeamSection;
+  onSectionChange?: (value: TeamSection) => void;
+}) {
+  const [section, setSection] = useState<TeamSection>(initialSection);
   return (
     <View style={{ flex: 1 }}>
       <View style={styles.segment}>
         {(["teams", "staff", "shifts", "attendance"] as const).map((item) => (
           <Pressable
             key={item}
-            onPress={() => setSection(item)}
+            onPress={() => {
+              setSection(item);
+              onSectionChange?.(item);
+            }}
             style={[
               styles.segmentItem,
               section === item ? styles.segmentActive : undefined,
@@ -114,17 +127,12 @@ function TeamsPane({ context }: { context: StaffContext }) {
   const membersMutation = useUpdateTeamMembersMutation(context);
   const items = teamsQuery.data ?? [];
   const [add, setAdd] = useState(false);
-  const [detail, setDetail] = useState<TeamDetail | null>(null);
-  async function open(item: Team) {
-    try {
-      setDetail(await getTeam(item.id));
-    } catch (error) {
-      Alert.alert(
-        "Team unavailable",
-        domainErrorMessage(error, "Please try again."),
-      );
-    }
-  }
+  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const detailQuery = useTeamQuery(
+    context,
+    selectedTeamId,
+    Boolean(selectedTeamId),
+  );
   if (add) {
     return (
       <SimpleCreate
@@ -141,7 +149,34 @@ function TeamsPane({ context }: { context: StaffContext }) {
       />
     );
   }
-  if (detail) {
+  if (selectedTeamId && detailQuery.isPending) {
+    return (
+      <ScrollView contentContainerStyle={uiStyles.content}>
+        <Pressable onPress={() => setSelectedTeamId("")}>
+          <Text style={uiStyles.link}>← Teams</Text>
+        </Pressable>
+        <Skeleton rows={5} />
+      </ScrollView>
+    );
+  }
+  if (selectedTeamId && detailQuery.isError && !detailQuery.data) {
+    return (
+      <ScrollView contentContainerStyle={uiStyles.content}>
+        <Pressable onPress={() => setSelectedTeamId("")}>
+          <Text style={uiStyles.link}>← Teams</Text>
+        </Pressable>
+        <Text style={uiStyles.error}>
+          {domainErrorMessage(detailQuery.error, "Team details could not load.")}
+        </Text>
+        <AppButton
+          title="Try again"
+          onPress={() => void detailQuery.refetch()}
+        />
+      </ScrollView>
+    );
+  }
+  if (detailQuery.data) {
+    const detail = detailQuery.data;
     return (
       <TeamMembersSheet
         detail={detail}
@@ -154,12 +189,10 @@ function TeamsPane({ context }: { context: StaffContext }) {
         onUpdate={(body) =>
           updateMutation.mutateAsync({ teamId: detail.id, body })
         }
-        onClose={() => setDetail(null)}
-        onSaved={(team) => {
-          setDetail(team);
-        }}
+        onClose={() => setSelectedTeamId("")}
+        onSaved={() => undefined}
         onMembersSaved={() => {
-          setDetail(null);
+          setSelectedTeamId("");
         }}
       />
     );
@@ -175,15 +208,20 @@ function TeamsPane({ context }: { context: StaffContext }) {
         tone="secondary"
         onPress={() => setAdd(true)}
       />
+      {teamsQuery.isError && items.length ? (
+        <Text style={uiStyles.error}>
+          Teams could not refresh. Showing saved data.
+        </Text>
+      ) : null}
       {teamsQuery.isPending ? (
         <Skeleton />
-      ) : teamsQuery.isError ? (
+      ) : teamsQuery.isError && !items.length ? (
         <Text style={uiStyles.error}>
           {domainErrorMessage(teamsQuery.error, "Teams could not load.")}
         </Text>
       ) : items.length ? (
         items.map((item) => (
-          <Pressable key={item.id} onPress={() => void open(item)}>
+          <Pressable key={item.id} onPress={() => setSelectedTeamId(item.id)}>
             <Card>
               <View style={uiStyles.row}>
                 <View>
@@ -220,6 +258,7 @@ function TeamsPane({ context }: { context: StaffContext }) {
 function StaffPane({ context }: { context: StaffContext }) {
   const staffQuery = useStaffQuery(context);
   const createStaffMutation = useCreateStaffMutation(context);
+  const updateStaffMutation = useUpdateStaffMutation(context);
   const attendance = useAttendanceOverviewQuery(context);
   const jobs = useJobsQuery(context, {
     view: "today",
@@ -244,8 +283,10 @@ function StaffPane({ context }: { context: StaffContext }) {
   async function toggle(item: Profile) {
     setUpdatingStaffId(item.id);
     try {
-      await updateStaff(item.id, { is_active: !item.is_active });
-      await staffQuery.refetch();
+      await updateStaffMutation.mutateAsync({
+        staffId: item.id,
+        body: { is_active: !item.is_active },
+      });
       await successHaptic();
     } catch (error) {
       Alert.alert(
@@ -273,10 +314,12 @@ function StaffPane({ context }: { context: StaffContext }) {
     return (
       <EditStaffSheet
         profile={editTarget}
+        updateAccount={(body) =>
+          updateStaffMutation.mutateAsync({ staffId: editTarget.id, body })
+        }
         onClose={() => setEditTarget(null)}
-        onSaved={async () => {
+        onSaved={() => {
           setEditTarget(null);
-          await staffQuery.refetch();
         }}
       />
     );
@@ -313,9 +356,14 @@ function StaffPane({ context }: { context: StaffContext }) {
         subtitle="Accounts, roles and team membership"
       />
       <AppButton title="Add employee" onPress={() => setAdd(true)} />
+      {staffQuery.isError && items.length ? (
+        <Text style={uiStyles.error}>
+          Staff could not refresh. Showing saved data.
+        </Text>
+      ) : null}
       {staffQuery.isPending ? (
         <Skeleton />
-      ) : staffQuery.isError ? (
+      ) : staffQuery.isError && !items.length ? (
         <Text style={uiStyles.error}>
           {domainErrorMessage(staffQuery.error, "Staff could not load.")}
         </Text>
@@ -479,34 +527,18 @@ function ShiftsPane({ context }: { context: StaffContext }) {
 function AttendancePane({ context }: { context: StaffContext }) {
   const attendance = useAttendanceOverviewQuery(context);
   const leaveQuery = useLeaveQuery(context, "pending");
+  const cancellationsQuery = useCancellationsQuery(context);
+  const leaveDecision = useReviewLeaveMutation(context);
+  const cancellationDecision = useReviewCancellationMutation(context);
   const items = attendance.data ?? [];
   const leave = leaveQuery.data ?? [];
-  const [cancellations, setCancellations] = useState<Cancellation[]>([]);
-  const [cancellationsLoading, setCancellationsLoading] = useState(true);
-  const [cancellationsError, setCancellationsError] = useState<unknown>(null);
+  const cancellations = cancellationsQuery.data ?? [];
   const [decisionKey, setDecisionKey] = useState<string | null>(null);
-  useEffect(() => {
-    let active = true;
-    void getCancellations()
-      .then((values) => {
-        if (active) setCancellations(values);
-      })
-      .catch((error) => {
-        if (active) setCancellationsError(error);
-      })
-      .finally(() => {
-        if (active) setCancellationsLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
   async function decideLeave(item: Leave, decision: "approved" | "rejected") {
     const key = `${item.id}:${decision}`;
     setDecisionKey(key);
     try {
-      await reviewLeave(item.id, decision);
-      await Promise.all([leaveQuery.refetch(), attendance.refetch()]);
+      await leaveDecision.mutateAsync({ id: item.id, decision });
       await successHaptic();
     } catch (reason) {
       Alert.alert(
@@ -524,10 +556,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
     const key = `${item.id}:${decision}`;
     setDecisionKey(key);
     try {
-      await reviewCancellation(item.id, decision);
-      setCancellations((current) =>
-        current.filter((value) => value.id !== item.id),
-      );
+      await cancellationDecision.mutateAsync({ id: item.id, decision });
       await successHaptic();
     } catch (error) {
       Alert.alert(
@@ -544,9 +573,14 @@ function AttendancePane({ context }: { context: StaffContext }) {
         title="Attendance"
         subtitle="Working, late, clocked out, absent, off and approved leave"
       />
+      {attendance.isError && items.length ? (
+        <Text style={uiStyles.error}>
+          Attendance could not refresh. Showing saved data.
+        </Text>
+      ) : null}
       {attendance.isPending ? (
         <Skeleton />
-      ) : attendance.isError ? (
+      ) : attendance.isError && !items.length ? (
         <Text style={uiStyles.error}>
           {domainErrorMessage(attendance.error, "Attendance could not load.")}
         </Text>
@@ -631,12 +665,17 @@ function AttendancePane({ context }: { context: StaffContext }) {
         <EmptyState title="No pending leave requests" />
       )}
       <Text style={styles.section}>CANCELLATIONS</Text>
-      {cancellationsLoading ? (
+      {cancellationsQuery.isError && cancellations.length ? (
+        <Text style={uiStyles.error}>
+          Cancellation requests could not refresh. Showing saved data.
+        </Text>
+      ) : null}
+      {cancellationsQuery.isPending ? (
         <Skeleton />
-      ) : cancellationsError ? (
+      ) : cancellationsQuery.isError && !cancellations.length ? (
         <Text style={uiStyles.error}>
           {domainErrorMessage(
-            cancellationsError,
+            cancellationsQuery.error,
             "Cancellation requests could not load.",
           )}
         </Text>
@@ -707,21 +746,25 @@ function AddStaffSheet({
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"employee" | "manager">("employee");
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState("");
+  const errors = validateAddStaff({ name, username, phone, password });
+  const formValid = Object.keys(errors).length === 0;
   async function save() {
+    if (!formValid) return;
     setBusy(true);
+    setFormError("");
     try {
       const profile = await createAccount({
-        display_name: name,
-        username,
-        phone,
+        display_name: name.trim(),
+        username: normalizeStaffUsername(username),
+        phone: normalizeStaffPhone(phone),
         role,
         temporary_password: password,
       });
       await successHaptic();
       onCreated(profile);
     } catch (reason) {
-      Alert.alert(
-        "Account not created",
+      setFormError(
         domainErrorMessage(reason, "Check the details and try again."),
       );
     } finally {
@@ -740,24 +783,67 @@ function AddStaffSheet({
           <Text style={uiStyles.link}>Back</Text>
         </Pressable>
       </View>
-      {[
-        ["FULL NAME", name, setName, "Mohammed Ali"],
-        ["USERNAME", username, setUsername, "mohammed"],
-        ["PHONE", phone, setPhone, "+971 50 123 4567"],
-        ["TEMPORARY PASSWORD", password, setPassword, "At least 8 characters"],
-      ].map(([label, value, setter, placeholder]) => (
-        <View key={label as string}>
-          <Text style={uiStyles.label}>{label as string}</Text>
-          <TextInput
-            style={uiStyles.field}
-            value={value as string}
-            onChangeText={setter as (value: string) => void}
-            placeholder={placeholder as string}
-            secureTextEntry={label === "TEMPORARY PASSWORD"}
-            autoCapitalize="none"
-          />
-        </View>
-      ))}
+      <View>
+        <Text style={uiStyles.label}>FULL NAME</Text>
+        <TextInput
+          accessibilityLabel="Full name"
+          style={uiStyles.field}
+          value={name}
+          onChangeText={setName}
+          placeholder="Mohammed Ali"
+          autoCapitalize="words"
+        />
+        {errors.name ? <Text style={uiStyles.error}>{errors.name}</Text> : null}
+      </View>
+      <View>
+        <Text style={uiStyles.label}>USERNAME</Text>
+        <TextInput
+          accessibilityLabel="Username"
+          style={uiStyles.field}
+          value={username}
+          onChangeText={(value) => setUsername(normalizeStaffUsername(value))}
+          placeholder="mohammed.ali"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {errors.username ? (
+          <Text style={uiStyles.error}>{errors.username}</Text>
+        ) : null}
+      </View>
+      <View>
+        <Text style={uiStyles.label}>PHONE</Text>
+        <TextInput
+          accessibilityLabel="Phone"
+          style={uiStyles.field}
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="050 555 5555"
+          keyboardType="phone-pad"
+        />
+        <Text style={uiStyles.muted}>
+          UAE local and international formats accepted.
+        </Text>
+        {errors.phone ? (
+          <Text style={uiStyles.error}>{errors.phone}</Text>
+        ) : null}
+      </View>
+      <View>
+        <Text style={uiStyles.label}>TEMPORARY PASSWORD</Text>
+        <TextInput
+          accessibilityLabel="Temporary password"
+          style={uiStyles.field}
+          value={password}
+          onChangeText={setPassword}
+          placeholder="At least 8 characters"
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Text style={uiStyles.muted}>{password.length} / 8 minimum</Text>
+        {errors.password ? (
+          <Text style={uiStyles.error}>{errors.password}</Text>
+        ) : null}
+      </View>
       {canCreateManager ? (
         <View style={styles.actions}>
           <Pressable
@@ -780,9 +866,10 @@ function AddStaffSheet({
           </Pressable>
         </View>
       ) : null}
+      {formError ? <Text style={uiStyles.error}>{formError}</Text> : null}
       <AppButton
         title={busy ? "Creating…" : "Create account"}
-        disabled={busy || !name || !username || password.length < 8}
+        disabled={busy || !formValid}
         loading={busy}
         onPress={() => void save()}
       />
@@ -990,10 +1077,12 @@ function TeamMembersSheet({
 }
 function EditStaffSheet({
   profile,
+  updateAccount,
   onClose,
   onSaved,
 }: {
   profile: Profile | null;
+  updateAccount: (body: object) => Promise<Profile>;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -1008,12 +1097,12 @@ function EditStaffSheet({
     if (!profile) return;
     setBusy(true);
     try {
-      await updateStaff(profile.id, {
+      await updateAccount({
         display_name: name.trim(),
         phone: phone.trim() || null,
       });
       await successHaptic();
-      await onSaved();
+      onSaved();
     } catch (error) {
       Alert.alert(
         "Profile not saved",
@@ -1273,21 +1362,45 @@ function ShiftAssignmentSheet({
   const [shiftId, setShiftId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [workDate, setWorkDate] = useState(() => toIsoDate(new Date()));
+  const [assignmentError, setAssignmentError] = useState("");
+  const eligibleTeams = useMemo(
+    () => eligibleTeamsForStaff(staffId, staff, teams),
+    [staff, staffId, teams],
+  );
+  useEffect(() => {
+    if (teamId && !eligibleTeams.some((team) => team.id === teamId))
+      setTeamId("");
+  }, [eligibleTeams, teamId]);
   async function save() {
+    setAssignmentError("");
+    const payload = {
+      staff_id: staffId,
+      shift_id: shiftId,
+      work_date: workDate,
+      team_id: teamId || null,
+    };
     try {
-      await mutation.mutateAsync({
-        staff_id: staffId,
-        shift_id: shiftId,
-        work_date: workDate,
-        team_id: teamId || null,
-      });
+      await mutation.mutateAsync(payload);
       await successHaptic();
       onClose();
     } catch (error) {
-      Alert.alert(
-        "Shift not assigned",
-        domainErrorMessage(error, "Review the staff, shift and date."),
+      const message = domainErrorMessage(
+        error,
+        "The shift could not be assigned. Please try again.",
       );
+      setAssignmentError(
+        error instanceof ApiError && error.requestId
+          ? `${message} Reference: ${error.requestId}`
+          : message,
+      );
+      if (__DEV__)
+        console.warn("[AbdWash Shift] assignment_failed", {
+          endpoint: error instanceof ApiError ? error.endpoint : undefined,
+          status: error instanceof ApiError ? error.status : undefined,
+          code: error instanceof ApiError ? error.code : undefined,
+          request_id: error instanceof ApiError ? error.requestId : undefined,
+          request: payload,
+        });
     }
   }
   if (!visible) return null;
@@ -1316,7 +1429,16 @@ function ShiftAssignmentSheet({
             styles.memberChoice,
             staffId === item.id ? styles.memberSelected : undefined,
           ]}
-          onPress={() => setStaffId(item.id)}
+          onPress={() => {
+            setStaffId(item.id);
+            if (
+              teamId &&
+              !eligibleTeamsForStaff(item.id, staff, teams).some(
+                (team) => team.id === teamId,
+              )
+            )
+              setTeamId("");
+          }}
         >
           <Text style={styles.cardTitle}>{item.display_name}</Text>
         </Pressable>
@@ -1338,7 +1460,16 @@ function ShiftAssignmentSheet({
         </Pressable>
       ))}
       <Text style={uiStyles.label}>TEAM (OPTIONAL)</Text>
-      {teams.map((item) => (
+      <Pressable
+        style={[
+          styles.memberChoice,
+          !teamId ? styles.memberSelected : undefined,
+        ]}
+        onPress={() => setTeamId("")}
+      >
+        <Text style={styles.cardTitle}>No team</Text>
+      </Pressable>
+      {eligibleTeams.map((item) => (
         <Pressable
           key={item.id}
           style={[
@@ -1350,6 +1481,16 @@ function ShiftAssignmentSheet({
           <Text style={styles.cardTitle}>{item.name}</Text>
         </Pressable>
       ))}
+      <Text style={uiStyles.muted}>
+        {staffId
+          ? eligibleTeams.length
+            ? "Only teams this employee belongs to are shown."
+            : "This employee is not an active member of a team. Assign without a team or update team membership first."
+          : "Select an employee to see valid teams."}
+      </Text>
+      {assignmentError ? (
+        <Text style={uiStyles.error}>{assignmentError}</Text>
+      ) : null}
       <AppButton
         title={mutation.isPending ? "Assigning…" : "Assign shift"}
         disabled={mutation.isPending || !staffId || !shiftId || !workDate}

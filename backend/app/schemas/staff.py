@@ -80,7 +80,7 @@ class JobAction(StrictRequest):
 
 
 class StartTripAction(JobAction):
-    origin: Coordinates
+    origin: Coordinates | None = None
 
 
 class AssignmentAction(JobAction):

@@ -18,7 +18,14 @@ from app.models.entities import (
     StaffShiftAssignment,
     TeamMembership,
 )
-from app.schemas.staff import AssignmentAction, LeaveCreate, ReportV2, ShiftCreate, SyncState
+from app.schemas.staff import (
+    AssignmentAction,
+    LeaveCreate,
+    ReportV2,
+    ShiftCreate,
+    StartTripAction,
+    SyncState,
+)
 from app.services.staff_accounts import _validate_managed_role
 from app.services.sync_state import get_sync_state
 from app.services.workforce import attendance_category, attendance_late_minutes
@@ -56,6 +63,17 @@ def test_assignment_requires_team_or_staff_and_supports_each() -> None:
     staff_id = uuid.uuid4()
     assert AssignmentAction(client_event_id="event-team", team_id=team_id).team_id == team_id
     assert AssignmentAction(client_event_id="event-staff", staff_id=staff_id).staff_id == staff_id
+
+
+def test_start_trip_accepts_explicit_no_eta_fallback_and_valid_origin() -> None:
+    fallback = StartTripAction(client_event_id="event-no-eta", origin=None)
+    assert fallback.origin is None
+    located = StartTripAction(
+        client_event_id="event-with-location",
+        origin={"latitude": 24.4539, "longitude": 54.3773},
+    )
+    assert located.origin is not None
+    assert located.origin.latitude == 24.4539
 
 
 def test_shift_and_leave_ranges_are_validated() -> None:

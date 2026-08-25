@@ -21,13 +21,38 @@ import type { MixRow, ReportV2, StaffContext } from "../lib";
 import { useReportQuery } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
 
-type Period = "today" | "week" | "month" | "custom";
+export type Period = "today" | "week" | "month" | "custom";
+export type ReportsNavigationState = {
+  period: Period;
+  customStart: string;
+  customEnd: string;
+};
 const iso = (value: Date) => value.toISOString().slice(0, 10);
 
-export function ReportsScreen({ context }: { context: StaffContext }) {
-  const [period, setPeriod] = useState<Period>("week");
-  const [customStart, setCustomStart] = useState(iso(new Date()));
-  const [customEnd, setCustomEnd] = useState(iso(new Date()));
+export function ReportsScreen({
+  context,
+  navigationState,
+  onNavigationStateChange,
+}: {
+  context: StaffContext;
+  navigationState?: ReportsNavigationState;
+  onNavigationStateChange?: (value: ReportsNavigationState) => void;
+}) {
+  const initial = navigationState ?? {
+    period: "week" as const,
+    customStart: iso(new Date()),
+    customEnd: iso(new Date()),
+  };
+  const [period, setPeriod] = useState<Period>(initial.period);
+  const [customStart, setCustomStart] = useState(initial.customStart);
+  const [customEnd, setCustomEnd] = useState(initial.customEnd);
+  function updateNavigation(value: Partial<ReportsNavigationState>) {
+    const next = { period, customStart, customEnd, ...value };
+    if (value.period) setPeriod(value.period);
+    if (value.customStart) setCustomStart(value.customStart);
+    if (value.customEnd) setCustomEnd(value.customEnd);
+    onNavigationStateChange?.(next);
+  }
   const range = useMemo(() => {
     const end = new Date();
     const start = new Date(end);
@@ -61,7 +86,7 @@ export function ReportsScreen({ context }: { context: StaffContext }) {
               styles.period,
               period === item ? styles.periodActive : undefined,
             ]}
-            onPress={() => setPeriod(item)}
+            onPress={() => updateNavigation({ period: item })}
           >
             <Text style={styles.periodText}>{item.toUpperCase()}</Text>
           </Pressable>
@@ -73,20 +98,25 @@ export function ReportsScreen({ context }: { context: StaffContext }) {
             label="From"
             value={customStart}
             maximumDate={fromIsoDate(customEnd)}
-            onChange={setCustomStart}
+            onChange={(value) => updateNavigation({ customStart: value })}
           />
           <DatePickerField
             label="To"
             value={customEnd}
             minimumDate={fromIsoDate(customStart)}
             maximumDate={new Date()}
-            onChange={setCustomEnd}
+            onChange={(value) => updateNavigation({ customEnd: value })}
           />
         </View>
       ) : null}
+      {query.isError && report ? (
+        <Text style={uiStyles.error}>
+          We couldn't refresh reports. Showing the most recent saved data.
+        </Text>
+      ) : null}
       {query.isPending ? (
         <Skeleton rows={5} />
-      ) : query.isError || !report ? (
+      ) : !report ? (
         <EmptyState
           title="Reports unavailable"
           body={domainErrorMessage(

@@ -24,6 +24,7 @@ import {
 const context = {
   business_id: "business-1",
   staff_id: "staff-1",
+  role: "manager",
 } as StaffContext;
 const state: SyncState = { jobs: 1, workforce: 2, schedule: 3, finance: 4 };
 
@@ -60,6 +61,11 @@ describe("revision-aware sync", () => {
       ([value]) => value.queryKey[0],
     );
     expect(prefixes).toEqual(queryPrefixesForDomains(["jobs"]));
+    expect(
+      client.invalidateQueries.mock.calls.every(
+        ([value]) => value.queryKey[1] === "business-1:staff-1:manager",
+      ),
+    ).toBe(true);
     expect(prefixes).not.toContain("reports");
   });
 
@@ -79,8 +85,10 @@ describe("revision-aware sync", () => {
   it("retains cached content while a changed domain is marked stale", async () => {
     values.set(syncRevisionKey(context), JSON.stringify(state));
     const client = new QueryClient();
-    const key = ["jobs", "business-1:staff-1"];
+    const key = ["jobs", "business-1:staff-1:manager"];
+    const otherScopeKey = ["jobs", "business-1:staff-2:employee"];
     client.setQueryData(key, { jobs: [{ id: "job-1" }] });
+    client.setQueryData(otherScopeKey, { jobs: [{ id: "job-2" }] });
 
     await synchronizeOperations(client, context, async () => ({
       ...state,
@@ -89,5 +97,6 @@ describe("revision-aware sync", () => {
 
     expect(client.getQueryData(key)).toEqual({ jobs: [{ id: "job-1" }] });
     expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(otherScopeKey)?.isInvalidated).toBe(false);
   });
 });

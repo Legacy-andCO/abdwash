@@ -4,26 +4,42 @@ import { useEffect, useRef } from "react";
 import {
   AppState,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { queryClient } from "../cache/queryClient";
 import { synchronizeOperations } from "../cache/sync";
 import type { StaffContext } from "../lib";
 import { navigationTabs, type MainTab } from "../operations";
-import { JobsScreen } from "../screens/JobsScreen";
+import {
+  JobsScreen,
+  type JobsNavigationState,
+} from "../screens/JobsScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
-import { ReportsScreen } from "../screens/ReportsScreen";
-import { TeamScreen } from "../screens/TeamScreen";
+import {
+  ReportsScreen,
+  type ReportsNavigationState,
+} from "../screens/ReportsScreen";
+import { TeamScreen, type TeamSection } from "../screens/TeamScreen";
 import { TodayScreen } from "../screens/TodayScreen";
 import { colors, spacing } from "../theme";
 
 export function OperationsShell({ context }: { context: StaffContext }) {
   const tabs = navigationTabs(context.role);
   const [tab, setTab] = useState<MainTab>("today");
+  const [jobsNavigation, setJobsNavigation] = useState<JobsNavigationState>({
+    view: "today",
+    offset: 0,
+  });
+  const [teamSection, setTeamSection] = useState<TeamSection>("teams");
+  const [reportsNavigation, setReportsNavigation] =
+    useState<ReportsNavigationState>(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      return { period: "week", customStart: today, customEnd: today };
+    });
   const inFlight = useRef<Promise<unknown> | null>(null);
   useEffect(() => {
     const synchronize = () => {
@@ -53,7 +69,10 @@ export function OperationsShell({ context }: { context: StaffContext }) {
     };
   }, [context]);
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView
+      edges={["top", "bottom", "left", "right"]}
+      style={styles.screen}
+    >
       <StatusBar style="dark" />
       <View style={styles.header}>
         <View>
@@ -68,11 +87,23 @@ export function OperationsShell({ context }: { context: StaffContext }) {
         {tab === "today" ? (
           <TodayScreen context={context} />
         ) : tab === "jobs" ? (
-          <JobsScreen context={context} />
+          <JobsScreen
+            context={context}
+            navigationState={jobsNavigation}
+            onNavigationStateChange={setJobsNavigation}
+          />
         ) : tab === "team" ? (
-          <TeamScreen context={context} />
+          <TeamScreen
+            context={context}
+            initialSection={teamSection}
+            onSectionChange={setTeamSection}
+          />
         ) : tab === "reports" ? (
-          <ReportsScreen context={context} />
+          <ReportsScreen
+            context={context}
+            navigationState={reportsNavigation}
+            onNavigationStateChange={setReportsNavigation}
+          />
         ) : (
           <ProfileScreen context={context} />
         )}

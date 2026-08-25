@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { clearOperationalCache } from "../cache/queryClient";
+import { prepareOperationalLogout } from "../cache/queryClient";
 import { DatePickerField, fromIsoDate, toIsoDate } from "../components/pickers";
 import {
   AppButton,
@@ -293,7 +293,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
         tone="danger"
         onPress={() =>
           void (async () => {
-            await clearOperationalCache();
+            await prepareOperationalLogout();
             await supabase.auth.signOut();
           })()
         }

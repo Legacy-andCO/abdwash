@@ -30,6 +30,8 @@ from app.integrations.notifications.factory import create_notification_provider
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = structlog.get_logger()
+process_started = time.perf_counter()
+process_has_served_request = False
 
 
 @asynccontextmanager
@@ -67,6 +69,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def request_metrics(request: Request, call_next: Any) -> Any:
+    global process_has_served_request
     supplied_request_id = request.headers.get("x-request-id")
     try:
         request_id = (
@@ -78,9 +81,12 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
     count_token = query_count.set(0)
     duration_token = query_duration_ms.set(0.0)
     started = time.perf_counter()
+    cold_process = not process_has_served_request
     status_code = 500
+    response_start_ms: float | None = None
     try:
         response = await call_next(request)
+        response_start_ms = (time.perf_counter() - started) * 1000
         status_code = response.status_code
         response.headers["X-Request-ID"] = request_id
         if not settings.is_production:
@@ -97,9 +103,15 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
             route=safe_route,
             status=status_code,
             duration_ms=round((time.perf_counter() - started) * 1000, 2),
+            response_start_ms=(
+                round(response_start_ms, 2) if response_start_ms is not None else None
+            ),
             sql_query_count=query_count.get(),
             sql_duration_ms=round(query_duration_ms.get(), 2),
+            cold_process=cold_process,
+            process_age_ms=round((time.perf_counter() - process_started) * 1000, 2),
         )
+        process_has_served_request = True
         query_count.reset(count_token)
         query_duration_ms.reset(duration_token)
 

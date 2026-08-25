@@ -9,19 +9,26 @@ import {
 import { type PropsWithChildren, useEffect } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { ApiError } from "../errors/domainErrors";
+import { cancelInFlightWrites } from "../network/writeRegistry";
 import { SYNC_REVISION_PREFIX } from "./sync";
+import { prepareCachePreservingLogout } from "./logout";
+import { retainedQueries } from "./persistence";
 export { cacheTimes, queryKeys } from "./policy";
 
-export const OPERATIONAL_CACHE_KEY = "abdwash:operations-query-cache:v2";
-const OLD_OPERATIONAL_CACHE_KEY = "abdwash:operations-query-cache:v1";
-const CACHE_BUSTER = "operations-v2";
+export const OPERATIONAL_CACHE_KEY = "abdwash:operations-query-cache:v3";
+const INCOMPATIBLE_CACHE_KEYS = [
+  "abdwash:operations-query-cache:v1",
+  "abdwash:operations-query-cache:v2",
+];
+const CACHE_BUSTER = "operations-v3-role-scoped";
 const MAX_PERSISTED_QUERIES = 80;
 const MAX_CACHE_BYTES = 2_000_000;
+const MAX_RETENTION_MS = 7 * 24 * 60 * 60_000;
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      gcTime: 12 * 60 * 60_000,
+      gcTime: MAX_RETENTION_MS,
       retry: (attempt, error) =>
         !(
           error instanceof ApiError &&
@@ -41,16 +48,17 @@ const persister = createAsyncStoragePersister({
   key: OPERATIONAL_CACHE_KEY,
   throttleTime: 1_000,
   serialize: (client) => {
+    const now = Date.now();
     const pruned: PersistedClient = {
       ...client,
       clientState: {
         ...client.clientState,
-        queries: [...client.clientState.queries]
-          .sort(
-            (left, right) =>
-              right.state.dataUpdatedAt - left.state.dataUpdatedAt,
-          )
-          .slice(0, MAX_PERSISTED_QUERIES),
+        queries: retainedQueries(
+          client.clientState.queries,
+          now,
+          MAX_RETENTION_MS,
+          MAX_PERSISTED_QUERIES,
+        ),
       },
     };
     const serialized = JSON.stringify(pruned);
@@ -67,7 +75,7 @@ function onAppStateChange(status: AppStateStatus) {
 
 export function OperationsCacheProvider({ children }: PropsWithChildren) {
   useEffect(() => {
-    void AsyncStorage.removeItem(OLD_OPERATIONAL_CACHE_KEY);
+    void AsyncStorage.multiRemove(INCOMPATIBLE_CACHE_KEYS);
     const subscription = AppState.addEventListener("change", onAppStateChange);
     return () => subscription.remove();
   }, []);
@@ -76,7 +84,7 @@ export function OperationsCacheProvider({ children }: PropsWithChildren) {
       client={queryClient}
       persistOptions={{
         persister,
-        maxAge: 12 * 60 * 60_000,
+        maxAge: MAX_RETENTION_MS,
         buster: CACHE_BUSTER,
         dehydrateOptions: {
           shouldDehydrateQuery: (query) =>
@@ -87,6 +95,10 @@ export function OperationsCacheProvider({ children }: PropsWithChildren) {
       {children}
     </PersistQueryClientProvider>
   );
+}
+
+export async function prepareOperationalLogout() {
+  await prepareCachePreservingLogout(queryClient, cancelInFlightWrites);
 }
 
 export async function clearOperationalCache() {

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { QueryClient } from "@tanstack/react-query";
 import { getSyncState, type StaffContext, type SyncState } from "../lib";
+import { operationalScope } from "./policy";
 
 export type SyncDomain = keyof SyncState;
 export const SYNC_REVISION_PREFIX = "abdwash:sync-revisions:v1:";
@@ -35,7 +36,7 @@ export function queryPrefixesForDomains(domains: SyncDomain[]) {
 }
 
 export function syncRevisionKey(context: StaffContext) {
-  return `${SYNC_REVISION_PREFIX}${context.business_id}:${context.staff_id}`;
+  return `${SYNC_REVISION_PREFIX}${operationalScope(context)}`;
 }
 
 export async function synchronizeOperations(
@@ -52,9 +53,10 @@ export async function synchronizeOperations(
   }
   const previous = JSON.parse(stored) as SyncState;
   const domains = changedSyncDomains(previous, next);
+  const scope = operationalScope(context);
   for (const prefix of queryPrefixesForDomains(domains)) {
     await client.invalidateQueries({
-      queryKey: [prefix],
+      queryKey: [prefix, scope],
       refetchType: "active",
     });
   }

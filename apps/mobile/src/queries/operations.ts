@@ -10,6 +10,7 @@ import {
   getAttendance,
   getAttendanceOverview,
   getAvailability,
+  getCancellations,
   getDashboard,
   getJob,
   getJobs,
@@ -19,34 +20,47 @@ import {
   getShiftAssignments,
   getShifts,
   getStaff,
+  getTeam,
   getTeams,
   mutateJob,
   rescheduleJob,
+  reviewCancellation,
+  reviewLeave,
   requestLeave,
+  updateStaff,
   updateProfile,
   updateTeam,
   updateTeamMembers,
   type Attendance,
+  type Cancellation,
   type Job,
   type JobFilters,
+  type Leave,
   type Profile,
+  type ShiftAssignment,
   type StaffContext,
   type Team,
+  type TeamDetail,
 } from "../lib";
-import { cacheTimes, queryKeys, replaceJobInResponse } from "../cache/policy";
+import {
+  cacheTimes,
+  operationalScope,
+  persistedQueryMeta,
+  queryKeys,
+  replaceJobInResponse,
+  retentionTimes,
+} from "../cache/policy";
 import { reschedulePayload } from "../operations";
 
 const day = () => new Date().toISOString().slice(0, 10);
-const scopeOf = (context: StaffContext) =>
-  `${context.business_id}:${context.staff_id}`;
 
 export function useJobsQuery(context: StaffContext, filters: JobFilters) {
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useQuery({
     queryKey: queryKeys.jobs(scope, filters),
     queryFn: ({ signal }) => getJobs(filters, signal),
     staleTime: cacheTimes.jobs,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.jobs),
   });
 }
 
@@ -55,13 +69,13 @@ export function useJobQuery(
   id: string,
   placeholder?: Job,
 ) {
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useQuery({
     queryKey: queryKeys.job(scope, id),
     queryFn: ({ signal }) => getJob(id, signal),
     placeholderData: placeholder,
     staleTime: cacheTimes.activeJob,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.job),
   });
 }
 
@@ -71,35 +85,49 @@ export function useDashboardQuery(
   enabled = true,
 ) {
   return useQuery({
-    queryKey: queryKeys.dashboard(scopeOf(context), businessDay),
+    queryKey: queryKeys.dashboard(operationalScope(context), businessDay),
     queryFn: () => getDashboard(businessDay),
     staleTime: cacheTimes.dashboard,
     enabled,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.dashboard),
   });
 }
 
 export function useProfileQuery(context: StaffContext) {
   return useQuery({
-    queryKey: queryKeys.profile(scopeOf(context)),
+    queryKey: queryKeys.profile(operationalScope(context)),
     queryFn: getProfile,
     staleTime: cacheTimes.profile,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.profile),
   });
 }
 
 export function useTeamsQuery(context: StaffContext) {
   return useQuery({
-    queryKey: queryKeys.teams(scopeOf(context)),
+    queryKey: queryKeys.teams(operationalScope(context)),
     queryFn: getTeams,
     staleTime: cacheTimes.teams,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.teams),
+  });
+}
+
+export function useTeamQuery(
+  context: StaffContext,
+  teamId: string,
+  enabled = true,
+) {
+  return useQuery<TeamDetail>({
+    queryKey: queryKeys.team(operationalScope(context), teamId),
+    queryFn: () => getTeam(teamId),
+    staleTime: cacheTimes.teams,
+    enabled: enabled && Boolean(teamId),
+    meta: persistedQueryMeta(retentionTimes.team),
   });
 }
 
 export function useCreateTeamMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: createTeam,
     onSuccess: (created) => {
@@ -113,7 +141,7 @@ export function useCreateTeamMutation(context: StaffContext) {
 
 export function useUpdateTeamMembersMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: ({
       teamId,
@@ -133,17 +161,25 @@ export function useUpdateTeamMembersMutation(context: StaffContext) {
               : item,
           ) ?? [team],
       );
-      void client.invalidateQueries({
-        queryKey: ["staff", scope],
-        refetchType: "none",
-      });
+      const memberIds = new Set(team.members.map((member) => member.id));
+      client.setQueryData<Profile[]>(queryKeys.staff(scope), (current) =>
+        current?.map((profile) => {
+          const withoutTeam = profile.teams.filter((item) => item.id !== team.id);
+          return {
+            ...profile,
+            teams: memberIds.has(profile.id)
+              ? [...withoutTeam, { id: team.id, name: team.name }]
+              : withoutTeam,
+          };
+        }),
+      );
     },
   });
 }
 
 export function useUpdateTeamMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: ({ teamId, body }: { teamId: string; body: object }) =>
       updateTeam(teamId, body),
@@ -162,16 +198,16 @@ export function useUpdateTeamMutation(context: StaffContext) {
 
 export function useStaffQuery(context: StaffContext) {
   return useQuery({
-    queryKey: queryKeys.staff(scopeOf(context)),
+    queryKey: queryKeys.staff(operationalScope(context)),
     queryFn: getStaff,
     staleTime: cacheTimes.staff,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.staff),
   });
 }
 
 export function useCreateStaffMutation(context: StaffContext) {
   const client = useQueryClient();
-  const key = queryKeys.staff(scopeOf(context));
+  const key = queryKeys.staff(operationalScope(context));
   return useMutation({
     mutationFn: createStaff,
     onSuccess: (created) => {
@@ -182,15 +218,30 @@ export function useCreateStaffMutation(context: StaffContext) {
   });
 }
 
+export function useUpdateStaffMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const key = queryKeys.staff(operationalScope(context));
+  return useMutation({
+    mutationFn: ({ staffId, body }: { staffId: string; body: object }) =>
+      updateStaff(staffId, body),
+    onSuccess: (updated) => {
+      client.setQueryData<Profile[]>(key, (current) =>
+        current?.map((item) => (item.id === updated.id ? updated : item)) ??
+        [updated],
+      );
+    },
+  });
+}
+
 export function useAttendanceOverviewQuery(
   context: StaffContext,
   businessDay = day(),
 ) {
   return useQuery({
-    queryKey: queryKeys.attendance(scopeOf(context), businessDay),
+    queryKey: queryKeys.attendance(operationalScope(context), businessDay),
     queryFn: () => getAttendanceOverview(businessDay),
     staleTime: cacheTimes.attendance,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.attendance),
   });
 }
 
@@ -200,19 +251,19 @@ export function useAttendanceHistoryQuery(
   end: string,
 ) {
   return useQuery({
-    queryKey: queryKeys.attendanceHistory(scopeOf(context), start, end),
+    queryKey: queryKeys.attendanceHistory(operationalScope(context), start, end),
     queryFn: () => getAttendance(start, end),
     staleTime: cacheTimes.attendance,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.attendance),
   });
 }
 
 export function useShiftsQuery(context: StaffContext) {
   return useQuery({
-    queryKey: queryKeys.shifts(scopeOf(context)),
+    queryKey: queryKeys.shifts(operationalScope(context)),
     queryFn: getShifts,
     staleTime: cacheTimes.shifts,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.shifts),
   });
 }
 
@@ -222,19 +273,28 @@ export function useShiftAssignmentsQuery(
   end = day(),
 ) {
   return useQuery({
-    queryKey: queryKeys.shiftAssignments(scopeOf(context), start, end),
+    queryKey: queryKeys.shiftAssignments(operationalScope(context), start, end),
     queryFn: () => getShiftAssignments(start, end),
     staleTime: cacheTimes.attendance,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.shifts),
   });
 }
 
 export function useLeaveQuery(context: StaffContext, status?: string) {
   return useQuery({
-    queryKey: queryKeys.leave(scopeOf(context), status),
+    queryKey: queryKeys.leave(operationalScope(context), status),
     queryFn: () => getLeave(status),
     staleTime: cacheTimes.attendance,
-    meta: { persist: true },
+    meta: persistedQueryMeta(retentionTimes.leave),
+  });
+}
+
+export function useCancellationsQuery(context: StaffContext) {
+  return useQuery({
+    queryKey: queryKeys.cancellations(operationalScope(context)),
+    queryFn: getCancellations,
+    staleTime: cacheTimes.attendance,
+    meta: persistedQueryMeta(retentionTimes.cancellations),
   });
 }
 
@@ -244,21 +304,27 @@ export function useReportQuery(
   end: string,
 ) {
   return useQuery({
-    queryKey: queryKeys.reports(scopeOf(context), start, end),
+    queryKey: queryKeys.reports(operationalScope(context), start, end),
     queryFn: () => getReport(start, end),
-    staleTime: cacheTimes.reports,
-    meta: { persist: true },
+    staleTime: end < day() ? 5 * 60_000 : cacheTimes.reports,
+    meta: persistedQueryMeta(retentionTimes.reports),
   });
 }
 
 export function useAvailabilityQuery(
+  context: StaffContext,
   bookingId: string,
   selectedDay: string,
   vehicleCount: number,
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: queryKeys.availability(bookingId, selectedDay, vehicleCount),
+    queryKey: queryKeys.availability(
+      operationalScope(context),
+      bookingId,
+      selectedDay,
+      vehicleCount,
+    ),
     queryFn: ({ signal }) => getAvailability(selectedDay, vehicleCount, signal),
     staleTime: cacheTimes.availability,
     gcTime: 2 * 60_000,
@@ -281,7 +347,7 @@ function updateJobCaches(
 
 export function useJobActionMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: ({
       jobId,
@@ -300,7 +366,7 @@ export function useJobActionMutation(context: StaffContext) {
 
 export function useAssignJobMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: ({ jobId, body }: { jobId: string; body: object }) =>
       assignJob(jobId, body),
@@ -312,7 +378,7 @@ export function useAssignJobMutation(context: StaffContext) {
 
 export function useRescheduleMutation(context: StaffContext, job: Job) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: async ({
       selectedDay,
@@ -339,7 +405,7 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
     onSuccess: (next) => {
       updateJobCaches(client, scope, next);
       void client.invalidateQueries({
-        queryKey: ["availability", job.booking_id],
+        queryKey: ["availability", scope, job.booking_id],
       });
     },
   });
@@ -347,7 +413,7 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
 
 export function useClockMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: (action: "clock-in" | "clock-out") => clockAttendance(action),
     onSuccess: (item: Attendance) => {
@@ -363,7 +429,7 @@ export function useClockMutation(context: StaffContext) {
 
 export function useCreateShiftMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: createShift,
     onSuccess: (created) => {
@@ -376,11 +442,32 @@ export function useCreateShiftMutation(context: StaffContext) {
 
 export function useAssignShiftMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: assignShift,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["shift-assignments", scope] });
+    onSuccess: (assignment: ShiftAssignment) => {
+      const assignmentQueries = client
+        .getQueryCache()
+        .findAll({ queryKey: ["shift-assignments", scope] });
+      for (const query of assignmentQueries) {
+        const start = query.queryKey[2];
+        const end = query.queryKey[3];
+        if (
+          typeof start === "string" &&
+          typeof end === "string" &&
+          assignment.work_date >= start &&
+          assignment.work_date <= end
+        ) {
+          client.setQueryData<ShiftAssignment[]>(query.queryKey, (current) =>
+            current
+              ? [
+                  ...current.filter((item) => item.id !== assignment.id),
+                  assignment,
+                ]
+              : [assignment],
+          );
+        }
+      }
       void client.invalidateQueries({ queryKey: ["attendance", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
       void client.invalidateQueries({ queryKey: ["profile", scope] });
@@ -390,7 +477,7 @@ export function useAssignShiftMutation(context: StaffContext) {
 
 export function useUpdateProfileMutation(context: StaffContext) {
   const client = useQueryClient();
-  const key = queryKeys.profile(scopeOf(context));
+  const key = queryKeys.profile(operationalScope(context));
   return useMutation({
     mutationFn: updateProfile,
     onSuccess: (profile) => client.setQueryData(key, profile),
@@ -399,12 +486,60 @@ export function useUpdateProfileMutation(context: StaffContext) {
 
 export function useRequestLeaveMutation(context: StaffContext) {
   const client = useQueryClient();
-  const scope = scopeOf(context);
+  const scope = operationalScope(context);
   return useMutation({
     mutationFn: requestLeave,
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["leave", scope] });
       void client.invalidateQueries({ queryKey: ["attendance", scope] });
+      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+    },
+  });
+}
+
+export function useReviewLeaveMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: ({
+      id,
+      decision,
+    }: {
+      id: string;
+      decision: "approved" | "rejected";
+    }) => reviewLeave(id, decision),
+    onSuccess: (updated: Leave) => {
+      client.setQueryData<Leave[]>(
+        queryKeys.leave(scope, "pending"),
+        (current) => current?.filter((item) => item.id !== updated.id) ?? [],
+      );
+      client.setQueryData<Leave[]>(queryKeys.leave(scope), (current) =>
+        current?.map((item) => (item.id === updated.id ? updated : item)) ??
+        [updated],
+      );
+      void client.invalidateQueries({ queryKey: ["attendance", scope] });
+      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+    },
+  });
+}
+
+export function useReviewCancellationMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: ({
+      id,
+      decision,
+    }: {
+      id: string;
+      decision: "approved" | "rejected";
+    }) => reviewCancellation(id, decision),
+    onSuccess: (updated: Cancellation) => {
+      client.setQueryData<Cancellation[]>(
+        queryKeys.cancellations(scope),
+        (current) => current?.filter((item) => item.id !== updated.id) ?? [],
+      );
+      void client.invalidateQueries({ queryKey: ["jobs", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
     },
   });

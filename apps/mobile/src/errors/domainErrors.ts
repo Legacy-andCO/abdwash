@@ -29,6 +29,8 @@ const messages: Record<string, string> = {
   HOLD_EXPIRED: "That appointment hold expired. Choose the time again.",
   NO_AVAILABILITY: "No available appointments for this date.",
   USERNAME_TAKEN: "This username is already in use.",
+  INVALID_STAFF_USERNAME:
+    "Use 3–32 lowercase letters, numbers, dots, underscores or hyphens.",
   INVALID_PHONE: "Enter a valid international phone number.",
   STAFF_AUTH_UNAVAILABLE:
     "Staff account management is temporarily unavailable.",

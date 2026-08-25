@@ -3,7 +3,9 @@ import { createClient, type Session } from "@supabase/supabase-js";
 import "react-native-url-polyfill/auto";
 import type { Role } from "./capabilities";
 import { ApiError } from "./errors/domainErrors";
+import { parseApiErrorPayload } from "./errors/parseApiError";
 import { RequestTimedOut, withRequestTimeout } from "./network/requestTimeout";
+import { beginTrackedWrite } from "./network/writeRegistry";
 
 const apiUrl = (
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
@@ -262,6 +264,10 @@ export async function api<T>(
   const access = await token(session);
   if (access) headers.set("Authorization", `Bearer ${access}`);
   if (init?.body) headers.set("Content-Type", "application/json");
+  const trackedWrite =
+    init?.method && !["GET", "HEAD", "OPTIONS"].includes(init.method)
+      ? beginTrackedWrite()
+      : null;
   let response: Response;
   try {
     response = await withRequestTimeout(
@@ -271,7 +277,7 @@ export async function api<T>(
           headers,
           signal,
         }),
-      init?.signal,
+      trackedWrite?.signal ?? init?.signal,
       timeoutMs,
     );
   } catch (error) {
@@ -291,31 +297,28 @@ export async function api<T>(
       });
     }
     throw new ApiError("OFFLINE", 0, undefined, undefined, path);
+  } finally {
+    trackedWrite?.release();
   }
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as {
-      code?: string;
-      message?: string;
-      request_id?: string;
-      detail?: { code?: string; message?: string };
-    };
-    const code =
-      body.code ??
-      body.detail?.code ??
-      (response.status === 401 ? "UNAUTHORIZED" : "REQUEST_FAILED");
+    const parsed = parseApiErrorPayload(
+      await response.json().catch(() => ({})),
+      response.status,
+    );
     const requestId =
-      body.request_id ?? response.headers.get("X-Request-ID") ?? undefined;
+      parsed.requestId ?? response.headers.get("X-Request-ID") ?? undefined;
     if (__DEV__) {
       console.warn("[AbdWash API] response_failed", {
         request_id: requestId,
         endpoint: path,
         status: response.status,
+        code: parsed.code,
       });
     }
     throw new ApiError(
-      code,
+      parsed.code,
       response.status,
-      body.message ?? body.detail?.message ?? code,
+      parsed.message,
       requestId,
       path,
     );

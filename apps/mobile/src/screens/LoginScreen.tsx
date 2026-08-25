@@ -2,13 +2,13 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AppButton, uiStyles } from "../components/ui";
 import { supabase } from "../lib";
 import { staffLoginEmail } from "../staff-login";
@@ -35,7 +35,10 @@ export function LoginScreen() {
     }
   }
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView
+      edges={["top", "bottom", "left", "right"]}
+      style={styles.screen}
+    >
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === "ios" ? "padding" : undefined}

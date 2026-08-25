@@ -3,6 +3,7 @@ import type { Job } from "../lib";
 import {
   assignmentLabel,
   cacheTimes,
+  operationalScope,
   queryKeys,
   replaceJobInResponse,
   shouldShowPagination,
@@ -22,9 +23,38 @@ describe("operations cache policy", () => {
     );
   });
 
+  it("includes business, staff and authoritative role in every scope", () => {
+    expect(
+      operationalScope({
+        business_id: "business",
+        staff_id: "person",
+        role: "manager",
+      } as never),
+    ).toBe("business:person:manager");
+    expect(
+      operationalScope({
+        business_id: "business",
+        staff_id: "person",
+        role: "employee",
+      } as never),
+    ).toBe("business:person:employee");
+  });
+
   it("keeps availability much fresher than static workforce data", () => {
     expect(cacheTimes.availability).toBeLessThan(cacheTimes.teams);
     expect(cacheTimes.jobs).toBeLessThan(cacheTimes.profile);
+  });
+
+  it("keys team detail and cancellations inside the authenticated scope", () => {
+    expect(queryKeys.team("business:staff:manager", "team-1")).toEqual([
+      "team",
+      "business:staff:manager",
+      "team-1",
+    ]);
+    expect(queryKeys.cancellations("business:staff:manager")).toEqual([
+      "cancellations",
+      "business:staff:manager",
+    ]);
   });
 
   it("updates one authoritative job without replacing unrelated jobs", () => {

@@ -438,7 +438,12 @@ async def job_start_trip(
     snapshot = await get_job(session, context, job_id)
     await session.rollback()
     eta = None
-    if provider and snapshot.latitude is not None and snapshot.longitude is not None:
+    if (
+        provider
+        and payload.origin is not None
+        and snapshot.latitude is not None
+        and snapshot.longitude is not None
+    ):
         try:
             eta = await provider.estimate(
                 origin=(payload.origin.latitude, payload.origin.longitude),
