@@ -30,6 +30,7 @@ from app.models.entities import (
     BookingService,
     Business,
     BusinessSettings,
+    BusinessSyncRevision,
     CancellationRequest,
     IdempotencyRecord,
     Job,
@@ -729,6 +730,16 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         )
         assert job_assignment_response.status_code == 200, job_assignment_response.text
         assert job_assignment_response.json()["assigned_team_id"] == team_id
+        assert job_assignment_response.json()["assigned_team_name"] == "Mobile Team 2"
+
+        unassigned_jobs = await client.get(
+            "/api/v1/staff/jobs",
+            headers=manager_headers,
+            params={"view": "unassigned", "scope": "all"},
+        )
+        assert job_id not in {
+            uuid.UUID(item["id"]) for item in unassigned_jobs.json()["jobs"]
+        }
 
         reassignment_response = await client.patch(
             f"/api/v1/staff/jobs/{job_id}/assignment",
@@ -737,6 +748,10 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         )
         assert reassignment_response.status_code == 200, reassignment_response.text
         assert reassignment_response.json()["assigned_staff_id"] == employee_id
+        assert (
+            reassignment_response.json()["assigned_staff_name"]
+            == "Workflow Employee Updated"
+        )
 
         employee_jobs = await client.get(
             "/api/v1/staff/jobs",
@@ -757,6 +772,8 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         )
         assert reschedule_response.status_code == 200, reschedule_response.text
         assert reschedule_response.json()["scheduled_start"].startswith("2035-02-02")
+        assert reschedule_response.json()["assigned_team_id"] is not None
+        assert reschedule_response.json()["assigned_team_name"] == "Mobile Team 1"
 
         start_trip_response = await client.post(
             f"/api/v1/staff/jobs/{job_id}/start-trip",
@@ -810,6 +827,14 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         )
         assert approved_response.status_code == 200, approved_response.text
         assert approved_response.json()["status"] == "approved"
+        sync_response = await client.get(
+            "/api/v1/staff/sync-state", headers=manager_headers
+        )
+        assert sync_response.status_code == 200, sync_response.text
+        assert sync_response.json()["jobs"] > 0
+        assert sync_response.json()["workforce"] > 0
+        assert sync_response.json()["schedule"] > 0
+        assert sync_response.json()["finance"] > 0
 
     await test_app.state.http_client.aclose()
 
@@ -918,3 +943,19 @@ async def test_public_api_guest_booking_and_query_count_guard(
             )
         ).one()
         assert "management_token" not in idempotency_record.response_json
+        booking_business_id = await session.scalar(
+            select(Booking.business_id).where(
+                Booking.id == idempotency_record.resource_id
+            )
+        )
+        assert booking_business_id is not None
+        revision = (
+            await session.scalars(
+                select(BusinessSyncRevision).where(
+                    BusinessSyncRevision.business_id == booking_business_id
+                )
+            )
+        ).one()
+        assert revision.jobs_revision == 1
+        assert revision.schedule_revision == 1
+        assert revision.finance_revision == 1

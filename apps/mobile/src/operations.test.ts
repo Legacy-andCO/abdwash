@@ -12,6 +12,7 @@ import {
   reportBarPercent,
   reportMaximum,
   reschedulePayload,
+  sameStringSet,
   teamSections,
   updateJobInList,
 } from "./operations";
@@ -87,6 +88,12 @@ describe("operations navigation and permissions", () => {
   );
   it("keeps workforce features nested under Team", () => {
     expect(teamSections()).toEqual(["teams", "staff", "shifts", "attendance"]);
+  });
+  it("recognizes unchanged team membership regardless of order", () => {
+    expect(
+      sameStringSet(["employee", "manager"], ["manager", "employee"]),
+    ).toBe(true);
+    expect(sameStringSet(["employee"], ["manager"])).toBe(false);
   });
 });
 

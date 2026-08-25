@@ -133,3 +133,7 @@ class CustomerCancellationCreate(StrictRequest):
 
 class CustomerRescheduleCreate(StrictRequest):
     hold_token: Annotated[str, StringConstraints(min_length=32, max_length=255)]
+
+
+class ManagerRescheduleCreate(CustomerRescheduleCreate):
+    confirm_active_reschedule: bool = False

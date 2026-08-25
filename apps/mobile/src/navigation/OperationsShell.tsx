@@ -1,6 +1,17 @@
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import {
+  AppState,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import NetInfo from "@react-native-community/netinfo";
+import { queryClient } from "../cache/queryClient";
+import { synchronizeOperations } from "../cache/sync";
 import type { StaffContext } from "../lib";
 import { navigationTabs, type MainTab } from "../operations";
 import { JobsScreen } from "../screens/JobsScreen";
@@ -13,6 +24,34 @@ import { colors, spacing } from "../theme";
 export function OperationsShell({ context }: { context: StaffContext }) {
   const tabs = navigationTabs(context.role);
   const [tab, setTab] = useState<MainTab>("today");
+  const inFlight = useRef<Promise<unknown> | null>(null);
+  useEffect(() => {
+    const synchronize = () => {
+      if (inFlight.current) return inFlight.current;
+      const operation = synchronizeOperations(queryClient, context)
+        .catch(() => undefined)
+        .finally(() => {
+          inFlight.current = null;
+        });
+      inFlight.current = operation;
+      return operation;
+    };
+    void synchronize();
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") void synchronize();
+    });
+    const network = NetInfo.addEventListener((state) => {
+      if (state.isConnected) void synchronize();
+    });
+    const timer = setInterval(() => {
+      if (AppState.currentState === "active") void synchronize();
+    }, 60_000);
+    return () => {
+      appState.remove();
+      network();
+      clearInterval(timer);
+    };
+  }, [context]);
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />

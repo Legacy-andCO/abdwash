@@ -241,6 +241,7 @@ async def create_booking(
     await session.flush()
     return BookingResponse(
         id=booking.id,
+        business_id=booking.business_id,
         reference=booking.reference,
         status=booking.status,
         payment_choice=booking.payment_choice,

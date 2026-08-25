@@ -13,6 +13,7 @@ export class ApiError extends Error {
 
 const messages: Record<string, string> = {
   OFFLINE: "Unable to reach AbdWash. Check your connection and try again.",
+  REQUEST_TIMEOUT: "The request took too long. Please try again.",
   UNAUTHORIZED: "Your session expired. Please sign in again.",
   STAFF_ACCESS_REQUIRED: "This account does not have staff access.",
   TEAM_ASSIGNMENT_CONFLICT:
@@ -27,6 +28,16 @@ const messages: Record<string, string> = {
     "That appointment was just taken. Choose another available time.",
   HOLD_EXPIRED: "That appointment hold expired. Choose the time again.",
   NO_AVAILABILITY: "No available appointments for this date.",
+  USERNAME_TAKEN: "This username is already in use.",
+  INVALID_PHONE: "Enter a valid international phone number.",
+  STAFF_AUTH_UNAVAILABLE:
+    "Staff account management is temporarily unavailable.",
+  STAFF_AUTH_CREATE_FAILED:
+    "The staff login could not be created. Please try again.",
+  STAFF_AUTH_UPDATE_FAILED:
+    "The staff login could not be updated. Please try again.",
+  ACTIVE_RESCHEDULE_CONFIRMATION_REQUIRED:
+    "Confirm that the active job should be reset before rescheduling.",
 };
 
 export function domainErrorMessage(error: unknown, fallback: string): string {

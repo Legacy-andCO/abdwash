@@ -30,6 +30,7 @@ from app.services.idempotency import (
 )
 from app.services.management_tokens import create_management_token
 from app.services.scheduling import availability_for_date, create_hold
+from app.services.sync_state import bump_sync_revisions
 
 router = APIRouter(prefix="/api/v1/public", tags=["public"])
 
@@ -78,6 +79,11 @@ async def booking(
             retry_response["management_token"] = create_management_token(existing.resource_id)
             return BookingResponse.model_validate(retry_response)
         response = await create_booking(session, request, identity)
+        if response.business_id is None:
+            raise RuntimeError("Created booking is missing its business")
+        await bump_sync_revisions(
+            session, response.business_id, "jobs", "schedule", "finance"
+        )
         safe_response = response.model_dump(mode="json")
         safe_response.pop("management_token")
         store_idempotent_response(
@@ -133,6 +139,7 @@ async def cancellation_request(
         if existing is not None:
             return CancellationRequestResponse.model_validate(existing.response_json)
         response = await request_booking_cancellation(session, booking_record, request)
+        await bump_sync_revisions(session, booking_record.business_id, "jobs")
         store_idempotent_response(
             session,
             scope=f"booking:{booking_record.id}",

@@ -156,6 +156,7 @@ class BookingVehicleSummary(BaseModel):
 
 class BookingResponse(BaseModel):
     id: uuid.UUID
+    business_id: uuid.UUID | None = Field(default=None, exclude=True)
     reference: str
     status: str
     payment_choice: str

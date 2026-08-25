@@ -49,3 +49,17 @@ export function replaceJobInResponse(
       }
     : current;
 }
+
+export function shouldShowPagination(
+  offset: number,
+  nextOffset: number | null | undefined,
+) {
+  return offset > 0 || nextOffset !== null;
+}
+
+export function assignmentLabel(job: Job) {
+  if (job.assigned_team_name) return job.assigned_team_name;
+  if (job.assigned_staff_name) return job.assigned_staff_name;
+  if (job.assigned_team_id || job.assigned_staff_id) return "ASSIGNED";
+  return "UNASSIGNED";
+}

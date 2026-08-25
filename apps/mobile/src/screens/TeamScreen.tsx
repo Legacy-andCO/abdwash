@@ -24,7 +24,6 @@ import {
 } from "../components/ui";
 import { successHaptic } from "../haptics";
 import {
-  createStaff,
   getAttendance,
   getCancellations,
   getLeave,
@@ -53,6 +52,7 @@ import {
   useAssignShiftMutation,
   useAttendanceOverviewQuery,
   useCreateShiftMutation,
+  useCreateStaffMutation,
   useCreateTeamMutation,
   useJobsQuery,
   useLeaveQuery,
@@ -65,6 +65,7 @@ import {
   useUpdateTeamMembersMutation,
 } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
+import { sameStringSet } from "../operations";
 
 type Section = "teams" | "staff" | "shifts" | "attendance";
 export function TeamScreen({ context }: { context: StaffContext }) {
@@ -218,6 +219,7 @@ function TeamsPane({ context }: { context: StaffContext }) {
 
 function StaffPane({ context }: { context: StaffContext }) {
   const staffQuery = useStaffQuery(context);
+  const createStaffMutation = useCreateStaffMutation(context);
   const attendance = useAttendanceOverviewQuery(context);
   const jobs = useJobsQuery(context, {
     view: "today",
@@ -259,10 +261,10 @@ function StaffPane({ context }: { context: StaffContext }) {
       <AddStaffSheet
         visible
         canCreateManager={context.role === "admin"}
+        createAccount={(body) => createStaffMutation.mutateAsync(body)}
         onClose={() => setAdd(false)}
-        onCreated={async () => {
+        onCreated={() => {
           setAdd(false);
-          await staffQuery.refetch();
         }}
       />
     );
@@ -374,6 +376,7 @@ function StaffPane({ context }: { context: StaffContext }) {
               }
               tone={item.is_active ? "danger" : "secondary"}
               disabled={updatingStaffId === item.id}
+              loading={updatingStaffId === item.id}
               onPress={() => void toggle(item)}
             />
           </Card>
@@ -605,6 +608,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
                   }
                   tone="danger"
                   disabled={decisionKey !== null}
+                  loading={decisionKey === `${item.id}:rejected`}
                   onPress={() => void decideLeave(item, "rejected")}
                 />
               </View>
@@ -616,6 +620,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
                       : "Approve"
                   }
                   disabled={decisionKey !== null}
+                  loading={decisionKey === `${item.id}:approved`}
                   onPress={() => void decideLeave(item, "approved")}
                 />
               </View>
@@ -657,6 +662,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
                   }
                   tone="danger"
                   disabled={decisionKey !== null}
+                  loading={decisionKey === `${item.id}:rejected`}
                   onPress={() => void decideCancellation(item, "rejected")}
                 />
               </View>
@@ -668,6 +674,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
                       : "Approve"
                   }
                   disabled={decisionKey !== null}
+                  loading={decisionKey === `${item.id}:approved`}
                   onPress={() => void decideCancellation(item, "approved")}
                 />
               </View>
@@ -686,11 +693,13 @@ function AddStaffSheet({
   canCreateManager,
   onClose,
   onCreated,
+  createAccount,
 }: {
   visible: boolean;
   canCreateManager: boolean;
   onClose: () => void;
   onCreated: (profile: Profile) => void;
+  createAccount: (body: object) => Promise<Profile>;
 }) {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -701,7 +710,7 @@ function AddStaffSheet({
   async function save() {
     setBusy(true);
     try {
-      const profile = await createStaff({
+      const profile = await createAccount({
         display_name: name,
         username,
         phone,
@@ -713,9 +722,7 @@ function AddStaffSheet({
     } catch (reason) {
       Alert.alert(
         "Account not created",
-        reason instanceof Error && reason.message === "USERNAME_TAKEN"
-          ? "That username is already in use."
-          : "Check the details and try again.",
+        domainErrorMessage(reason, "Check the details and try again."),
       );
     } finally {
       setBusy(false);
@@ -776,6 +783,7 @@ function AddStaffSheet({
       <AppButton
         title={busy ? "Creating…" : "Create account"}
         disabled={busy || !name || !username || password.length < 8}
+        loading={busy}
         onPress={() => void save()}
       />
     </ScrollView>
@@ -820,6 +828,7 @@ function SimpleCreate({
       <AppButton
         title={busy ? "Creating…" : "Create team"}
         disabled={busy || value.trim().length < 2}
+        loading={busy}
         onPress={() => {
           setBusy(true);
           void onSave(value.trim())
@@ -929,6 +938,7 @@ function TeamMembersSheet({
               teamName.trim().length < 2 ||
               teamName.trim() === detail.name
             }
+            loading={updating}
             onPress={() => void saveTeam({ name: teamName.trim() })}
           />
         </View>
@@ -937,6 +947,7 @@ function TeamMembersSheet({
             title={detail.is_active ? "Deactivate" : "Reactivate"}
             tone={detail.is_active ? "danger" : "secondary"}
             disabled={updating}
+            loading={updating}
             onPress={() => void saveTeam({ is_active: !detail.is_active })}
           />
         </View>
@@ -964,7 +975,14 @@ function TeamMembersSheet({
       ))}
       <AppButton
         title={saving ? "Saving…" : "Save members"}
-        disabled={saving}
+        disabled={
+          saving ||
+          sameStringSet(
+            selected,
+            detail.members.map((member) => member.id),
+          )
+        }
+        loading={saving}
         onPress={() => void save()}
       />
     </ScrollView>
@@ -1029,6 +1047,7 @@ function EditStaffSheet({
       <AppButton
         title={busy ? "Saving…" : "Save changes"}
         disabled={busy || name.trim().length < 2}
+        loading={busy}
         onPress={() => void save()}
       />
       <AppButton title="Cancel" tone="secondary" onPress={onClose} />
@@ -1155,6 +1174,7 @@ function PasswordSheet({
       <AppButton
         title={busy ? "Saving…" : "Set password"}
         disabled={busy || password.length < 8}
+        loading={busy}
         onPress={() => void save()}
       />
       <AppButton title="Cancel" tone="secondary" onPress={onClose} />
@@ -1226,6 +1246,7 @@ function CreateShiftSheet({
       <AppButton
         title={mutation.isPending ? "Creating…" : "Create shift"}
         disabled={mutation.isPending || !valid}
+        loading={mutation.isPending}
         onPress={() => void save()}
       />
       <AppButton title="Cancel" tone="secondary" onPress={onClose} />
@@ -1332,6 +1353,7 @@ function ShiftAssignmentSheet({
       <AppButton
         title={mutation.isPending ? "Assigning…" : "Assign shift"}
         disabled={mutation.isPending || !staffId || !shiftId || !workDate}
+        loading={mutation.isPending}
         onPress={() => void save()}
       />
       <AppButton title="Cancel" tone="secondary" onPress={onClose} />

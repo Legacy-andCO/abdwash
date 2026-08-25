@@ -3,7 +3,7 @@ from typing import Any
 
 import httpx
 
-from app.domain.errors import DomainError
+from app.domain.errors import ConflictError, DomainError
 from app.domain.staff_usernames import normalize_staff_username, staff_synthetic_email
 
 
@@ -55,6 +55,11 @@ class SupabaseAdminClient:
             headers=self.headers,
             json=self._body(normalized, password),
         )
+        if response.status_code in {400, 409, 422} and any(
+            marker in response.text.lower()
+            for marker in ("already", "registered", "exists")
+        ):
+            raise ConflictError("USERNAME_TAKEN", "That username is already in use.")
         self._raise(response, "STAFF_AUTH_CREATE_FAILED")
         return self._user_id(response)
 
@@ -95,6 +100,13 @@ class SupabaseAdminClient:
             json=body,
         )
         self._raise(response, "STAFF_AUTH_UPDATE_FAILED")
+
+    async def delete_staff_user(self, user_id: uuid.UUID) -> None:
+        response = await self.client.delete(
+            f"{self.base_url}/auth/v1/admin/users/{user_id}",
+            headers=self.headers,
+        )
+        self._raise(response, "STAFF_AUTH_COMPENSATION_FAILED")
 
     @staticmethod
     def _body(username: str, password: str) -> dict[str, Any]:

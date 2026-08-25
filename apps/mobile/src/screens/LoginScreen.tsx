@@ -80,6 +80,7 @@ export function LoginScreen() {
             <AppButton
               title="Log in"
               disabled={busy}
+              loading={busy}
               onPress={() => void login()}
             />
           </View>

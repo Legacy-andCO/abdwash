@@ -14,8 +14,8 @@ from app.domain.enums import JobStatus
 from app.domain.errors import DomainError
 from app.integrations.eta import GoogleRoutesEtaProvider
 from app.integrations.supabase_admin import SupabaseAdminClient
-from app.models.entities import Booking, Job, JobEvent
-from app.schemas.customer import CustomerRescheduleCreate
+from app.models.entities import Booking, Job
+from app.schemas.customer import ManagerRescheduleCreate
 from app.schemas.staff import (
     AssignmentAction,
     AttendanceAction,
@@ -43,6 +43,7 @@ from app.schemas.staff import (
     StaffMember,
     StaffProfileView,
     StartTripAction,
+    SyncState,
     TeamCreate,
     TeamDetail,
     TeamMembersUpdate,
@@ -50,7 +51,7 @@ from app.schemas.staff import (
     TeamUpdate,
     TemporaryPasswordUpdate,
 )
-from app.services.customers import reschedule_customer_booking
+from app.services.customers import reschedule_managed_booking
 from app.services.staff_accounts import (
     create_staff_account,
     get_own_profile,
@@ -71,6 +72,7 @@ from app.services.staff_operations import (
     start_trip,
     transition_job,
 )
+from app.services.sync_state import bump_sync_revisions, get_sync_state
 from app.services.workforce import (
     assign_shift,
     attendance_overview,
@@ -113,6 +115,11 @@ async def context(
     }
 
 
+@router.get("/sync-state", response_model=SyncState)
+async def sync_state(session: SessionDep, context: StaffDep) -> SyncState:
+    return await get_sync_state(session, context.business_id)
+
+
 def _admin(request: Request) -> SupabaseAdminClient:
     settings = get_settings()
     return SupabaseAdminClient(
@@ -134,13 +141,12 @@ async def own_profile_update(
     session: SessionDep,
     context: StaffDep,
 ) -> StaffProfileView:
-    async with session.begin():
-        return await update_own_profile(
-            session,
-            context,
-            payload,
-            _admin(request) if payload.password is not None else None,
-        )
+    return await update_own_profile(
+        session,
+        context,
+        payload,
+        _admin(request) if payload.password is not None else None,
+    )
 
 
 @router.get("/users", response_model=list[StaffProfileView])
@@ -155,8 +161,7 @@ async def staff_user_create(
     session: SessionDep,
     context: ManagerContext,
 ) -> StaffProfileView:
-    async with session.begin():
-        return await create_staff_account(session, context, payload, _admin(request))
+    return await create_staff_account(session, context, payload, _admin(request))
 
 
 @router.patch("/users/{staff_id}", response_model=StaffProfileView)
@@ -167,7 +172,9 @@ async def staff_user_update(
     context: ManagerContext,
 ) -> StaffProfileView:
     async with session.begin():
-        return await update_staff_account(session, context, staff_id, payload)
+        result = await update_staff_account(session, context, staff_id, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
 
 
 @router.post("/users/{staff_id}/temporary-password", status_code=204)
@@ -178,10 +185,9 @@ async def staff_user_password(
     session: SessionDep,
     context: ManagerContext,
 ) -> None:
-    async with session.begin():
-        await reset_staff_password(
-            session, context, staff_id, payload.temporary_password, _admin(request)
-        )
+    await reset_staff_password(
+        session, context, staff_id, payload.temporary_password, _admin(request)
+    )
 
 
 @router.get("/teams", response_model=list[TeamSummary])
@@ -194,7 +200,9 @@ async def team_create(
     payload: TeamCreate, session: SessionDep, context: ManagerContext
 ) -> TeamDetail:
     async with session.begin():
-        return await create_team(session, context, payload)
+        result = await create_team(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce", "schedule")
+        return result
 
 
 @router.get("/teams/{team_id}", response_model=TeamDetail)
@@ -210,7 +218,9 @@ async def team_update(
     context: ManagerContext,
 ) -> TeamDetail:
     async with session.begin():
-        return await update_team(session, context, team_id, payload)
+        result = await update_team(session, context, team_id, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce", "schedule")
+        return result
 
 
 @router.put("/teams/{team_id}/members", response_model=TeamDetail)
@@ -221,7 +231,9 @@ async def team_members(
     context: ManagerContext,
 ) -> TeamDetail:
     async with session.begin():
-        return await replace_team_members(session, context, team_id, payload)
+        result = await replace_team_members(session, context, team_id, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
 
 
 @router.get("/attendance", response_model=AttendanceList)
@@ -260,7 +272,9 @@ async def attendance_clock_in(
     payload: AttendanceAction, session: SessionDep, context: StaffDep
 ) -> AttendanceRecord:
     async with session.begin():
-        return await clock_in(session, context, payload)
+        result = await clock_in(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
 
 
 @router.post("/attendance/clock-out", response_model=AttendanceRecord)
@@ -268,7 +282,9 @@ async def attendance_clock_out(
     payload: AttendanceAction, session: SessionDep, context: StaffDep
 ) -> AttendanceRecord:
     async with session.begin():
-        return await clock_out(session, context, payload)
+        result = await clock_out(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
 
 
 @router.get("/shifts", response_model=list[ShiftView])
@@ -281,7 +297,9 @@ async def shift_create(
     payload: ShiftCreate, session: SessionDep, context: ManagerContext
 ) -> ShiftView:
     async with session.begin():
-        return await create_shift(session, context, payload)
+        result = await create_shift(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
 
 
 @router.get("/shift-assignments", response_model=list[ShiftAssignmentView])
@@ -301,7 +319,9 @@ async def shift_assignment(
     context: ManagerContext,
 ) -> ShiftAssignmentView:
     async with session.begin():
-        return await assign_shift(session, context, payload)
+        result = await assign_shift(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
 
 
 @router.get("/leave", response_model=list[LeaveView])
@@ -314,7 +334,9 @@ async def leave(
 @router.post("/leave", response_model=LeaveView, status_code=201)
 async def leave_create(payload: LeaveCreate, session: SessionDep, context: StaffDep) -> LeaveView:
     async with session.begin():
-        return await create_leave(session, context, payload)
+        result = await create_leave(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
 
 
 @router.post("/leave/{leave_id}/review", response_model=LeaveView)
@@ -325,7 +347,9 @@ async def leave_review(
     context: ManagerContext,
 ) -> LeaveView:
     async with session.begin():
-        return await review_leave(session, context, leave_id, payload)
+        result = await review_leave(session, context, leave_id, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
 
 
 @router.get("/dashboard", response_model=OperationsDashboard)
@@ -423,7 +447,9 @@ async def job_start_trip(
         except Exception:
             logger.warning("eta_provider_failed", job_id=str(job_id))
     async with session.begin():
-        return await start_trip(session, context, job_id, payload, eta)
+        result = await start_trip(session, context, job_id, payload, eta)
+        await bump_sync_revisions(session, context.business_id, "jobs")
+        return result
 
 
 @router.post("/jobs/{job_id}/start", response_model=StaffJob)
@@ -434,7 +460,11 @@ async def job_start(
     context: Annotated[StaffContext, Depends(staff_context)],
 ) -> StaffJob:
     async with session.begin():
-        return await transition_job(session, context, job_id, payload, JobStatus.IN_PROGRESS)
+        result = await transition_job(
+            session, context, job_id, payload, JobStatus.IN_PROGRESS
+        )
+        await bump_sync_revisions(session, context.business_id, "jobs")
+        return result
 
 
 @router.post("/jobs/{job_id}/complete", response_model=StaffJob)
@@ -445,7 +475,9 @@ async def job_complete(
     context: Annotated[StaffContext, Depends(staff_context)],
 ) -> StaffJob:
     async with session.begin():
-        return await transition_job(session, context, job_id, payload, JobStatus.COMPLETED)
+        result = await transition_job(session, context, job_id, payload, JobStatus.COMPLETED)
+        await bump_sync_revisions(session, context.business_id, "jobs")
+        return result
 
 
 @router.post("/jobs/{job_id}/cash-payment", response_model=StaffJob)
@@ -456,7 +488,9 @@ async def job_cash(
     context: Annotated[StaffContext, Depends(staff_context)],
 ) -> StaffJob:
     async with session.begin():
-        return await record_cash(session, context, job_id, payload)
+        result = await record_cash(session, context, job_id, payload)
+        await bump_sync_revisions(session, context.business_id, "jobs", "finance")
+        return result
 
 
 @router.patch("/jobs/{job_id}/assignment", response_model=StaffJob)
@@ -464,7 +498,9 @@ async def job_assignment(
     job_id: uuid.UUID, payload: AssignmentAction, session: SessionDep, context: ManagerContext
 ) -> StaffJob:
     async with session.begin():
-        return await assign_job(session, context, job_id, payload)
+        result = await assign_job(session, context, job_id, payload)
+        await bump_sync_revisions(session, context.business_id, "jobs", "schedule")
+        return result
 
 
 @router.get("/team", response_model=list[StaffMember])
@@ -492,13 +528,15 @@ async def cancellation_review(
     context: ManagerContext,
 ) -> CancellationItem:
     async with session.begin():
-        return await review_cancellation(session, context, cancellation_id, payload)
+        result = await review_cancellation(session, context, cancellation_id, payload)
+        await bump_sync_revisions(session, context.business_id, "jobs", "schedule")
+        return result
 
 
 @router.post("/bookings/{booking_id}/reschedule", response_model=StaffJob)
 async def manager_reschedule(
     booking_id: uuid.UUID,
-    payload: CustomerRescheduleCreate,
+    payload: ManagerRescheduleCreate,
     session: SessionDep,
     context: ManagerContext,
 ) -> StaffJob:
@@ -512,16 +550,15 @@ async def manager_reschedule(
         ).one_or_none()
         if booking is None:
             raise DomainError("BOOKING_NOT_FOUND", "Booking not found.", status_code=404)
-        await reschedule_customer_booking(session, booking, payload)
-        job = (await session.scalars(select(Job).where(Job.booking_id == booking.id))).one()
-        session.add(
-            JobEvent(
-                job_id=job.id,
-                booking_id=booking.id,
-                actor_staff_id=context.staff_id,
-                event_type="booking_rescheduled_by_staff",
-                metadata_json={},
-            )
+        await reschedule_managed_booking(
+            session,
+            booking,
+            payload,
+            actor_staff_id=context.staff_id,
+            confirm_active_reschedule=payload.confirm_active_reschedule,
         )
+        job = (await session.scalars(select(Job).where(Job.booking_id == booking.id))).one()
         await session.flush()
-        return await get_job(session, context, job.id)
+        result = await get_job(session, context, job.id)
+        await bump_sync_revisions(session, context.business_id, "jobs", "schedule")
+        return result

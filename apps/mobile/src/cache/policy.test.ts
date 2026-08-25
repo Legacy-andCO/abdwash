@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Job } from "../lib";
-import { cacheTimes, queryKeys, replaceJobInResponse } from "./policy";
+import {
+  assignmentLabel,
+  cacheTimes,
+  queryKeys,
+  replaceJobInResponse,
+  shouldShowPagination,
+} from "./policy";
 
 const job = (id: string, status: string) => ({ id, status }) as Job;
 
@@ -31,5 +37,22 @@ describe("operations cache policy", () => {
       jobs: [changed, existing.jobs[1]],
       next_offset: null,
     });
+  });
+
+  it("hides pagination for a single first page", () => {
+    expect(shouldShowPagination(0, null)).toBe(false);
+    expect(shouldShowPagination(50, null)).toBe(true);
+    expect(shouldShowPagination(0, 50)).toBe(true);
+  });
+
+  it("never labels an assigned ID as unassigned when names are unavailable", () => {
+    expect(
+      assignmentLabel({
+        assigned_team_id: "team-1",
+        assigned_team_name: null,
+        assigned_staff_id: null,
+        assigned_staff_name: null,
+      } as Job),
+    ).toBe("ASSIGNED");
   });
 });

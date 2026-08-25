@@ -1,5 +1,5 @@
 import * as Location from "expo-location";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Linking,
@@ -42,6 +42,7 @@ import {
   useStaffQuery,
   useTeamsQuery,
 } from "../queries/operations";
+import { assignmentLabel, shouldShowPagination } from "../cache/policy";
 import { colors, radii, spacing } from "../theme";
 
 type JobView = "today" | "upcoming" | "history" | "unassigned" | "all";
@@ -141,24 +142,26 @@ export function JobsScreen({ context }: { context: StaffContext }) {
               <JobCard job={job} />
             </Pressable>
           ))}
-          <View style={styles.actions}>
-            <View style={styles.action}>
-              <AppButton
-                title="Previous"
-                tone="secondary"
-                disabled={offset === 0}
-                onPress={() => setOffset(Math.max(0, offset - 50))}
-              />
+          {shouldShowPagination(offset, query.data?.next_offset) ? (
+            <View style={styles.actions}>
+              <View style={styles.action}>
+                <AppButton
+                  title="Previous"
+                  tone="secondary"
+                  disabled={offset === 0}
+                  onPress={() => setOffset(Math.max(0, offset - 50))}
+                />
+              </View>
+              <View style={styles.action}>
+                <AppButton
+                  title="Next"
+                  tone="secondary"
+                  disabled={query.data?.next_offset === null}
+                  onPress={() => setOffset(query.data?.next_offset ?? offset)}
+                />
+              </View>
             </View>
-            <View style={styles.action}>
-              <AppButton
-                title="Next"
-                tone="secondary"
-                disabled={query.data?.next_offset === null}
-                onPress={() => setOffset(query.data?.next_offset ?? offset)}
-              />
-            </View>
-          </View>
+          ) : null}
         </>
       ) : (
         <EmptyState
@@ -171,6 +174,21 @@ export function JobsScreen({ context }: { context: StaffContext }) {
 }
 
 function JobCard({ job }: { job: Job }) {
+  useEffect(() => {
+    if (
+      __DEV__ &&
+      (job.assigned_team_id || job.assigned_staff_id) &&
+      !job.assigned_team_name &&
+      !job.assigned_staff_name
+    ) {
+      console.warn("[AbdWash Assignment] assigned_name_missing", {
+        job_id: job.id,
+        status: job.status,
+        assigned_team_id: job.assigned_team_id,
+        assigned_staff_id: job.assigned_staff_id,
+      });
+    }
+  }, [job]);
   return (
     <Card>
       <View style={uiStyles.row}>
@@ -189,9 +207,7 @@ function JobCard({ job }: { job: Job }) {
         {job.written_address}
       </Text>
       <View style={uiStyles.row}>
-        <Text style={styles.assignment}>
-          {job.assigned_team_name ?? job.assigned_staff_name ?? "UNASSIGNED"}
-        </Text>
+        <Text style={styles.assignment}>{assignmentLabel(job)}</Text>
         <StatusChip value={job.payment_status} />
       </View>
     </Card>
@@ -383,18 +399,21 @@ function JobDetail({
         <AppButton
           title={actionMutation.isPending ? "Starting…" : "Start trip"}
           disabled={actionMutation.isPending}
+          loading={actionMutation.isPending}
           onPress={() => void action("start-trip")}
         />
       ) : job.status === "en_route" ? (
         <AppButton
           title={actionMutation.isPending ? "Starting…" : "Start wash"}
           disabled={actionMutation.isPending}
+          loading={actionMutation.isPending}
           onPress={() => void action("start")}
         />
       ) : job.status === "in_progress" ? (
         <AppButton
           title={actionMutation.isPending ? "Completing…" : "Complete wash"}
           disabled={actionMutation.isPending}
+          loading={actionMutation.isPending}
           onPress={() => void action("complete")}
         />
       ) : job.status === "completed" && job.payment_status !== "paid" ? (
@@ -403,6 +422,7 @@ function JobDetail({
             actionMutation.isPending ? "Recording…" : "Record cash received"
           }
           disabled={actionMutation.isPending}
+          loading={actionMutation.isPending}
           onPress={() =>
             Alert.alert(
               "Confirm cash",
@@ -524,6 +544,7 @@ function AssignmentSheet({
             disabled={
               mutation.isPending || (!target.staff_id && !target.team_id)
             }
+            loading={mutation.isPending}
             onPress={() => void save()}
           />
         </ScrollView>
@@ -567,13 +588,14 @@ function RescheduleSheet({
     setSelection(slot);
     setResourceId(slot.resources[0].resource_id);
   }
-  async function confirm() {
+  async function submit(confirmActiveReschedule: boolean) {
     if (!selection || !resourceId) return;
     try {
       await mutation.mutateAsync({
         selectedDay,
         startTime: selection.time,
         resourceId,
+        confirmActiveReschedule,
       });
       await successHaptic();
       onClose();
@@ -586,6 +608,25 @@ function RescheduleSheet({
         ),
       );
     }
+  }
+  function confirm() {
+    const active = job.status === "en_route" || job.status === "in_progress";
+    if (!active) {
+      void submit(false);
+      return;
+    }
+    Alert.alert(
+      "Reset active job?",
+      "This job has already started operationally. Rescheduling will reset its trip, ETA, and work timestamps.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset and reschedule",
+          style: "destructive",
+          onPress: () => void submit(true),
+        },
+      ],
+    );
   }
   return (
     <Modal
@@ -745,7 +786,8 @@ function RescheduleSheet({
                   mutation.isPending ? "Rescheduling…" : "Confirm reschedule"
                 }
                 disabled={mutation.isPending || !selection || !resourceId}
-                onPress={() => void confirm()}
+                loading={mutation.isPending}
+                onPress={confirm}
               />
             </>
           )}

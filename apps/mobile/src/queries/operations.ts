@@ -4,6 +4,7 @@ import {
   assignShift,
   clockAttendance,
   createHold,
+  createStaff,
   createShift,
   createTeam,
   getAttendance,
@@ -28,6 +29,7 @@ import {
   type Attendance,
   type Job,
   type JobFilters,
+  type Profile,
   type StaffContext,
   type Team,
 } from "../lib";
@@ -73,6 +75,7 @@ export function useDashboardQuery(
     queryFn: () => getDashboard(businessDay),
     staleTime: cacheTimes.dashboard,
     enabled,
+    meta: { persist: true },
   });
 }
 
@@ -90,6 +93,7 @@ export function useTeamsQuery(context: StaffContext) {
     queryKey: queryKeys.teams(scopeOf(context)),
     queryFn: getTeams,
     staleTime: cacheTimes.teams,
+    meta: { persist: true },
   });
 }
 
@@ -129,9 +133,10 @@ export function useUpdateTeamMembersMutation(context: StaffContext) {
               : item,
           ) ?? [team],
       );
-      void client.invalidateQueries({ queryKey: ["staff", scope] });
-      void client.invalidateQueries({ queryKey: ["jobs", scope] });
-      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+      void client.invalidateQueries({
+        queryKey: ["staff", scope],
+        refetchType: "none",
+      });
     },
   });
 }
@@ -151,8 +156,6 @@ export function useUpdateTeamMutation(context: StaffContext) {
             item.id === team.id ? { ...item, ...team } : item,
           ) ?? [team],
       );
-      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
-      void client.invalidateQueries({ queryKey: ["jobs", scope] });
     },
   });
 }
@@ -162,6 +165,20 @@ export function useStaffQuery(context: StaffContext) {
     queryKey: queryKeys.staff(scopeOf(context)),
     queryFn: getStaff,
     staleTime: cacheTimes.staff,
+    meta: { persist: true },
+  });
+}
+
+export function useCreateStaffMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const key = queryKeys.staff(scopeOf(context));
+  return useMutation({
+    mutationFn: createStaff,
+    onSuccess: (created) => {
+      client.setQueryData<Profile[]>(key, (current) =>
+        current ? [...current, created] : [created],
+      );
+    },
   });
 }
 
@@ -173,6 +190,7 @@ export function useAttendanceOverviewQuery(
     queryKey: queryKeys.attendance(scopeOf(context), businessDay),
     queryFn: () => getAttendanceOverview(businessDay),
     staleTime: cacheTimes.attendance,
+    meta: { persist: true },
   });
 }
 
@@ -185,6 +203,7 @@ export function useAttendanceHistoryQuery(
     queryKey: queryKeys.attendanceHistory(scopeOf(context), start, end),
     queryFn: () => getAttendance(start, end),
     staleTime: cacheTimes.attendance,
+    meta: { persist: true },
   });
 }
 
@@ -193,6 +212,7 @@ export function useShiftsQuery(context: StaffContext) {
     queryKey: queryKeys.shifts(scopeOf(context)),
     queryFn: getShifts,
     staleTime: cacheTimes.shifts,
+    meta: { persist: true },
   });
 }
 
@@ -205,6 +225,7 @@ export function useShiftAssignmentsQuery(
     queryKey: queryKeys.shiftAssignments(scopeOf(context), start, end),
     queryFn: () => getShiftAssignments(start, end),
     staleTime: cacheTimes.attendance,
+    meta: { persist: true },
   });
 }
 
@@ -213,6 +234,7 @@ export function useLeaveQuery(context: StaffContext, status?: string) {
     queryKey: queryKeys.leave(scopeOf(context), status),
     queryFn: () => getLeave(status),
     staleTime: cacheTimes.attendance,
+    meta: { persist: true },
   });
 }
 
@@ -225,6 +247,7 @@ export function useReportQuery(
     queryKey: queryKeys.reports(scopeOf(context), start, end),
     queryFn: () => getReport(start, end),
     staleTime: cacheTimes.reports,
+    meta: { persist: true },
   });
 }
 
@@ -271,9 +294,6 @@ export function useJobActionMutation(context: StaffContext) {
     }) => mutateJob(jobId, action, body),
     onSuccess: (job) => {
       updateJobCaches(client, scope, job);
-      void client.invalidateQueries({ queryKey: ["jobs", scope] });
-      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
-      void client.invalidateQueries({ queryKey: ["attendance", scope] });
     },
   });
 }
@@ -286,10 +306,6 @@ export function useAssignJobMutation(context: StaffContext) {
       assignJob(jobId, body),
     onSuccess: (job) => {
       updateJobCaches(client, scope, job);
-      void client.invalidateQueries({ queryKey: ["jobs", scope] });
-      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
-      void client.invalidateQueries({ queryKey: ["teams", scope] });
-      void client.invalidateQueries({ queryKey: ["team", scope] });
     },
   });
 }
@@ -302,10 +318,12 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
       selectedDay,
       startTime,
       resourceId,
+      confirmActiveReschedule,
     }: {
       selectedDay: string;
       startTime: string;
       resourceId: string;
+      confirmActiveReschedule: boolean;
     }) => {
       const hold = await createHold(
         selectedDay,
@@ -313,16 +331,16 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
         Math.max(1, job.vehicles.length),
         resourceId,
       );
-      return rescheduleJob(job.booking_id, reschedulePayload(hold.hold_token));
+      return rescheduleJob(job.booking_id, {
+        ...reschedulePayload(hold.hold_token),
+        confirm_active_reschedule: confirmActiveReschedule,
+      });
     },
     onSuccess: (next) => {
       updateJobCaches(client, scope, next);
-      void client.invalidateQueries({ queryKey: ["jobs", scope] });
-      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
       void client.invalidateQueries({
         queryKey: ["availability", job.booking_id],
       });
-      void client.invalidateQueries({ queryKey: ["teams", scope] });
     },
   });
 }

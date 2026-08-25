@@ -3,6 +3,7 @@ import { createClient, type Session } from "@supabase/supabase-js";
 import "react-native-url-polyfill/auto";
 import type { Role } from "./capabilities";
 import { ApiError } from "./errors/domainErrors";
+import { RequestTimedOut, withRequestTimeout } from "./network/requestTimeout";
 
 const apiUrl = (
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
@@ -235,6 +236,15 @@ export type AvailabilitySlot = {
   resources: { resource_id: string; resource_name: string }[];
   unavailable_reason: string | null;
 };
+export type SyncState = {
+  jobs: number;
+  workforce: number;
+  schedule: number;
+  finance: number;
+};
+
+const DEFAULT_TIMEOUT_MS = 15_000;
+const AVAILABILITY_TIMEOUT_MS = 20_000;
 
 async function token(session?: Session | null): Promise<string | undefined> {
   return (
@@ -246,6 +256,7 @@ export async function api<T>(
   path: string,
   init?: RequestInit,
   session?: Session | null,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
   const headers = new Headers(init?.headers);
   const access = await token(session);
@@ -253,10 +264,26 @@ export async function api<T>(
   if (init?.body) headers.set("Content-Type", "application/json");
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}${path}`, { ...init, headers });
+    response = await withRequestTimeout(
+      (signal) =>
+        fetch(`${apiUrl}${path}`, {
+          ...init,
+          headers,
+          signal,
+        }),
+      init?.signal,
+      timeoutMs,
+    );
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError")
-      throw error;
+    if (error instanceof RequestTimedOut)
+      throw new ApiError(
+        "REQUEST_TIMEOUT",
+        0,
+        "The request took too long. Please try again.",
+        undefined,
+        path,
+      );
+    if (init?.signal?.aborted) throw error;
     if (__DEV__) {
       console.warn("[AbdWash API] request_failed", {
         endpoint: path,
@@ -305,6 +332,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 export const getContext = (session?: Session | null) =>
   api<StaffContext>("/api/v1/staff/context", undefined, session);
 export const getProfile = () => api<Profile>("/api/v1/staff/profile");
+export const getSyncState = () => api<SyncState>("/api/v1/staff/sync-state");
 export const updateProfile = (body: object) =>
   api<Profile>("/api/v1/staff/profile", json("PATCH", body));
 export const getStaff = () => api<Profile[]>("/api/v1/staff/users");
@@ -413,22 +441,15 @@ export async function getAvailability(
   vehicleCount: number,
   signal?: AbortSignal,
 ) {
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  signal?.addEventListener("abort", abort, { once: true });
-  const timeout = setTimeout(abort, 15_000);
-  try {
-    return await api<{
-      required_slot_count: number;
-      slots: AvailabilitySlot[];
-    }>(
-      `/api/v1/public/availability?date=${date}&vehicle_count=${vehicleCount}`,
-      { signal: controller.signal },
-    );
-  } finally {
-    clearTimeout(timeout);
-    signal?.removeEventListener("abort", abort);
-  }
+  return api<{
+    required_slot_count: number;
+    slots: AvailabilitySlot[];
+  }>(
+    `/api/v1/public/availability?date=${date}&vehicle_count=${vehicleCount}`,
+    { signal },
+    undefined,
+    AVAILABILITY_TIMEOUT_MS,
+  );
 }
 export const createHold = (
   date: string,

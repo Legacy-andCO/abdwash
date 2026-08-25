@@ -115,7 +115,11 @@ async def _job_rows(
     elif view == "history":
         statement = statement.where(Job.status.in_([JobStatus.COMPLETED, JobStatus.CANCELLED]))
     elif view == "unassigned":
-        statement = statement.where(Job.status == JobStatus.UNASSIGNED)
+        statement = statement.where(
+            Job.assigned_resource_id.is_(None),
+            Job.assigned_staff_id.is_(None),
+            Job.status.not_in([JobStatus.COMPLETED, JobStatus.CANCELLED]),
+        )
     if status:
         statement = statement.where(Job.status == status)
     if team_id:
@@ -476,7 +480,8 @@ async def assign_job(
         job.assigned_staff_id = staff.id
     if team is not None:
         job.assigned_resource_id = team.id
-    job.status = JobStatus.ASSIGNED if job.status == JobStatus.UNASSIGNED else job.status
+    if job.assigned_resource_id is not None or job.assigned_staff_id is not None:
+        job.status = JobStatus.ASSIGNED if job.status == JobStatus.UNASSIGNED else job.status
     job.version += 1
     session.add(
         JobEvent(

@@ -30,6 +30,7 @@ from app.services.customers import (
     list_customer_bookings,
     map_customer_status,
     reschedule_customer_booking,
+    reschedule_managed_booking,
 )
 from app.services.scheduling import hold_token_hash
 
@@ -385,3 +386,136 @@ async def test_expired_reschedule_hold_keeps_original_booking_unchanged() -> Non
 
     assert booking.scheduled_start == original_start
     assert old_slot.status == "reserved"
+
+
+@pytest.mark.asyncio
+async def test_overdue_customer_reschedule_remains_restricted() -> None:
+    booking, settings, job, _hold, _old_slot, _new_slot, _vehicle, _service, token = (
+        reschedule_records()
+    )
+    booking.scheduled_start = datetime.now(UTC) - timedelta(hours=1)
+    booking.scheduled_end = datetime.now(UTC) + timedelta(hours=1)
+    job.scheduled_start = booking.scheduled_start
+    job.scheduled_end = booking.scheduled_end
+    job.status = JobStatus.ASSIGNED
+    session = MagicMock()
+    session.scalars = AsyncMock(
+        side_effect=[scalar_result(one=settings), scalar_result(one=job)]
+    )
+
+    with pytest.raises(ConflictError) as error:
+        await reschedule_customer_booking(
+            session, booking, CustomerRescheduleCreate(hold_token=token)
+        )
+
+    assert error.value.code == "RESCHEDULE_NOT_AVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_active_manager_reschedule_requires_explicit_confirmation() -> None:
+    booking, _settings, job, _hold, _old_slot, _new_slot, _vehicle, _service, token = (
+        reschedule_records()
+    )
+    job.status = JobStatus.IN_PROGRESS
+    session = MagicMock()
+    session.scalars = AsyncMock(side_effect=[scalar_result(one=job)])
+
+    with pytest.raises(ConflictError) as error:
+        await reschedule_managed_booking(
+            session,
+            booking,
+            CustomerRescheduleCreate(hold_token=token),
+            actor_staff_id=uuid.uuid4(),
+            confirm_active_reschedule=False,
+        )
+
+    assert error.value.code == "ACTIVE_RESCHEDULE_CONFIRMATION_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_confirmed_active_manager_reschedule_resets_operational_state() -> None:
+    booking, settings, job, hold, old_slot, new_slot, vehicle, service, token = (
+        reschedule_records()
+    )
+    job.status = JobStatus.IN_PROGRESS
+    job.en_route_at = datetime.now(UTC)
+    job.estimated_arrival_at = datetime.now(UTC)
+    job.started_at = datetime.now(UTC)
+    session = MagicMock()
+    session.scalars = AsyncMock(
+        side_effect=[
+            scalar_result(one=job),
+            scalar_result(one=hold),
+            scalar_result(all_items=[old_slot, new_slot]),
+            scalar_result(one=settings),
+            scalar_result(one=None),
+        ]
+    )
+    vehicle_rows = MagicMock()
+    vehicle_rows.all.return_value = [(vehicle, service)]
+    job_status_row = MagicMock()
+    job_status_row.one_or_none.return_value = (JobStatus.ASSIGNED, None)
+    session.execute = AsyncMock(side_effect=[vehicle_rows, job_status_row])
+    session.flush = AsyncMock()
+
+    await reschedule_managed_booking(
+        session,
+        booking,
+        CustomerRescheduleCreate(hold_token=token),
+        actor_staff_id=uuid.uuid4(),
+        confirm_active_reschedule=True,
+    )
+
+    assert job.status == JobStatus.ASSIGNED
+    assert job.en_route_at is None
+    assert job.estimated_arrival_at is None
+    assert job.started_at is None
+    assert job.assigned_resource_id == hold.resource_id
+    event = next(
+        call.args[0]
+        for call in session.add.call_args_list
+        if isinstance(call.args[0], JobEvent)
+    )
+    assert event.metadata_json["source"] == "staff_override"
+    assert event.metadata_json["active_state_reset"] is True
+
+
+@pytest.mark.asyncio
+async def test_overdue_assigned_job_can_be_rescheduled_by_manager() -> None:
+    booking, settings, job, hold, old_slot, new_slot, vehicle, service, token = (
+        reschedule_records()
+    )
+    booking.scheduled_start = datetime.now(UTC) - timedelta(hours=2)
+    booking.scheduled_end = datetime.now(UTC) - timedelta(minutes=1)
+    job.scheduled_start = booking.scheduled_start
+    job.scheduled_end = booking.scheduled_end
+    old_slot.slot_start = booking.scheduled_start
+    old_slot.slot_end = booking.scheduled_end
+    job.status = JobStatus.ASSIGNED
+    session = MagicMock()
+    session.scalars = AsyncMock(
+        side_effect=[
+            scalar_result(one=job),
+            scalar_result(one=hold),
+            scalar_result(all_items=[old_slot, new_slot]),
+            scalar_result(one=settings),
+            scalar_result(one=None),
+        ]
+    )
+    vehicle_rows = MagicMock()
+    vehicle_rows.all.return_value = [(vehicle, service)]
+    job_status_row = MagicMock()
+    job_status_row.one_or_none.return_value = (JobStatus.ASSIGNED, None)
+    session.execute = AsyncMock(side_effect=[vehicle_rows, job_status_row])
+    session.flush = AsyncMock()
+
+    response = await reschedule_managed_booking(
+        session,
+        booking,
+        CustomerRescheduleCreate(hold_token=token),
+        actor_staff_id=uuid.uuid4(),
+        confirm_active_reschedule=False,
+    )
+
+    assert response.scheduled_start == hold.slot_start
+    assert job.assigned_resource_id == hold.resource_id

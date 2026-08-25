@@ -46,6 +46,7 @@ from app.services.idempotency import (
     find_idempotent_response,
     store_idempotent_response,
 )
+from app.services.sync_state import bump_sync_revisions
 
 router = APIRouter(prefix="/api/v1/customer", tags=["customer"])
 IdentityDep = Annotated[VerifiedIdentity, Depends(required_identity)]
@@ -176,6 +177,7 @@ async def cancellation_request(
         await request_booking_cancellation(
             session, booking, CancellationRequestCreate(reason=request.reason)
         )
+        await bump_sync_revisions(session, booking.business_id, "jobs")
         response = CustomerBookingActionResponse(
             booking=await customer_booking_detail_for_record(session, booking)
         )
@@ -217,6 +219,7 @@ async def reschedule(
         if existing is not None:
             return CustomerBookingActionResponse.model_validate(existing.response_json)
         detail = await reschedule_customer_booking(session, booking, request)
+        await bump_sync_revisions(session, booking.business_id, "jobs", "schedule")
         response = CustomerBookingActionResponse(booking=detail)
         store_idempotent_response(
             session,

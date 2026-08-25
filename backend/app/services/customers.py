@@ -356,7 +356,6 @@ async def reschedule_customer_booking(
     booking: Booking,
     request: CustomerRescheduleCreate,
 ) -> CustomerBookingDetail:
-    now = datetime.now(UTC)
     settings = (
         await session.scalars(
             select(BusinessSettings)
@@ -372,6 +371,64 @@ async def reschedule_customer_booking(
         raise ConflictError(
             "RESCHEDULE_NOT_AVAILABLE", "This booking can no longer be rescheduled online."
         )
+    return await _reschedule_booking(
+        session,
+        booking,
+        job,
+        request,
+        source="customer_web",
+        actor_staff_id=None,
+        reset_active_state=False,
+    )
+
+
+async def reschedule_managed_booking(
+    session: AsyncSession,
+    booking: Booking,
+    request: CustomerRescheduleCreate,
+    *,
+    actor_staff_id: uuid.UUID,
+    confirm_active_reschedule: bool,
+) -> CustomerBookingDetail:
+    job = (
+        await session.scalars(select(Job).where(Job.booking_id == booking.id).with_for_update())
+    ).one()
+    if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED} or booking.status in {
+        BookingStatus.COMPLETED,
+        BookingStatus.CANCELLED,
+    }:
+        raise ConflictError(
+            "RESCHEDULE_NOT_AVAILABLE",
+            "Completed or cancelled work cannot be rescheduled.",
+        )
+    active = job.status in {JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS}
+    if active and not confirm_active_reschedule:
+        raise ConflictError(
+            "ACTIVE_RESCHEDULE_CONFIRMATION_REQUIRED",
+            "Confirm that the active job should be reset before rescheduling.",
+        )
+    return await _reschedule_booking(
+        session,
+        booking,
+        job,
+        request,
+        source="staff_override",
+        actor_staff_id=actor_staff_id,
+        reset_active_state=active,
+    )
+
+
+async def _reschedule_booking(
+    session: AsyncSession,
+    booking: Booking,
+    job: Job,
+    request: CustomerRescheduleCreate,
+    *,
+    source: str,
+    actor_staff_id: uuid.UUID | None,
+    reset_active_state: bool,
+) -> CustomerBookingDetail:
+    now = datetime.now(UTC)
     hold = (
         await session.scalars(
             select(SlotHoldGroup)
@@ -443,18 +500,26 @@ async def reschedule_customer_booking(
     job.scheduled_start = hold.slot_start
     job.scheduled_end = hold.slot_end
     job.assigned_resource_id = hold.resource_id
+    job.status = JobStatus.ASSIGNED
+    if reset_active_state:
+        job.en_route_at = None
+        job.estimated_arrival_at = None
+        job.started_at = None
+        job.completed_at = None
     job.version += 1
     session.add(
         JobEvent(
             job_id=job.id,
             booking_id=booking.id,
+            actor_staff_id=actor_staff_id,
             event_type="booking_rescheduled",
             metadata_json={
                 "previous_start": previous_start.isoformat(),
                 "previous_end": previous_end.isoformat(),
                 "scheduled_start": hold.slot_start.isoformat(),
                 "scheduled_end": hold.slot_end.isoformat(),
-                "source": "customer_web",
+                "source": source,
+                "active_state_reset": reset_active_state,
             },
         )
     )

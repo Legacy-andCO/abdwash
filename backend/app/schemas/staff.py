@@ -62,6 +62,13 @@ class StaffJobList(BaseModel):
     next_offset: int | None
 
 
+class SyncState(BaseModel):
+    jobs: int = Field(ge=0)
+    workforce: int = Field(ge=0)
+    schedule: int = Field(ge=0)
+    finance: int = Field(ge=0)
+
+
 class Coordinates(StrictRequest):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)

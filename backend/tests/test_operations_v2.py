@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, date, datetime, time
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -11,13 +12,15 @@ from app.domain.errors import DomainError
 from app.domain.staff_usernames import normalize_staff_username
 from app.models.entities import (
     AttendanceSession,
+    BusinessSyncRevision,
     Job,
     LeaveRequest,
     StaffShiftAssignment,
     TeamMembership,
 )
-from app.schemas.staff import AssignmentAction, LeaveCreate, ReportV2, ShiftCreate
+from app.schemas.staff import AssignmentAction, LeaveCreate, ReportV2, ShiftCreate, SyncState
 from app.services.staff_accounts import _validate_managed_role
+from app.services.sync_state import get_sync_state
 from app.services.workforce import attendance_category, attendance_late_minutes
 
 
@@ -94,6 +97,47 @@ def test_operations_models_have_ownership_and_conflict_indexes() -> None:
     assert "ix_leave_business_status_dates" in leave_indexes
     assert "ix_jobs_resource_schedule" in job_indexes
     assert "ix_jobs_business_schedule_status" in job_indexes
+    assignment_checks = {constraint.name for constraint in Job.__table__.constraints}
+    assert any(
+        name is not None and name.endswith("unassigned_jobs_have_no_assignment")
+        for name in assignment_checks
+    )
+
+
+@pytest.mark.asyncio
+async def test_sync_state_is_business_scoped_and_returns_current_vector() -> None:
+    expected_business = uuid.uuid4()
+    session = MagicMock()
+    session.scalar = AsyncMock(
+        return_value=BusinessSyncRevision(
+            business_id=expected_business,
+            jobs_revision=4,
+            workforce_revision=3,
+            schedule_revision=2,
+            finance_revision=1,
+        )
+    )
+
+    state = await get_sync_state(session, expected_business)
+
+    assert state == SyncState(jobs=4, workforce=3, schedule=2, finance=1)
+    statement = session.scalar.await_args.args[0]
+    assert expected_business.hex in str(
+        statement.compile(compile_kwargs={"literal_binds": True})
+    )
+
+
+@pytest.mark.asyncio
+async def test_sync_state_starts_with_zero_vector_before_first_write() -> None:
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
+
+    assert await get_sync_state(session, uuid.uuid4()) == SyncState(
+        jobs=0,
+        workforce=0,
+        schedule=0,
+        finance=0,
+    )
 
 
 @pytest.mark.parametrize(

@@ -190,6 +190,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
             <AppButton
               title={profileMutation.isPending ? "Saving…" : "Save profile"}
               disabled={profileMutation.isPending}
+              loading={profileMutation.isPending}
               onPress={() => void save()}
             />
             <AppButton
@@ -245,6 +246,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
           disabled={
             leaveMutation.isPending || endDate < startDate || reason.length < 2
           }
+          loading={leaveMutation.isPending}
           onPress={() => void addLeave()}
         />
       </Card>

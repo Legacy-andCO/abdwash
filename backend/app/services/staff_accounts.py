@@ -1,6 +1,8 @@
+import logging
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import StaffContext
@@ -17,6 +19,9 @@ from app.schemas.staff import (
     StaffProfileView,
     TeamReference,
 )
+from app.services.sync_state import bump_sync_revisions
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_optional_phone(phone: str | None) -> str | None:
@@ -79,20 +84,9 @@ async def update_own_profile(
     request: OwnProfileUpdate,
     admin: SupabaseAdminClient | None,
 ) -> StaffProfileView:
-    profile = (
-        await session.scalars(
-            select(StaffProfile)
-            .where(
-                StaffProfile.id == context.staff_id,
-                StaffProfile.business_id == context.business_id,
-            )
-            .with_for_update()
-        )
-    ).one()
-    if request.display_name is not None:
-        profile.display_name = request.display_name.strip()
-    if request.phone is not None:
-        profile.phone = _normalize_optional_phone(request.phone)
+    normalized_phone = (
+        _normalize_optional_phone(request.phone) if request.phone is not None else None
+    )
     if request.password is not None:
         if admin is None:
             raise DomainError(
@@ -100,10 +94,35 @@ async def update_own_profile(
                 "Password updates are not configured.",
                 status_code=503,
             )
-        await admin.update_staff_user(profile.auth_user_id, password=request.password)
-    _audit(session, context, "staff_updated", profile.id, {"self_update": True})
-    await session.flush()
-    return await _profile_view(session, profile)
+        async with session.begin():
+            auth_user_id = (
+                await session.scalars(
+                    select(StaffProfile.auth_user_id).where(
+                        StaffProfile.id == context.staff_id,
+                        StaffProfile.business_id == context.business_id,
+                    )
+                )
+            ).one()
+        await admin.update_staff_user(auth_user_id, password=request.password)
+    async with session.begin():
+        profile = (
+            await session.scalars(
+                select(StaffProfile)
+                .where(
+                    StaffProfile.id == context.staff_id,
+                    StaffProfile.business_id == context.business_id,
+                )
+                .with_for_update()
+            )
+        ).one()
+        if request.display_name is not None:
+            profile.display_name = request.display_name.strip()
+        if request.phone is not None:
+            profile.phone = normalized_phone
+        _audit(session, context, "staff_updated", profile.id, {"self_update": True})
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        await session.flush()
+        return await _profile_view(session, profile)
 
 
 async def list_staff_accounts(
@@ -165,25 +184,40 @@ async def create_staff_account(
 ) -> StaffProfileView:
     username = normalize_staff_username(request.username)
     _validate_managed_role(context, request.role)
-    existing = await session.scalar(
-        select(StaffProfile.id).where(StaffProfile.username == username)
-    )
-    if existing is not None:
-        raise ConflictError("USERNAME_TAKEN", "That username is already in use.")
+    phone = _normalize_optional_phone(request.phone)
+    async with session.begin():
+        existing = await session.scalar(
+            select(StaffProfile.id).where(StaffProfile.username == username)
+        )
+        if existing is not None:
+            raise ConflictError("USERNAME_TAKEN", "That username is already in use.")
     auth_user_id = await admin.create_staff_user(username, request.temporary_password)
-    profile = StaffProfile(
-        business_id=context.business_id,
-        auth_user_id=auth_user_id,
-        username=username,
-        display_name=request.display_name.strip(),
-        phone=_normalize_optional_phone(request.phone),
-        role=request.role,
-        is_active=True,
-    )
-    session.add(profile)
-    await session.flush()
-    _audit(session, context, "staff_created", profile.id, {"role": request.role})
-    return await _profile_view(session, profile)
+    try:
+        async with session.begin():
+            profile = StaffProfile(
+                business_id=context.business_id,
+                auth_user_id=auth_user_id,
+                username=username,
+                display_name=request.display_name.strip(),
+                phone=phone,
+                role=request.role,
+                is_active=True,
+            )
+            session.add(profile)
+            await session.flush()
+            _audit(session, context, "staff_created", profile.id, {"role": request.role})
+            await bump_sync_revisions(session, context.business_id, "workforce")
+            return await _profile_view(session, profile)
+    except Exception as exc:
+        try:
+            await admin.delete_staff_user(auth_user_id)
+        except Exception:
+            logger.exception(
+                "staff_auth_compensation_failed", extra={"auth_user_id": str(auth_user_id)}
+            )
+        if isinstance(exc, IntegrityError):
+            raise ConflictError("USERNAME_TAKEN", "That username is already in use.") from exc
+        raise
 
 
 async def update_staff_account(
@@ -217,10 +251,15 @@ async def reset_staff_password(
     password: str,
     admin: SupabaseAdminClient,
 ) -> None:
-    profile = await _managed_profile(session, context, staff_id)
-    _validate_managed_role(context, profile.role)
-    await admin.update_staff_user(profile.auth_user_id, password=password)
-    _audit(session, context, "staff_password_reset", profile.id, {})
+    async with session.begin():
+        profile = await _managed_profile(session, context, staff_id)
+        _validate_managed_role(context, profile.role)
+        auth_user_id = profile.auth_user_id
+        profile_id = profile.id
+    await admin.update_staff_user(auth_user_id, password=password)
+    async with session.begin():
+        _audit(session, context, "staff_password_reset", profile_id, {})
+        await bump_sync_revisions(session, context.business_id, "workforce")
 
 
 async def _managed_profile(

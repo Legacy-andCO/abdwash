@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { colors, elevation, radii, spacing } from "../theme";
+import { buttonInteractionState } from "./buttonState";
 
 export function ScreenTitle({
   eyebrow,
@@ -35,14 +36,17 @@ export function AppButton({
   title,
   onPress,
   disabled,
+  loading = false,
   tone = "primary",
 }: {
   title: string;
   onPress: () => void;
   disabled?: boolean;
+  loading?: boolean;
   tone?: "primary" | "secondary" | "danger";
 }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const state = buttonInteractionState(disabled, loading);
   const backgroundColor =
     tone === "primary"
       ? colors.primary
@@ -58,8 +62,11 @@ export function AppButton({
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled}
+      disabled={state.disabled}
+      accessibilityState={{ disabled: state.disabled, busy: state.busy }}
       onPressIn={() =>
+        !disabled &&
+        !loading &&
         Animated.spring(scale, { toValue: 0.98, useNativeDriver: true }).start()
       }
       onPressOut={() =>
@@ -73,15 +80,14 @@ export function AppButton({
           {
             backgroundColor,
             transform: [{ scale }],
-            opacity: disabled ? 0.55 : 1,
+            opacity: disabled || loading ? 0.55 : 1,
           },
         ]}
       >
-        {disabled ? (
-          <ActivityIndicator color={color} />
-        ) : (
+        <View style={styles.buttonContent}>
+          {state.showSpinner ? <ActivityIndicator color={color} /> : null}
           <Text style={[styles.buttonText, { color }]}>{title}</Text>
-        )}
+        </View>
       </Animated.View>
     </Pressable>
   );
@@ -223,6 +229,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { fontSize: 15, fontWeight: "900" },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   chip: {
     color: colors.success,
     backgroundColor: "#E0F1E9",

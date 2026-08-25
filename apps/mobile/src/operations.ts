@@ -32,6 +32,13 @@ export const conflictMessage = (code: string) =>
       : "The server did not confirm this action.";
 export const isIsoBookingDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value);
+export const sameStringSet = (left: string[], right: string[]) => {
+  const sortedRight = [...right].sort();
+  return (
+    left.length === right.length &&
+    [...left].sort().every((value, index) => value === sortedRight[index])
+  );
+};
 export const availabilityOptions = (slots: AvailabilitySlot[]) =>
   slots.flatMap((slot) =>
     slot.available

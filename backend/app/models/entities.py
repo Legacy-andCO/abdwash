@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -66,6 +67,29 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint("multi_vehicle_required_slots > 0", name="positive_required_slots"),
         CheckConstraint("closing_time > opening_time", name="valid_business_hours"),
         CheckConstraint("attendance_grace_minutes >= 0", name="nonnegative_attendance_grace"),
+    )
+
+
+class BusinessSyncRevision(Base):
+    __tablename__ = "business_sync_revisions"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), primary_key=True
+    )
+    jobs_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    workforce_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    schedule_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    finance_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
 
@@ -452,6 +476,11 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint(
             "status IN ('unassigned','assigned','en_route','in_progress','completed','cancelled')",
             name="job_status",
+        ),
+        CheckConstraint(
+            "status <> 'unassigned' OR "
+            "(assigned_resource_id IS NULL AND assigned_staff_id IS NULL)",
+            name="unassigned_jobs_have_no_assignment",
         ),
         Index("ix_jobs_staff_status_schedule", "assigned_staff_id", "status", "scheduled_start"),
         Index("ix_jobs_business_status", "business_id", "status"),

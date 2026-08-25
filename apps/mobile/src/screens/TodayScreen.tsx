@@ -186,6 +186,7 @@ export function TodayScreen({ context }: { context: StaffContext }) {
               disabled={
                 clock.isPending || ownAttendance?.status === "approved_leave"
               }
+              loading={clock.isPending}
               onPress={() => void toggleClock()}
             />
           </Card>
