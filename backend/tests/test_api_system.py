@@ -1,13 +1,19 @@
 import asyncio
 import time
 import uuid
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 import app.api.public as public_api
+import app.api.staff as staff_api
 from app.auth.dependencies import StaffContext, staff_context
-from app.core.database import RequestDatabaseMetrics, request_database_metrics
+from app.core.database import (
+    RequestDatabaseMetrics,
+    request_database_metrics,
+    session_dependency,
+)
 from app.domain.enums import StaffRole
 from app.main import app
 from app.schemas.public import CatalogueResponse
@@ -133,6 +139,51 @@ def test_manager_route_accepts_manager_and_admin() -> None:
             assert response.status_code == 200
         finally:
             app.dependency_overrides.clear()
+
+
+def test_employee_cannot_reset_staff_password() -> None:
+    app.dependency_overrides[staff_context] = lambda: _context(StaffRole.EMPLOYEE)
+    app.dependency_overrides[session_dependency] = lambda: MagicMock()
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/v1/staff/users/{uuid.uuid4()}/password",
+                json={"mode": "temporary"},
+            )
+        assert response.status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_manager_password_reset_returns_only_generated_temporary_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = _context(StaffRole.MANAGER)
+    generated = "one-time-test-value"
+    reset = AsyncMock(
+        return_value={
+            "must_change_password": True,
+            "temporary_password": generated,
+        }
+    )
+    app.dependency_overrides[staff_context] = lambda: manager
+    app.dependency_overrides[session_dependency] = lambda: MagicMock()
+    monkeypatch.setattr(staff_api, "reset_staff_password_choice", reset)
+    monkeypatch.setattr(staff_api, "_admin", lambda _request: MagicMock())
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/v1/staff/users/{uuid.uuid4()}/password",
+                json={"mode": "temporary"},
+            )
+        assert response.status_code == 200
+        assert response.json() == {
+            "must_change_password": True,
+            "temporary_password": generated,
+        }
+        assert reset.await_args.kwargs["new_password"] is None
+    finally:
+        app.dependency_overrides.clear()
 
 
 class FailingSession:

@@ -28,6 +28,7 @@ class StaffContext:
     display_name: str = ""
     username: str = ""
     phone: str | None = None
+    must_change_password: bool = False
 
 
 async def optional_identity(
@@ -85,7 +86,16 @@ async def staff_context(
                 display_name=staff.display_name,
                 username=staff.username,
                 phone=staff.phone,
+                must_change_password=staff.must_change_password,
             )
+            if context.must_change_password and request.url.path not in {
+                "/api/v1/staff/context",
+                "/api/v1/staff/profile",
+            }:
+                raise HTTPException(
+                    status_code=403,
+                    detail={"code": "PASSWORD_CHANGE_REQUIRED"},
+                )
         return context
     finally:
         request.state.staff_context_ms = (time.perf_counter() - started) * 1000

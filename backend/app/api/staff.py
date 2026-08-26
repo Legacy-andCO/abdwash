@@ -41,6 +41,8 @@ from app.schemas.staff import (
     StaffJob,
     StaffJobList,
     StaffMember,
+    StaffPasswordReset,
+    StaffPasswordResetResult,
     StaffProfileView,
     StartTripAction,
     SyncState,
@@ -57,6 +59,7 @@ from app.services.staff_accounts import (
     get_own_profile,
     list_staff_accounts,
     reset_staff_password,
+    reset_staff_password_choice,
     update_own_profile,
     update_staff_account,
 )
@@ -102,7 +105,7 @@ StaffDep = Annotated[StaffContext, Depends(staff_context)]
 @router.get("/context")
 async def context(
     value: Annotated[StaffContext, Depends(staff_context)],
-) -> dict[str, str | None]:
+) -> dict[str, str | bool | None]:
     return {
         "staff_id": str(value.staff_id),
         "business_id": str(value.business_id),
@@ -112,6 +115,7 @@ async def context(
         "display_name": value.display_name,
         "username": value.username,
         "phone": value.phone,
+        "must_change_password": value.must_change_password,
     }
 
 
@@ -187,6 +191,24 @@ async def staff_user_password(
 ) -> None:
     await reset_staff_password(
         session, context, staff_id, payload.temporary_password, _admin(request)
+    )
+
+
+@router.post("/users/{staff_id}/password", response_model=StaffPasswordResetResult)
+async def staff_user_password_reset(
+    staff_id: uuid.UUID,
+    payload: StaffPasswordReset,
+    request: Request,
+    session: SessionDep,
+    context: ManagerContext,
+) -> StaffPasswordResetResult:
+    return await reset_staff_password_choice(
+        session,
+        context,
+        staff_id,
+        mode=payload.mode,
+        new_password=payload.new_password,
+        admin=_admin(request),
     )
 
 
@@ -391,6 +413,7 @@ async def jobs(
     employee_id: uuid.UUID | None = None,
     payment_method: str | None = None,
     service_id: uuid.UUID | None = None,
+    search: str | None = Query(default=None, min_length=1, max_length=160),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
 ) -> StaffJobList:
@@ -407,6 +430,7 @@ async def jobs(
         staff_id=employee_id,
         payment_method=payment_method,
         service_id=service_id,
+        search=search,
         offset=offset,
         limit=limit,
     )

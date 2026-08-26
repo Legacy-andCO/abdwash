@@ -150,6 +150,7 @@ class StaffProfileView(BaseModel):
     phone: str | None
     role: str
     is_active: bool
+    must_change_password: bool = False
     teams: list[TeamReference] = Field(default_factory=list)
 
 
@@ -176,6 +177,24 @@ class StaffAccountUpdate(StrictRequest):
 
 class TemporaryPasswordUpdate(StrictRequest):
     temporary_password: str = Field(min_length=8, max_length=128)
+
+
+class StaffPasswordReset(StrictRequest):
+    mode: Literal["temporary", "manual"]
+    new_password: str | None = Field(default=None, min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_password_mode(self) -> "StaffPasswordReset":
+        if self.mode == "manual" and self.new_password is None:
+            raise ValueError("A new password is required for a manual reset.")
+        if self.mode == "temporary" and self.new_password is not None:
+            raise ValueError("A temporary reset generates its password on the server.")
+        return self
+
+
+class StaffPasswordResetResult(BaseModel):
+    must_change_password: bool
+    temporary_password: str | None = None
 
 
 class TeamCreate(StrictRequest):

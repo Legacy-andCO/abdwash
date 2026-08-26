@@ -1,4 +1,5 @@
 import logging
+import secrets
 import uuid
 
 from sqlalchemy import select
@@ -16,6 +17,7 @@ from app.schemas.staff import (
     OwnProfileUpdate,
     StaffAccountCreate,
     StaffAccountUpdate,
+    StaffPasswordResetResult,
     StaffProfileView,
     TeamReference,
 )
@@ -60,6 +62,7 @@ def _profile_data(
         phone=profile.phone,
         role=profile.role,
         is_active=profile.is_active,
+        must_change_password=profile.must_change_password,
         teams=teams,
     )
 
@@ -119,6 +122,9 @@ async def update_own_profile(
             profile.display_name = request.display_name.strip()
         if request.phone is not None:
             profile.phone = normalized_phone
+        if request.password is not None:
+            profile.must_change_password = False
+            _audit(session, context, "self_password_changed", profile.id, {})
         _audit(session, context, "staff_updated", profile.id, {"self_update": True})
         await bump_sync_revisions(session, context.business_id, "workforce")
         await session.flush()
@@ -258,8 +264,51 @@ async def reset_staff_password(
         profile_id = profile.id
     await admin.update_staff_user(auth_user_id, password=password)
     async with session.begin():
+        profile = await _managed_profile(session, context, staff_id, lock=True)
+        profile.must_change_password = True
         _audit(session, context, "staff_password_reset", profile_id, {})
         await bump_sync_revisions(session, context.business_id, "workforce")
+
+
+async def reset_staff_password_choice(
+    session: AsyncSession,
+    context: StaffContext,
+    staff_id: uuid.UUID,
+    *,
+    mode: str,
+    new_password: str | None,
+    admin: SupabaseAdminClient,
+) -> StaffPasswordResetResult:
+    generated_password = secrets.token_urlsafe(15) if mode == "temporary" else None
+    password = generated_password or new_password
+    if password is None:
+        raise DomainError(
+            "PASSWORD_REQUIRED",
+            "A new password is required.",
+            status_code=422,
+        )
+    async with session.begin():
+        profile = await _managed_profile(session, context, staff_id)
+        _validate_managed_role(context, profile.role)
+        auth_user_id = profile.auth_user_id
+        profile_id = profile.id
+    await admin.update_staff_user(auth_user_id, password=password)
+    must_change_password = mode == "temporary"
+    async with session.begin():
+        profile = await _managed_profile(session, context, staff_id, lock=True)
+        profile.must_change_password = must_change_password
+        _audit(
+            session,
+            context,
+            "staff_password_reset",
+            profile_id,
+            {"mode": mode, "must_change_password": must_change_password},
+        )
+        await bump_sync_revisions(session, context.business_id, "workforce")
+    return StaffPasswordResetResult(
+        must_change_password=must_change_password,
+        temporary_password=generated_password,
+    )
 
 
 async def _managed_profile(

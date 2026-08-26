@@ -72,6 +72,7 @@ async def _job_rows(
     staff_id: uuid.UUID | None = None,
     payment_method: str | None = None,
     service_id: uuid.UUID | None = None,
+    search: str | None = None,
     offset: int = 0,
     limit: int = 50,
     lock: bool = False,
@@ -135,6 +136,21 @@ async def _job_rows(
                     BookingService.booking_id == Booking.id,
                     BookingService.service_id == service_id,
                 )
+            )
+        )
+    normalized_search = " ".join(search.split()) if search else ""
+    if normalized_search:
+        escaped = (
+            normalized_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        pattern = f"%{escaped}%"
+        statement = statement.where(
+            or_(
+                Booking.customer_first_name.ilike(pattern, escape="\\"),
+                Booking.customer_surname.ilike(pattern, escape="\\"),
+                func.concat_ws(
+                    " ", Booking.customer_first_name, Booking.customer_surname
+                ).ilike(pattern, escape="\\"),
             )
         )
     ordering = Job.scheduled_start.desc() if view == "history" else Job.scheduled_start

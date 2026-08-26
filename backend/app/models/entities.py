@@ -134,6 +134,9 @@ class StaffProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(40))
     role: Mapped[str] = mapped_column(String(20), nullable=False, default=StaffRole.EMPLOYEE)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
     __table_args__ = (
         CheckConstraint("role IN ('employee','manager','admin')", name="staff_role"),
         CheckConstraint("username = lower(username)", name="staff_username_lowercase"),

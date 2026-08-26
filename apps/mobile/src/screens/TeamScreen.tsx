@@ -24,7 +24,7 @@ import {
 } from "../components/ui";
 import { successHaptic } from "../haptics";
 import {
-  setTemporaryPassword,
+  resetStaffPassword,
   type Attendance,
   type AttendanceOverview,
   type Cancellation,
@@ -45,6 +45,7 @@ import {
   normalizeStaffUsername,
   validateAddStaff,
 } from "../forms/staffForm";
+import { validatePasswordConfirmation } from "../forms/password";
 import {
   useAssignShiftMutation,
   useAttendanceOverviewQuery,
@@ -406,13 +407,18 @@ function StaffPane({ context }: { context: StaffContext }) {
                   onPress={() => setEditTarget(item)}
                 />
               </View>
-              <View style={{ flex: 1 }}>
-                <AppButton
-                  title="Temporary password"
-                  tone="secondary"
-                  onPress={() => setPasswordTarget(item)}
-                />
-              </View>
+              {item.id !== context.staff_id &&
+              (context.role === "admin"
+                ? item.role !== "admin"
+                : item.role === "employee") ? (
+                <View style={{ flex: 1 }}>
+                  <AppButton
+                    title="Reset password"
+                    tone="secondary"
+                    onPress={() => setPasswordTarget(item)}
+                  />
+                </View>
+              ) : null}
             </View>
             <AppButton
               title={
@@ -1218,22 +1224,45 @@ function PasswordSheet({
   profile: Profile | null;
   onClose: () => void;
 }) {
+  const [mode, setMode] = useState<"choose" | "manual">("choose");
   const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
-  async function save() {
+  async function reset(modeToUse: "temporary" | "manual") {
     if (!profile) return;
+    if (modeToUse === "manual") {
+      const validation = validatePasswordConfirmation(password, confirmation);
+      if (validation) {
+        Alert.alert("Password not changed", validation);
+        return;
+      }
+    }
     setBusy(true);
     try {
-      await setTemporaryPassword(profile.id, password);
+      const result = await resetStaffPassword(profile.id, {
+        mode: modeToUse,
+        ...(modeToUse === "manual" ? { new_password: password } : {}),
+      });
       await successHaptic();
       setPassword("");
-      onClose();
+      setConfirmation("");
+      if (modeToUse === "temporary" && result.temporary_password) {
+        Alert.alert(
+          "Password reset successfully.",
+          `Temporary password: ${result.temporary_password}\n\nEmployee must change this password on next login.`,
+          [{ text: "Done", onPress: onClose }],
+        );
+      } else {
+        Alert.alert("Password updated successfully.", undefined, [
+          { text: "Done", onPress: onClose },
+        ]);
+      }
     } catch (error) {
       Alert.alert(
         "Password not changed",
         domainErrorMessage(
           error,
-          "The temporary password could not be changed. Please try again.",
+          "The password could not be changed. Please try again.",
         ),
       );
     } finally {
@@ -1247,25 +1276,83 @@ function PasswordSheet({
       contentContainerStyle={uiStyles.content}
     >
       <View style={uiStyles.row}>
-        <Text style={styles.sheetTitle}>Temporary password</Text>
+        <Text style={styles.sheetTitle}>Reset password</Text>
         <Pressable onPress={onClose}>
           <Text style={uiStyles.link}>Back</Text>
         </Pressable>
       </View>
       <Text style={uiStyles.muted}>{profile.display_name}</Text>
-      <TextInput
-        style={uiStyles.field}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        placeholder="At least 8 characters"
-      />
-      <AppButton
-        title={busy ? "Saving…" : "Set password"}
-        disabled={busy || password.length < 8}
-        loading={busy}
-        onPress={() => void save()}
-      />
+      {mode === "choose" ? (
+        <>
+          <AppButton
+            title="Reset to temporary password"
+            disabled={busy}
+            loading={busy}
+            onPress={() =>
+              Alert.alert(
+                `Reset password for ${profile.display_name}?`,
+                "A temporary password will be shown once. The employee must change it on next login.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Reset password",
+                    style: "destructive",
+                    onPress: () => void reset("temporary"),
+                  },
+                ],
+              )
+            }
+          />
+          <AppButton
+            title="Set new password manually"
+            tone="secondary"
+            disabled={busy}
+            onPress={() => setMode("manual")}
+          />
+        </>
+      ) : (
+        <>
+          <TextInput
+            accessibilityLabel="New password"
+            autoCapitalize="none"
+            style={uiStyles.field}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="New password"
+          />
+          <TextInput
+            accessibilityLabel="Confirm new password"
+            autoCapitalize="none"
+            style={uiStyles.field}
+            value={confirmation}
+            onChangeText={setConfirmation}
+            secureTextEntry
+            placeholder="Confirm new password"
+          />
+          <AppButton
+            title={busy ? "Updating…" : "Update password"}
+            disabled={busy}
+            loading={busy}
+            onPress={() =>
+              Alert.alert(`Reset password for ${profile.display_name}?`, "", [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Update password",
+                  style: "destructive",
+                  onPress: () => void reset("manual"),
+                },
+              ])
+            }
+          />
+          <AppButton
+            title="Back"
+            tone="secondary"
+            disabled={busy}
+            onPress={() => setMode("choose")}
+          />
+        </>
+      )}
       <AppButton title="Cancel" tone="secondary" onPress={onClose} />
     </ScrollView>
   );

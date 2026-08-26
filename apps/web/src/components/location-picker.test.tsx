@@ -155,6 +155,18 @@ describe("LocationPicker Maps lifecycle", () => {
     const input = await screen.findByLabelText("Search for an address or place");
     fireEvent.change(input, { target: { value: "Yas" } });
     const optionRow = await screen.findByRole("option");
+    expect(fetchAutocompleteSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: "Yas",
+        region: "ae",
+        locationBias: {
+          north: 26.4,
+          south: 22.6,
+          east: 56.5,
+          west: 51.4,
+        },
+      }),
+    );
     const option = optionRow.querySelector("button")!;
     option.focus();
     fireEvent.click(option);
@@ -162,6 +174,25 @@ describe("LocationPicker Maps lifecycle", () => {
       { latitude: 24.47, longitude: 54.36 },
       "Yas Acres, Abu Dhabi",
     ));
+  });
+
+  it("shows the manual fallback message and reports a provider failure", async () => {
+    installGoogle();
+    fetchAutocompleteSuggestions.mockRejectedValueOnce(
+      new Error("INVALID_ARGUMENT"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    renderPicker();
+    const input = await screen.findByLabelText("Search for an address or place");
+    fireEvent.change(input, { target: { value: "Khalidiyah" } });
+    expect(await screen.findByText("We couldn’t load suggestions. You can still enter the address manually.")).toBeTruthy();
+    expect(consoleError).toHaveBeenCalledWith(
+      "[Trifecta Maps] autocomplete failed",
+      expect.any(Error),
+    );
+    consoleError.mockRestore();
   });
 
   it("clears Google-owned map DOM before Strict Mode reinitializes", async () => {

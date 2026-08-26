@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import case, distinct, func, or_, select
+from sqlalchemy import and_, case, distinct, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import StaffContext
@@ -826,6 +826,7 @@ async def assign_shift(
         await session.scalars(
             select(StaffShiftAssignment)
             .where(
+                StaffShiftAssignment.business_id == context.business_id,
                 StaffShiftAssignment.staff_profile_id == request.staff_id,
                 StaffShiftAssignment.work_date == request.work_date,
             )
@@ -835,20 +836,21 @@ async def assign_shift(
     if assignment is not None:
         if assignment.business_id != context.business_id:
             raise DomainError("SHIFT_NOT_FOUND", "Shift assignment not found.", status_code=404)
-        raise ConflictError(
-            "SHIFT_ASSIGNMENT_CONFLICT",
-            f"This employee already has a shift assigned on {request.work_date.isoformat()}.",
+        assignment.shift_id = request.shift_id
+        assignment.resource_id = request.team_id
+        event_type = "shift_assignment_updated"
+    else:
+        assignment = StaffShiftAssignment(
+            business_id=context.business_id,
+            staff_profile_id=request.staff_id,
+            shift_id=request.shift_id,
+            work_date=request.work_date,
+            resource_id=request.team_id,
         )
-    assignment = StaffShiftAssignment(
-        business_id=context.business_id,
-        staff_profile_id=request.staff_id,
-        shift_id=request.shift_id,
-        work_date=request.work_date,
-        resource_id=request.team_id,
-    )
-    session.add(assignment)
+        session.add(assignment)
+        event_type = "shift_assigned"
     await session.flush()
-    _audit(session, context, "shift_assigned", "shift_assignment", assignment.id)
+    _audit(session, context, event_type, "shift_assignment", assignment.id)
     return await _shift_assignment_view(session, assignment)
 
 
@@ -900,9 +902,25 @@ async def _shift_assignment_view(
                 Shift.end_time,
                 ScheduleResource.name,
             )
-            .join(Shift, Shift.id == item.shift_id)
-            .outerjoin(ScheduleResource, ScheduleResource.id == item.resource_id)
-            .where(StaffProfile.id == item.staff_profile_id)
+            .select_from(StaffShiftAssignment)
+            .join(
+                StaffProfile,
+                StaffProfile.id == StaffShiftAssignment.staff_profile_id,
+            )
+            .join(Shift, Shift.id == StaffShiftAssignment.shift_id)
+            .outerjoin(
+                ScheduleResource,
+                and_(
+                    ScheduleResource.id == StaffShiftAssignment.resource_id,
+                    ScheduleResource.business_id == StaffShiftAssignment.business_id,
+                ),
+            )
+            .where(
+                StaffShiftAssignment.id == item.id,
+                StaffShiftAssignment.business_id == item.business_id,
+                StaffProfile.business_id == item.business_id,
+                Shift.business_id == item.business_id,
+            )
         )
     ).one()
     staff_name, shift_name, start_time, end_time, team_name = row

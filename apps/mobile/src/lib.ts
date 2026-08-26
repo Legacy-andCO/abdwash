@@ -39,6 +39,7 @@ export type StaffContext = {
   display_name: string;
   username: string;
   phone: string | null;
+  must_change_password: boolean;
 };
 export type TeamRef = { id: string; name: string };
 export type Profile = {
@@ -48,6 +49,7 @@ export type Profile = {
   phone: string | null;
   role: Role;
   is_active: boolean;
+  must_change_password: boolean;
   teams: TeamRef[];
 };
 export type JobTimelineEvent = {
@@ -372,10 +374,17 @@ export const createStaff = (body: object) =>
   api<Profile>("/api/v1/staff/users", json("POST", body));
 export const updateStaff = (id: string, body: object) =>
   api<Profile>(`/api/v1/staff/users/${id}`, json("PATCH", body));
-export const setTemporaryPassword = (id: string, temporaryPassword: string) =>
-  api<void>(
-    `/api/v1/staff/users/${id}/temporary-password`,
-    json("POST", { temporary_password: temporaryPassword }),
+export type StaffPasswordResetResult = {
+  must_change_password: boolean;
+  temporary_password: string | null;
+};
+export const resetStaffPassword = (
+  id: string,
+  body: { mode: "temporary" | "manual"; new_password?: string },
+) =>
+  api<StaffPasswordResetResult>(
+    `/api/v1/staff/users/${id}/password`,
+    json("POST", body),
   );
 export type JobFilters = {
   view: "today" | "upcoming" | "history" | "unassigned" | "all";
@@ -388,6 +397,7 @@ export type JobFilters = {
   employee_id?: string;
   payment_method?: string;
   service_id?: string;
+  search?: string;
   offset?: number;
   limit?: number;
 };

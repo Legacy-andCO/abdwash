@@ -9,6 +9,12 @@ import { useI18n } from "./i18n-provider";
 const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const googleMapsMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "DEMO_MAP_ID";
 const uaeCenter = { lat: 24.4539, lng: 54.3773 };
+const uaeSearchBias = {
+  north: 26.4,
+  south: 22.6,
+  east: 56.5,
+  west: 51.4,
+};
 
 type LocationPickerProps = {
   location: Location;
@@ -189,7 +195,7 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
         autocompleteSession.current ??= new library.AutocompleteSessionToken();
         const response = await library.AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input: value,
-          locationBias: { center: uaeCenter, radius: 250_000 },
+          locationBias: uaeSearchBias,
           region: "ae",
           sessionToken: autocompleteSession.current,
         });
@@ -200,8 +206,9 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
             .filter((prediction): prediction is google.maps.places.PlacePrediction => prediction !== null),
         );
         setSearchState("idle");
-      } catch {
+      } catch (error) {
         if (requestId !== searchRequest.current) return;
+        console.error("[Trifecta Maps] autocomplete failed", error);
         setSuggestions([]);
         setSearchState("failed");
       }
@@ -224,7 +231,8 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
         address,
       );
       setSearchState("idle");
-    } catch {
+    } catch (error) {
+      console.error("[Trifecta Maps] place selection failed", error);
       setSearchState("failed");
     }
   }

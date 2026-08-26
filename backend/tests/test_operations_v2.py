@@ -4,7 +4,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.dialects import postgresql
 
+import app.services.staff_accounts as staff_accounts
 from app.auth.dependencies import StaffContext
 from app.cli.seed_demo_staff import DEMO_STAFF
 from app.domain.enums import StaffRole
@@ -23,12 +25,18 @@ from app.schemas.staff import (
     LeaveCreate,
     ReportV2,
     ShiftCreate,
+    StaffPasswordReset,
     StartTripAction,
     SyncState,
 )
-from app.services.staff_accounts import _validate_managed_role
+from app.services.staff_accounts import _managed_profile, _validate_managed_role
+from app.services.staff_operations import _job_rows
 from app.services.sync_state import get_sync_state
-from app.services.workforce import attendance_category, attendance_late_minutes
+from app.services.workforce import (
+    _shift_assignment_view,
+    attendance_category,
+    attendance_late_minutes,
+)
 
 
 def context(role: StaffRole) -> StaffContext:
@@ -95,6 +103,162 @@ def test_admin_can_manage_manager_but_not_create_admin() -> None:
     with pytest.raises(DomainError) as error:
         _validate_managed_role(context(StaffRole.ADMIN), StaffRole.ADMIN)
     assert error.value.code == "ADMIN_CREATION_FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_managed_staff_lookup_hides_cross_account_and_invalid_targets() -> None:
+    manager = context(StaffRole.MANAGER)
+    scalars = MagicMock()
+    scalars.one_or_none.return_value = None
+    session = MagicMock()
+    session.scalars = AsyncMock(return_value=scalars)
+
+    with pytest.raises(DomainError) as error:
+        await _managed_profile(session, manager, uuid.uuid4())
+
+    assert error.value.code == "STAFF_NOT_FOUND"
+    assert error.value.status_code == 404
+    statement = session.scalars.await_args.args[0]
+    compiled = statement.compile(dialect=postgresql.dialect())
+    assert manager.business_id in compiled.params.values()
+
+
+def test_password_reset_schema_separates_manual_and_temporary_secrets() -> None:
+    generated_value = str(uuid.uuid4())
+    manual = StaffPasswordReset(mode="manual", new_password=generated_value)
+    temporary = StaffPasswordReset(mode="temporary")
+    assert manual.new_password == generated_value
+    assert temporary.new_password is None
+    with pytest.raises(ValidationError):
+        StaffPasswordReset(mode="manual")
+    with pytest.raises(ValidationError):
+        StaffPasswordReset(mode="temporary", new_password=str(uuid.uuid4()))
+
+
+@pytest.mark.asyncio
+async def test_shift_assignment_view_uses_unambiguous_scoped_joins() -> None:
+    business_id = uuid.uuid4()
+    item = StaffShiftAssignment(
+        id=uuid.uuid4(),
+        business_id=business_id,
+        staff_profile_id=uuid.uuid4(),
+        shift_id=uuid.uuid4(),
+        resource_id=uuid.uuid4(),
+        work_date=date(2035, 1, 7),
+    )
+    result = MagicMock()
+    result.one.return_value = (
+        "Mohammed Abdo",
+        "Morning",
+        time(9),
+        time(18),
+        "Mobile Team 1",
+    )
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=result)
+
+    view = await _shift_assignment_view(session, item)
+
+    statement = session.execute.await_args.args[0]
+    sql = str(statement.compile(dialect=postgresql.dialect()))
+    assert "FROM staff_shift_assignments JOIN staff_profiles ON" in sql
+    assert "JOIN shifts ON" in sql
+    assert "LEFT OUTER JOIN schedule_resources ON" in sql
+    assert "schedule_resources.business_id = staff_shift_assignments.business_id" in sql
+    assert view.staff_name == "Mohammed Abdo"
+    assert view.shift_name == "Morning"
+    assert view.team_name == "Mobile Team 1"
+
+
+@pytest.mark.asyncio
+async def test_job_customer_search_is_partial_case_insensitive_and_business_scoped() -> None:
+    manager = context(StaffRole.MANAGER)
+    result = MagicMock()
+    result.all.return_value = []
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=result)
+
+    await _job_rows(
+        session,
+        manager,
+        view="all",
+        scope="all",
+        search="  Mohammed   Abdo  ",
+    )
+
+    statement = session.execute.await_args.args[0]
+    compiled = statement.compile(dialect=postgresql.dialect())
+    sql = str(compiled)
+    assert "jobs.business_id" in sql
+    assert "bookings.customer_first_name ILIKE" in sql
+    assert "bookings.customer_surname ILIKE" in sql
+    assert "concat_ws" in sql
+    assert "%Mohammed Abdo%" in compiled.params.values()
+
+
+@pytest.mark.asyncio
+async def test_password_reset_modes_never_put_passwords_in_audit_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = context(StaffRole.MANAGER)
+    profile = MagicMock(
+        id=uuid.uuid4(),
+        auth_user_id=uuid.uuid4(),
+        role=StaffRole.EMPLOYEE,
+        must_change_password=False,
+    )
+    session = MagicMock()
+    session.begin.return_value.__aenter__ = AsyncMock(return_value=None)
+    session.begin.return_value.__aexit__ = AsyncMock(return_value=None)
+    admin = MagicMock()
+    admin.update_staff_user = AsyncMock()
+    audit = MagicMock()
+    generated_value = str(uuid.uuid4())
+    monkeypatch.setattr(staff_accounts, "_managed_profile", AsyncMock(return_value=profile))
+    monkeypatch.setattr(staff_accounts, "_audit", audit)
+    monkeypatch.setattr(staff_accounts, "bump_sync_revisions", AsyncMock())
+    monkeypatch.setattr(staff_accounts.secrets, "token_urlsafe", lambda _size: generated_value)
+
+    temporary = await staff_accounts.reset_staff_password_choice(
+        session,
+        manager,
+        profile.id,
+        mode="temporary",
+        new_password=None,
+        admin=admin,
+    )
+
+    assert temporary.temporary_password == generated_value
+    assert temporary.must_change_password is True
+    assert profile.must_change_password is True
+    admin.update_staff_user.assert_awaited_with(
+        profile.auth_user_id,
+        password=generated_value,
+    )
+    audit_metadata = audit.call_args.args[-1]
+    assert audit_metadata == {"mode": "temporary", "must_change_password": True}
+
+    manual_value = str(uuid.uuid4())
+    manual = await staff_accounts.reset_staff_password_choice(
+        session,
+        manager,
+        profile.id,
+        mode="manual",
+        new_password=manual_value,
+        admin=admin,
+    )
+
+    assert manual.temporary_password is None
+    assert manual.must_change_password is False
+    assert profile.must_change_password is False
+    admin.update_staff_user.assert_awaited_with(
+        profile.auth_user_id,
+        password=manual_value,
+    )
+    assert audit.call_args.args[-1] == {
+        "mode": "manual",
+        "must_change_password": False,
+    }
 
 
 def test_attendance_lateness_uses_business_timezone_and_grace() -> None:

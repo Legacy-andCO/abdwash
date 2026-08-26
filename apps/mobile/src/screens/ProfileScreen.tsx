@@ -21,6 +21,7 @@ import {
   uiStyles,
 } from "../components/ui";
 import { domainErrorMessage } from "../errors/domainErrors";
+import { validatePasswordConfirmation } from "../forms/password";
 import { successHaptic } from "../haptics";
 import { supabase, type StaffContext } from "../lib";
 import {
@@ -46,7 +47,9 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [startDate, setStartDate] = useState(() => toIsoDate(new Date()));
   const [endDate, setEndDate] = useState(() => toIsoDate(new Date()));
   const [reason, setReason] = useState("");
@@ -61,15 +64,36 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       await profileMutation.mutateAsync({
         display_name: name,
         phone,
-        ...(password ? { password } : {}),
       });
-      setPassword("");
       setEditing(false);
       await successHaptic();
     } catch (error) {
       Alert.alert(
         "Profile not saved",
         domainErrorMessage(error, "Check the details and try again."),
+      );
+    }
+  }
+  async function changePassword() {
+    const validation = validatePasswordConfirmation(
+      newPassword,
+      passwordConfirmation,
+    );
+    if (validation) {
+      Alert.alert("Password not changed", validation);
+      return;
+    }
+    try {
+      await profileMutation.mutateAsync({ password: newPassword });
+      setNewPassword("");
+      setPasswordConfirmation("");
+      setChangingPassword(false);
+      await successHaptic();
+      Alert.alert("Password changed successfully.");
+    } catch (error) {
+      Alert.alert(
+        "Password not changed",
+        domainErrorMessage(error, "Choose a valid password and try again."),
       );
     }
   }
@@ -179,14 +203,6 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
               onChangeText={setPhone}
               keyboardType="phone-pad"
             />
-            <Text style={uiStyles.label}>NEW PASSWORD (OPTIONAL)</Text>
-            <TextInput
-              accessibilityLabel="New password"
-              style={uiStyles.field}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
             <AppButton
               title={profileMutation.isPending ? "Saving…" : "Save profile"}
               disabled={profileMutation.isPending}
@@ -213,6 +229,52 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
               onPress={beginEdit}
             />
           </>
+        )}
+      </Card>
+      <Card>
+        <Text style={styles.sectionTitle}>PASSWORD</Text>
+        {changingPassword ? (
+          <>
+            <TextInput
+              accessibilityLabel="New password"
+              autoCapitalize="none"
+              style={uiStyles.field}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="New password"
+              secureTextEntry
+            />
+            <TextInput
+              accessibilityLabel="Confirm new password"
+              autoCapitalize="none"
+              style={uiStyles.field}
+              value={passwordConfirmation}
+              onChangeText={setPasswordConfirmation}
+              placeholder="Confirm new password"
+              secureTextEntry
+            />
+            <AppButton
+              title={profileMutation.isPending ? "Updating…" : "Update password"}
+              disabled={profileMutation.isPending}
+              loading={profileMutation.isPending}
+              onPress={() => void changePassword()}
+            />
+            <AppButton
+              title="Cancel"
+              tone="secondary"
+              onPress={() => {
+                setNewPassword("");
+                setPasswordConfirmation("");
+                setChangingPassword(false);
+              }}
+            />
+          </>
+        ) : (
+          <AppButton
+            title="Change password"
+            tone="secondary"
+            onPress={() => setChangingPassword(true)}
+          />
         )}
       </Card>
       <Text style={styles.section}>TIME OFF</Text>
@@ -330,6 +392,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     marginTop: spacing.md,
+  },
+  sectionTitle: {
+    color: colors.textSecondary,
+    fontWeight: "900",
+    fontSize: 11,
+    letterSpacing: 1.2,
   },
   version: {
     textAlign: "center",

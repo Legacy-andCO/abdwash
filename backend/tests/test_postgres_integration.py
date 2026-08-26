@@ -399,7 +399,7 @@ async def test_concurrent_clock_in_returns_one_open_session(
 
 
 @pytest.mark.asyncio
-async def test_shift_creation_assignment_and_duplicate_conflict(
+async def test_shift_creation_assignment_and_modification(
     database: async_sessionmaker[AsyncSession],
 ) -> None:
     context = await _staff_context(database, suffix="shift")
@@ -446,9 +446,24 @@ async def test_shift_creation_assignment_and_duplicate_conflict(
     async with database() as session, session.begin():
         assigned = await assign_shift(session, context, request)
     assert assigned.staff_id == context.staff_id
-    with pytest.raises(ConflictError, match="already has a shift"):
-        async with database() as session, session.begin():
-            await assign_shift(session, context, request)
+    async with database() as session, session.begin():
+        later_shift = await create_shift(
+            session,
+            context,
+            ShiftCreate(
+                name=f"Later {uuid.uuid4().hex[:6]}",
+                start_time=time(10),
+                end_time=time(19),
+            ),
+        )
+        modified = await assign_shift(
+            session,
+            context,
+            request.model_copy(update={"shift_id": later_shift.id}),
+        )
+    assert modified.id == assigned.id
+    assert modified.shift_id == later_shift.id
+    assert modified.shift_name == later_shift.name
 
 
 @pytest.mark.asyncio
@@ -614,11 +629,38 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         )
         assert reactivated_employee.status_code == 200, reactivated_employee.text
         temporary_password = await client.post(
-            f"/api/v1/staff/users/{employee_id}/temporary-password",
+            f"/api/v1/staff/users/{employee_id}/password",
             headers=manager_headers,
-            json={"temporary_password": "Replacement-Only-123!"},
+            json={"mode": "temporary"},
         )
-        assert temporary_password.status_code == 204, temporary_password.text
+        assert temporary_password.status_code == 200, temporary_password.text
+        assert temporary_password.json()["must_change_password"] is True
+        assert len(temporary_password.json()["temporary_password"]) >= 8
+        forced_change = await client.get(
+            "/api/v1/staff/jobs",
+            headers=employee_headers,
+            params={"view": "today", "scope": "my"},
+        )
+        assert forced_change.status_code == 403, forced_change.text
+        assert forced_change.json()["detail"]["code"] == "PASSWORD_CHANGE_REQUIRED"
+        employee_password_change = await client.patch(
+            "/api/v1/staff/profile",
+            headers=employee_headers,
+            json={"password": "Employee-Replacement-123!"},
+        )
+        assert employee_password_change.status_code == 200, employee_password_change.text
+        assert employee_password_change.json()["must_change_password"] is False
+
+        manual_password = await client.post(
+            f"/api/v1/staff/users/{employee_id}/password",
+            headers=manager_headers,
+            json={"mode": "manual", "new_password": "Manager-Selected-123!"},
+        )
+        assert manual_password.status_code == 200, manual_password.text
+        assert manual_password.json() == {
+            "must_change_password": False,
+            "temporary_password": None,
+        }
 
         team_response = await client.post(
             "/api/v1/staff/teams",
@@ -736,7 +778,6 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
             headers=employee_headers,
             json={
                 "display_name": "Workflow Employee Self Updated",
-                "password": "Employee-Replacement-123!",
             },
         )
         assert employee_profile.status_code == 200, employee_profile.text
@@ -763,6 +804,30 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         assert job_assignment_response.status_code == 200, job_assignment_response.text
         assert job_assignment_response.json()["assigned_team_id"] == team_id
         assert job_assignment_response.json()["assigned_team_name"] == "Mobile Team 2"
+
+        for customer_search in ("Write", "workflow", "wri"):
+            searched_jobs = await client.get(
+                "/api/v1/staff/jobs",
+                headers=manager_headers,
+                params={
+                    "view": "all",
+                    "scope": "all",
+                    "search": customer_search,
+                },
+            )
+            assert searched_jobs.status_code == 200, searched_jobs.text
+            assert job_id in {
+                uuid.UUID(item["id"]) for item in searched_jobs.json()["jobs"]
+            }
+        unrelated_search = await client.get(
+            "/api/v1/staff/jobs",
+            headers=manager_headers,
+            params={"view": "all", "scope": "all", "search": "NoSuchCustomer"},
+        )
+        assert unrelated_search.status_code == 200, unrelated_search.text
+        assert job_id not in {
+            uuid.UUID(item["id"]) for item in unrelated_search.json()["jobs"]
+        }
 
         unassigned_jobs = await client.get(
             "/api/v1/staff/jobs",

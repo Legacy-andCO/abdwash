@@ -21,6 +21,19 @@ describe("operations cache policy", () => {
     expect(queryKeys.jobs("business:user-a", today)).not.toEqual(
       queryKeys.jobs("business:user-a", history),
     );
+    expect(
+      queryKeys.jobs("business:user-a", {
+        view: "all",
+        scope: "all",
+        search: "Mohammed",
+      }),
+    ).not.toEqual(
+      queryKeys.jobs("business:user-a", {
+        view: "all",
+        scope: "all",
+        search: "Abdo",
+      }),
+    );
   });
 
   it("includes business, staff and authoritative role in every scope", () => {

@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { capabilities } from "../capabilities";
@@ -47,6 +48,7 @@ import {
 } from "../queries/operations";
 import { assignmentLabel, shouldShowPagination } from "../cache/policy";
 import { colors, radii, spacing } from "../theme";
+import { normalizeCustomerSearch } from "../search/customerSearch";
 
 export type JobView = "today" | "upcoming" | "history" | "unassigned" | "all";
 export type JobsNavigationState = { view: JobView; offset: number };
@@ -73,23 +75,43 @@ export function JobsScreen({
   const [view, setView] = useState<JobView>(navigationState.view);
   const [offset, setOffset] = useState(navigationState.offset);
   const [selected, setSelected] = useState<Job | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [search, setSearch] = useState("");
   function updateNavigation(value: JobsNavigationState) {
     setView(value.view);
     setOffset(value.offset);
     onNavigationStateChange?.(value);
   }
+  useEffect(() => {
+    if (view !== "all") {
+      setSearch("");
+      return;
+    }
+    const timer = setTimeout(() => {
+      const normalized = normalizeCustomerSearch(searchText);
+      setSearch(normalized);
+      setOffset(0);
+      onNavigationStateChange?.({ view: "all", offset: 0 });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [onNavigationStateChange, searchText, view]);
   const filters = useMemo<JobFilters>(
     () => ({
       view,
       scope: canManage ? "all" : "my",
       ...(view === "today" ? { date: today() } : {}),
+      ...(view === "all" && search ? { search } : {}),
       offset,
       limit: 50,
     }),
-    [canManage, offset, view],
+    [canManage, offset, search, view],
   );
   const query = useJobsQuery(context, filters);
   const jobs = query.data?.jobs ?? [];
+  const searchPending =
+    view === "all" &&
+    (normalizeCustomerSearch(searchText) !== search ||
+      (Boolean(search) && query.isFetching));
   if (selected)
     return (
       <JobDetail
@@ -131,6 +153,32 @@ export function JobsScreen({
           </Pressable>
         ))}
       </ScrollView>
+      {view === "all" ? (
+        <View style={styles.searchRow}>
+          <TextInput
+            accessibilityLabel="Search customer name"
+            autoCapitalize="words"
+            autoCorrect={false}
+            placeholder="Search customer name"
+            returnKeyType="search"
+            style={[uiStyles.field, styles.searchField]}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+          {searchText ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear customer search"
+              onPress={() => setSearchText("")}
+            >
+              <Text style={uiStyles.link}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {searchPending ? (
+        <Text style={uiStyles.muted}>Searching…</Text>
+      ) : null}
       {query.isError && jobs.length ? (
         <Text style={styles.offline}>
           Offline · last updated{" "}
@@ -191,8 +239,12 @@ export function JobsScreen({
         </>
       ) : (
         <EmptyState
-          title={`No ${view} jobs`}
-          body="Pull to refresh or choose another view."
+          title={search ? "No matching customers" : `No ${view} jobs`}
+          body={
+            search
+              ? `No jobs matched “${search}”. Try another customer name.`
+              : "Pull to refresh or choose another view."
+          }
         />
       )}
     </ScrollView>
@@ -893,6 +945,12 @@ const styles = StyleSheet.create({
   },
   segmentActive: { backgroundColor: colors.surface },
   segmentText: { color: colors.text, fontWeight: "800" },
+  searchRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  searchField: { flex: 1, marginBottom: 0 },
   offline: {
     color: colors.warning,
     backgroundColor: colors.warningSurface,
