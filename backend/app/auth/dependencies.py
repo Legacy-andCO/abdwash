@@ -8,7 +8,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.verifier import AuthenticationError, VerifiedIdentity
+from app.auth.verifier import (
+    AuthenticationError,
+    AuthenticationServiceUnavailable,
+    VerifiedIdentity,
+)
 from app.core.database import session_dependency
 from app.domain.enums import StaffRole
 from app.models.entities import Business, BusinessSettings, StaffProfile
@@ -41,6 +45,11 @@ async def optional_identity(
     try:
         verifier = cast(Any, request.app.state.auth_verifier)
         return cast(VerifiedIdentity, await verifier.verify(credentials.credentials))
+    except AuthenticationServiceUnavailable as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "AUTHENTICATION_SERVICE_UNAVAILABLE"},
+        ) from exc
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail={"code": "INVALID_TOKEN"}) from exc
     finally:
