@@ -1,3 +1,4 @@
+import time
 import uuid
 from dataclasses import dataclass
 from typing import Annotated, Any, cast
@@ -35,11 +36,14 @@ async def optional_identity(
 ) -> VerifiedIdentity | None:
     if credentials is None:
         return None
+    started = time.perf_counter()
     try:
         verifier = cast(Any, request.app.state.auth_verifier)
         return cast(VerifiedIdentity, await verifier.verify(credentials.credentials))
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail={"code": "INVALID_TOKEN"}) from exc
+    finally:
+        request.state.auth_ms = (time.perf_counter() - started) * 1000
 
 
 async def required_identity(
@@ -51,8 +55,11 @@ async def required_identity(
 
 
 async def staff_context(
-    identity: Annotated[VerifiedIdentity, Depends(required_identity)], session: SessionDep
+    request: Request,
+    identity: Annotated[VerifiedIdentity, Depends(required_identity)],
+    session: SessionDep,
 ) -> StaffContext:
+    started = time.perf_counter()
     statement = (
         select(StaffProfile, Business.name, BusinessSettings.timezone)
         .join(Business, Business.id == StaffProfile.business_id)
@@ -62,23 +69,26 @@ async def staff_context(
     # SQLAlchemy SELECTs autobegin a transaction. Resolve the immutable request
     # context inside an explicit read boundary so staff mutation routes receive
     # the shared request session with no transaction still active.
-    async with session.begin():
-        row = (await session.execute(statement)).one_or_none()
-        if row is None:
-            raise HTTPException(status_code=403, detail={"code": "STAFF_ACCESS_REQUIRED"})
-        staff, business_name, timezone = row
-        context = StaffContext(
-            auth_user_id=identity.user_id,
-            staff_id=staff.id,
-            business_id=staff.business_id,
-            business_name=business_name,
-            role=StaffRole(staff.role),
-            timezone=timezone,
-            display_name=staff.display_name,
-            username=staff.username,
-            phone=staff.phone,
-        )
-    return context
+    try:
+        async with session.begin():
+            row = (await session.execute(statement)).one_or_none()
+            if row is None:
+                raise HTTPException(status_code=403, detail={"code": "STAFF_ACCESS_REQUIRED"})
+            staff, business_name, timezone = row
+            context = StaffContext(
+                auth_user_id=identity.user_id,
+                staff_id=staff.id,
+                business_id=staff.business_id,
+                business_name=business_name,
+                role=StaffRole(staff.role),
+                timezone=timezone,
+                display_name=staff.display_name,
+                username=staff.username,
+                phone=staff.phone,
+            )
+        return context
+    finally:
+        request.state.staff_context_ms = (time.perf_counter() - started) * 1000
 
 
 def require_roles(*roles: StaffRole) -> Any:

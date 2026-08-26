@@ -254,12 +254,14 @@ async def test_expired_hold_is_reclaimed_and_booking_snapshots_price(
             "location": {
                 "written_address": "Dubai Marina",
                 "location_url": "https://maps.google.com/?q=Dubai",
+                "instructions": "Meet at the main entrance",
             },
             "vehicles": [
                 {
                     "make": "Toyota",
                     "model": "Camry",
                     "vehicle_type": "sedan",
+                    "plate_number": "A 12345",
                     "service_id": service_id,
                 }
             ],
@@ -486,12 +488,14 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
             "location": {
                 "written_address": "Yas Island, Abu Dhabi",
                 "location_url": "https://maps.google.com/?q=Yas+Island",
+                "instructions": "Use the visitor parking entrance",
             },
             "vehicles": [
                 {
                     "make": "Toyota",
                     "model": "Land Cruiser",
                     "vehicle_type": "suv",
+                    "plate_number": "B 67890",
                     "service_id": service_id,
                 }
             ],
@@ -803,16 +807,41 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         assert reschedule_response.json()["assigned_team_id"] is not None
         assert reschedule_response.json()["assigned_team_name"] == "Mobile Team 1"
 
+        trip_event_id = str(uuid.uuid4())
         start_trip_response = await client.post(
             f"/api/v1/staff/jobs/{job_id}/start-trip",
             headers=employee_headers,
             json={
-                "client_event_id": str(uuid.uuid4()),
+                "client_event_id": trip_event_id,
                 "origin": {"latitude": 24.4539, "longitude": 54.3773},
             },
         )
         assert start_trip_response.status_code == 200, start_trip_response.text
         assert start_trip_response.json()["status"] == "en_route"
+        duplicate_trip_response = await client.post(
+            f"/api/v1/staff/jobs/{job_id}/start-trip",
+            headers=employee_headers,
+            json={"client_event_id": trip_event_id, "origin": None},
+        )
+        assert duplicate_trip_response.status_code == 200, duplicate_trip_response.text
+        async with database() as session:
+            trip_notifications = (
+                await session.scalars(
+                    select(NotificationOutbox).where(
+                        NotificationOutbox.booking_id == booking.id,
+                        NotificationOutbox.notification_type == "driver_en_route",
+                    )
+                )
+            ).all()
+        assert len(trip_notifications) == 1
+        arrive_response = await client.post(
+            f"/api/v1/staff/jobs/{job_id}/arrive",
+            headers=employee_headers,
+            json={"client_event_id": str(uuid.uuid4())},
+        )
+        assert arrive_response.status_code == 200, arrive_response.text
+        assert arrive_response.json()["status"] == "arrived"
+        assert arrive_response.json()["arrived_at"] is not None
         start_response = await client.post(
             f"/api/v1/staff/jobs/{job_id}/start",
             headers=employee_headers,
@@ -924,12 +953,14 @@ async def test_public_api_guest_booking_and_query_count_guard(
             "location": {
                 "written_address": "Business Bay",
                 "location_url": "https://maps.google.com/?q=Business+Bay",
+                "instructions": "Meet by the lobby",
             },
             "vehicles": [
                 {
                     "make": "Nissan",
                     "model": "Patrol",
                     "vehicle_type": "suv",
+                    "plate_number": "C 24680",
                     "service_id": service_id,
                 }
             ],

@@ -21,14 +21,12 @@ import {
   uiStyles,
 } from "../components/ui";
 import { DatePickerField, toIsoDate } from "../components/pickers";
+import { ElapsedTimer } from "../components/ElapsedTimer";
 import { domainErrorMessage } from "../errors/domainErrors";
 import { successHaptic } from "../haptics";
-import {
-  acquireTripOrigin,
-  tripLocationFailureMessage,
-  type TripOrigin,
-} from "../location/startTripLocation";
+import { tripLocationFailureMessage } from "../location/startTripLocation";
 import { expoTripLocationSource } from "../location/expoTripLocation";
+import { runStartTripFlow } from "../location/startTripFlow";
 import type {
   AvailabilitySlot,
   Job,
@@ -259,72 +257,66 @@ function JobDetail({
   const [tripStage, setTripStage] = useState<
     "idle" | "getting_location" | "starting_trip"
   >("idle");
-  async function submitTrip(origin: TripOrigin | null) {
-    setTripStage("starting_trip");
+  function confirmNoEta(failure: Parameters<typeof tripLocationFailureMessage>[0]) {
+    return new Promise<boolean>((resolve) => {
+      Alert.alert("Location unavailable", tripLocationFailureMessage(failure), [
+        { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+        { text: "Start without ETA", onPress: () => resolve(true) },
+      ], { cancelable: true, onDismiss: () => resolve(false) });
+    });
+  }
+  async function startTrip() {
     try {
-      const updated = await actionMutation.mutateAsync({
-        jobId: job.id,
-        action: "start-trip",
-        body: {
-          client_event_id: crypto.randomUUID(),
-          client_timestamp: new Date().toISOString(),
-          origin,
-        },
+      const updated = await runStartTripFlow({
+        source: expoTripLocationSource,
+        confirmFallback: confirmNoEta,
+        onStage: setTripStage,
+        submit: (origin) => actionMutation.mutateAsync({
+          jobId: job.id,
+          action: "start-trip",
+          body: {
+            client_event_id: crypto.randomUUID(),
+            client_timestamp: new Date().toISOString(),
+            origin,
+          },
+        }),
       });
+      if (!updated) return;
       await successHaptic();
-      if (!updated.estimated_arrival_at)
-        Alert.alert("Trip started", "Trip started, but ETA is unavailable.");
+      const etaMinutes = updated.estimated_arrival_at
+        ? Math.max(0, Math.ceil((Date.parse(updated.estimated_arrival_at) - Date.now()) / 60_000))
+        : null;
+      Alert.alert(
+        "Trip started",
+        etaMinutes === null
+          ? "ETA is unavailable. Customer notification queued."
+          : `Estimated arrival in ${etaMinutes} min. Customer notification queued.`,
+        [
+          { text: "Navigate", onPress: () => void Linking.openURL(updated.location_url) },
+          { text: "Close", style: "cancel" },
+        ],
+      );
     } catch (error) {
       Alert.alert(
         "Unable to start trip",
-        domainErrorMessage(
-          error,
-          "The server did not confirm this action. Retry safely.",
-        ),
+        domainErrorMessage(error, "The server did not confirm this action. Retry safely."),
       );
-    } finally {
-      setTripStage("idle");
     }
   }
   async function action(
-    name: "start-trip" | "start" | "complete" | "cash-payment",
+    name: "arrive" | "start" | "complete" | "cash-payment",
   ) {
-    let body: object = {
+    const body: object = {
       client_event_id: crypto.randomUUID(),
       client_timestamp: new Date().toISOString(),
     };
     try {
-      if (name === "start-trip") {
-        setTripStage("getting_location");
-        const result = await acquireTripOrigin(expoTripLocationSource);
-        if (result.origin) {
-          await submitTrip(result.origin);
-          return;
-        }
-        setTripStage("idle");
-        Alert.alert(
-          "Location unavailable",
-          tripLocationFailureMessage(result.failure),
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Start without ETA",
-              onPress: () => void submitTrip(null),
-            },
-          ],
-        );
-        return;
-      }
       await actionMutation.mutateAsync({ jobId: job.id, action: name, body });
       await successHaptic();
     } catch (error) {
-      if (name === "start-trip") setTripStage("idle");
       Alert.alert(
         "Action not completed",
-        domainErrorMessage(
-          error,
-          "The server did not confirm this action. Retry safely.",
-        ),
+        domainErrorMessage(error, "The server did not confirm this action. Retry safely."),
       );
     }
   }
@@ -374,6 +366,37 @@ function JobDetail({
           />
         </View>
       </View>
+      <Card style={styles.primaryActionCard}>
+        {job.status === "assigned" ? <>
+          <Text style={styles.sectionTitle}>NEXT ACTION</Text>
+          <Text style={styles.vehicle}>Ready to leave?</Text>
+          <Text style={uiStyles.muted}>We’ll use your location for ETA when it is available.</Text>
+          <AppButton title={tripStage === "getting_location" ? "Getting location…" : tripStage === "starting_trip" ? "Starting trip…" : "Start trip"} disabled={tripStage !== "idle" || actionMutation.isPending} loading={tripStage !== "idle"} onPress={() => void startTrip()} />
+        </> : job.status === "en_route" ? <>
+          <Text style={styles.sectionTitle}>ACTIVE TRIP</Text>
+          <Text style={styles.vehicle}>Driving to customer</Text>
+          {job.en_route_at && <ElapsedTimer startedAt={job.en_route_at} />}
+          <Text style={uiStyles.muted}>{job.estimated_arrival_at ? `ETA ${formatTime(job.estimated_arrival_at)}` : "ETA unavailable"}</Text>
+          <AppButton title={actionMutation.isPending ? "Confirming…" : "Arrived at location"} disabled={actionMutation.isPending} loading={actionMutation.isPending} onPress={() => Alert.alert("Confirm arrival", "Confirm that you have arrived at the customer location.", [{ text: "Cancel", style: "cancel" }, { text: "Confirm arrival", onPress: () => void action("arrive") }])} />
+        </> : job.status === "arrived" ? <>
+          <Text style={styles.sectionTitle}>AT CUSTOMER</Text>
+          <Text style={styles.vehicle}>Arrival confirmed</Text>
+          {job.arrived_at && <ElapsedTimer startedAt={job.arrived_at} prefix="Waiting" />}
+          <AppButton title={actionMutation.isPending ? "Starting…" : "Start wash"} disabled={actionMutation.isPending} loading={actionMutation.isPending} onPress={() => void action("start")} />
+        </> : job.status === "in_progress" ? <>
+          <Text style={styles.sectionTitle}>WASH IN PROGRESS</Text>
+          {job.started_at && <ElapsedTimer startedAt={job.started_at} />}
+          <AppButton title={actionMutation.isPending ? "Completing…" : "Complete wash"} disabled={actionMutation.isPending} loading={actionMutation.isPending} onPress={() => Alert.alert("Complete wash?", "Confirm that all booked vehicle services are complete.", [{ text: "Keep working", style: "cancel" }, { text: "Complete wash", onPress: () => void action("complete") }])} />
+        </> : job.status === "completed" && job.payment_status !== "paid" ? <>
+          <Text style={styles.sectionTitle}>PAYMENT REQUIRED</Text>
+          <Text style={styles.vehicle}>{job.currency_code} {(job.total_amount_minor / 100).toFixed(2)}</Text>
+          <Text style={uiStyles.muted}>Confirm only after the cash is in hand.</Text>
+          <AppButton title={actionMutation.isPending ? "Recording…" : "Record cash received"} disabled={actionMutation.isPending} loading={actionMutation.isPending} onPress={() => Alert.alert("Confirm cash", `Record ${job.currency_code} ${(job.total_amount_minor / 100).toFixed(2)} received?`, [{ text: "Cancel", style: "cancel" }, { text: "Confirm received", onPress: () => void action("cash-payment") }])} />
+        </> : <>
+          <Text style={styles.sectionTitle}>JOB STATUS</Text>
+          <Text style={styles.vehicle}>{job.payment_status === "paid" ? "Completed and paid" : job.status.replaceAll("_", " ")}</Text>
+        </>}
+      </Card>
       {capabilities(context.role).canAssignJobs ? (
         <Card>
           <View style={uiStyles.row}>
@@ -455,52 +478,6 @@ function JobDetail({
           <Text style={uiStyles.muted}>No recorded events yet.</Text>
         )}
       </Card>
-      {job.status === "assigned" ? (
-        <AppButton
-          title={
-            tripStage === "getting_location"
-              ? "Getting location…"
-              : tripStage === "starting_trip"
-                ? "Starting trip…"
-                : "Start trip"
-          }
-          disabled={tripStage !== "idle" || actionMutation.isPending}
-          loading={tripStage !== "idle"}
-          onPress={() => void action("start-trip")}
-        />
-      ) : job.status === "en_route" ? (
-        <AppButton
-          title={actionMutation.isPending ? "Starting…" : "Start wash"}
-          disabled={actionMutation.isPending}
-          loading={actionMutation.isPending}
-          onPress={() => void action("start")}
-        />
-      ) : job.status === "in_progress" ? (
-        <AppButton
-          title={actionMutation.isPending ? "Completing…" : "Complete wash"}
-          disabled={actionMutation.isPending}
-          loading={actionMutation.isPending}
-          onPress={() => void action("complete")}
-        />
-      ) : job.status === "completed" && job.payment_status !== "paid" ? (
-        <AppButton
-          title={
-            actionMutation.isPending ? "Recording…" : "Record cash received"
-          }
-          disabled={actionMutation.isPending}
-          loading={actionMutation.isPending}
-          onPress={() =>
-            Alert.alert(
-              "Confirm cash",
-              `Record ${job.currency_code} ${(job.total_amount_minor / 100).toFixed(2)} received?`,
-              [
-                { text: "Cancel" },
-                { text: "Confirm", onPress: () => void action("cash-payment") },
-              ],
-            )
-          }
-        />
-      ) : null}
       {capabilities(context.role).canAssignJobs ? (
         <>
           <AssignmentSheet
@@ -548,9 +525,11 @@ function AssignmentSheet({
         jobId: job.id,
         body: {
           ...target,
-          confirm_active_reassignment: ["en_route", "in_progress"].includes(
-            job.status,
-          ),
+          confirm_active_reassignment: [
+            "en_route",
+            "arrived",
+            "in_progress",
+          ].includes(job.status),
           client_event_id: crypto.randomUUID(),
           client_timestamp: new Date().toISOString(),
         },
@@ -677,7 +656,7 @@ function RescheduleSheet({
     }
   }
   function confirm() {
-    const active = job.status === "en_route" || job.status === "in_progress";
+    const active = job.status === "en_route" || job.status === "arrived" || job.status === "in_progress";
     if (!active) {
       void submit(false);
       return;
@@ -916,7 +895,7 @@ const styles = StyleSheet.create({
   segmentText: { color: colors.text, fontWeight: "800" },
   offline: {
     color: colors.warning,
-    backgroundColor: "#FFF1D7",
+    backgroundColor: colors.warningSurface,
     padding: spacing.md,
     borderRadius: radii.sm,
   },
@@ -925,6 +904,7 @@ const styles = StyleSheet.create({
   assignment: { color: colors.primary, fontSize: 11, fontWeight: "900" },
   detailTime: { color: colors.text, fontSize: 24, fontWeight: "900" },
   eta: { color: colors.primary, fontWeight: "900" },
+  primaryActionCard: { borderColor: colors.primary, borderWidth: 2 },
   heroVehicle: { color: colors.text, fontSize: 28, fontWeight: "900" },
   actions: { flexDirection: "row", gap: spacing.sm },
   action: { flex: 1 },

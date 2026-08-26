@@ -63,7 +63,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ApiError(
       "NETWORK_ERROR",
-      "We could not reach AbdWash. Check your connection and try again.",
+      "We could not reach Trifecta. Check your connection and try again.",
       0,
     );
   }

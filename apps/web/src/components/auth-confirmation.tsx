@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
+import { useI18n } from "./i18n-provider";
 
 type ConfirmationState = "loading" | "success" | "failed";
 
 export function AuthConfirmation() {
+  const { t } = useI18n();
   const [state, setState] = useState<ConfirmationState>("loading");
 
   useEffect(() => {
@@ -42,8 +44,8 @@ export function AuthConfirmation() {
   }, []);
 
   return <section className="auth-card auth-confirmation" aria-live="polite">
-    {state === "loading" && <><span className="spinner dark" /><h1>Confirming your account…</h1><p>Please keep this page open for a moment.</p></>}
-    {state === "success" && <><div className="confirmation-burst" aria-hidden="true">✓</div><h1>Email confirmed.</h1><p>Your AbdWash account is ready.</p><Link className="button" href="/account">View your bookings</Link></>}
-    {state === "failed" && <><h1>We couldn’t confirm that link.</h1><p>It may have expired or already been used. Return to login and request a new confirmation by signing up again.</p><Link className="button" href="/login">Return to login</Link></>}
+    {state === "loading" && <><span className="spinner dark" /><h1>{t("auth.confirming")}</h1><p>{t("auth.confirmingCopy")}</p></>}
+    {state === "success" && <><div className="confirmation-burst" aria-hidden="true">✓</div><h1>{t("auth.confirmed")}</h1><p>{t("auth.confirmedCopy")}</p><Link className="button" href="/account">{t("auth.viewBookings")}</Link></>}
+    {state === "failed" && <><h1>{t("auth.confirmFailed")}</h1><p>{t("auth.confirmFailedCopy")}</p><Link className="button" href="/login">{t("auth.returnLogin")}</Link></>}
   </section>;
 }

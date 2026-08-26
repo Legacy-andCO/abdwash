@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -49,7 +50,7 @@ export function LoginScreen() {
         >
           <View style={styles.brand}>
             <Text style={styles.eyebrow}>STAFF OPERATIONS</Text>
-            <Text style={styles.logo}>AbdWash</Text>
+            <Image source={require("../../assets/trifecta-logo.png")} resizeMode="contain" style={styles.logo} accessibilityLabel="Trifecta" />
             <Text style={styles.subtitle}>
               Your day, team and jobs in one place.
             </Text>
@@ -109,12 +110,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 1.8,
   },
-  logo: {
-    color: colors.text,
-    fontSize: 52,
-    fontWeight: "900",
-    letterSpacing: -3,
-  },
+  logo: { height: 74, width: 298, maxWidth: "100%" },
   subtitle: { color: colors.textSecondary, fontSize: 16 },
   form: { gap: spacing.md },
 });

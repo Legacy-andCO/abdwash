@@ -57,7 +57,7 @@ export function TodayScreen({ context }: { context: StaffContext }) {
   );
   const jobItems = jobs.data?.jobs ?? [];
   const active = jobItems.find((job) =>
-    ["en_route", "in_progress"].includes(job.status),
+    ["en_route", "arrived", "in_progress"].includes(job.status),
   );
   const next =
     active ??

@@ -6,6 +6,7 @@ import { ApiError } from "./errors/domainErrors";
 import { parseApiErrorPayload } from "./errors/parseApiError";
 import { RequestTimedOut, withRequestTimeout } from "./network/requestTimeout";
 import { beginTrackedWrite } from "./network/writeRegistry";
+import { reportTripDiagnostic } from "./location/tripDiagnostics";
 
 const apiUrl = (
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
@@ -69,6 +70,7 @@ export type Job = {
   scheduled_end: string;
   en_route_at: string | null;
   estimated_arrival_at: string | null;
+  arrived_at: string | null;
   started_at: string | null;
   completed_at: string | null;
   customer_name: string;
@@ -268,6 +270,7 @@ export async function api<T>(
     init?.method && !["GET", "HEAD", "OPTIONS"].includes(init.method)
       ? beginTrackedWrite()
       : null;
+  const isStartTrip = /\/api\/v1\/staff\/jobs\/[^/]+\/start-trip$/.test(path);
   let response: Response;
   try {
     response = await withRequestTimeout(
@@ -281,7 +284,13 @@ export async function api<T>(
       timeoutMs,
     );
   } catch (error) {
-    if (error instanceof RequestTimedOut)
+    if (error instanceof RequestTimedOut) {
+      if (isStartTrip)
+        reportTripDiagnostic("trip_api_failed", {
+          endpoint: path,
+          status: 0,
+          code: "REQUEST_TIMEOUT",
+        });
       throw new ApiError(
         "REQUEST_TIMEOUT",
         0,
@@ -289,6 +298,7 @@ export async function api<T>(
         undefined,
         path,
       );
+    }
     if (init?.signal?.aborted) throw error;
     if (__DEV__) {
       console.warn("[AbdWash API] request_failed", {
@@ -296,6 +306,12 @@ export async function api<T>(
         status: 0,
       });
     }
+    if (isStartTrip)
+      reportTripDiagnostic("trip_api_failed", {
+        endpoint: path,
+        status: 0,
+        code: "OFFLINE",
+      });
     throw new ApiError("OFFLINE", 0, undefined, undefined, path);
   } finally {
     trackedWrite?.release();
@@ -315,6 +331,13 @@ export async function api<T>(
         code: parsed.code,
       });
     }
+    if (isStartTrip)
+      reportTripDiagnostic("trip_api_failed", {
+        request_id: requestId,
+        endpoint: path,
+        status: response.status,
+        code: parsed.code,
+      });
     throw new ApiError(
       parsed.code,
       response.status,
@@ -323,6 +346,12 @@ export async function api<T>(
       path,
     );
   }
+  if (isStartTrip)
+    reportTripDiagnostic("trip_api_success", {
+      request_id: response.headers.get("X-Request-ID") ?? undefined,
+      endpoint: path,
+      status: response.status,
+    });
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
@@ -382,7 +411,7 @@ export const getJob = (jobId: string, signal?: AbortSignal) =>
   api<Job>(`/api/v1/staff/jobs/${jobId}`, { signal });
 export const mutateJob = (
   jobId: string,
-  action: "start-trip" | "start" | "complete" | "cash-payment",
+  action: "start-trip" | "arrive" | "start" | "complete" | "cash-payment",
   body: object,
 ) => api<Job>(`/api/v1/staff/jobs/${jobId}/${action}`, json("POST", body));
 export const assignJob = (jobId: string, body: object) =>

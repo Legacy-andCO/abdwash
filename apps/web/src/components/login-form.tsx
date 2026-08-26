@@ -3,19 +3,22 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "./auth-provider";
+import { useI18n } from "./i18n-provider";
+import type { TranslationKey } from "@/lib/i18n";
 
 function safeReturnPath(value: string | null) {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
 }
 
-function customerAuthError(error: unknown) {
+function customerAuthError(error: unknown, t: (key: TranslationKey) => string) {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
-  if (message.includes("invalid login credentials")) return "The email or password is incorrect.";
-  if (message.includes("not configured")) return "Customer login is temporarily unavailable.";
-  return "We couldn't complete that request. Please check your details and try again.";
+  if (message.includes("invalid login credentials")) return t("auth.invalidCredentials");
+  if (message.includes("not configured")) return t("auth.unavailable");
+  return t("auth.checkDetails");
 }
 
 export function LoginForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, signUp, available } = useAuth();
@@ -37,7 +40,7 @@ export function LoginForm() {
     setError("");
     setNotice("");
     if (mode === "signup" && fields.password !== fields.confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("auth.passwordMismatch"));
       return;
     }
     setBusy(true);
@@ -48,32 +51,32 @@ export function LoginForm() {
       } else {
         const result = await signUp({ firstName: fields.firstName, surname: fields.surname, email: fields.email, password: fields.password });
         if (result.confirmationRequired) {
-          setNotice("Check your email to confirm your account, then return here to log in.");
+          setNotice(t("auth.checkEmail"));
         } else {
           router.replace(safeReturnPath(searchParams.get("returnTo")));
         }
       }
     } catch (reason) {
-      setError(customerAuthError(reason));
+      setError(customerAuthError(reason, t));
     } finally {
       setBusy(false);
     }
   }
 
   return <section className="auth-card">
-    <p className="eyebrow"><span /> Customer access</p>
-    <h1>{mode === "login" ? "Welcome back." : "Create your account."}</h1>
-    <p>{mode === "login" ? "Log in to continue with AbdWash." : "A simple account now; booking history and saved details will come later."}</p>
-    {!available && <div className="error-banner" role="alert">Customer login is temporarily unavailable.</div>}
+    <p className="eyebrow"><span /> {t("auth.customerAccess")}</p>
+    <h1>{mode === "login" ? t("auth.loginTitle") : t("auth.signupTitle")}</h1>
+    <p>{mode === "login" ? t("auth.loginCopy") : t("auth.signupCopy")}</p>
+    {!available && <div className="error-banner" role="alert">{t("auth.unavailable")}</div>}
     <form className="auth-form" onSubmit={(event) => void submit(event)}>
-      {mode === "signup" && <div className="form-grid two"><label><span>First name</span><input required autoComplete="given-name" value={fields.firstName} onChange={(event) => update("firstName", event.target.value)} /></label><label><span>Surname</span><input required autoComplete="family-name" value={fields.surname} onChange={(event) => update("surname", event.target.value)} /></label></div>}
-      <label><span>Email address</span><input required type="email" autoComplete="email" value={fields.email} onChange={(event) => update("email", event.target.value)} /></label>
-      <label><span>Password</span><input required minLength={6} type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={fields.password} onChange={(event) => update("password", event.target.value)} /></label>
-      {mode === "signup" && <label><span>Confirm password</span><input required minLength={6} type="password" autoComplete="new-password" value={fields.confirmPassword} onChange={(event) => update("confirmPassword", event.target.value)} /></label>}
+      {mode === "signup" && <div className="form-grid two"><label><span>{t("booking.details.firstName")}</span><input required autoComplete="given-name" value={fields.firstName} onChange={(event) => update("firstName", event.target.value)} /></label><label><span>{t("booking.details.surname")}</span><input required autoComplete="family-name" value={fields.surname} onChange={(event) => update("surname", event.target.value)} /></label></div>}
+      <label><span>{t("auth.email")}</span><input required type="email" autoComplete="email" value={fields.email} onChange={(event) => update("email", event.target.value)} /></label>
+      <label><span>{t("auth.password")}</span><input required minLength={6} type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={fields.password} onChange={(event) => update("password", event.target.value)} /></label>
+      {mode === "signup" && <label><span>{t("auth.confirmPassword")}</span><input required minLength={6} type="password" autoComplete="new-password" value={fields.confirmPassword} onChange={(event) => update("confirmPassword", event.target.value)} /></label>}
       {error && <div className="error-banner" role="alert">{error}</div>}
-      {notice && <div className="inline-notice" role="status"><strong>One more step.</strong><span>{notice}</span></div>}
-      <button className="button" type="submit" disabled={busy || !available}>{busy ? <><span className="spinner" /> Please wait</> : mode === "login" ? "Log in" : "Create account"}</button>
+      {notice && <div className="inline-notice" role="status"><strong>{t("auth.oneMoreStep")}</strong><span>{notice}</span></div>}
+      <button className="button" type="submit" disabled={busy || !available}>{busy ? <><span className="spinner" /> {t("booking.pleaseWait")}</> : mode === "login" ? t("auth.login") : t("auth.create")}</button>
     </form>
-    <button className="auth-switch" type="button" onClick={switchMode}>{mode === "login" ? "New to AbdWash? Create account" : "Already have an account? Log in"}</button>
+    <button className="auth-switch" type="button" onClick={switchMode}>{mode === "login" ? t("auth.switchSignup") : t("auth.switchLogin")}</button>
   </section>;
 }

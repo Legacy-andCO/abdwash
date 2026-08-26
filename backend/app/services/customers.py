@@ -93,11 +93,15 @@ def map_customer_status(booking_status: str, job_status: str | None) -> Customer
         )
     if booking_status == BookingStatus.COMPLETED or job_status == JobStatus.COMPLETED:
         return CustomerBookingStatus(
-            key="completed", label="Completed", stage=4, job_status=job_status
+            key="completed", label="Completed", stage=5, job_status=job_status
         )
     if job_status == JobStatus.IN_PROGRESS:
         return CustomerBookingStatus(
-            key="in_progress", label="Wash in progress", stage=3, job_status=job_status
+            key="in_progress", label="Wash in progress", stage=4, job_status=job_status
+        )
+    if job_status == JobStatus.ARRIVED:
+        return CustomerBookingStatus(
+            key="arrived", label="Driver has arrived", stage=3, job_status=job_status
         )
     if job_status == JobStatus.EN_ROUTE:
         return CustomerBookingStatus(
@@ -127,6 +131,7 @@ def _action_eligibility(
         JobStatus.COMPLETED,
         JobStatus.CANCELLED,
         JobStatus.EN_ROUTE,
+        JobStatus.ARRIVED,
     }
     return eligible, reschedule
 
@@ -401,7 +406,7 @@ async def reschedule_managed_booking(
             "RESCHEDULE_NOT_AVAILABLE",
             "Completed or cancelled work cannot be rescheduled.",
         )
-    active = job.status in {JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS}
+    active = job.status in {JobStatus.EN_ROUTE, JobStatus.ARRIVED, JobStatus.IN_PROGRESS}
     if active and not confirm_active_reschedule:
         raise ConflictError(
             "ACTIVE_RESCHEDULE_CONFIRMATION_REQUIRED",
@@ -504,6 +509,7 @@ async def _reschedule_booking(
     if reset_active_state:
         job.en_route_at = None
         job.estimated_arrival_at = None
+        job.arrived_at = None
         job.started_at = None
         job.completed_at = None
     job.version += 1

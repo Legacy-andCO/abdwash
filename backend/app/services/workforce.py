@@ -144,13 +144,22 @@ async def list_teams(
                 func.max(
                     case(
                         (
-                            Job.status.in_([JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS]),
+                            Job.status.in_(
+                                [JobStatus.EN_ROUTE, JobStatus.ARRIVED, JobStatus.IN_PROGRESS]
+                            ),
                             Booking.reference,
                         )
                     )
                 ),
                 func.max(
-                    case((Job.status.in_([JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS]), Job.status))
+                    case(
+                        (
+                            Job.status.in_(
+                                [JobStatus.EN_ROUTE, JobStatus.ARRIVED, JobStatus.IN_PROGRESS]
+                            ),
+                            Job.status,
+                        )
+                    )
                 ),
             )
             .outerjoin(TeamMembership, TeamMembership.resource_id == ScheduleResource.id)
@@ -1112,7 +1121,9 @@ async def operations_dashboard(
             attention.append(AttentionItem(kind=kind, count=count, label=label))
     all_jobs = await list_jobs(session, context, day=day, scope="all", limit=100)
     active = [
-        job for job in all_jobs.jobs if job.status in {JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS}
+        job
+        for job in all_jobs.jobs
+        if job.status in {JobStatus.EN_ROUTE, JobStatus.ARRIVED, JobStatus.IN_PROGRESS}
     ]
     metrics = [
         DashboardMetric(key="collected", label="Collected", value=collected),

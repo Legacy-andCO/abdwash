@@ -1,4 +1,5 @@
 import { useRef, type ReactNode } from "react";
+import type { StyleProp, ViewStyle } from "react-native";
 import {
   ActivityIndicator,
   Animated,
@@ -28,8 +29,8 @@ export function ScreenTitle({
   );
 }
 
-export function Card({ children }: { children: ReactNode }) {
-  return <View style={styles.card}>{children}</View>;
+export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  return <View style={[styles.card, style]}>{children}</View>;
 }
 
 export function AppButton({
@@ -51,7 +52,7 @@ export function AppButton({
     tone === "primary"
       ? colors.primary
       : tone === "danger"
-        ? "#F9E7E5"
+        ? colors.dangerSurface
         : colors.secondary;
   const color =
     tone === "primary"
@@ -94,16 +95,16 @@ export function AppButton({
 }
 
 export function StatusChip({ value }: { value: string }) {
-  const danger = value.includes("cancel") || value.includes("reject");
-  const warning =
-    value.includes("late") ||
-    value.includes("unpaid") ||
-    value.includes("pending");
+  const normalized = value.toLowerCase();
+  const danger = normalized.includes("cancel") || normalized.includes("reject");
+  const warning = normalized.includes("late") || normalized.includes("unpaid") || normalized.includes("pending") || normalized.includes("arrived");
+  const active = normalized.includes("en_route") || normalized.includes("in_progress");
+  const neutral = normalized.includes("assigned");
   return (
     <Text
       style={[
         styles.chip,
-        danger ? styles.chipDanger : warning ? styles.chipWarning : undefined,
+        danger ? styles.chipDanger : warning ? styles.chipWarning : active ? styles.chipActive : neutral ? styles.chipNeutral : undefined,
       ]}
     >
       {value.replaceAll("_", " ").toUpperCase()}
@@ -185,13 +186,13 @@ export const uiStyles = StyleSheet.create({
   },
   error: {
     color: colors.danger,
-    backgroundColor: "#FBEDEC",
+    backgroundColor: colors.dangerSurface,
     padding: spacing.md,
     borderRadius: radii.sm,
   },
   success: {
     color: colors.success,
-    backgroundColor: "#E2F2EA",
+    backgroundColor: colors.successSurface,
     padding: spacing.md,
     borderRadius: radii.sm,
   },
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     color: colors.success,
-    backgroundColor: "#E0F1E9",
+    backgroundColor: colors.successSurface,
     paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: radii.pill,
@@ -244,8 +245,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     overflow: "hidden",
   },
-  chipWarning: { color: colors.warning, backgroundColor: "#FFF1D7" },
-  chipDanger: { color: colors.danger, backgroundColor: "#FBE4E2" },
+  chipWarning: { color: colors.warning, backgroundColor: colors.warningSurface },
+  chipDanger: { color: colors.danger, backgroundColor: colors.dangerSurface },
+  chipActive: { color: colors.primaryPressed, backgroundColor: colors.secondary },
+  chipNeutral: { color: colors.textSecondary, backgroundColor: colors.neutralSurface },
   metric: {
     width: "48%",
     backgroundColor: colors.surface,
@@ -259,5 +262,5 @@ const styles = StyleSheet.create({
   empty: { alignItems: "center", padding: spacing.xxl, gap: spacing.sm },
   emptyTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
   skeletonWrap: { gap: spacing.md },
-  skeleton: { height: 70, borderRadius: radii.lg, backgroundColor: "#E5ECE8" },
+  skeleton: { height: 70, borderRadius: radii.lg, backgroundColor: colors.neutralSurface },
 });

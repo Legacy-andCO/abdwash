@@ -85,14 +85,14 @@ def render_driver_en_route(payload: dict[str, Any]) -> tuple[str, str]:
     )
     content = f"""
       <p style="margin:0 0 24px">Hi {first_name},</p>
-      <p style="margin:0 0 24px">Your AbdWash team has started heading to your location.</p>
+      <p style="margin:0 0 24px">Your AbdWash driver is on the way.</p>
       {(_detail("Estimated arrival", eta.strftime("%H:%M")) if eta else "")}
       {_detail("Appointment", f"{start:%H:%M}–{end:%H:%M}")}
       {vehicle_detail}
       {manage_button}
     """
-    return f"Your AbdWash team is on the way — {reference}", _email_shell(
-        "Your AbdWash team is on the way", content
+    return f"Your AbdWash driver is on the way — {reference}", _email_shell(
+        "Your AbdWash driver is on the way", content
     )
 
 

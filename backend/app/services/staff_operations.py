@@ -148,6 +148,7 @@ _EVENT_LABELS = {
     "job_assigned": "Assigned",
     "job_reassigned": "Assignment changed",
     "trip_started": "Trip started",
+    "job_arrived": "Arrived at location",
     "job_started": "Wash started",
     "job_completed": "Wash completed",
     "cash_payment_recorded": "Cash payment recorded",
@@ -241,6 +242,7 @@ async def _serialize_jobs(
             scheduled_end=job.scheduled_end,
             en_route_at=job.en_route_at,
             estimated_arrival_at=job.estimated_arrival_at,
+            arrived_at=job.arrived_at,
             started_at=job.started_at,
             completed_at=job.completed_at,
             customer_name=f"{booking.customer_first_name} {booking.customer_surname}",
@@ -367,7 +369,13 @@ async def transition_job(
     now = datetime.now(UTC)
     job.status = target
     job.version += 1
-    event = "job_started" if target == JobStatus.IN_PROGRESS else "job_completed"
+    event = {
+        JobStatus.ARRIVED: "job_arrived",
+        JobStatus.IN_PROGRESS: "job_started",
+        JobStatus.COMPLETED: "job_completed",
+    }[target]
+    if target == JobStatus.ARRIVED:
+        job.arrived_at = now
     if target == JobStatus.IN_PROGRESS:
         job.started_at = now
     if target == JobStatus.COMPLETED:
@@ -581,13 +589,22 @@ async def list_team(session: AsyncSession, context: StaffContext) -> list[StaffM
                 func.max(
                     case(
                         (
-                            Job.status.in_([JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS]),
+                            Job.status.in_(
+                                [JobStatus.EN_ROUTE, JobStatus.ARRIVED, JobStatus.IN_PROGRESS]
+                            ),
                             Booking.reference,
                         )
                     )
                 ),
                 func.max(
-                    case((Job.status.in_([JobStatus.EN_ROUTE, JobStatus.IN_PROGRESS]), Job.status))
+                    case(
+                        (
+                            Job.status.in_(
+                                [JobStatus.EN_ROUTE, JobStatus.ARRIVED, JobStatus.IN_PROGRESS]
+                            ),
+                            Job.status,
+                        )
+                    )
                 ),
             )
             .outerjoin(

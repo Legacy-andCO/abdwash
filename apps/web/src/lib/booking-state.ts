@@ -1,6 +1,7 @@
 import type { Availability, Booking, Catalogue, Contact, CustomerProfileBootstrap, CustomerSavedAddress, CustomerSavedVehicle, Hold, Location, Vehicle } from "./types";
 import { coordinatesAreValid, isSupportedGoogleMapsUrl, type Coordinates } from "./location";
 import { normalizePhone } from "./phone";
+import type { TranslationKey } from "./i18n";
 
 export const steps = ["service", "details", "vehicles", "review", "schedule", "payment", "confirmation"] as const;
 export type BookingStep = (typeof steps)[number];
@@ -134,29 +135,37 @@ export function bookingReducer(state: BookingState, action: BookingAction): Book
   }
 }
 
-export function contactErrors(contact: Contact, location: Location): Record<string, string> {
+type ErrorTranslator = (key: TranslationKey) => string;
+
+function errorMessage(t: ErrorTranslator | undefined, key: TranslationKey, fallback: string): string {
+  return t ? t(key) : fallback;
+}
+
+export function contactErrors(contact: Contact, location: Location, t?: ErrorTranslator): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!contact.first_name.trim()) errors.first_name = "Enter your first name.";
-  if (!contact.surname.trim()) errors.surname = "Enter your surname.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) errors.email = "Enter a valid email address.";
-  if (!normalizePhone(contact.phone, contact.phone_country)) errors.phone = "Enter a valid international phone number.";
-  if (location.written_address.trim().length < 5) errors.written_address = "Enter the service address.";
-  if (!isSupportedGoogleMapsUrl(location.location_url)) errors.location_url = "Select a location or paste a supported Google Maps link.";
+  if (!contact.first_name.trim()) errors.first_name = errorMessage(t, "booking.validation.firstName", "Enter your first name.");
+  if (!contact.surname.trim()) errors.surname = errorMessage(t, "booking.validation.surname", "Enter your surname.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) errors.email = errorMessage(t, "booking.validation.email", "Enter a valid email address.");
+  if (!normalizePhone(contact.phone, contact.phone_country)) errors.phone = errorMessage(t, "booking.validation.phone", "Enter a valid international phone number.");
+  if (location.written_address.trim().length < 5) errors.written_address = errorMessage(t, "booking.validation.address", "Enter the service address.");
+  if (location.instructions.trim().length < 2) errors.instructions = errorMessage(t, "booking.validation.locationNotes", "Add location notes so our team can find you.");
+  if (!isSupportedGoogleMapsUrl(location.location_url)) errors.location_url = errorMessage(t, "booking.validation.mapsUrl", "Select a location or paste a supported Google Maps link.");
   const hasLatitude = location.latitude !== null;
   const hasLongitude = location.longitude !== null;
-  if (hasLatitude !== hasLongitude) errors.location = "Select the service location again.";
-  if (hasLatitude && hasLongitude && !coordinatesAreValid({ latitude: location.latitude!, longitude: location.longitude! })) errors.location = "Select a valid service location.";
+  if (hasLatitude !== hasLongitude) errors.location = errorMessage(t, "booking.validation.location", "Select the service location again.");
+  if (hasLatitude && hasLongitude && !coordinatesAreValid({ latitude: location.latitude!, longitude: location.longitude! })) errors.location = errorMessage(t, "booking.validation.location", "Select a valid service location.");
   return errors;
 }
 
-export function vehicleErrors(vehicles: Vehicle[]): Record<string, string> {
+export function vehicleErrors(vehicles: Vehicle[], t?: ErrorTranslator): Record<string, string> {
   const errors: Record<string, string> = {};
   vehicles.forEach((vehicle) => {
-    if (!vehicle.make.trim()) errors[`${vehicle.key}.make`] = "Enter the make.";
-    if (!vehicle.model.trim()) errors[`${vehicle.key}.model`] = "Enter the model.";
-    if (!vehicle.vehicle_type.trim()) errors[`${vehicle.key}.vehicle_type`] = "Choose a type.";
-    if (!vehicle.service_id) errors[`${vehicle.key}.service_id`] = "Choose a service.";
-    if (vehicle.year && (+vehicle.year < 1900 || +vehicle.year > 2200)) errors[`${vehicle.key}.year`] = "Enter a valid year.";
+    if (!vehicle.make.trim()) errors[`${vehicle.key}.make`] = errorMessage(t, "booking.validation.make", "Enter the make.");
+    if (!vehicle.model.trim()) errors[`${vehicle.key}.model`] = errorMessage(t, "booking.validation.model", "Enter the model.");
+    if (!vehicle.vehicle_type.trim()) errors[`${vehicle.key}.vehicle_type`] = errorMessage(t, "booking.validation.vehicleType", "Choose a type.");
+    if (vehicle.plate_number.trim().length < 2) errors[`${vehicle.key}.plate_number`] = errorMessage(t, "booking.validation.plate", "Enter the plate number.");
+    if (!vehicle.service_id) errors[`${vehicle.key}.service_id`] = errorMessage(t, "booking.validation.service", "Choose a service.");
+    if (vehicle.year && (+vehicle.year < 1900 || +vehicle.year > 2200)) errors[`${vehicle.key}.year`] = errorMessage(t, "booking.validation.year", "Enter a valid year.");
   });
   return errors;
 }

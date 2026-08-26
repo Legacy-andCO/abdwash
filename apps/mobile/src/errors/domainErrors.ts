@@ -12,7 +12,7 @@ export class ApiError extends Error {
 }
 
 const messages: Record<string, string> = {
-  OFFLINE: "Unable to reach AbdWash. Check your connection and try again.",
+  OFFLINE: "Unable to reach Trifecta. Check your connection and try again.",
   REQUEST_TIMEOUT: "The request took too long. Please try again.",
   UNAUTHORIZED: "Your session expired. Please sign in again.",
   STAFF_ACCESS_REQUIRED: "This account does not have staff access.",

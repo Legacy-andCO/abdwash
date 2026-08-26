@@ -33,6 +33,7 @@ import {
   updateTeamMembers,
   type Attendance,
   type Cancellation,
+  type Dashboard,
   type Job,
   type JobFilters,
   type Leave,
@@ -343,6 +344,23 @@ function updateJobCaches(
     { queryKey: ["jobs", scope] },
     (current) => replaceJobInResponse(current, job),
   );
+  client.setQueriesData<Dashboard>(
+    { queryKey: ["dashboard", scope] },
+    (current) =>
+      current
+        ? {
+            ...current,
+            active_jobs:
+              job.status === "completed" || job.status === "cancelled"
+                ? current.active_jobs.filter((item) => item.id !== job.id)
+                : current.active_jobs.some((item) => item.id === job.id)
+                  ? current.active_jobs.map((item) =>
+                      item.id === job.id ? job : item,
+                    )
+                  : current.active_jobs,
+          }
+        : current,
+  );
 }
 
 export function useJobActionMutation(context: StaffContext) {
@@ -355,11 +373,14 @@ export function useJobActionMutation(context: StaffContext) {
       body,
     }: {
       jobId: string;
-      action: "start-trip" | "start" | "complete" | "cash-payment";
+      action: "start-trip" | "arrive" | "start" | "complete" | "cash-payment";
       body: object;
     }) => mutateJob(jobId, action, body),
-    onSuccess: (job) => {
+    onSuccess: (job, variables) => {
       updateJobCaches(client, scope, job);
+      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+      if (variables.action === "complete" || variables.action === "cash-payment")
+        void client.invalidateQueries({ queryKey: ["reports", scope] });
     },
   });
 }

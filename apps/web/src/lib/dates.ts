@@ -25,19 +25,19 @@ export function calendarCells(year: number, monthIndex: number): Array<number | 
   return [...Array<null>(firstWeekday).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
 }
 
-export function formatMoney(amountMinor: number, currency: string): string {
-  return new Intl.NumberFormat("en-AE", { style: "currency", currency }).format(amountMinor / 100);
+export function formatMoney(amountMinor: number, currency: string, locale = "en-AE"): string {
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amountMinor / 100);
 }
 
-export function formatSchedule(start: string, end: string, timezone: string): string {
-  const day = new Intl.DateTimeFormat("en-AE", {
+export function formatSchedule(start: string, end: string, timezone: string, locale = "en-AE"): string {
+  const day = new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(new Date(start));
-  const time = new Intl.DateTimeFormat("en-AE", {
+  const time = new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     hour: "numeric",
     minute: "2-digit",

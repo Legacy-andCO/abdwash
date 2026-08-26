@@ -106,7 +106,7 @@ class BookingLocation(StrictRequest):
     location_url: HttpUrl
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
-    instructions: str | None = Field(default=None, max_length=2000)
+    instructions: NonBlank = Field(max_length=2000)
 
     @field_validator("location_url")
     @classmethod
@@ -129,7 +129,7 @@ class BookingVehicleCreate(StrictRequest):
     year: int | None = Field(default=None, ge=1900, le=2200)
     vehicle_type: NonBlank = Field(max_length=80)
     colour: str | None = Field(default=None, max_length=80)
-    plate_number: str | None = Field(default=None, max_length=40)
+    plate_number: NonBlank = Field(max_length=40)
     notes: str | None = Field(default=None, max_length=2000)
     service_id: uuid.UUID
 

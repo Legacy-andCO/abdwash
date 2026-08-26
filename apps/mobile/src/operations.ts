@@ -14,8 +14,17 @@ export const nextOperationalJob = (jobs: Job[]) =>
   jobs.find((job) => !["completed", "cancelled"].includes(job.status));
 export const attendanceElapsedMinutes = (clockIn: string, now = Date.now()) =>
   Math.max(0, Math.floor((now - Date.parse(clockIn)) / 60000));
+export const elapsedLabel = (startedAt: string, now = Date.now()) => {
+  const totalSeconds = Math.max(0, Math.floor((now - Date.parse(startedAt)) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${minutes}:${String(seconds).padStart(2, "0")}`;
+};
 export const needsActiveReassignmentConfirmation = (status: string) =>
-  status === "en_route" || status === "in_progress";
+  status === "en_route" || status === "arrived" || status === "in_progress";
 export const reportMaximum = (series: ReportPoint[]) =>
   Math.max(1, ...series.map((point) => point.booked_sales_minor));
 export const reportBarPercent = (value: number, maximum: number) =>

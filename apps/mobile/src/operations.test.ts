@@ -4,6 +4,7 @@ import {
   attendanceElapsedMinutes,
   availabilityOptions,
   conflictMessage,
+  elapsedLabel,
   navigationTabs,
   needsActiveReassignmentConfirmation,
   nextOperationalJob,
@@ -30,6 +31,7 @@ const job = (id: string, status: string): Job => ({
   scheduled_end: "2026-08-24T11:00:00Z",
   en_route_at: null,
   estimated_arrival_at: null,
+  arrived_at: null,
   started_at: null,
   completed_at: null,
   customer_name: "Customer",
@@ -108,7 +110,7 @@ describe("authoritative operation responses", () => {
       nextOperationalJob([job("one", "completed"), job("two", "assigned")])?.id,
     ).toBe("two");
   });
-  it.each(["en_route", "in_progress"])(
+  it.each(["en_route", "arrived", "in_progress"])(
     "requires confirmation for %s reassignment",
     (status) => {
       expect(needsActiveReassignmentConfirmation(status)).toBe(true);
@@ -127,6 +129,12 @@ describe("attendance, reports and resilient states", () => {
         Date.parse("2026-08-24T10:15:00Z"),
       ),
     ).toBe(75);
+    expect(
+      elapsedLabel(
+        "2026-08-24T09:00:00Z",
+        Date.parse("2026-08-24T10:02:05Z"),
+      ),
+    ).toBe("1:02:05");
   });
   it("bounds graph bars and handles an empty series", () => {
     expect(reportMaximum([])).toBe(1);

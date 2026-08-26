@@ -11,7 +11,7 @@ import {
 import type { Catalogue, Contact, Location } from "./types";
 
 const contact: Contact = { first_name: "A", surname: "B", email: "a@b.com", phone: "+971 50 123 4567", phone_country: "AE" };
-const location: Location = { written_address: "Dubai Marina", location_url: "https://maps.google.com/x", latitude: null, longitude: null, instructions: "" };
+const location: Location = { written_address: "Abu Dhabi", location_url: "https://maps.google.com/x", latitude: null, longitude: null, instructions: "Meet at the lobby" };
 
 const catalogue: Catalogue = {
   business_name: "AbdWash",
@@ -80,7 +80,12 @@ describe("booking state", () => {
     expect(contactErrors(contact, { ...location, location_url: "http://maps.google.com/x" }).location_url).toContain("supported");
   });
   it("requires core details and a service on every vehicle", () => {
-    expect(Object.keys(vehicleErrors([emptyVehicle()]))).toHaveLength(4);
+    expect(Object.keys(vehicleErrors([emptyVehicle()]))).toHaveLength(5);
+  });
+  it("blocks legacy saved details until notes and plate are completed", () => {
+    expect(contactErrors(contact, { ...location, instructions: "" }).instructions).toBeTruthy();
+    const vehicle = { ...emptyVehicle("basic"), make: "Toyota", model: "Camry", vehicle_type: "sedan" };
+    expect(vehicleErrors([vehicle])[`${vehicle.key}.plate_number`]).toBeTruthy();
   });
   it("rejects a year outside the supported range", () => {
     const vehicle = { ...emptyVehicle("basic"), make: "Toyota", model: "Camry", vehicle_type: "sedan", year: "1800" };

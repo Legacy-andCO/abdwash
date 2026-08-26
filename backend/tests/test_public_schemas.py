@@ -19,12 +19,14 @@ def valid_booking_payload() -> dict[str, object]:
         "location": {
             "written_address": "Dubai Marina",
             "location_url": "https://maps.google.com/?q=Dubai",
+            "instructions": "Meet at the main entrance",
         },
         "vehicles": [
             {
                 "make": "Toyota",
                 "model": "Camry",
                 "vehicle_type": "sedan",
+                "plate_number": "A 12345",
                 "service_id": str(uuid.uuid4()),
             }
         ],
@@ -50,6 +52,38 @@ def test_coordinates_must_be_paired() -> None:
     payload = valid_booking_payload()
     payload["location"]["latitude"] = 25.08  # type: ignore[index]
     with pytest.raises(ValidationError, match="provided together"):
+        BookingCreate.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [(("location", "instructions"), " "), (("vehicles", 0, "plate_number"), "")],
+)
+def test_booking_requires_location_notes_and_vehicle_plate(
+    path: tuple[object, ...], value: str
+) -> None:
+    payload = valid_booking_payload()
+    target: object = payload
+    for key in path[:-1]:
+        target = target[key]  # type: ignore[index]
+    target[path[-1]] = value  # type: ignore[index]
+    with pytest.raises(ValidationError):
+        BookingCreate.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [("location", "instructions"), ("vehicles", 0, "plate_number")],
+)
+def test_booking_rejects_missing_location_notes_and_vehicle_plate(
+    path: tuple[object, ...],
+) -> None:
+    payload = valid_booking_payload()
+    target: object = payload
+    for key in path[:-1]:
+        target = target[key]  # type: ignore[index]
+    del target[path[-1]]  # type: ignore[index]
+    with pytest.raises(ValidationError):
         BookingCreate.model_validate(payload)
 
 

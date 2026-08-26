@@ -472,6 +472,19 @@ async def job_start(
         return result
 
 
+@router.post("/jobs/{job_id}/arrive", response_model=StaffJob)
+async def job_arrive(
+    job_id: uuid.UUID,
+    payload: JobAction,
+    session: SessionDep,
+    context: Annotated[StaffContext, Depends(staff_context)],
+) -> StaffJob:
+    async with session.begin():
+        result = await transition_job(session, context, job_id, payload, JobStatus.ARRIVED)
+        await bump_sync_revisions(session, context.business_id, "jobs")
+        return result
+
+
 @router.post("/jobs/{job_id}/complete", response_model=StaffJob)
 async def job_complete(
     job_id: uuid.UUID,

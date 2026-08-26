@@ -13,6 +13,7 @@ class JobStatus(StrEnum):
     UNASSIGNED = "unassigned"
     ASSIGNED = "assigned"
     EN_ROUTE = "en_route"
+    ARRIVED = "arrived"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"

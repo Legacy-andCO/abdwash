@@ -286,7 +286,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
         <EmptyState title="No attendance history yet" />
       )}
       <Text style={styles.version}>
-        AbdWash Operations {Constants.expoConfig?.version ?? "1.0.0"}
+        Trifecta Operations {Constants.expoConfig?.version ?? "1.0.0"}
       </Text>
       <AppButton
         title="Sign out"
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   reason: { minHeight: 80 },
   offline: {
     color: colors.warning,
-    backgroundColor: "#FFF1D7",
+    backgroundColor: colors.warningSurface,
     padding: spacing.md,
   },
 });

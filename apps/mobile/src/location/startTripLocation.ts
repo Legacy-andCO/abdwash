@@ -1,3 +1,5 @@
+import type { TripDiagnosticReporter } from "./tripDiagnostics";
+
 export type TripOrigin = { latitude: number; longitude: number };
 export type TripLocationFailure =
   | "LOCATION_PERMISSION_DENIED"
@@ -48,6 +50,7 @@ export async function acquireTripOrigin(
   source: TripLocationSource,
   timeoutMs = 9_000,
   now = Date.now(),
+  report?: TripDiagnosticReporter,
 ): Promise<TripLocationResult> {
   let permission: Permission;
   try {
@@ -55,27 +58,39 @@ export async function acquireTripOrigin(
     if (!permission.granted && permission.canAskAgain !== false)
       permission = await source.requestPermission();
   } catch {
+    report?.("trip_location_failed", { code: "LOCATION_UNAVAILABLE" });
     return { origin: null, failure: "LOCATION_UNAVAILABLE" };
   }
-  if (!permission.granted)
+  if (!permission.granted) {
+    report?.("trip_location_failed", { code: "LOCATION_PERMISSION_DENIED" });
     return { origin: null, failure: "LOCATION_PERMISSION_DENIED" };
+  }
 
   const lastKnown = await source.getLastKnown().catch(() => null);
-  if (usableLastKnown(lastKnown, now))
+  const lastKnownUsable = usableLastKnown(lastKnown, now);
+  report?.("trip_location_last_known", { usable: lastKnownUsable });
+  if (lastKnownUsable) {
+    report?.("trip_location_success", { source: "last_known" });
     return { origin: originOf(lastKnown as Position), source: "last_known" };
+  }
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
+    report?.("trip_location_current_started");
     const current = await Promise.race([
       source.getCurrent(),
       new Promise<"timeout">((resolve) => {
         timer = setTimeout(() => resolve("timeout"), timeoutMs);
       }),
     ]);
-    if (current === "timeout")
+    if (current === "timeout") {
+      report?.("trip_location_failed", { code: "LOCATION_TIMEOUT" });
       return { origin: null, failure: "LOCATION_TIMEOUT" };
+    }
+    report?.("trip_location_success", { source: "current" });
     return { origin: originOf(current), source: "current" };
   } catch {
+    report?.("trip_location_failed", { code: "LOCATION_UNAVAILABLE" });
     return { origin: null, failure: "LOCATION_UNAVAILABLE" };
   } finally {
     if (timer) clearTimeout(timer);

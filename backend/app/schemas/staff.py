@@ -40,6 +40,7 @@ class StaffJob(BaseModel):
     scheduled_end: datetime
     en_route_at: datetime | None
     estimated_arrival_at: datetime | None
+    arrived_at: datetime | None
     started_at: datetime | None
     completed_at: datetime | None
     customer_name: str

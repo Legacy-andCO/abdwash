@@ -7,6 +7,7 @@ import {
   getCountryCallingCode,
   type CountryCode,
 } from "@/lib/phone";
+import { useI18n } from "./i18n-provider";
 
 type PhoneInputProps = {
   value: string;
@@ -23,19 +24,20 @@ export function PhoneInput({
   onChange,
   onCountryChange,
 }: PhoneInputProps) {
+  const { locale, t } = useI18n();
   const countries = useMemo(() => {
-    const names = new Intl.DisplayNames(["en"], { type: "region" });
+    const names = new Intl.DisplayNames([locale], { type: "region" });
     return getCountries()
       .map((code) => ({ code, name: names.of(code) ?? code }))
       .sort((left, right) => left.name.localeCompare(right.name));
-  }, []);
+  }, [locale]);
 
   return (
     <label className="phone-field">
-      <span>Phone number (WhatsApp number)</span>
+      <span>{t("phone.number")}</span>
       <span className="phone-control">
         <select
-          aria-label="Phone country"
+          aria-label={t("phone.country")}
           value={country}
           onChange={(event) => {
             const nextCountry = event.target.value as CountryCode;
@@ -53,7 +55,7 @@ export function PhoneInput({
           type="tel"
           autoComplete="tel"
           inputMode="tel"
-          placeholder="050 123 4567"
+          placeholder={t("phone.placeholder")}
           value={value}
           aria-invalid={!!error}
           aria-describedby={error ? "phone-error" : "phone-hint"}
@@ -61,7 +63,7 @@ export function PhoneInput({
         />
       </span>
       <small id="phone-hint" className="field-hint">
-        UAE is selected by default. International numbers are welcome.
+        {t("phone.hint")}
       </small>
       {error && <span className="field-error" id="phone-error" role="alert">{error}</span>}
     </label>

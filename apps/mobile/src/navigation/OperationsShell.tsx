@@ -76,7 +76,7 @@ export function OperationsShell({ context }: { context: StaffContext }) {
       <StatusBar style="dark" />
       <View style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>ABDWASH OPERATIONS</Text>
+          <Text style={styles.eyebrow}>TRIFECTA OPERATIONS</Text>
           <Text style={styles.name}>
             {context.display_name || context.business_name}
           </Text>

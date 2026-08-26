@@ -1,6 +1,7 @@
 import contextvars
 import time
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any, cast
 
 from fastapi import Request
@@ -20,6 +21,21 @@ query_duration_ms: contextvars.ContextVar[float] = contextvars.ContextVar(
 )
 
 
+@dataclass
+class RequestDatabaseMetrics:
+    """Mutable request metrics shared across Starlette's downstream task boundary."""
+
+    request_started: float
+    query_count: int = 0
+    query_duration_ms: float = 0.0
+    first_query_started_ms: float | None = None
+
+
+request_database_metrics: contextvars.ContextVar[RequestDatabaseMetrics | None] = (
+    contextvars.ContextVar("request_database_metrics", default=None)
+)
+
+
 def create_engine(settings: Settings) -> AsyncEngine:
     connect_args: dict[str, object] = {"server_settings": {"application_name": "abdwash-api"}}
     if settings.db_disable_prepared_statements:
@@ -35,6 +51,13 @@ def create_engine(settings: Settings) -> AsyncEngine:
 
     @event.listens_for(engine.sync_engine, "before_cursor_execute")
     def before_cursor_execute(conn: Any, *args: object) -> None:
+        metrics = request_database_metrics.get()
+        if metrics is not None:
+            metrics.query_count += 1
+            if metrics.first_query_started_ms is None:
+                metrics.first_query_started_ms = (
+                    time.perf_counter() - metrics.request_started
+                ) * 1000
         query_count.set(query_count.get() + 1)
         conn._abdwash_query_started = time.perf_counter()
 
@@ -43,6 +66,9 @@ def create_engine(settings: Settings) -> AsyncEngine:
         started = getattr(conn, "_abdwash_query_started", None)
         if started is not None:
             elapsed = (time.perf_counter() - started) * 1000
+            metrics = request_database_metrics.get()
+            if metrics is not None:
+                metrics.query_duration_ms += elapsed
             query_duration_ms.set(query_duration_ms.get() + elapsed)
 
     return engine

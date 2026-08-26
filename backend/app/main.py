@@ -18,10 +18,12 @@ from app.api.system import router as system_router
 from app.auth.verifier import SupabaseTokenVerifier
 from app.core.config import get_settings
 from app.core.database import (
+    RequestDatabaseMetrics,
     create_engine,
     create_session_factory,
     query_count,
     query_duration_ms,
+    request_database_metrics,
 )
 from app.core.logging import configure_logging
 from app.domain.errors import DomainError
@@ -78,9 +80,11 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
     except ValueError:
         request_id = str(uuid.uuid4())
     request.state.request_id = request_id
+    started = time.perf_counter()
+    database_metrics = RequestDatabaseMetrics(request_started=started)
+    metrics_token = request_database_metrics.set(database_metrics)
     count_token = query_count.set(0)
     duration_token = query_duration_ms.set(0.0)
-    started = time.perf_counter()
     cold_process = not process_has_served_request
     status_code = 500
     response_start_ms: float | None = None
@@ -89,9 +93,28 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
         response_start_ms = (time.perf_counter() - started) * 1000
         status_code = response.status_code
         response.headers["X-Request-ID"] = request_id
+        auth_ms = float(getattr(request.state, "auth_ms", 0.0))
+        staff_context_ms = float(getattr(request.state, "staff_context_ms", 0.0))
+        application_ms = max(
+            0.0,
+            response_start_ms
+            - auth_ms
+            - staff_context_ms,
+        )
+        timing_parts = [
+            f"auth;dur={auth_ms:.2f}",
+            f"staff-context;dur={staff_context_ms:.2f}",
+            f"sql;dur={database_metrics.query_duration_ms:.2f}",
+            f"app;dur={application_ms:.2f}",
+        ]
+        if database_metrics.first_query_started_ms is not None:
+            timing_parts.append(f"first-sql;dur={database_metrics.first_query_started_ms:.2f}")
+        response.headers["Server-Timing"] = ", ".join(timing_parts)
         if not settings.is_production:
-            response.headers["X-SQL-Query-Count"] = str(query_count.get())
-            response.headers["X-SQL-Duration-Ms"] = f"{query_duration_ms.get():.2f}"
+            response.headers["X-SQL-Query-Count"] = str(database_metrics.query_count)
+            response.headers["X-SQL-Duration-Ms"] = (
+                f"{database_metrics.query_duration_ms:.2f}"
+            )
         return response
     finally:
         route = request.scope.get("route")
@@ -106,14 +129,24 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
             response_start_ms=(
                 round(response_start_ms, 2) if response_start_ms is not None else None
             ),
-            sql_query_count=query_count.get(),
-            sql_duration_ms=round(query_duration_ms.get(), 2),
+            sql_query_count=database_metrics.query_count,
+            sql_duration_ms=round(database_metrics.query_duration_ms, 2),
+            first_sql_started_ms=(
+                round(database_metrics.first_query_started_ms, 2)
+                if database_metrics.first_query_started_ms is not None
+                else None
+            ),
+            auth_ms=round(float(getattr(request.state, "auth_ms", 0.0)), 2),
+            staff_context_ms=round(
+                float(getattr(request.state, "staff_context_ms", 0.0)), 2
+            ),
             cold_process=cold_process,
             process_age_ms=round((time.perf_counter() - process_started) * 1000, 2),
         )
         process_has_served_request = True
         query_count.reset(count_token)
         query_duration_ms.reset(duration_token)
+        request_database_metrics.reset(metrics_token)
 
 
 @app.exception_handler(DomainError)

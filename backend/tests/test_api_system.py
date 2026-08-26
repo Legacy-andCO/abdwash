@@ -1,3 +1,5 @@
+import asyncio
+import time
 import uuid
 
 import pytest
@@ -5,6 +7,7 @@ from fastapi.testclient import TestClient
 
 import app.api.public as public_api
 from app.auth.dependencies import StaffContext, staff_context
+from app.core.database import RequestDatabaseMetrics, request_database_metrics
 from app.domain.enums import StaffRole
 from app.main import app
 from app.schemas.public import CatalogueResponse
@@ -17,6 +20,25 @@ def test_health_is_lightweight() -> None:
     assert response.json() == {"status": "ok"}
     assert response.headers["x-sql-query-count"] == "0"
     assert response.headers.get("x-request-id")
+    assert "sql;dur=" in response.headers["server-timing"]
+
+
+@pytest.mark.asyncio
+async def test_mutable_database_metrics_cross_downstream_task_boundary() -> None:
+    metrics = RequestDatabaseMetrics(request_started=time.perf_counter())
+    token = request_database_metrics.set(metrics)
+    try:
+        async def downstream() -> None:
+            inherited = request_database_metrics.get()
+            assert inherited is metrics
+            inherited.query_count += 1
+            inherited.query_duration_ms += 2.5
+
+        await asyncio.create_task(downstream())
+        assert metrics.query_count == 1
+        assert metrics.query_duration_ms == 2.5
+    finally:
+        request_database_metrics.reset(token)
 
 
 class StubSession:
@@ -154,12 +176,14 @@ def test_invalid_maps_url_returns_validation_response() -> None:
                 "location": {
                     "written_address": "Yas Acres, Abu Dhabi",
                     "location_url": "https://google.com.attacker.com/maps/Yas",
+                    "instructions": "Meet at the main entrance",
                 },
                 "vehicles": [
                     {
                         "make": "Toyota",
                         "model": "Camry",
                         "vehicle_type": "sedan",
+                        "plate_number": "A 12345",
                         "service_id": str(uuid.uuid4()),
                     }
                 ],

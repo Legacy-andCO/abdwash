@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { loadGoogleMaps } from "@/lib/google-maps-loader";
 import type { Location } from "@/lib/types";
 
@@ -11,14 +12,24 @@ const mapInstances: Array<{ center: unknown; panTo: ReturnType<typeof vi.fn>; se
 const markerInstances: Array<{ map: unknown; position: unknown }> = [];
 let LocationPicker: typeof import("./location-picker").LocationPicker;
 
-class FakeAutocomplete extends HTMLElement {
-  placeholder = "";
-  description = "";
-}
+const place = {
+  formattedAddress: "Yas Acres, Abu Dhabi",
+  location: { lat: () => 24.47, lng: () => 54.36 },
+  fetchFields: vi.fn(async () => undefined),
+};
+const prediction = {
+  placeId: "yas-acres",
+  text: { text: "Yas Acres, Abu Dhabi" },
+  mainText: { text: "Yas Acres" },
+  secondaryText: { text: "Abu Dhabi" },
+  toPlace: () => place,
+};
+const fetchAutocompleteSuggestions = vi.fn(async () => ({ suggestions: [{ placePrediction: prediction }] }));
 
 function installGoogle(importFailure = false, delays: Partial<Record<"maps" | "marker" | "places", number>> = {}) {
   const mapsGlobal = {
     maps: {
+      event: { clearInstanceListeners: vi.fn() },
       importLibrary: vi.fn(async (name: string) => {
         if (importFailure) throw new Error("library failure");
         const delay = delays[name as keyof typeof delays];
@@ -28,7 +39,7 @@ function installGoogle(importFailure = false, delays: Partial<Record<"maps" | "m
           panTo = vi.fn();
           setZoom = vi.fn();
           listeners: Record<string, (event: unknown) => void> = {};
-          constructor(_node: HTMLElement, options: { center: unknown }) { this.center = options.center; mapInstances.push(this); }
+          constructor(node: HTMLElement, options: { center: unknown }) { this.center = options.center; node.append(document.createElement("div")); mapInstances.push(this); }
           addListener(name: string, callback: (event: unknown) => void) { this.listeners[name] = callback; return { remove: vi.fn() }; }
         } };
         if (name === "marker") return { AdvancedMarkerElement: class {
@@ -37,7 +48,10 @@ function installGoogle(importFailure = false, delays: Partial<Record<"maps" | "m
           constructor(options: { map: unknown; position: unknown }) { this.map = options.map; this.position = options.position; markerInstances.push(this); }
           addListener() { return { remove: vi.fn() }; }
         } };
-        return { PlaceAutocompleteElement: FakeAutocomplete };
+        return {
+          AutocompleteSessionToken: class {},
+          AutocompleteSuggestion: { fetchAutocompleteSuggestions },
+        };
       }),
       Geocoder: class { geocode = vi.fn().mockResolvedValue({ results: [] }); },
     },
@@ -60,7 +74,6 @@ function renderPicker(location = baseLocation, onCoordinatesChange = vi.fn()) {
 
 beforeAll(async () => {
   process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "public-test-key";
-  if (!customElements.get("fake-place-autocomplete")) customElements.define("fake-place-autocomplete", FakeAutocomplete);
   LocationPicker = (await import("./location-picker")).LocationPicker;
 });
 
@@ -68,6 +81,8 @@ afterEach(() => {
   cleanup();
   mapInstances.length = 0;
   markerInstances.length = 0;
+  fetchAutocompleteSuggestions.mockClear();
+  place.fetchFields.mockClear();
   vi.clearAllMocks();
 });
 
@@ -81,14 +96,14 @@ describe("LocationPicker Maps lifecycle", () => {
     expect(await screen.findByText("Map temporarily unavailable.")).toBeTruthy();
     expect(screen.getByDisplayValue("Al Reem Island, Abu Dhabi")).toBeTruthy();
     expect(screen.queryByLabelText("Selected service location map")).toBeNull();
-    expect(consoleError).toHaveBeenCalledWith("[AbdWash Maps] loader_failed");
+    expect(consoleError).toHaveBeenCalledWith("[Trifecta Maps] loader_failed");
     consoleError.mockRestore();
   });
 
-  it("becomes ready and creates one autocomplete widget", async () => {
+  it("becomes ready with a real editable search input", async () => {
     installGoogle();
-    const view = renderPicker();
-    await waitFor(() => expect(view.container.querySelectorAll("fake-place-autocomplete")).toHaveLength(1));
+    renderPicker();
+    expect(await screen.findByLabelText("Search for an address or place")).toBeTruthy();
     expect(screen.getByLabelText("Selected service location map")).toBeTruthy();
     expect(mapInstances).toHaveLength(1);
     expect(markerInstances).toHaveLength(1);
@@ -96,11 +111,10 @@ describe("LocationPicker Maps lifecycle", () => {
 
   it("stays loading until differently delayed valid libraries all resolve, then becomes ready", async () => {
     installGoogle(false, { maps: 10, marker: 20, places: 30 });
-    const view = renderPicker();
+    renderPicker();
     expect(screen.getByText("Loading map…")).toBeTruthy();
     expect(screen.queryByText("Map temporarily unavailable.")).toBeNull();
-    await waitFor(() => expect(view.container.querySelectorAll("fake-place-autocomplete")).toHaveLength(1));
-    expect(screen.queryByText("Loading map…")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("Loading map…")).toBeNull());
     expect(screen.queryByText("Map temporarily unavailable.")).toBeNull();
   });
 
@@ -127,12 +141,34 @@ describe("LocationPicker Maps lifecycle", () => {
   it("cleans component widgets and initializes once again after a remount", async () => {
     installGoogle();
     const first = renderPicker();
-    await waitFor(() => expect(first.container.querySelectorAll("fake-place-autocomplete")).toHaveLength(1));
+    await screen.findByLabelText("Search for an address or place");
     first.unmount();
-    expect(first.container.querySelectorAll("fake-place-autocomplete")).toHaveLength(0);
-    const second = renderPicker();
-    await waitFor(() => expect(second.container.querySelectorAll("fake-place-autocomplete")).toHaveLength(1));
+    renderPicker();
+    await screen.findByLabelText("Search for an address or place");
     expect(mapInstances).toHaveLength(2);
+  });
+
+  it("returns keyboard-accessible suggestions and selects a place", async () => {
+    installGoogle();
+    const onCoordinatesChange = vi.fn();
+    renderPicker(baseLocation, onCoordinatesChange);
+    const input = await screen.findByLabelText("Search for an address or place");
+    fireEvent.change(input, { target: { value: "Yas" } });
+    const optionRow = await screen.findByRole("option");
+    const option = optionRow.querySelector("button")!;
+    option.focus();
+    fireEvent.click(option);
+    await waitFor(() => expect(onCoordinatesChange).toHaveBeenCalledWith(
+      { latitude: 24.47, longitude: 54.36 },
+      "Yas Acres, Abu Dhabi",
+    ));
+  });
+
+  it("clears Google-owned map DOM before Strict Mode reinitializes", async () => {
+    installGoogle();
+    const view = render(<StrictMode><LocationPicker location={baseLocation} errors={{}} onFieldChange={vi.fn()} onCoordinatesChange={vi.fn()} /></StrictMode>);
+    await screen.findByLabelText("Search for an address or place");
+    expect(view.container.querySelectorAll(".map-canvas > div")).toHaveLength(1);
   });
 
   it("turns an importLibrary rejection into the visible fallback", async () => {
@@ -140,9 +176,9 @@ describe("LocationPicker Maps lifecycle", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     renderPicker();
     expect(await screen.findByText("Map temporarily unavailable.")).toBeTruthy();
-    expect(consoleError).toHaveBeenCalledWith("[AbdWash Maps] maps_library_failed");
-    expect(consoleError).toHaveBeenCalledWith("[AbdWash Maps] marker_library_failed");
-    expect(consoleError).toHaveBeenCalledWith("[AbdWash Maps] places_library_failed");
+    expect(consoleError).toHaveBeenCalledWith("[Trifecta Maps] maps_library_failed");
+    expect(consoleError).toHaveBeenCalledWith("[Trifecta Maps] marker_library_failed");
+    expect(consoleError).toHaveBeenCalledWith("[Trifecta Maps] places_library_failed");
     consoleError.mockRestore();
   });
 });

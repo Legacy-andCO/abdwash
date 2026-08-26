@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "AbdWash Staff",
+    "name": "Trifecta Staff",
     "slug": "abdwash-staff",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -8,7 +8,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "AbdWash uses your location once when starting a trip to calculate the customer's arrival estimate."
+        "NSLocationWhenInUseUsageDescription": "Trifecta uses your location once when starting a trip to calculate the customer's arrival estimate."
       }
     },
     "android": {

@@ -468,13 +468,15 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     en_route_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     estimated_arrival_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default=text("1")
     )
     __table_args__ = (
         CheckConstraint(
-            "status IN ('unassigned','assigned','en_route','in_progress','completed','cancelled')",
+            "status IN ('unassigned','assigned','en_route','arrived',"
+            "'in_progress','completed','cancelled')",
             name="job_status",
         ),
         CheckConstraint(

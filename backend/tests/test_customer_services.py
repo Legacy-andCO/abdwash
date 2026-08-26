@@ -47,6 +47,9 @@ def test_customer_status_mapping_tracks_operational_job_state() -> None:
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.UNASSIGNED).key == "confirmed"
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.ASSIGNED).key == "assigned"
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.EN_ROUTE).key == "en_route"
+    arrived = map_customer_status(BookingStatus.CONFIRMED, JobStatus.ARRIVED)
+    assert arrived.key == "arrived"
+    assert arrived.label == "Driver has arrived"
     assert map_customer_status(BookingStatus.CONFIRMED, "en_route").key == "en_route"
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.IN_PROGRESS).key == "in_progress"
     assert map_customer_status(BookingStatus.COMPLETED, JobStatus.COMPLETED).key == "completed"
