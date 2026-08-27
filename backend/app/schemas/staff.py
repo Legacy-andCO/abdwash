@@ -45,6 +45,7 @@ class StaffJob(BaseModel):
     completed_at: datetime | None
     customer_name: str
     customer_phone: str
+    customer_email: str
     written_address: str
     location_url: str
     latitude: float | None

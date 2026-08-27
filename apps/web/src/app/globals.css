@@ -553,7 +553,7 @@
     padding: 0.4rem 0;
   }
   .trust-row {
-    color: #516b6a;
+    color: var(--brand-dark);
     display: flex;
     flex-wrap: wrap;
     font-size: 0.76rem;
@@ -1273,6 +1273,33 @@
   }
   .loyalty-card {
     background: var(--brand-background);
+  }
+  .home-loyalty {
+    align-items: center;
+    background: var(--brand-surface);
+    border: 1px solid var(--brand-border);
+    border-inline-start: 5px solid var(--brand-primary);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    color: var(--brand-text);
+    display: flex;
+    gap: 1.5rem;
+    justify-content: space-between;
+    margin-block: 1.5rem;
+    padding: 1.25rem 1.4rem;
+  }
+  .home-loyalty h2 {
+    color: var(--brand-dark);
+    font-size: clamp(1.25rem, 2vw, 1.7rem);
+    margin-block: 0.3rem;
+  }
+  .home-loyalty > div > p:last-child {
+    color: var(--brand-text-secondary);
+  }
+  .home-loyalty-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.7rem;
   }
   .loyalty-reward-badge {
     background: var(--brand-primary);
@@ -2844,11 +2871,13 @@
   .action-dialog {
     background: #f8f2eb;
   }
-  .trust-row,
   .promo-copy > p:not(.eyebrow),
   .final-cta p:not(.eyebrow),
   .site-footer {
     color: #e6dcd4;
+  }
+  .trust-row {
+    color: var(--brand-dark);
   }
   .text-link {
     border-bottom-color: var(--brand-muted);
@@ -2899,6 +2928,13 @@
   @media (max-width: 700px) {
     .brand-mark {
       width: 158px;
+    }
+    .home-loyalty {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .home-loyalty-actions {
+      flex-wrap: wrap;
     }
   }
   @media (max-width: 430px) {

@@ -11,13 +11,16 @@ import {
   createCustomerVehicle,
   deleteCustomerAddress,
   deleteCustomerVehicle,
-  getCustomerProfile,
   updateCustomerAddress,
   updateCustomerProfile,
   updateCustomerVehicle,
   type SavedAddressInput,
   type SavedVehicleInput,
 } from "@/lib/api";
+import {
+  loadCustomerProfile,
+  setCachedCustomerProfile,
+} from "@/lib/customer-profile-resource";
 import { localizedCustomerError } from "@/lib/customer-error";
 import type { TranslationKey } from "@/lib/i18n";
 import { normalizePhone } from "@/lib/phone";
@@ -29,6 +32,7 @@ import type {
 } from "@/lib/types";
 import type { CountryCode } from "libphonenumber-js/min";
 import { useI18n } from "./i18n-provider";
+import { isVehicleType, VEHICLE_TYPES } from "@/lib/vehicle-types";
 
 const emptyLocation: Location = {
   written_address: "",
@@ -86,7 +90,7 @@ export function CustomerProfileManager() {
     if (!user) return;
     setError("");
     try {
-      const next = await getCustomerProfile();
+      const next = await loadCustomerProfile(user.id, { refresh: true });
       setData(next);
       setPersonal({
         first_name:
@@ -113,6 +117,7 @@ export function CustomerProfileManager() {
   }, [load]);
 
   async function savePersonal() {
+    if (!user) return;
     const phone = normalizePhone(personal.phone, personal.phone_country);
     if (!phone) {
       setError(t("profile.phoneError"));
@@ -127,6 +132,7 @@ export function CustomerProfileManager() {
         surname: personal.surname,
         phone,
       });
+      setCachedCustomerProfile(user.id, next);
       setData(next);
       setPersonal((value) => ({ ...value, phone }));
       setNotice(t("profile.changesSaved"));
@@ -198,6 +204,10 @@ export function CustomerProfileManager() {
     if (!vehicleEditor) return;
     if (!vehicleEditor.plate_number.trim()) {
       setError(t("booking.validation.plate"));
+      return;
+    }
+    if (!isVehicleType(vehicleEditor.vehicle_type)) {
+      setError(t("booking.validation.vehicleType"));
       return;
     }
     setSaving(true);
@@ -320,7 +330,7 @@ export function CustomerProfileManager() {
           </button>
         </section>
         {data?.loyalty && (
-          <section className="profile-panel loyalty-card">
+          <section className="profile-panel loyalty-card" id="rewards">
             <header>
               <div>
                 <p className="eyebrow">
@@ -637,7 +647,28 @@ function VehicleEditor({
         {input("make", t("booking.vehicles.make"))}
         {input("model", t("booking.vehicles.model"))}
         {input("year", t("booking.vehicles.year"))}
-        {input("vehicle_type", t("booking.vehicles.type"))}
+        <label>
+          <span>{t("booking.vehicles.type")}</span>
+          <select
+            value={value.vehicle_type}
+            aria-invalid={!isVehicleType(value.vehicle_type)}
+            onChange={(event) =>
+              onChange({ ...value, vehicle_type: event.target.value })
+            }
+          >
+            <option value="">{t("booking.vehicles.selectType")}</option>
+            {value.vehicle_type && !isVehicleType(value.vehicle_type) ? (
+              <option value={value.vehicle_type} disabled>
+                {value.vehicle_type}
+              </option>
+            ) : null}
+            {VEHICLE_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {t(`booking.vehicles.type.${type}`)}
+              </option>
+            ))}
+          </select>
+        </label>
         {input("colour", t("booking.vehicles.colour"))}
         {input("plate_number", t("booking.vehicles.plateRequired"))}
       </div>

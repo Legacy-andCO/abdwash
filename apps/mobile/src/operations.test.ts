@@ -36,6 +36,7 @@ const job = (id: string, status: string): Job => ({
   completed_at: null,
   customer_name: "Customer",
   customer_phone: "+971501234567",
+  customer_email: "customer@example.com",
   written_address: "Abu Dhabi",
   location_url: "https://www.google.com/maps",
   latitude: null,

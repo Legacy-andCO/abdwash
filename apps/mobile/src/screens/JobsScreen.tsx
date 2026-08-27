@@ -45,6 +45,7 @@ import type {
   StaffContext,
   Team,
 } from "../lib";
+import { customerEmailUrl } from "../jobs/customerContact";
 import {
   useAssignJobMutation,
   useAvailabilityQuery,
@@ -526,6 +527,13 @@ function JobDetail({
             onPress={() => void Linking.openURL(`tel:${job.customer_phone}`)}
           />
         </View>
+        <View style={styles.action}>
+          <AppButton
+            title="Email"
+            tone="secondary"
+            onPress={() => void Linking.openURL(customerEmailUrl(job.customer_email))}
+          />
+        </View>
       </View>
       {qualityEnabled ? (
         <JobQualityControls
@@ -689,6 +697,7 @@ function JobDetail({
         <Text style={styles.sectionTitle}>CUSTOMER</Text>
         <Text style={styles.vehicle}>{job.customer_name}</Text>
         <Text style={uiStyles.body}>{job.customer_phone}</Text>
+        <Text style={uiStyles.body}>{job.customer_email}</Text>
       </Card>
       <Card>
         <Text style={styles.sectionTitle}>LOCATION</Text>

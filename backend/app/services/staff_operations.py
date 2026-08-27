@@ -282,6 +282,7 @@ async def _serialize_jobs(
             completed_at=job.completed_at,
             customer_name=f"{booking.customer_first_name} {booking.customer_surname}",
             customer_phone=booking.customer_phone,
+            customer_email=booking.customer_email,
             written_address=booking.written_address,
             location_url=booking.location_url,
             latitude=float(booking.latitude) if booking.latitude is not None else None,

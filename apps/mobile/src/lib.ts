@@ -77,6 +77,7 @@ export type Job = {
   completed_at: string | null;
   customer_name: string;
   customer_phone: string;
+  customer_email: string;
   written_address: string;
   location_url: string;
   latitude: number | null;

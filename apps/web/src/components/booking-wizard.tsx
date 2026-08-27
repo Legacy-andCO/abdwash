@@ -21,8 +21,8 @@ import {
   createHold,
   getAvailability,
   getCatalogue,
-  getCustomerProfile,
 } from "@/lib/api";
+import { loadCustomerProfile } from "@/lib/customer-profile-resource";
 import { localizedCustomerError } from "@/lib/customer-error";
 import {
   bookingReducer,
@@ -52,16 +52,7 @@ import {
   localizeServiceDescription,
   localizeServiceName,
 } from "@/lib/i18n";
-
-const vehicleTypes = [
-  "sedan",
-  "suv",
-  "hatchback",
-  "coupe",
-  "pickup",
-  "van",
-  "other",
-] as const;
+import { VEHICLE_TYPES } from "@/lib/vehicle-types";
 
 function FieldError({ id, children }: { id: string; children?: string }) {
   if (!children) return null;
@@ -166,7 +157,7 @@ export function BookingWizard({
     let active = true;
     void Promise.allSettled([
       getCatalogue(),
-      user ? getCustomerProfile() : Promise.resolve(null),
+      user ? loadCustomerProfile(user.id) : Promise.resolve(null),
     ]).then(([catalogueResult, profileResult]) => {
       if (!active) return;
       if (catalogueResult.status === "rejected")
@@ -703,7 +694,7 @@ function VehicleCard({
             onChange={(event) => update("vehicle_type", event.target.value)}
           >
             <option value="">{t("booking.vehicles.selectType")}</option>
-            {vehicleTypes.map((type) => (
+            {VEHICLE_TYPES.map((type) => (
               <option key={type} value={type}>
                 {t(`booking.vehicles.type.${type}`)}
               </option>
