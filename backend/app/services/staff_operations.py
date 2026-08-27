@@ -11,6 +11,7 @@ from app.auth.dependencies import StaffContext
 from app.domain.enums import (
     BookingStatus,
     CancellationStatus,
+    ComplaintStatus,
     JobStatus,
     PaymentStatus,
     SlotStatus,
@@ -26,6 +27,7 @@ from app.models.entities import (
     BookingVehicle,
     CancellationRequest,
     Job,
+    JobComplaint,
     JobEvent,
     NotificationOutbox,
     Payment,
@@ -140,17 +142,15 @@ async def _job_rows(
         )
     normalized_search = " ".join(search.split()) if search else ""
     if normalized_search:
-        escaped = (
-            normalized_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        )
+        escaped = normalized_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         pattern = f"%{escaped}%"
         statement = statement.where(
             or_(
                 Booking.customer_first_name.ilike(pattern, escape="\\"),
                 Booking.customer_surname.ilike(pattern, escape="\\"),
-                func.concat_ws(
-                    " ", Booking.customer_first_name, Booking.customer_surname
-                ).ilike(pattern, escape="\\"),
+                func.concat_ws(" ", Booking.customer_first_name, Booking.customer_surname).ilike(
+                    pattern, escape="\\"
+                ),
             )
         )
     ordering = Job.scheduled_start.desc() if view == "history" else Job.scheduled_start
@@ -169,6 +169,21 @@ _EVENT_LABELS = {
     "job_completed": "Wash completed",
     "cash_payment_recorded": "Cash payment recorded",
     "booking_rescheduled_by_staff": "Appointment rescheduled",
+    "inspection_completed": "Vehicle inspection completed",
+    "checklist_updated": "Service checklist updated",
+    "checklist_completed": "Service checklist completed",
+    "before_photo_added": "Before photo added",
+    "after_photo_added": "After photo added",
+    "damage_photo_added": "Damage photo added",
+    "issue_photo_added": "Issue photo added",
+    "quality_issue_reported": "Quality issue reported",
+    "complaint_opened": "Complaint opened",
+    "complaint_under_review": "Complaint under review",
+    "complaint_resolved": "Complaint resolved",
+    "complaint_rejected": "Complaint rejected",
+    "rewash_approved": "Rewash approved",
+    "rewash_scheduled": "Rewash scheduled",
+    "rewash_completed": "Rewash completed",
 }
 
 
@@ -381,6 +396,10 @@ async def transition_job(
     job, booking, _payment, _name = await _locked_job(session, context, job_id)
     if await _duplicate_event(session, job.id, request.client_event_id):
         return await get_job(session, context, job.id)
+    if target == JobStatus.COMPLETED:
+        from app.services.job_quality import ensure_completion_quality
+
+        await ensure_completion_quality(session, job.id)
     validate_transition(JobStatus(job.status), target, JOB_TRANSITIONS)
     now = datetime.now(UTC)
     job.status = target
@@ -398,6 +417,45 @@ async def transition_job(
         job.completed_at = now
         booking.status = BookingStatus.COMPLETED
         booking.version += 1
+        complaint_row = (
+            await session.execute(
+                select(JobComplaint, Job.booking_id)
+                .select_from(JobComplaint)
+                .join(Job, Job.id == JobComplaint.original_job_id)
+                .where(
+                    JobComplaint.correction_job_id == job.id,
+                    JobComplaint.business_id == context.business_id,
+                    JobComplaint.status == ComplaintStatus.REWASH_APPROVED,
+                )
+                .with_for_update()
+            )
+        ).one_or_none()
+        if complaint_row is not None:
+            complaint, original_booking_id = complaint_row
+            complaint.status = ComplaintStatus.RESOLVED
+            complaint.reviewed_by_staff_id = context.staff_id
+            complaint.reviewed_at = now
+            session.add(
+                JobEvent(
+                    job_id=complaint.original_job_id,
+                    booking_id=original_booking_id,
+                    actor_staff_id=context.staff_id,
+                    event_type="rewash_completed",
+                    metadata_json={
+                        "complaint_id": str(complaint.id),
+                        "correction_job_id": str(job.id),
+                    },
+                )
+            )
+            session.add(
+                JobEvent(
+                    job_id=complaint.original_job_id,
+                    booking_id=original_booking_id,
+                    actor_staff_id=context.staff_id,
+                    event_type="complaint_resolved",
+                    metadata_json={"complaint_id": str(complaint.id)},
+                )
+            )
     session.add(
         JobEvent(
             job_id=job.id,

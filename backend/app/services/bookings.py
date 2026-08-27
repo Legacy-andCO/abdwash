@@ -214,6 +214,9 @@ async def create_booking(
         )
         session.add(job)
         await session.flush()
+        from app.services.job_quality import snapshot_checklist_for_job
+
+        await snapshot_checklist_for_job(session, job)
         session.add(
             JobEvent(
                 job_id=job.id,

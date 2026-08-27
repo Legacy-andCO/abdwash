@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, case, distinct, func, or_, select
@@ -91,7 +92,18 @@ def attendance_category(
     shift_started: bool,
     on_approved_leave: bool,
     shift_ended: bool,
-) -> tuple[str, bool]:
+) -> tuple[
+    Literal[
+        "scheduled",
+        "working",
+        "late",
+        "clocked_out",
+        "not_clocked_in",
+        "off_today",
+        "approved_leave",
+    ],
+    bool,
+]:
     """Return the operational status and whether a scheduled shift was missed."""
     if has_open_session:
         return ("late" if late_minutes else "working", False)

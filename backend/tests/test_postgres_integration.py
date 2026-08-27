@@ -21,7 +21,7 @@ from app.auth.dependencies import StaffContext, optional_identity, staff_context
 from app.auth.verifier import AuthenticationError, VerifiedIdentity
 from app.core.config import Settings
 from app.core.database import create_engine, query_count, session_dependency
-from app.domain.enums import SlotStatus, StaffRole
+from app.domain.enums import JobStatus, SlotStatus, StaffRole
 from app.domain.errors import ConflictError, DomainError
 from app.models import Base
 from app.models.entities import (
@@ -34,7 +34,11 @@ from app.models.entities import (
     CancellationRequest,
     IdempotencyRecord,
     Job,
+    JobChecklistItem,
+    JobComplaint,
+    JobInspection,
     NotificationOutbox,
+    Payment,
     ScheduleResource,
     ScheduleSlot,
     Service,
@@ -43,14 +47,32 @@ from app.models.entities import (
     TeamMembership,
 )
 from app.schemas.public import BookingCreate, HoldCreate, HoldResponse
-from app.schemas.staff import AttendanceAction, ShiftAssignmentCreate, ShiftCreate
+from app.schemas.staff import (
+    AttendanceAction,
+    JobAction,
+    JobChecklistUpdate,
+    JobComplaintCreate,
+    JobComplaintReview,
+    JobInspectionInput,
+    JobQualityIssueCreate,
+    ShiftAssignmentCreate,
+    ShiftCreate,
+)
 from app.services.bookings import create_booking
 from app.services.idempotency import (
     canonical_request_hash,
     find_idempotent_response,
     store_idempotent_response,
 )
+from app.services.job_quality import (
+    add_issue,
+    create_complaint,
+    review_complaint,
+    save_inspection,
+    update_checklist,
+)
 from app.services.scheduling import create_hold, hold_token_hash
+from app.services.staff_operations import transition_job
 from app.services.workforce import assign_shift, clock_in, create_shift
 from app.workers.notifications import claim_batch
 
@@ -151,6 +173,10 @@ async def database() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
                 price_minor=12500,
                 estimated_duration_minutes=120,
                 sort_order=1,
+                checklist_template=[
+                    {"label": "Exterior wash", "required": True},
+                    {"label": "Final inspection", "required": True},
+                ],
             )
         )
     yield factory
@@ -464,6 +490,194 @@ async def test_shift_creation_assignment_and_modification(
     assert modified.id == assigned.id
     assert modified.shift_id == later_shift.id
     assert modified.shift_name == later_shift.name
+
+
+@pytest.mark.asyncio
+async def test_job_quality_completion_and_zero_value_rewash_workflow(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    context = await _staff_context(database, suffix="quality")
+    hold = await _attempt_hold(
+        database,
+        HoldCreate(date=date(2035, 6, 1), start_time=time(9), vehicle_count=1),
+    )
+    async with database() as session:
+        service_id = (await session.scalars(select(Service.id))).one()
+    request = BookingCreate.model_validate(
+        {
+            "hold_token": hold.hold_token,
+            "contact": {
+                "first_name": "Quality",
+                "surname": "Customer",
+                "email": "quality@example.com",
+                "phone": "+971500000099",
+            },
+            "location": {
+                "written_address": "Yas Island, Abu Dhabi",
+                "location_url": "https://maps.google.com/?q=Yas+Island",
+                "instructions": "Visitor entrance",
+            },
+            "vehicles": [
+                {
+                    "make": "Toyota",
+                    "model": "Land Cruiser",
+                    "vehicle_type": "suv",
+                    "plate_number": "Q 100",
+                    "service_id": service_id,
+                }
+            ],
+            "payment_choice": "pay_after_service",
+        }
+    )
+    async with database() as session, session.begin():
+        created = await create_booking(session, request, None)
+        job = (await session.scalars(select(Job).where(Job.booking_id == created.id))).one()
+        job.status = JobStatus.IN_PROGRESS
+        job.started_at = datetime.now(UTC)
+        job_id = job.id
+
+    async with database() as session, session.begin():
+        await save_inspection(
+            session,
+            context,
+            job_id,
+            JobInspectionInput(
+                condition_notes="Condition checked",
+                damage_category="scratch",
+                damage_notes="Front-left door",
+            ),
+        )
+        await add_issue(
+            session,
+            context,
+            job_id,
+            JobQualityIssueCreate(
+                category="customer_request",
+                note="Customer requested extra attention on rear glass.",
+            ),
+        )
+
+    with pytest.raises(ConflictError) as incomplete_error:
+        async with database() as session, session.begin():
+            await transition_job(
+                session,
+                context,
+                job_id,
+                JobAction(client_event_id="quality-incomplete"),
+                JobStatus.COMPLETED,
+            )
+    assert incomplete_error.value.code == "SERVICE_CHECKLIST_INCOMPLETE"
+
+    async with database() as session, session.begin():
+        checklist = list(
+            (
+                await session.scalars(
+                    select(JobChecklistItem)
+                    .where(JobChecklistItem.job_id == job_id)
+                    .order_by(JobChecklistItem.position)
+                )
+            ).all()
+        )
+        await update_checklist(
+            session,
+            context,
+            job_id,
+            JobChecklistUpdate(
+                client_event_id="quality-checklist-complete",
+                items=[{"id": item.id, "completed": True} for item in checklist],
+            ),
+        )
+        completed = await transition_job(
+            session,
+            context,
+            job_id,
+            JobAction(client_event_id="quality-job-complete"),
+            JobStatus.COMPLETED,
+        )
+        complaint = await create_complaint(
+            session,
+            context,
+            job_id,
+            JobComplaintCreate(description="Missed area on rear bumper."),
+        )
+    assert completed.status == JobStatus.COMPLETED
+
+    correction_hold = await _attempt_hold(
+        database,
+        HoldCreate(date=date(2035, 6, 2), start_time=time(11), vehicle_count=1),
+    )
+    async with database() as session, session.begin():
+        reviewed = await review_complaint(
+            session,
+            context,
+            job_id,
+            complaint.id,
+            JobComplaintReview(
+                decision="approve_rewash",
+                review_note="Complimentary correction approved.",
+                hold_token=correction_hold.hold_token,
+            ),
+        )
+        correction_job_id = reviewed.correction_job_id
+    assert correction_job_id is not None
+
+    async with database() as session, session.begin():
+        original = await session.get(Job, job_id)
+        correction = await session.get(Job, correction_job_id)
+        assert original is not None and original.status == JobStatus.COMPLETED
+        assert correction is not None
+        correction_booking = await session.get(Booking, correction.booking_id)
+        correction_payment = (
+            await session.scalars(
+                select(Payment).where(Payment.booking_id == correction.booking_id)
+            )
+        ).one()
+        assert correction_booking is not None
+        assert correction_booking.source == "rewash"
+        assert correction_booking.total_amount_minor == 0
+        assert correction_payment.amount_minor == 0
+        correction.status = JobStatus.IN_PROGRESS
+        correction.started_at = datetime.now(UTC)
+
+    async with database() as session, session.begin():
+        correction_checklist = list(
+            (
+                await session.scalars(
+                    select(JobChecklistItem).where(
+                        JobChecklistItem.job_id == correction_job_id
+                    )
+                )
+            ).all()
+        )
+        await update_checklist(
+            session,
+            context,
+            correction_job_id,
+            JobChecklistUpdate(
+                client_event_id="rewash-checklist-complete",
+                items=[
+                    {"id": item.id, "completed": True}
+                    for item in correction_checklist
+                ],
+            ),
+        )
+        await transition_job(
+            session,
+            context,
+            correction_job_id,
+            JobAction(client_event_id="rewash-job-complete"),
+            JobStatus.COMPLETED,
+        )
+
+    async with database() as session:
+        resolved = await session.get(JobComplaint, complaint.id)
+        inspection = (
+            await session.scalars(
+                select(JobInspection).where(JobInspection.job_id == job_id)
+            )
+        ).one()
+    assert resolved is not None and resolved.status == "resolved"
+    assert inspection.damage_category == "scratch"
 
 
 @pytest.mark.asyncio

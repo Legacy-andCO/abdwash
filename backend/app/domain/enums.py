@@ -72,3 +72,23 @@ class OutboxStatus(StrEnum):
     SENT = "sent"
     RETRY = "retry"
     FAILED = "failed"
+
+
+class JobPhotoCategory(StrEnum):
+    BEFORE = "before"
+    AFTER = "after"
+    DAMAGE = "damage"
+    ISSUE = "issue"
+
+
+class JobPhotoStatus(StrEnum):
+    PENDING = "pending"
+    READY = "ready"
+
+
+class ComplaintStatus(StrEnum):
+    OPEN = "open"
+    UNDER_REVIEW = "under_review"
+    RESOLVED = "resolved"
+    REJECTED = "rejected"
+    REWASH_APPROVED = "rewash_approved"

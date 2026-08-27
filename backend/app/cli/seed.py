@@ -77,6 +77,13 @@ async def seed() -> None:
                     8500,
                     90,
                     1,
+                    [
+                        {"label": "Exterior wash", "required": True},
+                        {"label": "Wheels and tyres", "required": True},
+                        {"label": "Exterior glass", "required": True},
+                        {"label": "Hand-finished dry", "required": True},
+                        {"label": "Final inspection", "required": True},
+                    ],
                 ),
                 (
                     "Signature Inside & Out",
@@ -84,6 +91,14 @@ async def seed() -> None:
                     14500,
                     120,
                     2,
+                    [
+                        {"label": "Exterior wash", "required": True},
+                        {"label": "Wheels and tyres", "required": True},
+                        {"label": "Exterior and interior glass", "required": True},
+                        {"label": "Interior vacuum", "required": True},
+                        {"label": "Dashboard and interior wipe", "required": True},
+                        {"label": "Final inspection", "required": True},
+                    ],
                 ),
                 (
                     "Premium Detail",
@@ -91,6 +106,16 @@ async def seed() -> None:
                     22000,
                     180,
                     3,
+                    [
+                        {"label": "Pre-wash inspection", "required": True},
+                        {"label": "Exterior wash and decontamination", "required": True},
+                        {"label": "Wheels and tyres", "required": True},
+                        {"label": "Exterior and interior glass", "required": True},
+                        {"label": "Interior vacuum", "required": True},
+                        {"label": "Detailed interior wipe", "required": True},
+                        {"label": "Finishing treatment", "required": True},
+                        {"label": "Final inspection", "required": True},
+                    ],
                 ),
             ]
             existing_services = {
@@ -104,7 +129,7 @@ async def seed() -> None:
                     )
                 ).all()
             }
-            for name, description, price, duration, sort_order in service_seed:
+            for name, description, price, duration, sort_order, checklist in service_seed:
                 service = existing_services.get(name)
                 if service is None:
                     session.add(
@@ -116,6 +141,7 @@ async def seed() -> None:
                             estimated_duration_minutes=duration,
                             is_active=True,
                             sort_order=sort_order,
+                            checklist_template=checklist,
                         )
                     )
                 else:
@@ -124,6 +150,7 @@ async def seed() -> None:
                     service.estimated_duration_minutes = duration
                     service.is_active = True
                     service.sort_order = sort_order
+                    service.checklist_template = checklist
     finally:
         await engine.dispose()
 

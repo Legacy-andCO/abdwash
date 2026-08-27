@@ -63,6 +63,150 @@ class StaffJobList(BaseModel):
     next_offset: int | None
 
 
+class JobInspectionInput(StrictRequest):
+    condition_notes: str | None = Field(default=None, max_length=4000)
+    damage_category: (
+        Literal[
+            "scratch",
+            "dent",
+            "paint_damage",
+            "wheel_damage",
+            "glass_damage",
+            "interior_damage",
+            "stain",
+            "other",
+        ]
+        | None
+    ) = None
+    damage_notes: str | None = Field(default=None, max_length=4000)
+
+
+class JobInspectionView(BaseModel):
+    id: uuid.UUID
+    condition_notes: str | None
+    damage_category: str | None
+    damage_notes: str | None
+    completed_by_staff_id: uuid.UUID
+    completed_by_staff_name: str
+    completed_at: datetime
+
+
+class JobChecklistUpdateItem(StrictRequest):
+    id: uuid.UUID
+    completed: bool
+
+
+class JobChecklistUpdate(StrictRequest):
+    items: list[JobChecklistUpdateItem] = Field(min_length=1, max_length=100)
+    client_event_id: str = Field(min_length=8, max_length=160)
+
+
+class JobChecklistItemView(BaseModel):
+    id: uuid.UUID
+    label: str
+    is_required: bool
+    position: int
+    completed_at: datetime | None
+    completed_by_staff_id: uuid.UUID | None
+    completed_by_staff_name: str | None
+
+
+class JobPhotoCreate(StrictRequest):
+    category: Literal["before", "after", "damage", "issue"]
+    content_type: Literal["image/jpeg", "image/png", "image/webp"]
+    caption: str | None = Field(default=None, max_length=500)
+    client_request_id: str = Field(min_length=8, max_length=160)
+
+
+class JobPhotoView(BaseModel):
+    id: uuid.UUID
+    category: str
+    caption: str | None
+    status: str
+    created_by_staff_id: uuid.UUID
+    created_by_staff_name: str
+    created_at: datetime
+    access_url: str | None = None
+
+
+class JobPhotoUploadGrant(BaseModel):
+    photo: JobPhotoView
+    bucket: str
+    path: str
+    upload_token: str
+    max_bytes: int
+
+
+class JobQualityIssueCreate(StrictRequest):
+    category: Literal[
+        "pre_existing_damage",
+        "incomplete_result",
+        "paint_damage",
+        "access_problem",
+        "customer_request",
+        "other",
+    ]
+    note: str = Field(min_length=2, max_length=4000)
+    photo_id: uuid.UUID | None = None
+
+
+class JobQualityIssueView(BaseModel):
+    id: uuid.UUID
+    category: str
+    note: str
+    photo_id: uuid.UUID | None
+    created_by_staff_id: uuid.UUID
+    created_by_staff_name: str
+    created_at: datetime
+
+
+class JobComplaintCreate(StrictRequest):
+    description: str = Field(min_length=2, max_length=4000)
+
+
+class JobComplaintReview(StrictRequest):
+    decision: Literal["under_review", "resolved", "rejected", "approve_rewash"]
+    review_note: str | None = Field(default=None, max_length=4000)
+    hold_token: str | None = Field(default=None, min_length=20, max_length=300)
+
+    @model_validator(mode="after")
+    def require_rewash_hold(self) -> "JobComplaintReview":
+        if self.decision == "approve_rewash" and not self.hold_token:
+            raise ValueError("A reserved correction appointment is required.")
+        if self.decision != "approve_rewash" and self.hold_token:
+            raise ValueError("A hold token is valid only when approving a rewash.")
+        return self
+
+
+class JobComplaintView(BaseModel):
+    id: uuid.UUID
+    description: str
+    status: str
+    review_note: str | None
+    created_by_staff_id: uuid.UUID
+    created_by_staff_name: str
+    created_at: datetime
+    reviewed_by_staff_id: uuid.UUID | None
+    reviewed_by_staff_name: str | None
+    reviewed_at: datetime | None
+    correction_job_id: uuid.UUID | None
+
+
+class JobQualityView(BaseModel):
+    job_id: uuid.UUID
+    inspection: JobInspectionView | None
+    checklist: list[JobChecklistItemView]
+    photos: list[JobPhotoView]
+    issues: list[JobQualityIssueView]
+    complaints: list[JobComplaintView]
+    required_completed: int
+    required_total: int
+    before_photo_count: int
+    after_photo_count: int
+    issue_count: int
+    can_complete: bool
+
+
 class SyncState(BaseModel):
     jobs: int = Field(ge=0)
     workforce: int = Field(ge=0)

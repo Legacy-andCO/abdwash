@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import date, datetime
 from typing import Annotated, cast
@@ -14,7 +15,8 @@ from app.domain.enums import JobStatus
 from app.domain.errors import DomainError
 from app.integrations.eta import GoogleRoutesEtaProvider
 from app.integrations.supabase_admin import SupabaseAdminClient
-from app.models.entities import Booking, Job
+from app.integrations.supabase_storage import SupabaseStorageAdminClient
+from app.models.entities import Booking, Job, JobPhoto
 from app.schemas.customer import ManagerRescheduleCreate
 from app.schemas.staff import (
     AssignmentAction,
@@ -25,6 +27,15 @@ from app.schemas.staff import (
     CancellationItem,
     CancellationReview,
     JobAction,
+    JobChecklistUpdate,
+    JobComplaintCreate,
+    JobComplaintReview,
+    JobInspectionInput,
+    JobPhotoCreate,
+    JobPhotoUploadGrant,
+    JobPhotoView,
+    JobQualityIssueCreate,
+    JobQualityView,
     LeaveCreate,
     LeaveReview,
     LeaveView,
@@ -54,6 +65,17 @@ from app.schemas.staff import (
     TemporaryPasswordUpdate,
 )
 from app.services.customers import reschedule_managed_booking
+from app.services.job_quality import (
+    add_issue,
+    confirm_photo,
+    create_complaint,
+    get_job_quality,
+    load_pending_photo,
+    prepare_photo_upload,
+    review_complaint,
+    save_inspection,
+    update_checklist,
+)
 from app.services.staff_accounts import (
     create_staff_account,
     get_own_profile,
@@ -100,6 +122,16 @@ from app.services.workforce import (
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 logger = structlog.get_logger()
 StaffDep = Annotated[StaffContext, Depends(staff_context)]
+
+
+def _photo_storage(request: Request) -> SupabaseStorageAdminClient:
+    settings = get_settings()
+    return SupabaseStorageAdminClient(
+        cast(httpx.AsyncClient, request.app.state.http_client),
+        supabase_url=settings.supabase_url,
+        service_role_key=settings.supabase_service_role_key,
+        bucket=settings.job_photo_bucket,
+    )
 
 
 @router.get("/context")
@@ -443,6 +475,175 @@ async def job_detail(
     return await get_job(session, context, job_id)
 
 
+@router.get("/jobs/{job_id}/quality", response_model=JobQualityView)
+async def job_quality_detail(
+    job_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    context: StaffDep,
+) -> JobQualityView:
+    async with session.begin():
+        result = await get_job_quality(session, context, job_id)
+        path_rows = (
+            await session.execute(
+                select(JobPhoto.id, JobPhoto.storage_path).where(
+                    JobPhoto.id.in_([photo.id for photo in result.photos]),
+                    JobPhoto.business_id == context.business_id,
+                )
+            )
+        ).all()
+        photo_paths: dict[uuid.UUID, str] = {row[0]: row[1] for row in path_rows}
+    if not photo_paths:
+        return result
+    settings = get_settings()
+    storage = _photo_storage(request)
+
+    async def signed_access(photo_id: uuid.UUID, path: str) -> tuple[uuid.UUID, str | None]:
+        try:
+            return (
+                photo_id,
+                await storage.create_signed_download(path, settings.job_photo_signed_url_seconds),
+            )
+        except (DomainError, httpx.HTTPError):
+            logger.warning("job_photo_access_grant_failed", photo_id=str(photo_id))
+            return photo_id, None
+
+    signed = await asyncio.gather(
+        *(signed_access(photo_id, path) for photo_id, path in photo_paths.items())
+    )
+    access_urls = dict(signed)
+    return result.model_copy(
+        update={
+            "photos": [
+                photo.model_copy(update={"access_url": access_urls.get(photo.id)})
+                for photo in result.photos
+            ]
+        }
+    )
+
+
+@router.put("/jobs/{job_id}/quality/inspection", status_code=204)
+async def job_quality_inspection(
+    job_id: uuid.UUID,
+    payload: JobInspectionInput,
+    session: SessionDep,
+    context: StaffDep,
+) -> None:
+    async with session.begin():
+        await save_inspection(session, context, job_id, payload)
+        await bump_sync_revisions(session, context.business_id, "jobs")
+
+
+@router.put("/jobs/{job_id}/quality/checklist", status_code=204)
+async def job_quality_checklist(
+    job_id: uuid.UUID,
+    payload: JobChecklistUpdate,
+    session: SessionDep,
+    context: StaffDep,
+) -> None:
+    async with session.begin():
+        await update_checklist(session, context, job_id, payload)
+        await bump_sync_revisions(session, context.business_id, "jobs")
+
+
+@router.post("/jobs/{job_id}/quality/issues", status_code=201)
+async def job_quality_issue(
+    job_id: uuid.UUID,
+    payload: JobQualityIssueCreate,
+    session: SessionDep,
+    context: StaffDep,
+) -> None:
+    async with session.begin():
+        await add_issue(session, context, job_id, payload)
+        await bump_sync_revisions(session, context.business_id, "jobs")
+
+
+@router.post(
+    "/jobs/{job_id}/quality/photos/upload",
+    response_model=JobPhotoUploadGrant,
+    status_code=201,
+)
+async def job_quality_photo_upload(
+    job_id: uuid.UUID,
+    payload: JobPhotoCreate,
+    request: Request,
+    session: SessionDep,
+    context: StaffDep,
+) -> JobPhotoUploadGrant:
+    async with session.begin():
+        photo = await prepare_photo_upload(session, context, job_id, payload)
+    settings = get_settings()
+    token = await _photo_storage(request).create_signed_upload(photo.storage_path)
+    return JobPhotoUploadGrant(
+        photo=JobPhotoView(
+            id=photo.id,
+            category=photo.category,
+            caption=photo.caption,
+            status=photo.status,
+            created_by_staff_id=photo.created_by_staff_id,
+            created_by_staff_name=context.display_name,
+            created_at=photo.created_at,
+        ),
+        bucket=settings.job_photo_bucket,
+        path=photo.storage_path,
+        upload_token=token,
+        max_bytes=settings.job_photo_max_bytes,
+    )
+
+
+@router.post("/jobs/{job_id}/quality/photos/{photo_id}/complete", status_code=204)
+async def job_quality_photo_complete(
+    job_id: uuid.UUID,
+    photo_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    context: StaffDep,
+) -> None:
+    photo = await load_pending_photo(session, context, job_id, photo_id)
+    photo_path = photo.storage_path
+    await session.rollback()
+    storage = _photo_storage(request)
+    object_info = await storage.object_info(photo_path)
+    async with session.begin():
+        await confirm_photo(
+            session,
+            context,
+            job_id,
+            photo_id,
+            object_info=object_info,
+            max_bytes=get_settings().job_photo_max_bytes,
+        )
+        await bump_sync_revisions(session, context.business_id, "jobs")
+
+
+@router.post("/jobs/{job_id}/quality/complaints", status_code=201)
+async def job_quality_complaint(
+    job_id: uuid.UUID,
+    payload: JobComplaintCreate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> None:
+    async with session.begin():
+        await create_complaint(session, context, job_id, payload)
+        await bump_sync_revisions(session, context.business_id, "jobs")
+
+
+@router.post("/jobs/{job_id}/quality/complaints/{complaint_id}/review", status_code=204)
+async def job_quality_complaint_review(
+    job_id: uuid.UUID,
+    complaint_id: uuid.UUID,
+    payload: JobComplaintReview,
+    session: SessionDep,
+    context: ManagerContext,
+) -> None:
+    async with session.begin():
+        await review_complaint(session, context, job_id, complaint_id, payload)
+        domains = (
+            ("jobs", "schedule", "finance") if payload.decision == "approve_rewash" else ("jobs",)
+        )
+        await bump_sync_revisions(session, context.business_id, *domains)
+
+
 @router.post("/jobs/{job_id}/start-trip", response_model=StaffJob)
 async def job_start_trip(
     job_id: uuid.UUID,
@@ -489,9 +690,7 @@ async def job_start(
     context: Annotated[StaffContext, Depends(staff_context)],
 ) -> StaffJob:
     async with session.begin():
-        result = await transition_job(
-            session, context, job_id, payload, JobStatus.IN_PROGRESS
-        )
+        result = await transition_job(session, context, job_id, payload, JobStatus.IN_PROGRESS)
         await bump_sync_revisions(session, context.business_id, "jobs")
         return result
 

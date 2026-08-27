@@ -171,6 +171,7 @@ class Service(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     estimated_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=120)
     vehicle_applicability: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    checklist_template: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     __table_args__ = (
@@ -518,6 +519,113 @@ class JobEvent(UUIDPrimaryKeyMixin, Base):
     __table_args__ = (
         UniqueConstraint("job_id", "client_event_id"),
         Index("ix_job_events_job_timestamp", "job_id", "server_timestamp"),
+    )
+
+
+class JobInspection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "job_inspections"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    condition_notes: Mapped[str | None] = mapped_column(Text)
+    damage_category: Mapped[str | None] = mapped_column(String(40))
+    damage_notes: Mapped[str | None] = mapped_column(Text)
+    completed_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    completed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    __table_args__ = (Index("ix_job_inspections_business_job", "business_id", "job_id"),)
+
+
+class JobChecklistItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "job_checklist_items"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    booking_service_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("booking_services.id", ondelete="SET NULL")
+    )
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    is_required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    __table_args__ = (
+        UniqueConstraint("job_id", "position", name="uq_job_checklist_position"),
+        Index("ix_job_checklist_business_job", "business_id", "job_id"),
+    )
+
+
+class JobPhoto(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "job_photos"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    category: Mapped[str] = mapped_column(String(20), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
+    content_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    caption: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    created_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    client_request_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('before','after','damage','issue')", name="job_photo_category"
+        ),
+        CheckConstraint("status IN ('pending','ready')", name="job_photo_status"),
+        UniqueConstraint("business_id", "client_request_id", name="uq_job_photo_business_request"),
+        Index("ix_job_photos_business_job_status", "business_id", "job_id", "status"),
+    )
+
+
+class JobQualityIssue(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "job_quality_issues"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    category: Mapped[str] = mapped_column(String(60), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    photo_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("job_photos.id", ondelete="SET NULL")
+    )
+    created_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    __table_args__ = (Index("ix_job_quality_issues_business_job", "business_id", "job_id"),)
+
+
+class JobComplaint(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "job_complaints"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    original_job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id"), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="open")
+    review_note: Mapped[str | None] = mapped_column(Text)
+    created_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    reviewed_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    correction_job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("jobs.id"), unique=True)
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open','under_review','resolved','rejected','rewash_approved')",
+            name="job_complaint_status",
+        ),
+        Index("ix_job_complaints_business_job", "business_id", "original_job_id"),
     )
 
 
