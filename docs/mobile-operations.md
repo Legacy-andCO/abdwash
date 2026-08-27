@@ -14,7 +14,7 @@ Never put service-role, database, Resend, dispatch, payment, or Google Routes se
 
 Set `GOOGLE_ROUTES_API_KEY` only on the API deployment. Enable Google Routes API, restrict the key to that API and the backend deployment's appropriate application/IP controls. Start-trip still enters `en_route` if routing is unavailable.
 
-Apply Alembic through revision `a41f3b7820d6` before deploying the hardened V2 API. This adds the bounded reporting/filtering indexes for jobs, team membership, attendance, booking services, and paid payment-method reporting. All operational tables remain backend-owned with the existing RLS posture.
+Apply Alembic through revision `7d3f2a9c8e41` before deploying this operations release. It retains the bounded V2 reporting/filtering indexes and quality records, then adds the customer sync revision, loyalty ledger/rewards, reward price snapshots, and explicit cash tender/change fields. All operational/customer tables remain backend-owned with RLS enabled and no direct mobile policies.
 
 ## Operations V2
 
@@ -51,10 +51,23 @@ Use JDK 17 (Android Studio's bundled JBR is suitable). Verify Login, Add/Edit St
 - Teams/staff: 3 minutes.
 - Profile and shift definitions: 5 minutes.
 - Reports: 2 minutes.
+- Manager customer list/detail and loyalty: 1 minute, persisted for two days in the authenticated business/staff/role scope.
 
 Assignments, lifecycle actions, clock events, shifts, leave and rescheduling update the returned entity and invalidate only related keys. App foreground uses React Query focus handling; pull-to-refresh calls the same query observers. The app has no offline mutation queue.
 
+Completed unpaid Job Detail uses a dedicated cash tender modal. The mobile app calculates display change in integer minor units and submits tender/change with one retained client event ID; FastAPI independently validates the figures, records only the amount due as collected revenue, and returns the authoritative receipt/job.
+
+Managers/admins open Customers from Today. Search is server-side and paginated across normalized name, phone, email, and active vehicle plate within the authenticated tenant. Customer detail uses bounded bulk reads for saved data and booking/job/complaint history. Profile, address, vehicle, and loyalty writes invalidate only scoped customer query families; the `customers` sync revision reconciles changes from job completion, payment, customer web edits, and other devices.
+
 The V2 primary tabs are `Today`, `Jobs`, and `Profile` for employees and add `Team` and `Reports` for managers/admins. Staff, shifts, attendance, leave approvals, and cancellation review are nested workflows rather than extra tabs.
+
+## Job quality controls
+
+Job Detail loads one scoped quality record for jobs at `arrived`, `in_progress`, or `completed`. Workers can record a lightweight inspection after arrival; create compressed before, after, damage, and issue evidence; complete a fast-tap service checklist; and attach an optional ready photo to an issue. The backend blocks `in_progress → completed` only when a snapshotted required checklist item remains incomplete. Old completed jobs with no snapshot continue to load and remain valid.
+
+Camera and media-library permissions are requested only when the worker chooses the corresponding action. Images are resized to a maximum width of 1600 pixels and encoded as JPEG before upload. A preview can be removed before upload; a failed upload retains the preview and its client request ID, so retry reuses the same pending metadata/object path. Quality writes are disabled when the device is known offline, while previously persisted quality reads remain available.
+
+Managers/admins can review inspections, evidence, checklist attribution, issues, and complaints from the same authorized Job Detail. Complaint outcomes are under review, resolved, rejected, or a scheduled complimentary rewash. A rewash consumes a normal scheduling hold, creates a linked zero-value booking/job, preserves the original completed job, and resolves the complaint when the correction job completes.
 
 ## Notification contract
 
@@ -72,4 +85,4 @@ The report uses bounded SQL aggregation. History/job lists use offset/limit pagi
 
 ## Deferred domains
 
-Inventory, van stock, service photos/checklists, subscriptions, loyalty, corporate credit, expenses, commissions, complaints/rewash, WhatsApp, card/NFC/Tap-to-Pay, background/live GPS, AI assistance, multi-branch management, and a durable offline mutation replay queue remain out of scope.
+Inventory, van stock, subscriptions, corporate credit, expenses/profitability, commissions, WhatsApp, card/NFC/Tap-to-Pay, background/live GPS, AI assistance, multi-branch management, historical loyalty backfill, and a durable offline mutation replay queue remain out of scope.

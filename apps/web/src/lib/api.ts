@@ -17,7 +17,9 @@ import type {
 import { normalizePhone } from "./phone";
 import { getSupabaseAccessToken } from "./supabase-client";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+).replace(/\/$/, "");
 
 type ApiErrorBody = {
   code?: string;
@@ -39,9 +41,11 @@ export class ApiError extends Error {
   }
 
   get isSchedulingConflict() {
-    return ["SLOT_UNAVAILABLE", "CONSECUTIVE_SLOT_UNAVAILABLE", "HOLD_EXPIRED"].includes(
-      this.code,
-    );
+    return [
+      "SLOT_UNAVAILABLE",
+      "CONSECUTIVE_SLOT_UNAVAILABLE",
+      "HOLD_EXPIRED",
+    ].includes(this.code);
   }
 }
 
@@ -84,15 +88,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 let cataloguePromise: Promise<Catalogue> | undefined;
 
 export function getCatalogue(): Promise<Catalogue> {
-  cataloguePromise ??= request<Catalogue>("/api/v1/public/catalogue").catch((error) => {
-    cataloguePromise = undefined;
-    throw error;
-  });
+  cataloguePromise ??= request<Catalogue>("/api/v1/public/catalogue").catch(
+    (error) => {
+      cataloguePromise = undefined;
+      throw error;
+    },
+  );
   return cataloguePromise;
 }
 
-export function getAvailability(date: string, vehicleCount: number): Promise<Availability> {
-  const params = new URLSearchParams({ date, vehicle_count: String(vehicleCount) });
+export function getAvailability(
+  date: string,
+  vehicleCount: number,
+): Promise<Availability> {
+  const params = new URLSearchParams({
+    date,
+    vehicle_count: String(vehicleCount),
+  });
   return request<Availability>(`/api/v1/public/availability?${params}`);
 }
 
@@ -102,7 +114,10 @@ export function createHold(input: {
   vehicle_count: number;
   resource_id?: string;
 }): Promise<Hold> {
-  return request<Hold>("/api/v1/public/holds", { method: "POST", body: JSON.stringify(input) });
+  return request<Hold>("/api/v1/public/holds", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export function createBooking(input: {
@@ -119,7 +134,9 @@ export function createBooking(input: {
       first_name: input.contact.first_name,
       surname: input.contact.surname,
       email: input.contact.email,
-      phone: normalizePhone(input.contact.phone, input.contact.phone_country) ?? input.contact.phone,
+      phone:
+        normalizePhone(input.contact.phone, input.contact.phone_country) ??
+        input.contact.phone,
     },
     location: {
       written_address: input.location.written_address,
@@ -148,7 +165,11 @@ export function getManagedBooking(token: string): Promise<ManagedBooking> {
   });
 }
 
-export function requestCancellation(token: string, reason: string, idempotencyKey: string) {
+export function requestCancellation(
+  token: string,
+  reason: string,
+  idempotencyKey: string,
+) {
   return request<{ id: string; status: string; booking: ManagedBooking }>(
     "/api/v1/public/bookings/manage/cancellation-requests",
     {
@@ -170,27 +191,70 @@ export function getCustomerProfile(): Promise<CustomerProfileBootstrap> {
   return request<CustomerProfileBootstrap>("/api/v1/customer/profile");
 }
 
-export function updateCustomerProfile(input: { first_name: string; surname: string; phone: string }) {
-  return request<CustomerProfileBootstrap>("/api/v1/customer/profile", { method: "PATCH", body: JSON.stringify(input) });
+export function updateCustomerProfile(input: {
+  first_name: string;
+  surname: string;
+  phone: string;
+}) {
+  return request<CustomerProfileBootstrap>("/api/v1/customer/profile", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
-export type SavedAddressInput = Omit<CustomerSavedAddress, "id" | "location_instructions"> & { instructions: string };
-export const createCustomerAddress = (input: SavedAddressInput) => request<CustomerSavedAddress>("/api/v1/customer/addresses", { method: "POST", body: JSON.stringify(input) });
-export const updateCustomerAddress = (id: string, input: SavedAddressInput) => request<CustomerSavedAddress>(`/api/v1/customer/addresses/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) });
-export const deleteCustomerAddress = (id: string) => request<void>(`/api/v1/customer/addresses/${encodeURIComponent(id)}`, { method: "DELETE" });
+export type SavedAddressInput = Omit<
+  CustomerSavedAddress,
+  "id" | "location_instructions"
+> & { instructions: string };
+export const createCustomerAddress = (input: SavedAddressInput) =>
+  request<CustomerSavedAddress>("/api/v1/customer/addresses", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+export const updateCustomerAddress = (id: string, input: SavedAddressInput) =>
+  request<CustomerSavedAddress>(
+    `/api/v1/customer/addresses/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+export const deleteCustomerAddress = (id: string) =>
+  request<void>(`/api/v1/customer/addresses/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 
-export type SavedVehicleInput = Omit<CustomerSavedVehicle, "id">;
-export const createCustomerVehicle = (input: SavedVehicleInput) => request<CustomerSavedVehicle>("/api/v1/customer/vehicles", { method: "POST", body: JSON.stringify(input) });
-export const updateCustomerVehicle = (id: string, input: SavedVehicleInput) => request<CustomerSavedVehicle>(`/api/v1/customer/vehicles/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) });
-export const deleteCustomerVehicle = (id: string) => request<void>(`/api/v1/customer/vehicles/${encodeURIComponent(id)}`, { method: "DELETE" });
+export type SavedVehicleInput = Omit<
+  CustomerSavedVehicle,
+  "id" | "plate_number"
+> & {
+  plate_number: string;
+};
+export const createCustomerVehicle = (input: SavedVehicleInput) =>
+  request<CustomerSavedVehicle>("/api/v1/customer/vehicles", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+export const updateCustomerVehicle = (id: string, input: SavedVehicleInput) =>
+  request<CustomerSavedVehicle>(
+    `/api/v1/customer/vehicles/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+export const deleteCustomerVehicle = (id: string) =>
+  request<void>(`/api/v1/customer/vehicles/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 
 export async function getCustomerBookings(): Promise<CustomerBookingSummary[]> {
-  const response = await request<{ bookings: CustomerBookingSummary[] }>("/api/v1/customer/bookings");
+  const response = await request<{ bookings: CustomerBookingSummary[] }>(
+    "/api/v1/customer/bookings",
+  );
   return response.bookings;
 }
 
-export function getCustomerBooking(bookingId: string): Promise<CustomerBookingDetail> {
-  return request<CustomerBookingDetail>(`/api/v1/customer/bookings/${encodeURIComponent(bookingId)}`);
+export function getCustomerBooking(
+  bookingId: string,
+): Promise<CustomerBookingDetail> {
+  return request<CustomerBookingDetail>(
+    `/api/v1/customer/bookings/${encodeURIComponent(bookingId)}`,
+  );
 }
 
 export async function requestCustomerCancellation(

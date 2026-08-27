@@ -27,7 +27,10 @@ export type Catalogue = {
   services: Service[];
 };
 
-export type AvailabilityResource = { resource_id: string; resource_name: string };
+export type AvailabilityResource = {
+  resource_id: string;
+  resource_name: string;
+};
 
 export type AvailabilitySlot = {
   time: string;
@@ -82,16 +85,74 @@ export type Vehicle = {
   plate_number: string;
   notes: string;
   service_id: string;
+  loyalty_reward_id?: string;
 };
 
-export type CustomerProfile = { id: string; first_name: string; surname: string; email: string; phone: string };
-export type CustomerSavedAddress = { id: string; label: string; written_address: string; location_url: string; latitude: number | null; longitude: number | null; location_instructions: string | null; is_default: boolean };
-export type CustomerSavedVehicle = { id: string; make: string; model: string; year: number | null; vehicle_type: string; colour: string | null; plate_number: string | null; notes: string | null };
+export type LoyaltyRewardService = { id: string; name: string };
+export type LoyaltySummary = {
+  enabled: boolean;
+  configured: boolean;
+  required_washes: number;
+  progress_washes: number;
+  washes_remaining: number;
+  lifetime_qualifying_washes: number;
+  available_rewards: number;
+  reserved_rewards: number;
+  redeemed_rewards: number;
+  reward_service: LoyaltyRewardService | null;
+  rewards: {
+    id: string;
+    service: LoyaltyRewardService;
+    list_price_minor: number;
+    status: "available" | "reserved" | "redeemed";
+    created_at: string;
+    reserved_at: string | null;
+    redeemed_at: string | null;
+  }[];
+  history: {
+    id: string;
+    event_type: string;
+    quantity: number;
+    reason: string | null;
+    booking_reference: string | null;
+    vehicle_label: string | null;
+    created_at: string;
+  }[];
+};
+
+export type CustomerProfile = {
+  id: string;
+  first_name: string;
+  surname: string;
+  email: string;
+  phone: string;
+};
+export type CustomerSavedAddress = {
+  id: string;
+  label: string;
+  written_address: string;
+  location_url: string;
+  latitude: number | null;
+  longitude: number | null;
+  location_instructions: string | null;
+  is_default: boolean;
+};
+export type CustomerSavedVehicle = {
+  id: string;
+  make: string;
+  model: string;
+  year: number | null;
+  vehicle_type: string;
+  colour: string | null;
+  plate_number: string | null;
+  notes: string | null;
+};
 export type CustomerProfileBootstrap = {
   authenticated_email: string;
   profile: CustomerProfile | null;
   addresses: CustomerSavedAddress[];
   vehicles: CustomerSavedVehicle[];
+  loyalty?: LoyaltySummary | null;
 };
 
 export type BookingVehicleSummary = {
@@ -103,6 +164,10 @@ export type BookingVehicleSummary = {
   plate_number: string | null;
   service_name: string;
   line_total_minor: number;
+  list_price_minor?: number | null;
+  discount_minor?: number;
+  discount_type?: string | null;
+  loyalty_reward_id?: string | null;
 };
 
 export type Booking = {
@@ -126,7 +191,10 @@ export type Booking = {
   management_token: string;
 };
 
-export type ManagedBooking = Omit<Booking, "id" | "vehicle_count" | "resource_id" | "management_token"> & {
+export type ManagedBooking = Omit<
+  Booking,
+  "id" | "vehicle_count" | "resource_id" | "management_token"
+> & {
   cancellation_eligible: boolean;
   cancellation_cutoff_at: string;
   cancellation_status: string | null;

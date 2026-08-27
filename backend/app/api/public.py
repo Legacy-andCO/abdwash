@@ -82,7 +82,7 @@ async def booking(
         if response.business_id is None:
             raise RuntimeError("Created booking is missing its business")
         await bump_sync_revisions(
-            session, response.business_id, "jobs", "schedule", "finance"
+            session, response.business_id, "jobs", "schedule", "finance", "customers"
         )
         safe_response = response.model_dump(mode="json")
         safe_response.pop("management_token")
@@ -139,7 +139,7 @@ async def cancellation_request(
         if existing is not None:
             return CancellationRequestResponse.model_validate(existing.response_json)
         response = await request_booking_cancellation(session, booking_record, request)
-        await bump_sync_revisions(session, booking_record.business_id, "jobs")
+        await bump_sync_revisions(session, booking_record.business_id, "jobs", "customers")
         store_idempotent_response(
             session,
             scope=f"booking:{booking_record.id}",

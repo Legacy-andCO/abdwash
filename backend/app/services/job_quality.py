@@ -804,6 +804,8 @@ async def _create_correction_job(
                 service_id=old_service.service_id,
                 service_name=f"Correction · {old_service.service_name}",
                 unit_price_minor=0,
+                list_price_minor=0,
+                discount_minor=0,
                 quantity=1,
                 line_total_minor=0,
             )

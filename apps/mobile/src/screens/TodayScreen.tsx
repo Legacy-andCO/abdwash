@@ -32,7 +32,13 @@ import { colors, spacing } from "../theme";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function TodayScreen({ context }: { context: StaffContext }) {
+export function TodayScreen({
+  context,
+  onOpenCustomers,
+}: {
+  context: StaffContext;
+  onOpenCustomers?: () => void;
+}) {
   const management = capabilities(context.role).canViewAllJobs;
   const dashboard = useDashboardQuery(context, today(), management);
   const jobs = useJobsQuery(context, {
@@ -132,6 +138,7 @@ export function TodayScreen({ context }: { context: StaffContext }) {
         <ManagerDashboard
           value={dashboard.data ?? null}
           attendance={attendance.data ?? []}
+          onOpenCustomers={onOpenCustomers}
         />
       ) : (
         <>
@@ -249,13 +256,25 @@ export function TodayScreen({ context }: { context: StaffContext }) {
 function ManagerDashboard({
   value,
   attendance,
+  onOpenCustomers,
 }: {
   value: Dashboard | null;
   attendance: AttendanceOverview[];
+  onOpenCustomers?: () => void;
 }) {
   if (!value) return <EmptyState title="Dashboard unavailable" />;
   return (
     <>
+      {onOpenCustomers ? (
+        <Card>
+          <Text style={styles.kicker}>CUSTOMER MANAGEMENT</Text>
+          <Text style={styles.cardTitle}>Customers</Text>
+          <Text style={uiStyles.muted}>
+            Search profiles, saved details, booking history and loyalty.
+          </Text>
+          <AppButton title="Open customers" onPress={onOpenCustomers} />
+        </Card>
+      ) : null}
       <View style={styles.metrics}>
         {value.metrics.slice(0, 4).map((metric) => (
           <MetricCard

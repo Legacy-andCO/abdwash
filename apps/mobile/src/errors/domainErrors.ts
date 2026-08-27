@@ -40,6 +40,18 @@ const messages: Record<string, string> = {
     "The staff login could not be updated. Please try again.",
   ACTIVE_RESCHEDULE_CONFIRMATION_REQUIRED:
     "Confirm that the active job should be reset before rescheduling.",
+  SERVICE_CHECKLIST_INCOMPLETE:
+    "Complete all required service checklist items before finishing the job.",
+  JOB_PHOTO_STORAGE_UNAVAILABLE:
+    "Photo storage is temporarily unavailable. Keep the preview and try again.",
+  JOB_PHOTO_UPLOAD_GRANT_FAILED:
+    "The photo upload could not be authorized. Keep the preview and try again.",
+  JOB_PHOTO_UPLOAD_NOT_FOUND:
+    "The uploaded photo could not be confirmed. Keep the preview and try again.",
+  INVALID_JOB_PHOTO:
+    "That photo could not be confirmed. Choose it again and retry.",
+  CHECKLIST_NOT_AVAILABLE:
+    "Start the wash before updating its service checklist.",
 };
 
 export function domainErrorMessage(error: unknown, fallback: string): string {

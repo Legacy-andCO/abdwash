@@ -1,9 +1,14 @@
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   assignJob,
+  addJobQualityIssue,
   assignShift,
   clockAttendance,
   createHold,
+  createManagerCustomerAddress,
+  createManagerCustomerVehicle,
+  createJobComplaint,
   createStaff,
   createShift,
   createTeam,
@@ -13,30 +18,49 @@ import {
   getCancellations,
   getDashboard,
   getJob,
+  getJobQuality,
   getJobs,
   getLeave,
+  getLoyaltySettings,
+  getManagerCustomer,
+  getManagerCustomers,
   getProfile,
   getReport,
   getShiftAssignments,
   getShifts,
+  getServiceOptions,
   getStaff,
   getTeam,
   getTeams,
   mutateJob,
+  recordCashPayment,
+  adjustManagerCustomerLoyalty,
+  deleteManagerCustomerAddress,
+  deleteManagerCustomerVehicle,
+  reviewJobComplaint,
   rescheduleJob,
   reviewCancellation,
   reviewLeave,
   requestLeave,
+  saveJobChecklist,
+  saveJobInspection,
   updateStaff,
   updateProfile,
+  updateLoyaltySettings,
+  updateManagerCustomer,
+  updateManagerCustomerAddress,
+  updateManagerCustomerVehicle,
   updateTeam,
   updateTeamMembers,
+  uploadJobPhoto,
   type Attendance,
   type Cancellation,
   type Dashboard,
   type Job,
+  type JobPhoto,
   type JobFilters,
   type Leave,
+  type ManagerCustomerDetail,
   type Profile,
   type ShiftAssignment,
   type StaffContext,
@@ -52,6 +76,7 @@ import {
   retentionTimes,
 } from "../cache/policy";
 import { reschedulePayload } from "../operations";
+import { ClientEventIdStore } from "../idempotency/clientEventId";
 
 const day = () => new Date().toISOString().slice(0, 10);
 
@@ -62,6 +87,155 @@ export function useJobsQuery(context: StaffContext, filters: JobFilters) {
     queryFn: ({ signal }) => getJobs(filters, signal),
     staleTime: cacheTimes.jobs,
     meta: persistedQueryMeta(retentionTimes.jobs),
+  });
+}
+
+export function useManagerCustomersQuery(
+  context: StaffContext,
+  search: string,
+  offset: number,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.customers(scope, search, offset),
+    queryFn: ({ signal }) => getManagerCustomers(search, offset, signal),
+    staleTime: cacheTimes.customers,
+    meta: persistedQueryMeta(retentionTimes.customers),
+  });
+}
+
+export function useManagerCustomerQuery(
+  context: StaffContext,
+  customerId: string,
+  historyOffset = 0,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.customer(scope, customerId, historyOffset),
+    queryFn: ({ signal }) =>
+      getManagerCustomer(customerId, historyOffset, signal),
+    staleTime: cacheTimes.customers,
+    meta: persistedQueryMeta(retentionTimes.customers),
+  });
+}
+
+function useCustomerInvalidation(context: StaffContext, customerId: string) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return (detail?: ManagerCustomerDetail) => {
+    if (detail)
+      client.setQueryData(queryKeys.customer(scope, customerId), detail);
+    void client.invalidateQueries({ queryKey: ["customers", scope] });
+    void client.invalidateQueries({
+      queryKey: queryKeys.customer(scope, customerId),
+    });
+  };
+}
+
+export function useUpdateManagerCustomerMutation(
+  context: StaffContext,
+  customerId: string,
+) {
+  const invalidate = useCustomerInvalidation(context, customerId);
+  return useMutation({
+    mutationFn: (body: object) => updateManagerCustomer(customerId, body),
+    onSuccess: invalidate,
+  });
+}
+
+export function useManagerAddressMutation(
+  context: StaffContext,
+  customerId: string,
+) {
+  const invalidate = useCustomerInvalidation(context, customerId);
+  return useMutation({
+    mutationFn: async ({
+      action,
+      id,
+      body,
+    }: {
+      action: "create" | "update" | "delete";
+      id?: string;
+      body?: object;
+    }) => {
+      if (action === "create")
+        await createManagerCustomerAddress(customerId, body ?? {});
+      else if (action === "update" && id)
+        await updateManagerCustomerAddress(customerId, id, body ?? {});
+      else if (action === "delete" && id)
+        await deleteManagerCustomerAddress(customerId, id);
+      else throw new Error("Invalid address operation");
+    },
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useManagerVehicleMutation(
+  context: StaffContext,
+  customerId: string,
+) {
+  const invalidate = useCustomerInvalidation(context, customerId);
+  return useMutation({
+    mutationFn: async ({
+      action,
+      id,
+      body,
+    }: {
+      action: "create" | "update" | "delete";
+      id?: string;
+      body?: object;
+    }) => {
+      if (action === "create")
+        await createManagerCustomerVehicle(customerId, body ?? {});
+      else if (action === "update" && id)
+        await updateManagerCustomerVehicle(customerId, id, body ?? {});
+      else if (action === "delete" && id)
+        await deleteManagerCustomerVehicle(customerId, id);
+      else throw new Error("Invalid vehicle operation");
+    },
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useLoyaltyAdjustmentMutation(
+  context: StaffContext,
+  customerId: string,
+) {
+  const invalidate = useCustomerInvalidation(context, customerId);
+  return useMutation({
+    mutationFn: (body: object) =>
+      adjustManagerCustomerLoyalty(customerId, body),
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useLoyaltySettingsQuery(context: StaffContext) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.loyaltySettings(scope),
+    queryFn: getLoyaltySettings,
+    staleTime: cacheTimes.customers,
+  });
+}
+
+export function useServiceOptionsQuery() {
+  return useQuery({
+    queryKey: queryKeys.serviceOptions,
+    queryFn: getServiceOptions,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useUpdateLoyaltySettingsMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: updateLoyaltySettings,
+    onSuccess: (settings) => {
+      client.setQueryData(queryKeys.loyaltySettings(scope), settings);
+      void client.invalidateQueries({ queryKey: ["customer", scope] });
+      void client.invalidateQueries({ queryKey: ["customers", scope] });
+    },
   });
 }
 
@@ -77,6 +251,141 @@ export function useJobQuery(
     placeholderData: placeholder,
     staleTime: cacheTimes.activeJob,
     meta: persistedQueryMeta(retentionTimes.job),
+  });
+}
+
+export function useJobQualityQuery(
+  context: StaffContext,
+  jobId: string,
+  enabled = true,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.quality(scope, jobId),
+    queryFn: ({ signal }) => getJobQuality(jobId, signal),
+    staleTime: cacheTimes.quality,
+    meta: persistedQueryMeta(retentionTimes.quality),
+    enabled,
+  });
+}
+
+function useQualityInvalidation(context: StaffContext, jobId: string) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return () => {
+    void client.invalidateQueries({
+      queryKey: queryKeys.quality(scope, jobId),
+    });
+    void client.invalidateQueries({ queryKey: queryKeys.job(scope, jobId) });
+  };
+}
+
+export function useInspectionMutation(context: StaffContext, jobId: string) {
+  const invalidate = useQualityInvalidation(context, jobId);
+  return useMutation({
+    mutationFn: (body: object) => saveJobInspection(jobId, body),
+    onSuccess: invalidate,
+  });
+}
+
+export function useChecklistMutation(context: StaffContext, jobId: string) {
+  const invalidate = useQualityInvalidation(context, jobId);
+  const eventIds = useRef(new ClientEventIdStore()).current;
+  return useMutation({
+    mutationFn: async (items: { id: string; completed: boolean }[]) => {
+      const key = `${jobId}:${JSON.stringify(items)}`;
+      try {
+        const result = await saveJobChecklist(jobId, {
+          items,
+          client_event_id: eventIds.get(key),
+        });
+        eventIds.succeeded(key);
+        return result;
+      } catch (error) {
+        eventIds.failed(key, error);
+        throw error;
+      }
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useQualityIssueMutation(context: StaffContext, jobId: string) {
+  const invalidate = useQualityInvalidation(context, jobId);
+  return useMutation({
+    mutationFn: (body: object) => addJobQualityIssue(jobId, body),
+    onSuccess: invalidate,
+  });
+}
+
+export function usePhotoUploadMutation(context: StaffContext, jobId: string) {
+  const invalidate = useQualityInvalidation(context, jobId);
+  return useMutation({
+    mutationFn: ({
+      uri,
+      category,
+      caption,
+      clientRequestId,
+    }: {
+      uri: string;
+      category: JobPhoto["category"];
+      caption?: string;
+      clientRequestId: string;
+    }) => uploadJobPhoto(jobId, uri, category, clientRequestId, caption),
+    onSuccess: invalidate,
+  });
+}
+
+export function useComplaintMutation(context: StaffContext, jobId: string) {
+  const invalidate = useQualityInvalidation(context, jobId);
+  return useMutation({
+    mutationFn: (description: string) => createJobComplaint(jobId, description),
+    onSuccess: invalidate,
+  });
+}
+
+export function useComplaintReviewMutation(context: StaffContext, job: Job) {
+  const invalidate = useQualityInvalidation(context, job.id);
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: async ({
+      complaintId,
+      decision,
+      reviewNote,
+      appointment,
+    }: {
+      complaintId: string;
+      decision: "under_review" | "resolved" | "rejected" | "approve_rewash";
+      reviewNote?: string;
+      appointment?: { day: string; startTime: string; resourceId: string };
+    }) => {
+      let holdToken: string | undefined;
+      if (decision === "approve_rewash") {
+        if (!appointment)
+          throw new Error("A correction appointment is required.");
+        const hold = await createHold(
+          appointment.day,
+          appointment.startTime,
+          Math.max(1, job.vehicles.length),
+          appointment.resourceId,
+        );
+        holdToken = hold.hold_token;
+      }
+      return reviewJobComplaint(job.id, complaintId, {
+        decision,
+        review_note: reviewNote?.trim() || null,
+        ...(holdToken ? { hold_token: holdToken } : {}),
+      });
+    },
+    onSuccess: (_result, variables) => {
+      invalidate();
+      if (variables.decision !== "approve_rewash") return;
+      void client.invalidateQueries({ queryKey: ["jobs", scope] });
+      void client.invalidateQueries({ queryKey: ["availability", scope] });
+      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+      void client.invalidateQueries({ queryKey: ["reports", scope] });
+    },
   });
 }
 
@@ -165,7 +474,9 @@ export function useUpdateTeamMembersMutation(context: StaffContext) {
       const memberIds = new Set(team.members.map((member) => member.id));
       client.setQueryData<Profile[]>(queryKeys.staff(scope), (current) =>
         current?.map((profile) => {
-          const withoutTeam = profile.teams.filter((item) => item.id !== team.id);
+          const withoutTeam = profile.teams.filter(
+            (item) => item.id !== team.id,
+          );
           return {
             ...profile,
             teams: memberIds.has(profile.id)
@@ -226,9 +537,12 @@ export function useUpdateStaffMutation(context: StaffContext) {
     mutationFn: ({ staffId, body }: { staffId: string; body: object }) =>
       updateStaff(staffId, body),
     onSuccess: (updated) => {
-      client.setQueryData<Profile[]>(key, (current) =>
-        current?.map((item) => (item.id === updated.id ? updated : item)) ??
-        [updated],
+      client.setQueryData<Profile[]>(
+        key,
+        (current) =>
+          current?.map((item) => (item.id === updated.id ? updated : item)) ?? [
+            updated,
+          ],
       );
     },
   });
@@ -252,7 +566,11 @@ export function useAttendanceHistoryQuery(
   end: string,
 ) {
   return useQuery({
-    queryKey: queryKeys.attendanceHistory(operationalScope(context), start, end),
+    queryKey: queryKeys.attendanceHistory(
+      operationalScope(context),
+      start,
+      end,
+    ),
     queryFn: () => getAttendance(start, end),
     staleTime: cacheTimes.attendance,
     meta: persistedQueryMeta(retentionTimes.attendance),
@@ -373,14 +691,28 @@ export function useJobActionMutation(context: StaffContext) {
       body,
     }: {
       jobId: string;
-      action: "start-trip" | "arrive" | "start" | "complete" | "cash-payment";
+      action: "start-trip" | "arrive" | "start" | "complete";
       body: object;
     }) => mutateJob(jobId, action, body),
     onSuccess: (job, variables) => {
       updateJobCaches(client, scope, job);
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
-      if (variables.action === "complete" || variables.action === "cash-payment")
+      if (variables.action === "complete")
         void client.invalidateQueries({ queryKey: ["reports", scope] });
+    },
+  });
+}
+
+export function useCashPaymentMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: ({ jobId, body }: { jobId: string; body: object }) =>
+      recordCashPayment(jobId, body),
+    onSuccess: (receipt) => {
+      updateJobCaches(client, scope, receipt.job);
+      void client.invalidateQueries({ queryKey: ["reports", scope] });
+      void client.invalidateQueries({ queryKey: ["customers", scope] });
     },
   });
 }
@@ -534,9 +866,12 @@ export function useReviewLeaveMutation(context: StaffContext) {
         queryKeys.leave(scope, "pending"),
         (current) => current?.filter((item) => item.id !== updated.id) ?? [],
       );
-      client.setQueryData<Leave[]>(queryKeys.leave(scope), (current) =>
-        current?.map((item) => (item.id === updated.id ? updated : item)) ??
-        [updated],
+      client.setQueryData<Leave[]>(
+        queryKeys.leave(scope),
+        (current) =>
+          current?.map((item) => (item.id === updated.id ? updated : item)) ?? [
+            updated,
+          ],
       );
       void client.invalidateQueries({ queryKey: ["attendance", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
@@ -547,14 +882,29 @@ export function useReviewLeaveMutation(context: StaffContext) {
 export function useReviewCancellationMutation(context: StaffContext) {
   const client = useQueryClient();
   const scope = operationalScope(context);
+  const eventIds = useRef(new ClientEventIdStore()).current;
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       id,
       decision,
     }: {
       id: string;
       decision: "approved" | "rejected";
-    }) => reviewCancellation(id, decision),
+    }) => {
+      const key = `${id}:${decision}`;
+      try {
+        const result = await reviewCancellation(
+          id,
+          decision,
+          eventIds.get(key),
+        );
+        eventIds.succeeded(key);
+        return result;
+      } catch (error) {
+        eventIds.failed(key, error);
+        throw error;
+      }
+    },
     onSuccess: (updated: Cancellation) => {
       client.setQueryData<Cancellation[]>(
         queryKeys.cancellations(scope),

@@ -35,4 +35,19 @@ describe("mobile API error presentation", () => {
       copy,
     );
   });
+
+  it("explains quality completion and upload failures without hiding the preview", () => {
+    expect(
+      domainErrorMessage(
+        new ApiError("SERVICE_CHECKLIST_INCOMPLETE", 409),
+        "fallback",
+      ),
+    ).toContain("required service checklist");
+    expect(
+      domainErrorMessage(
+        new ApiError("JOB_PHOTO_STORAGE_UNAVAILABLE", 503),
+        "fallback",
+      ),
+    ).toContain("Keep the preview");
+  });
 });

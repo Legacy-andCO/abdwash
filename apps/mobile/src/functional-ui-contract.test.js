@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -31,17 +31,17 @@ describe("recovery UI contracts", () => {
     expect(jobs).toContain('action("arrive")');
     expect(jobs).toContain('action("start")');
     expect(jobs).toContain('action("complete")');
-    expect(jobs).toContain('action("cash-payment")');
+    expect(jobs).toContain("setCashTender(true)");
     expect(jobs).toContain("Confirm arrival");
     expect(jobs).toContain("Complete wash?");
-    expect(jobs).toContain("Confirm cash");
+    expect(jobs).toContain("CashTenderModal");
   });
 
   it("offers Navigate and Close after a successful trip", () => {
     const jobs = source("./screens/JobsScreen.tsx");
     expect(jobs).toContain('"Trip started"');
-    expect(jobs).toContain('{ text: "Navigate"');
-    expect(jobs).toContain('{ text: "Close"');
+    expect(jobs).toContain('text: "Navigate"');
+    expect(jobs).toContain('text: "Close"');
     expect(jobs).toContain("Customer notification queued.");
   });
 
@@ -51,5 +51,50 @@ describe("recovery UI contracts", () => {
     expect(app).toContain("prepareOperationalLogout");
     expect(profile).toContain("prepareOperationalLogout");
     expect(profile).not.toContain("clearOperationalCache");
+  });
+
+  it("uses the shared Expo UUID utility for production mobile mutations", () => {
+    const root = new URL("./", import.meta.url);
+    const files = readdirSync(root, { recursive: true })
+      .map(String)
+      .filter(
+        (path) =>
+          /\.(ts|tsx)$/.test(path) &&
+          !path.includes(".test.") &&
+          !path.endsWith("idempotency\\clientEventId.ts") &&
+          !path.endsWith("idempotency/clientEventId.ts"),
+      );
+    const offenders = files.filter((path) => {
+      const contents = readFileSync(
+        new URL(path.replaceAll("\\", "/"), root),
+        "utf8",
+      );
+      return /crypto\.randomUUID|globalThis\.crypto|Math\.random/.test(
+        contents,
+      );
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it("shows the requested customer-search placeholder without changing its label", () => {
+    const jobs = source("./screens/JobsScreen.tsx");
+    expect(jobs).toContain('placeholder="Search customer"');
+    expect(jobs).toContain('accessibilityLabel="Search customer name"');
+    expect(jobs).toContain("placeholderTextColor={colors.textSecondary}");
+    expect(jobs).toMatch(/searchField:\s*\{[\s\S]*?color: colors\.text/);
+  });
+
+  it("uses an auditable cash tender surface and manager customer destination", () => {
+    const jobs = source("./screens/JobsScreen.tsx");
+    const tender = source("./components/CashTenderModal.tsx");
+    const customers = source("./screens/CustomersScreen.tsx");
+    expect(jobs).toContain("tendered_minor: tenderedMinor");
+    expect(jobs).toContain("change_minor: changeMinor");
+    expect(tender).toContain("CHANGE TO RETURN");
+    expect(tender).toContain("Complete payment");
+    expect(tender).toContain("5_000, 10_000, 20_000, 50_000");
+    expect(customers).toContain("Search name, phone, email or plate");
+    expect(customers).toContain("Adjust loyalty");
+    expect(customers).toContain("onOpenJob(item.job_id!)");
   });
 });

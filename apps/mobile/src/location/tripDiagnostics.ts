@@ -31,3 +31,14 @@ export const reportTripDiagnostic: TripDiagnosticReporter = (
   // Deliberately excludes coordinates, request bodies, tokens and customer data.
   console.info(`[AbdWash Trip] ${phase}`, metadata);
 };
+
+export function reportTripApiPreflightFailure(
+  error: unknown,
+  phase: "client_event_id",
+): void {
+  if (!__DEV__) return;
+  console.error("[AbdWash Trip] trip_api_preflight_failed", {
+    error_type: error instanceof Error ? error.name : typeof error,
+    phase,
+  });
+}

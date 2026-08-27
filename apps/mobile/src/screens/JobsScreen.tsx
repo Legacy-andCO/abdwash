@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Linking,
@@ -23,11 +23,20 @@ import {
 } from "../components/ui";
 import { DatePickerField, toIsoDate } from "../components/pickers";
 import { ElapsedTimer } from "../components/ElapsedTimer";
+import { JobQualityControls } from "../components/JobQualityControls";
+import { CashTenderModal } from "../components/CashTenderModal";
 import { domainErrorMessage } from "../errors/domainErrors";
 import { successHaptic } from "../haptics";
 import { tripLocationFailureMessage } from "../location/startTripLocation";
 import { expoTripLocationSource } from "../location/expoTripLocation";
 import { runStartTripFlow } from "../location/startTripFlow";
+import { reportTripApiPreflightFailure } from "../location/tripDiagnostics";
+import { ClientEventIdStore } from "../idempotency/clientEventId";
+import {
+  JobActionPreflightError,
+  submitJobAction,
+  type JobAction,
+} from "../jobs/jobActions";
 import type {
   AvailabilitySlot,
   Job,
@@ -39,7 +48,9 @@ import type {
 import {
   useAssignJobMutation,
   useAvailabilityQuery,
+  useCashPaymentMutation,
   useJobActionMutation,
+  useJobQualityQuery,
   useJobQuery,
   useJobsQuery,
   useRescheduleMutation,
@@ -63,10 +74,14 @@ export function JobsScreen({
   context,
   navigationState = { view: "today", offset: 0 },
   onNavigationStateChange,
+  initialJobId,
+  onInitialJobClosed,
 }: {
   context: StaffContext;
   navigationState?: JobsNavigationState;
   onNavigationStateChange?: (value: JobsNavigationState) => void;
+  initialJobId?: string | null;
+  onInitialJobClosed?: () => void;
 }) {
   const canManage = capabilities(context.role).canViewAllJobs;
   const views: JobView[] = canManage
@@ -112,6 +127,14 @@ export function JobsScreen({
     view === "all" &&
     (normalizeCustomerSearch(searchText) !== search ||
       (Boolean(search) && query.isFetching));
+  if (initialJobId)
+    return (
+      <JobDetailById
+        context={context}
+        jobId={initialJobId}
+        onBack={onInitialJobClosed ?? (() => undefined)}
+      />
+    );
   if (selected)
     return (
       <JobDetail
@@ -159,7 +182,9 @@ export function JobsScreen({
             accessibilityLabel="Search customer name"
             autoCapitalize="words"
             autoCorrect={false}
-            placeholder="Search customer name"
+            placeholder="Search customer"
+            placeholderTextColor={colors.textSecondary}
+            selectionColor={colors.primary}
             returnKeyType="search"
             style={[uiStyles.field, styles.searchField]}
             value={searchText}
@@ -176,9 +201,7 @@ export function JobsScreen({
           ) : null}
         </View>
       ) : null}
-      {searchPending ? (
-        <Text style={uiStyles.muted}>Searching…</Text>
-      ) : null}
+      {searchPending ? <Text style={uiStyles.muted}>Searching…</Text> : null}
       {query.isError && jobs.length ? (
         <Text style={styles.offline}>
           Offline · last updated{" "}
@@ -251,6 +274,28 @@ export function JobsScreen({
   );
 }
 
+function JobDetailById({
+  context,
+  jobId,
+  onBack,
+}: {
+  context: StaffContext;
+  jobId: string;
+  onBack: () => void;
+}) {
+  const query = useJobQuery(context, jobId);
+  if (query.isPending) return <Skeleton rows={6} />;
+  if (query.isError || !query.data)
+    return (
+      <EmptyState
+        title="Job unavailable"
+        body={domainErrorMessage(query.error, "We couldn't load this job.")}
+        action={<AppButton title="Back" onPress={onBack} />}
+      />
+    );
+  return <JobDetail context={context} initial={query.data} onBack={onBack} />;
+}
+
 function JobCard({ job }: { job: Job }) {
   useEffect(() => {
     if (
@@ -304,17 +349,31 @@ function JobDetail({
   const query = useJobQuery(context, initial.id, initial);
   const job = query.data ?? initial;
   const actionMutation = useJobActionMutation(context);
+  const cashMutation = useCashPaymentMutation(context);
+  const actionEventIds = useRef(new ClientEventIdStore()).current;
+  const qualityEnabled = ["arrived", "in_progress", "completed"].includes(
+    job.status,
+  );
+  const qualityQuery = useJobQualityQuery(context, job.id, qualityEnabled);
   const [assignment, setAssignment] = useState(false);
   const [reschedule, setReschedule] = useState(false);
+  const [cashTender, setCashTender] = useState(false);
   const [tripStage, setTripStage] = useState<
     "idle" | "getting_location" | "starting_trip"
   >("idle");
-  function confirmNoEta(failure: Parameters<typeof tripLocationFailureMessage>[0]) {
+  function confirmNoEta(
+    failure: Parameters<typeof tripLocationFailureMessage>[0],
+  ) {
     return new Promise<boolean>((resolve) => {
-      Alert.alert("Location unavailable", tripLocationFailureMessage(failure), [
-        { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-        { text: "Start without ETA", onPress: () => resolve(true) },
-      ], { cancelable: true, onDismiss: () => resolve(false) });
+      Alert.alert(
+        "Location unavailable",
+        tripLocationFailureMessage(failure),
+        [
+          { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+          { text: "Start without ETA", onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      );
     });
   }
   async function startTrip() {
@@ -323,20 +382,25 @@ function JobDetail({
         source: expoTripLocationSource,
         confirmFallback: confirmNoEta,
         onStage: setTripStage,
-        submit: (origin) => actionMutation.mutateAsync({
-          jobId: job.id,
-          action: "start-trip",
-          body: {
-            client_event_id: crypto.randomUUID(),
-            client_timestamp: new Date().toISOString(),
-            origin,
-          },
-        }),
+        submit: (origin) =>
+          submitJobAction(
+            actionMutation.mutateAsync,
+            actionEventIds,
+            job.id,
+            "start-trip",
+            { origin },
+            reportTripApiPreflightFailure,
+          ),
       });
       if (!updated) return;
       await successHaptic();
       const etaMinutes = updated.estimated_arrival_at
-        ? Math.max(0, Math.ceil((Date.parse(updated.estimated_arrival_at) - Date.now()) / 60_000))
+        ? Math.max(
+            0,
+            Math.ceil(
+              (Date.parse(updated.estimated_arrival_at) - Date.now()) / 60_000,
+            ),
+          )
         : null;
       Alert.alert(
         "Trip started",
@@ -344,31 +408,76 @@ function JobDetail({
           ? "ETA is unavailable. Customer notification queued."
           : `Estimated arrival in ${etaMinutes} min. Customer notification queued.`,
         [
-          { text: "Navigate", onPress: () => void Linking.openURL(updated.location_url) },
+          {
+            text: "Navigate",
+            onPress: () => void Linking.openURL(updated.location_url),
+          },
           { text: "Close", style: "cancel" },
         ],
       );
     } catch (error) {
       Alert.alert(
         "Unable to start trip",
-        domainErrorMessage(error, "The server did not confirm this action. Retry safely."),
+        error instanceof JobActionPreflightError
+          ? "The app could not prepare this action. Please try again."
+          : domainErrorMessage(
+              error,
+              "The server did not confirm this action. Retry safely.",
+            ),
       );
     }
   }
-  async function action(
-    name: "arrive" | "start" | "complete" | "cash-payment",
-  ) {
-    const body: object = {
-      client_event_id: crypto.randomUUID(),
-      client_timestamp: new Date().toISOString(),
-    };
+  async function action(name: Exclude<JobAction, "start-trip">) {
     try {
-      await actionMutation.mutateAsync({ jobId: job.id, action: name, body });
+      await submitJobAction(
+        actionMutation.mutateAsync,
+        actionEventIds,
+        job.id,
+        name,
+      );
       await successHaptic();
     } catch (error) {
       Alert.alert(
         "Action not completed",
-        domainErrorMessage(error, "The server did not confirm this action. Retry safely."),
+        error instanceof JobActionPreflightError
+          ? "The app could not prepare this action. Please try again."
+          : domainErrorMessage(
+              error,
+              "The server did not confirm this action. Retry safely.",
+            ),
+      );
+    }
+  }
+  async function completeCashPayment(
+    tenderedMinor: number,
+    changeMinor: number,
+  ) {
+    const eventKey = `${job.id}:cash-payment:${tenderedMinor}`;
+    try {
+      const receipt = await cashMutation.mutateAsync({
+        jobId: job.id,
+        body: {
+          client_event_id: actionEventIds.get(eventKey),
+          client_timestamp: new Date().toISOString(),
+          tendered_minor: tenderedMinor,
+          change_minor: changeMinor,
+        },
+      });
+      actionEventIds.succeeded(eventKey);
+      await successHaptic();
+      setCashTender(false);
+      Alert.alert(
+        "Payment complete",
+        `${receipt.job.currency_code} ${(receipt.amount_applied_minor / 100).toFixed(2)} applied. Return ${receipt.job.currency_code} ${(receipt.change_minor / 100).toFixed(2)} change.`,
+      );
+    } catch (error) {
+      actionEventIds.failed(eventKey, error);
+      Alert.alert(
+        "Payment not completed",
+        domainErrorMessage(
+          error,
+          "The server did not confirm this payment. Retry safely.",
+        ),
       );
     }
   }
@@ -418,37 +527,142 @@ function JobDetail({
           />
         </View>
       </View>
+      {qualityEnabled ? (
+        <JobQualityControls
+          context={context}
+          job={job}
+          quality={qualityQuery.data}
+          pending={qualityQuery.isPending}
+          error={qualityQuery.error}
+          onRetry={() => void qualityQuery.refetch()}
+        />
+      ) : null}
       <Card style={styles.primaryActionCard}>
-        {job.status === "assigned" ? <>
-          <Text style={styles.sectionTitle}>NEXT ACTION</Text>
-          <Text style={styles.vehicle}>Ready to leave?</Text>
-          <Text style={uiStyles.muted}>We’ll use your location for ETA when it is available.</Text>
-          <AppButton title={tripStage === "getting_location" ? "Getting location…" : tripStage === "starting_trip" ? "Starting trip…" : "Start trip"} disabled={tripStage !== "idle" || actionMutation.isPending} loading={tripStage !== "idle"} onPress={() => void startTrip()} />
-        </> : job.status === "en_route" ? <>
-          <Text style={styles.sectionTitle}>ACTIVE TRIP</Text>
-          <Text style={styles.vehicle}>Driving to customer</Text>
-          {job.en_route_at && <ElapsedTimer startedAt={job.en_route_at} />}
-          <Text style={uiStyles.muted}>{job.estimated_arrival_at ? `ETA ${formatTime(job.estimated_arrival_at)}` : "ETA unavailable"}</Text>
-          <AppButton title={actionMutation.isPending ? "Confirming…" : "Arrived at location"} disabled={actionMutation.isPending} loading={actionMutation.isPending} onPress={() => Alert.alert("Confirm arrival", "Confirm that you have arrived at the customer location.", [{ text: "Cancel", style: "cancel" }, { text: "Confirm arrival", onPress: () => void action("arrive") }])} />
-        </> : job.status === "arrived" ? <>
-          <Text style={styles.sectionTitle}>AT CUSTOMER</Text>
-          <Text style={styles.vehicle}>Arrival confirmed</Text>
-          {job.arrived_at && <ElapsedTimer startedAt={job.arrived_at} prefix="Waiting" />}
-          <AppButton title={actionMutation.isPending ? "Starting…" : "Start wash"} disabled={actionMutation.isPending} loading={actionMutation.isPending} onPress={() => void action("start")} />
-        </> : job.status === "in_progress" ? <>
-          <Text style={styles.sectionTitle}>WASH IN PROGRESS</Text>
-          {job.started_at && <ElapsedTimer startedAt={job.started_at} />}
-          <AppButton title={actionMutation.isPending ? "Completing…" : "Complete wash"} disabled={actionMutation.isPending} loading={actionMutation.isPending} onPress={() => Alert.alert("Complete wash?", "Confirm that all booked vehicle services are complete.", [{ text: "Keep working", style: "cancel" }, { text: "Complete wash", onPress: () => void action("complete") }])} />
-        </> : job.status === "completed" && job.payment_status !== "paid" ? <>
-          <Text style={styles.sectionTitle}>PAYMENT REQUIRED</Text>
-          <Text style={styles.vehicle}>{job.currency_code} {(job.total_amount_minor / 100).toFixed(2)}</Text>
-          <Text style={uiStyles.muted}>Confirm only after the cash is in hand.</Text>
-          <AppButton title={actionMutation.isPending ? "Recording…" : "Record cash received"} disabled={actionMutation.isPending} loading={actionMutation.isPending} onPress={() => Alert.alert("Confirm cash", `Record ${job.currency_code} ${(job.total_amount_minor / 100).toFixed(2)} received?`, [{ text: "Cancel", style: "cancel" }, { text: "Confirm received", onPress: () => void action("cash-payment") }])} />
-        </> : <>
-          <Text style={styles.sectionTitle}>JOB STATUS</Text>
-          <Text style={styles.vehicle}>{job.payment_status === "paid" ? "Completed and paid" : job.status.replaceAll("_", " ")}</Text>
-        </>}
+        {job.status === "assigned" ? (
+          <>
+            <Text style={styles.sectionTitle}>NEXT ACTION</Text>
+            <Text style={styles.vehicle}>Ready to leave?</Text>
+            <Text style={uiStyles.muted}>
+              We’ll use your location for ETA when it is available.
+            </Text>
+            <AppButton
+              title={
+                tripStage === "getting_location"
+                  ? "Getting location…"
+                  : tripStage === "starting_trip"
+                    ? "Starting trip…"
+                    : "Start trip"
+              }
+              disabled={tripStage !== "idle" || actionMutation.isPending}
+              loading={tripStage !== "idle"}
+              onPress={() => void startTrip()}
+            />
+          </>
+        ) : job.status === "en_route" ? (
+          <>
+            <Text style={styles.sectionTitle}>ACTIVE TRIP</Text>
+            <Text style={styles.vehicle}>Driving to customer</Text>
+            {job.en_route_at && <ElapsedTimer startedAt={job.en_route_at} />}
+            <Text style={uiStyles.muted}>
+              {job.estimated_arrival_at
+                ? `ETA ${formatTime(job.estimated_arrival_at)}`
+                : "ETA unavailable"}
+            </Text>
+            <AppButton
+              title={
+                actionMutation.isPending ? "Confirming…" : "Arrived at location"
+              }
+              disabled={actionMutation.isPending}
+              loading={actionMutation.isPending}
+              onPress={() =>
+                Alert.alert(
+                  "Confirm arrival",
+                  "Confirm that you have arrived at the customer location.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Confirm arrival",
+                      onPress: () => void action("arrive"),
+                    },
+                  ],
+                )
+              }
+            />
+          </>
+        ) : job.status === "arrived" ? (
+          <>
+            <Text style={styles.sectionTitle}>AT CUSTOMER</Text>
+            <Text style={styles.vehicle}>Arrival confirmed</Text>
+            {job.arrived_at && (
+              <ElapsedTimer startedAt={job.arrived_at} prefix="Waiting" />
+            )}
+            <AppButton
+              title={actionMutation.isPending ? "Starting…" : "Start wash"}
+              disabled={actionMutation.isPending}
+              loading={actionMutation.isPending}
+              onPress={() => void action("start")}
+            />
+          </>
+        ) : job.status === "in_progress" ? (
+          <>
+            <Text style={styles.sectionTitle}>WASH IN PROGRESS</Text>
+            {job.started_at && <ElapsedTimer startedAt={job.started_at} />}
+            <AppButton
+              title={actionMutation.isPending ? "Completing…" : "Complete wash"}
+              disabled={
+                actionMutation.isPending ||
+                qualityQuery.data?.can_complete === false
+              }
+              loading={actionMutation.isPending}
+              onPress={() =>
+                Alert.alert(
+                  "Complete wash?",
+                  "Confirm that all booked vehicle services and required checklist items are complete.",
+                  [
+                    { text: "Keep working", style: "cancel" },
+                    {
+                      text: "Complete wash",
+                      onPress: () => void action("complete"),
+                    },
+                  ],
+                )
+              }
+            />
+          </>
+        ) : job.status === "completed" && job.payment_status !== "paid" ? (
+          <>
+            <Text style={styles.sectionTitle}>PAYMENT REQUIRED</Text>
+            <Text style={styles.vehicle}>
+              {job.currency_code} {(job.total_amount_minor / 100).toFixed(2)}
+            </Text>
+            <Text style={uiStyles.muted}>
+              Confirm only after the cash is in hand.
+            </Text>
+            <AppButton
+              title="Record cash received"
+              disabled={cashMutation.isPending}
+              onPress={() => setCashTender(true)}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>JOB STATUS</Text>
+            <Text style={styles.vehicle}>
+              {job.payment_status === "paid"
+                ? "Completed and paid"
+                : job.status.replaceAll("_", " ")}
+            </Text>
+          </>
+        )}
       </Card>
+      <CashTenderModal
+        visible={cashTender}
+        dueMinor={job.total_amount_minor}
+        currency={job.currency_code}
+        pending={cashMutation.isPending}
+        onClose={() => setCashTender(false)}
+        onComplete={completeCashPayment}
+      />
       {capabilities(context.role).canAssignJobs ? (
         <Card>
           <View style={uiStyles.row}>
@@ -564,6 +778,7 @@ function AssignmentSheet({
   const teamsQuery = useTeamsQuery(context);
   const staffQuery = useStaffQuery(context);
   const mutation = useAssignJobMutation(context);
+  const eventIds = useRef(new ClientEventIdStore()).current;
   const [target, setTarget] = useState<{ team_id?: string; staff_id?: string }>(
     {},
   );
@@ -572,6 +787,7 @@ function AssignmentSheet({
     (item: Profile) => item.is_active,
   );
   async function save() {
+    const eventKey = `${job.id}:assignment:${target.team_id ?? ""}:${target.staff_id ?? ""}:${job.status}`;
     try {
       await mutation.mutateAsync({
         jobId: job.id,
@@ -582,13 +798,15 @@ function AssignmentSheet({
             "arrived",
             "in_progress",
           ].includes(job.status),
-          client_event_id: crypto.randomUUID(),
+          client_event_id: eventIds.get(eventKey),
           client_timestamp: new Date().toISOString(),
         },
       });
+      eventIds.succeeded(eventKey);
       await successHaptic();
       onClose();
     } catch (error) {
+      eventIds.failed(eventKey, error);
       Alert.alert(
         "Assignment not completed",
         domainErrorMessage(error, "Review the assignment and try again."),
@@ -708,7 +926,10 @@ function RescheduleSheet({
     }
   }
   function confirm() {
-    const active = job.status === "en_route" || job.status === "arrived" || job.status === "in_progress";
+    const active =
+      job.status === "en_route" ||
+      job.status === "arrived" ||
+      job.status === "in_progress";
     if (!active) {
       void submit(false);
       return;
@@ -950,7 +1171,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
   },
-  searchField: { flex: 1, marginBottom: 0 },
+  searchField: {
+    flex: 1,
+    marginBottom: 0,
+    color: colors.text,
+    backgroundColor: colors.surface,
+  },
   offline: {
     color: colors.warning,
     backgroundColor: colors.warningSurface,

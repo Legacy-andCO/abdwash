@@ -23,6 +23,14 @@
     "plugins": [
       "expo-secure-store",
       "expo-location",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Trifecta lets staff select vehicle evidence photos for an authorized job.",
+          "cameraPermission": "Trifecta uses the camera only when staff capture vehicle evidence for an authorized job.",
+          "microphonePermission": false
+        }
+      ],
       "./plugins/withAndroidImeInsets",
       "@react-native-community/datetimepicker"
     ],

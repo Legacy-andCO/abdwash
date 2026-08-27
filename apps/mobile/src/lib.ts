@@ -247,6 +247,191 @@ export type SyncState = {
   workforce: number;
   schedule: number;
   finance: number;
+  customers: number;
+};
+export type CashPaymentResult = {
+  job: Job;
+  amount_applied_minor: number;
+  tendered_minor: number;
+  change_minor: number;
+};
+export type CustomerProfile = {
+  id: string;
+  first_name: string;
+  surname: string;
+  email: string;
+  phone: string;
+};
+export type CustomerAddress = {
+  id: string;
+  label: string;
+  written_address: string;
+  location_url: string;
+  latitude: number | null;
+  longitude: number | null;
+  location_instructions: string | null;
+  is_default: boolean;
+};
+export type CustomerVehicle = {
+  id: string;
+  make: string;
+  model: string;
+  year: number | null;
+  vehicle_type: string;
+  colour: string | null;
+  plate_number: string | null;
+  notes: string | null;
+};
+export type LoyaltyRewardService = { id: string; name: string };
+export type LoyaltySummary = {
+  enabled: boolean;
+  configured: boolean;
+  required_washes: number;
+  progress_washes: number;
+  washes_remaining: number;
+  lifetime_qualifying_washes: number;
+  available_rewards: number;
+  reserved_rewards: number;
+  redeemed_rewards: number;
+  reward_service: LoyaltyRewardService | null;
+  rewards: {
+    id: string;
+    service: LoyaltyRewardService;
+    list_price_minor: number;
+    status: string;
+    created_at: string;
+    reserved_at: string | null;
+    redeemed_at: string | null;
+  }[];
+  history: {
+    id: string;
+    event_type: string;
+    quantity: number;
+    reason: string | null;
+    booking_reference: string | null;
+    vehicle_label: string | null;
+    created_at: string;
+  }[];
+};
+export type ManagerCustomerListItem = CustomerProfile & {
+  active_vehicle_count: number;
+  booking_count: number;
+  latest_booking_at: string | null;
+  available_rewards: number;
+  loyalty_progress_washes: number;
+  loyalty_required_washes: number;
+};
+export type ManagerCustomerList = {
+  customers: ManagerCustomerListItem[];
+  next_offset: number | null;
+};
+export type ManagerCustomerDetail = {
+  profile: CustomerProfile;
+  addresses: CustomerAddress[];
+  vehicles: CustomerVehicle[];
+  bookings: {
+    id: string;
+    reference: string;
+    status: string;
+    payment_status: string;
+    scheduled_start: string;
+    total_amount_minor: number;
+    currency_code: string;
+    vehicle_count: number;
+    job_id: string | null;
+    job_status: string | null;
+    complaint_count: number;
+    vehicles: {
+      make: string;
+      model: string;
+      plate_number: string | null;
+      service_name: string | null;
+    }[];
+  }[];
+  bookings_next_offset: number | null;
+  loyalty: LoyaltySummary;
+};
+export type LoyaltySettings = {
+  enabled: boolean;
+  required_washes: number;
+  reward_service: LoyaltyRewardService | null;
+};
+export type ServiceOption = {
+  id: string;
+  name: string;
+  price_minor: number;
+  currency_code: string;
+};
+export type JobInspection = {
+  id: string;
+  condition_notes: string | null;
+  damage_category: string | null;
+  damage_notes: string | null;
+  completed_by_staff_id: string;
+  completed_by_staff_name: string;
+  completed_at: string;
+};
+export type JobChecklistItem = {
+  id: string;
+  label: string;
+  is_required: boolean;
+  position: number;
+  completed_at: string | null;
+  completed_by_staff_id: string | null;
+  completed_by_staff_name: string | null;
+};
+export type JobPhoto = {
+  id: string;
+  category: "before" | "after" | "damage" | "issue";
+  caption: string | null;
+  status: "pending" | "ready";
+  created_by_staff_id: string;
+  created_by_staff_name: string;
+  created_at: string;
+  access_url: string | null;
+};
+export type JobQualityIssue = {
+  id: string;
+  category: string;
+  note: string;
+  photo_id: string | null;
+  created_by_staff_id: string;
+  created_by_staff_name: string;
+  created_at: string;
+};
+export type JobComplaint = {
+  id: string;
+  description: string;
+  status: string;
+  review_note: string | null;
+  created_by_staff_id: string;
+  created_by_staff_name: string;
+  created_at: string;
+  reviewed_by_staff_id: string | null;
+  reviewed_by_staff_name: string | null;
+  reviewed_at: string | null;
+  correction_job_id: string | null;
+};
+export type JobQuality = {
+  job_id: string;
+  inspection: JobInspection | null;
+  checklist: JobChecklistItem[];
+  photos: JobPhoto[];
+  issues: JobQualityIssue[];
+  complaints: JobComplaint[];
+  required_completed: number;
+  required_total: number;
+  before_photo_count: number;
+  after_photo_count: number;
+  issue_count: number;
+  can_complete: boolean;
+};
+export type JobPhotoUploadGrant = {
+  photo: JobPhoto;
+  bucket: string;
+  path: string;
+  upload_token: string;
+  max_bytes: number;
 };
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -419,11 +604,200 @@ export async function getJobs(
 }
 export const getJob = (jobId: string, signal?: AbortSignal) =>
   api<Job>(`/api/v1/staff/jobs/${jobId}`, { signal });
+export const getJobQuality = (jobId: string, signal?: AbortSignal) =>
+  api<JobQuality>(`/api/v1/staff/jobs/${jobId}/quality`, { signal });
+export const saveJobInspection = (jobId: string, body: object) =>
+  api<void>(
+    `/api/v1/staff/jobs/${jobId}/quality/inspection`,
+    json("PUT", body),
+  );
+export const saveJobChecklist = (jobId: string, body: object) =>
+  api<void>(`/api/v1/staff/jobs/${jobId}/quality/checklist`, json("PUT", body));
+export const addJobQualityIssue = (jobId: string, body: object) =>
+  api<void>(`/api/v1/staff/jobs/${jobId}/quality/issues`, json("POST", body));
+export const requestJobPhotoUpload = (jobId: string, body: object) =>
+  api<JobPhotoUploadGrant>(
+    `/api/v1/staff/jobs/${jobId}/quality/photos/upload`,
+    json("POST", body),
+  );
+export const completeJobPhotoUpload = (jobId: string, photoId: string) =>
+  api<void>(
+    `/api/v1/staff/jobs/${jobId}/quality/photos/${photoId}/complete`,
+    json("POST", {}),
+  );
+async function withPhotoUploadTimeout<T>(operation: Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_resolve, reject) => {
+        timeout = setTimeout(
+          () =>
+            reject(
+              new ApiError(
+                "JOB_PHOTO_UPLOAD_TIMEOUT",
+                408,
+                "The photo upload timed out. Please try again.",
+              ),
+            ),
+          45_000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+export async function uploadJobPhoto(
+  jobId: string,
+  uri: string,
+  category: JobPhoto["category"],
+  clientRequestId: string,
+  caption?: string,
+) {
+  const grant = await requestJobPhotoUpload(jobId, {
+    category,
+    content_type: "image/jpeg",
+    caption: caption?.trim() || null,
+    client_request_id: clientRequestId,
+  });
+  const response = await fetch(uri);
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength > grant.max_bytes)
+    throw new ApiError(
+      "JOB_PHOTO_TOO_LARGE",
+      400,
+      "The prepared photo is too large to upload.",
+    );
+  const { error } = await withPhotoUploadTimeout(
+    supabase.storage
+      .from(grant.bucket)
+      .uploadToSignedUrl(grant.path, grant.upload_token, bytes, {
+        contentType: "image/jpeg",
+        cacheControl: "3600",
+      }),
+  );
+  if (error)
+    throw new ApiError(
+      "JOB_PHOTO_UPLOAD_FAILED",
+      502,
+      "The photo upload failed. Please try again.",
+    );
+  await completeJobPhotoUpload(jobId, grant.photo.id);
+  return grant.photo.id;
+}
+export const createJobComplaint = (jobId: string, description: string) =>
+  api<void>(
+    `/api/v1/staff/jobs/${jobId}/quality/complaints`,
+    json("POST", { description }),
+  );
+export const reviewJobComplaint = (
+  jobId: string,
+  complaintId: string,
+  body: object,
+) =>
+  api<void>(
+    `/api/v1/staff/jobs/${jobId}/quality/complaints/${complaintId}/review`,
+    json("POST", body),
+  );
 export const mutateJob = (
   jobId: string,
-  action: "start-trip" | "arrive" | "start" | "complete" | "cash-payment",
+  action: "start-trip" | "arrive" | "start" | "complete",
   body: object,
 ) => api<Job>(`/api/v1/staff/jobs/${jobId}/${action}`, json("POST", body));
+export const recordCashPayment = (jobId: string, body: object) =>
+  api<CashPaymentResult>(
+    `/api/v1/staff/jobs/${jobId}/cash-payment`,
+    json("POST", body),
+  );
+export const getManagerCustomers = (
+  search: string,
+  offset: number,
+  signal?: AbortSignal,
+) => {
+  const params = new URLSearchParams({ offset: String(offset), limit: "30" });
+  if (search) params.set("search", search);
+  return api<ManagerCustomerList>(`/api/v1/staff/customers?${params}`, {
+    signal,
+  });
+};
+export const getManagerCustomer = (
+  id: string,
+  historyOffset: number,
+  signal?: AbortSignal,
+) =>
+  api<ManagerCustomerDetail>(
+    `/api/v1/staff/customers/${id}?history_offset=${historyOffset}&history_limit=30`,
+    { signal },
+  );
+export const updateManagerCustomer = (id: string, body: object) =>
+  api<ManagerCustomerDetail>(
+    `/api/v1/staff/customers/${id}`,
+    json("PATCH", body),
+  );
+export const createManagerCustomerAddress = (
+  customerId: string,
+  body: object,
+) =>
+  api<CustomerAddress>(
+    `/api/v1/staff/customers/${customerId}/addresses`,
+    json("POST", body),
+  );
+export const updateManagerCustomerAddress = (
+  customerId: string,
+  addressId: string,
+  body: object,
+) =>
+  api<CustomerAddress>(
+    `/api/v1/staff/customers/${customerId}/addresses/${addressId}`,
+    json("PATCH", body),
+  );
+export const deleteManagerCustomerAddress = (
+  customerId: string,
+  addressId: string,
+) =>
+  api<void>(`/api/v1/staff/customers/${customerId}/addresses/${addressId}`, {
+    method: "DELETE",
+  });
+export const createManagerCustomerVehicle = (
+  customerId: string,
+  body: object,
+) =>
+  api<CustomerVehicle>(
+    `/api/v1/staff/customers/${customerId}/vehicles`,
+    json("POST", body),
+  );
+export const updateManagerCustomerVehicle = (
+  customerId: string,
+  vehicleId: string,
+  body: object,
+) =>
+  api<CustomerVehicle>(
+    `/api/v1/staff/customers/${customerId}/vehicles/${vehicleId}`,
+    json("PATCH", body),
+  );
+export const deleteManagerCustomerVehicle = (
+  customerId: string,
+  vehicleId: string,
+) =>
+  api<void>(`/api/v1/staff/customers/${customerId}/vehicles/${vehicleId}`, {
+    method: "DELETE",
+  });
+export const adjustManagerCustomerLoyalty = (
+  customerId: string,
+  body: object,
+) =>
+  api<LoyaltySummary>(
+    `/api/v1/staff/customers/${customerId}/loyalty/adjustments`,
+    json("POST", body),
+  );
+export const getLoyaltySettings = () =>
+  api<LoyaltySettings>("/api/v1/staff/loyalty/settings");
+export const updateLoyaltySettings = (body: object) =>
+  api<LoyaltySettings>("/api/v1/staff/loyalty/settings", json("PATCH", body));
+export const getServiceOptions = async () =>
+  (await api<{ services: ServiceOption[] }>("/api/v1/public/catalogue"))
+    .services;
 export const assignJob = (jobId: string, body: object) =>
   api<Job>(`/api/v1/staff/jobs/${jobId}/assignment`, json("PATCH", body));
 export const getTeams = () => api<Team[]>("/api/v1/staff/teams");
@@ -473,10 +847,11 @@ export const getCancellations = () =>
 export const reviewCancellation = (
   id: string,
   decision: "approved" | "rejected",
+  clientEventId: string,
 ) =>
   api<Cancellation>(
     `/api/v1/staff/cancellations/${id}/review`,
-    json("POST", { decision, client_event_id: crypto.randomUUID() }),
+    json("POST", { decision, client_event_id: clientEventId }),
   );
 export async function getAvailability(
   date: string,

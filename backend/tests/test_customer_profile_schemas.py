@@ -1,7 +1,12 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.customer import CustomerAddressWrite, CustomerProfileUpdate
+from app.schemas.customer import (
+    CustomerAddressWrite,
+    CustomerProfileUpdate,
+    CustomerVehicleResponse,
+    CustomerVehicleWrite,
+)
 
 
 def test_profile_phone_is_normalized_to_e164() -> None:
@@ -44,3 +49,27 @@ def test_saved_location_rejects_generic_url() -> None:
             written_address="Al Reem Island, Abu Dhabi",
             location_url="https://example.com/location",
         )
+
+
+def test_new_or_edited_saved_vehicle_requires_plate() -> None:
+    with pytest.raises(ValidationError):
+        CustomerVehicleWrite(
+            make="Toyota",
+            model="Camry",
+            vehicle_type="sedan",
+            plate_number="",
+        )
+
+
+def test_legacy_saved_vehicle_without_plate_remains_readable() -> None:
+    vehicle = CustomerVehicleResponse(
+        id="e4742df1-0f88-4b73-b39d-48efdb0c553a",
+        make="Toyota",
+        model="Camry",
+        year=None,
+        vehicle_type="sedan",
+        colour=None,
+        plate_number=None,
+        notes=None,
+    )
+    assert vehicle.plate_number is None

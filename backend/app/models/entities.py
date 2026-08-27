@@ -27,6 +27,7 @@ from app.domain.enums import (
     HoldStatus,
     JobStatus,
     LeaveStatus,
+    LoyaltyRewardStatus,
     OutboxStatus,
     PaymentStatus,
     SlotStatus,
@@ -61,12 +62,22 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     attendance_grace_minutes: Mapped[int] = mapped_column(
         Integer, nullable=False, default=5, server_default=text("5")
     )
+    loyalty_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    loyalty_required_washes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=9, server_default=text("9")
+    )
+    loyalty_reward_service_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("services.id", ondelete="SET NULL")
+    )
     __table_args__ = (
         CheckConstraint("slot_duration_minutes > 0", name="positive_slot_duration"),
         CheckConstraint("multi_vehicle_threshold > 0", name="positive_vehicle_threshold"),
         CheckConstraint("multi_vehicle_required_slots > 0", name="positive_required_slots"),
         CheckConstraint("closing_time > opening_time", name="valid_business_hours"),
         CheckConstraint("attendance_grace_minutes >= 0", name="nonnegative_attendance_grace"),
+        CheckConstraint("loyalty_required_washes > 0", name="positive_loyalty_required_washes"),
     )
 
 
@@ -86,6 +97,9 @@ class BusinessSyncRevision(Base):
         BigInteger, nullable=False, default=0, server_default=text("0")
     )
     finance_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    customers_revision: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=0, server_default=text("0")
     )
     updated_at: Mapped[datetime] = mapped_column(
@@ -447,11 +461,107 @@ class BookingService(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("services.id"), nullable=False)
     service_name: Mapped[str] = mapped_column(String(160), nullable=False)
     unit_price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    list_price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    discount_minor: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    discount_type: Mapped[str | None] = mapped_column(String(30))
+    loyalty_reward_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("loyalty_rewards.id", ondelete="SET NULL")
+    )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     line_total_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     __table_args__ = (
         CheckConstraint("quantity > 0", name="positive_booking_service_quantity"),
+        CheckConstraint("list_price_minor >= 0", name="nonnegative_booking_service_list_price"),
+        CheckConstraint("discount_minor >= 0", name="nonnegative_booking_service_discount"),
+        CheckConstraint(
+            "discount_minor <= list_price_minor * quantity",
+            name="booking_service_discount_within_list_price",
+        ),
+        CheckConstraint(
+            "discount_type IS NULL OR discount_type = 'loyalty_reward'",
+            name="booking_service_discount_type",
+        ),
         Index("ix_booking_services_booking_service", "booking_id", "service_id"),
+    )
+
+
+class LoyaltyReward(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "loyalty_rewards"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    customer_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("customer_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    reward_service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("services.id"), nullable=False)
+    reward_service_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    reward_list_price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    required_washes: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=LoyaltyRewardStatus.AVAILABLE
+    )
+    reserved_booking_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bookings.id"))
+    reserved_booking_service_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("booking_services.id"), unique=True
+    )
+    redeemed_job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("jobs.id"))
+    reserved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    redeemed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('available','reserved','redeemed')", name="loyalty_reward_status"
+        ),
+        CheckConstraint("reward_list_price_minor >= 0", name="nonnegative_reward_list_price"),
+        CheckConstraint("required_washes > 0", name="positive_reward_required_washes"),
+        Index(
+            "ix_loyalty_rewards_business_customer_status",
+            "business_id",
+            "customer_profile_id",
+            "status",
+        ),
+    )
+
+
+class LoyaltyEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "loyalty_events"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    customer_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("customer_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("jobs.id"))
+    booking_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bookings.id"))
+    booking_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("booking_vehicles.id"))
+    reward_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("loyalty_rewards.id"))
+    actor_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    reason: Mapped[str | None] = mapped_column(Text)
+    source_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('qualifying_wash','manual_credit','manual_debit',"
+            "'reward_earned','reward_reserved','reward_released','reward_redeemed')",
+            name="loyalty_event_type",
+        ),
+        CheckConstraint(
+            "(event_type = 'manual_debit' AND quantity < 0) OR "
+            "(event_type IN ('qualifying_wash','manual_credit') AND quantity > 0) OR "
+            "(event_type LIKE 'reward_%' AND quantity = 0)",
+            name="loyalty_event_quantity",
+        ),
+        UniqueConstraint("business_id", "source_key", name="uq_loyalty_event_source"),
+        Index(
+            "ix_loyalty_events_business_customer_created",
+            "business_id",
+            "customer_profile_id",
+            "created_at",
+        ),
     )
 
 
@@ -669,8 +779,32 @@ class PaymentTransaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     provider_transaction_id: Mapped[str | None] = mapped_column(String(255))
     amount_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    client_event_id: Mapped[str | None] = mapped_column(String(160))
+    cash_tendered_minor: Mapped[int | None] = mapped_column(Integer)
+    cash_change_minor: Mapped[int | None] = mapped_column(Integer)
     provider_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    __table_args__ = (Index("ix_payment_transactions_provider_id", "provider_transaction_id"),)
+    __table_args__ = (
+        CheckConstraint(
+            "(cash_tendered_minor IS NULL AND cash_change_minor IS NULL) OR "
+            "(cash_tendered_minor IS NOT NULL AND cash_change_minor IS NOT NULL)",
+            name="cash_tender_fields_together",
+        ),
+        CheckConstraint(
+            "cash_tendered_minor IS NULL OR cash_tendered_minor >= amount_minor",
+            name="cash_tender_covers_payment",
+        ),
+        CheckConstraint(
+            "cash_change_minor IS NULL OR cash_change_minor >= 0",
+            name="nonnegative_cash_change",
+        ),
+        CheckConstraint(
+            "cash_tendered_minor IS NULL OR cash_change_minor = cash_tendered_minor - amount_minor",
+            name="cash_change_matches_tender",
+        ),
+        UniqueConstraint("payment_id", "client_event_id", name="uq_payment_transaction_event"),
+        Index("ix_payment_transactions_provider_id", "provider_transaction_id"),
+    )
 
 
 class CustomerPaymentMethod(UUIDPrimaryKeyMixin, TimestampMixin, Base):

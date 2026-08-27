@@ -8,6 +8,7 @@ from sqlalchemy import case, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import StaffContext
+from app.domain.cash import authoritative_cash_change
 from app.domain.enums import (
     BookingStatus,
     CancellationStatus,
@@ -41,6 +42,8 @@ from app.schemas.staff import (
     AssignmentAction,
     CancellationItem,
     CancellationReview,
+    CashPaymentResult,
+    CashTenderAction,
     JobAction,
     JobTimelineEvent,
     ReportSummary,
@@ -50,6 +53,7 @@ from app.schemas.staff import (
     StaffVehicle,
     StartTripAction,
 )
+from app.services.loyalty import evaluate_loyalty_for_job, release_booking_rewards
 from app.services.scheduling import _lock_slot_sequence
 
 logger = structlog.get_logger()
@@ -468,17 +472,53 @@ async def transition_job(
         )
     )
     await session.flush()
+    if target == JobStatus.COMPLETED:
+        await evaluate_loyalty_for_job(session, business_id=context.business_id, job_id=job.id)
     return await get_job(session, context, job.id)
 
 
 async def record_cash(
-    session: AsyncSession, context: StaffContext, job_id: uuid.UUID, request: JobAction
-) -> StaffJob:
+    session: AsyncSession,
+    context: StaffContext,
+    job_id: uuid.UUID,
+    request: CashTenderAction,
+) -> CashPaymentResult:
     job, booking, payment, _name = await _locked_job(session, context, job_id)
     if await _duplicate_event(session, job.id, request.client_event_id):
-        return await get_job(session, context, job.id)
+        transaction = await session.scalar(
+            select(PaymentTransaction).where(
+                PaymentTransaction.payment_id == payment.id,
+                PaymentTransaction.client_event_id == request.client_event_id,
+            )
+        )
+        if transaction is None or transaction.cash_tendered_minor is None:
+            raise ConflictError(
+                "PAYMENT_RECEIPT_UNAVAILABLE",
+                "The payment was recorded, but its cash receipt is unavailable.",
+            )
+        return CashPaymentResult(
+            job=await get_job(session, context, job.id),
+            amount_applied_minor=transaction.amount_minor,
+            tendered_minor=transaction.cash_tendered_minor,
+            change_minor=transaction.cash_change_minor or 0,
+        )
     if payment.status == PaymentStatus.PAID:
         raise ConflictError("PAYMENT_ALREADY_PAID", "This booking is already paid.")
+    if job.status != JobStatus.COMPLETED:
+        raise ConflictError(
+            "CASH_PAYMENT_JOB_NOT_COMPLETED",
+            "Cash can be recorded only after the job is completed.",
+        )
+    if payment.amount_minor <= 0:
+        raise ConflictError(
+            "CASH_PAYMENT_NOT_REQUIRED",
+            "This booking has no cash balance to settle.",
+        )
+    authoritative_change = authoritative_cash_change(
+        due_minor=payment.amount_minor,
+        tendered_minor=request.tendered_minor,
+        submitted_change_minor=request.change_minor,
+    )
     now = datetime.now(UTC)
     payment.status = PaymentStatus.PAID
     payment.method = "cash"
@@ -492,10 +532,11 @@ async def record_cash(
             transaction_type="cash_payment",
             status="succeeded",
             amount_minor=payment.amount_minor,
-            provider_metadata={
-                "actor_staff_id": str(context.staff_id),
-                "client_event_id": request.client_event_id,
-            },
+            actor_staff_id=context.staff_id,
+            client_event_id=request.client_event_id,
+            cash_tendered_minor=request.tendered_minor,
+            cash_change_minor=authoritative_change,
+            provider_metadata={},
         )
     )
     session.add(
@@ -506,11 +547,21 @@ async def record_cash(
             event_type="cash_payment_recorded",
             client_event_id=request.client_event_id,
             client_timestamp=request.client_timestamp,
-            metadata_json={"amount_minor": payment.amount_minor},
+            metadata_json={
+                "amount_minor": payment.amount_minor,
+                "tendered_minor": request.tendered_minor,
+                "change_minor": authoritative_change,
+            },
         )
     )
     await session.flush()
-    return await get_job(session, context, job.id)
+    await evaluate_loyalty_for_job(session, business_id=context.business_id, job_id=job.id)
+    return CashPaymentResult(
+        job=await get_job(session, context, job.id),
+        amount_applied_minor=payment.amount_minor,
+        tendered_minor=request.tendered_minor,
+        change_minor=authoritative_change,
+    )
 
 
 async def assign_job(
@@ -839,6 +890,7 @@ async def review_cancellation(
                 version=ScheduleSlot.version + 1,
             )
         )
+        await release_booking_rewards(session, business_id=context.business_id, booking=booking)
     else:
         booking.status = BookingStatus.CONFIRMED
         booking.version += 1

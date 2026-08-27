@@ -18,6 +18,7 @@ from app.schemas.customer import (
     CustomerVehicleResponse,
     CustomerVehicleWrite,
 )
+from app.services.loyalty import loyalty_summary
 
 email_adapter = TypeAdapter(EmailStr)
 
@@ -159,6 +160,7 @@ async def customer_profile_bootstrap(
             profile=None,
             addresses=[],
             vehicles=[],
+            loyalty=None,
         )
     addresses = list(
         (
@@ -183,6 +185,11 @@ async def customer_profile_bootstrap(
         profile=profile_response(profile),
         addresses=[address_response(address) for address in addresses],
         vehicles=[vehicle_response(vehicle) for vehicle in vehicles],
+        loyalty=await loyalty_summary(
+            session,
+            business_id=profile.business_id,
+            customer_profile_id=profile.id,
+        ),
     )
 
 

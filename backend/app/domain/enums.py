@@ -92,3 +92,19 @@ class ComplaintStatus(StrEnum):
     RESOLVED = "resolved"
     REJECTED = "rejected"
     REWASH_APPROVED = "rewash_approved"
+
+
+class LoyaltyEventType(StrEnum):
+    QUALIFYING_WASH = "qualifying_wash"
+    MANUAL_CREDIT = "manual_credit"
+    MANUAL_DEBIT = "manual_debit"
+    REWARD_EARNED = "reward_earned"
+    REWARD_RESERVED = "reward_reserved"
+    REWARD_RELEASED = "reward_released"
+    REWARD_REDEEMED = "reward_redeemed"
+
+
+class LoyaltyRewardStatus(StrEnum):
+    AVAILABLE = "available"
+    RESERVED = "reserved"
+    REDEEMED = "redeemed"

@@ -6,7 +6,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.verifier import VerifiedIdentity
-from app.domain.enums import BookingStatus, HoldStatus, JobStatus, PaymentStatus, SlotStatus
+from app.domain.enums import (
+    BookingStatus,
+    HoldStatus,
+    JobStatus,
+    LoyaltyEventType,
+    LoyaltyRewardStatus,
+    PaymentStatus,
+    SlotStatus,
+)
 from app.domain.errors import ConflictError, DomainError
 from app.models.entities import (
     Booking,
@@ -14,6 +22,8 @@ from app.models.entities import (
     BookingVehicle,
     Job,
     JobEvent,
+    LoyaltyEvent,
+    LoyaltyReward,
     NotificationOutbox,
     Payment,
     ScheduleSlot,
@@ -106,6 +116,64 @@ async def create_booking(
         vehicle_ids={item.vehicle_id for item in request.vehicles if item.vehicle_id},
         customer_profile_id=customer_profile_id,
     )
+    reward_ids = {
+        item.loyalty_reward_id for item in request.vehicles if item.loyalty_reward_id is not None
+    }
+    if len(reward_ids) != sum(item.loyalty_reward_id is not None for item in request.vehicles):
+        raise ConflictError(
+            "LOYALTY_REWARD_DUPLICATE",
+            "Each loyalty reward can be used only once.",
+        )
+    if reward_ids and not configuration.settings.loyalty_enabled:
+        raise ConflictError(
+            "LOYALTY_DISABLED",
+            "Loyalty rewards are temporarily unavailable.",
+        )
+    if reward_ids and request.payment_choice != "pay_after_service":
+        raise DomainError(
+            "LOYALTY_REWARD_PAYMENT_CHOICE",
+            "Loyalty rewards currently require Pay After Service.",
+            status_code=422,
+        )
+    rewards_by_id: dict[uuid.UUID, LoyaltyReward] = {}
+    if reward_ids:
+        if customer_profile_id is None:
+            raise DomainError(
+                "LOYALTY_AUTH_REQUIRED",
+                "Sign in to redeem a loyalty reward.",
+                status_code=401,
+            )
+        rewards = list(
+            (
+                await session.scalars(
+                    select(LoyaltyReward)
+                    .where(
+                        LoyaltyReward.id.in_(reward_ids),
+                        LoyaltyReward.business_id == hold.business_id,
+                        LoyaltyReward.customer_profile_id == customer_profile_id,
+                    )
+                    .with_for_update()
+                )
+            ).all()
+        )
+        rewards_by_id = {reward.id: reward for reward in rewards}
+        if set(rewards_by_id) != reward_ids or any(
+            reward.status != LoyaltyRewardStatus.AVAILABLE for reward in rewards
+        ):
+            raise ConflictError(
+                "LOYALTY_REWARD_UNAVAILABLE",
+                "One or more loyalty rewards are no longer available.",
+            )
+        for requested_vehicle in request.vehicles:
+            if requested_vehicle.loyalty_reward_id is None:
+                continue
+            reward = rewards_by_id[requested_vehicle.loyalty_reward_id]
+            if reward.reward_service_id != requested_vehicle.service_id:
+                raise DomainError(
+                    "LOYALTY_REWARD_SERVICE_MISMATCH",
+                    "This reward is valid only for its configured service.",
+                    status_code=422,
+                )
 
     booking_id = uuid.uuid4()
     reference = f"AW-{secrets.token_hex(5).upper()}"
@@ -113,7 +181,12 @@ async def create_booking(
     confirmed = request.payment_choice == "pay_after_service"
     booking_status = BookingStatus.CONFIRMED if confirmed else BookingStatus.PENDING_PAYMENT
     payment_status = PaymentStatus.UNPAID if confirmed else PaymentStatus.PENDING
-    total = sum(services_by_id[item.service_id].price_minor for item in request.vehicles)
+    total = sum(
+        0 if item.loyalty_reward_id is not None else services_by_id[item.service_id].price_minor
+        for item in request.vehicles
+    )
+    if total == 0:
+        payment_status = PaymentStatus.PAID
     booking = Booking(
         id=booking_id,
         business_id=hold.business_id,
@@ -161,17 +234,44 @@ async def create_booking(
         session.add(booking_vehicle)
         await session.flush()
         service = services_by_id[requested_vehicle.service_id]
-        session.add(
-            BookingService(
-                booking_id=booking.id,
-                booking_vehicle_id=booking_vehicle.id,
-                service_id=service.id,
-                service_name=service.name,
-                unit_price_minor=service.price_minor,
-                quantity=1,
-                line_total_minor=service.price_minor,
-            )
+        selected_reward = (
+            rewards_by_id.get(requested_vehicle.loyalty_reward_id)
+            if requested_vehicle.loyalty_reward_id
+            else None
         )
+        discount_minor = service.price_minor if selected_reward else 0
+        booking_service = BookingService(
+            booking_id=booking.id,
+            booking_vehicle_id=booking_vehicle.id,
+            service_id=service.id,
+            service_name=service.name,
+            unit_price_minor=service.price_minor,
+            list_price_minor=service.price_minor,
+            discount_minor=discount_minor,
+            discount_type="loyalty_reward" if selected_reward else None,
+            loyalty_reward_id=selected_reward.id if selected_reward else None,
+            quantity=1,
+            line_total_minor=service.price_minor - discount_minor,
+        )
+        session.add(booking_service)
+        await session.flush()
+        if selected_reward is not None:
+            selected_reward.status = LoyaltyRewardStatus.RESERVED
+            selected_reward.reserved_booking_id = booking.id
+            selected_reward.reserved_booking_service_id = booking_service.id
+            selected_reward.reserved_at = now
+            session.add(
+                LoyaltyEvent(
+                    business_id=booking.business_id,
+                    customer_profile_id=customer_profile_id,
+                    event_type=LoyaltyEventType.REWARD_RESERVED,
+                    quantity=0,
+                    booking_id=booking.id,
+                    booking_vehicle_id=booking_vehicle.id,
+                    reward_id=selected_reward.id,
+                    source_key=f"reward-reserved:{selected_reward.id}:{booking.id}",
+                )
+            )
         vehicle_summaries.append(
             BookingVehicleSummary(
                 make=requested_vehicle.make,
@@ -181,7 +281,11 @@ async def create_booking(
                 colour=requested_vehicle.colour,
                 plate_number=requested_vehicle.plate_number,
                 service_name=service.name,
-                line_total_minor=service.price_minor,
+                line_total_minor=service.price_minor - discount_minor,
+                list_price_minor=service.price_minor,
+                discount_minor=discount_minor,
+                discount_type="loyalty_reward" if selected_reward else None,
+                loyalty_reward_id=selected_reward.id if selected_reward else None,
             )
         )
 
@@ -189,10 +293,11 @@ async def create_booking(
         Payment(
             booking_id=booking.id,
             status=payment_status,
-            method=None,
+            method="loyalty" if total == 0 else None,
             provider=None,
             amount_minor=total,
             currency_code=configuration.settings.currency_code,
+            paid_at=now if total == 0 else None,
         )
     )
 

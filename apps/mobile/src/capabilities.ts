@@ -20,6 +20,7 @@ export function capabilities(role: Role) {
     canManageShifts: management,
     canViewBusinessAttendance: management,
     canApproveLeave: management,
+    canManageCustomers: management,
     canManageManagers: role === "admin",
   };
 }

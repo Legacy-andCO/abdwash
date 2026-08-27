@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 from app.domain.phones import normalize_phone_number
+from app.schemas.loyalty import LoyaltySummary
 from app.schemas.public import (
     BookingLocation,
     BookingVehicleSummary,
@@ -59,7 +60,7 @@ class CustomerVehicleWrite(StrictRequest):
     year: int | None = Field(default=None, ge=1900, le=2200)
     vehicle_type: NonBlank = Field(max_length=80)
     colour: str | None = Field(default=None, max_length=80)
-    plate_number: str | None = Field(default=None, max_length=40)
+    plate_number: NonBlank = Field(max_length=40)
     notes: str | None = Field(default=None, max_length=2000)
 
 
@@ -79,6 +80,7 @@ class CustomerProfileBootstrap(BaseModel):
     profile: CustomerProfileResponse | None
     addresses: list[CustomerAddressResponse]
     vehicles: list[CustomerVehicleResponse]
+    loyalty: LoyaltySummary | None = None
 
 
 class CustomerBookingStatus(BaseModel):

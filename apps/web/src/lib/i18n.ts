@@ -49,13 +49,15 @@ const en = {
   "home.eyebrow": "Mobile car care in Abu Dhabi",
   "home.title": "Your car, cared for.",
   "home.titleAccent": "Wherever you are.",
-  "home.lead": "Premium car washing and detailing brought to your home or workplace. Simple booking, honest pricing, and a finish you’ll notice.",
+  "home.lead":
+    "Premium car washing and detailing brought to your home or workplace. Simple booking, honest pricing, and a finish you’ll notice.",
   "home.book": "Book your wash",
   "home.explore": "Explore services",
   "home.mobile": "Mobile service",
   "home.secure": "Secure booking",
   "home.payAfter": "Pay after service",
-  "home.artLabel": "A clean car represented by a refined automotive illustration",
+  "home.artLabel":
+    "A clean car represented by a refined automotive illustration",
   "home.schedule": "Care, on your schedule",
   "home.daily": "Daily availability",
   "home.benefit1Title": "We come to you",
@@ -65,43 +67,54 @@ const en = {
   "home.benefit3Title": "Built around your day",
   "home.benefit3Copy": "Real availability, reserved as you book.",
   "home.servicesTitle": "Every wash, done properly.",
-  "home.servicesCopy": "Choose the care your car needs. We’ll bring the equipment, attention, and finish to you.",
+  "home.servicesCopy":
+    "Choose the care your car needs. We’ll bring the equipment, attention, and finish to you.",
   "home.seasonal": "Seasonal care",
   "home.extraCare": "A little extra care",
   "home.promoTitle": "Fresh car. Clear head.",
-  "home.promoCopy": "Our next care package is being prepared. For now, every service is delivered with the same thoughtful attention.",
+  "home.promoCopy":
+    "Our next care package is being prepared. For now, every service is delivered with the same thoughtful attention.",
   "home.findService": "Find your service",
   "home.howTitle": "Clean car, three simple steps.",
   "home.step1Title": "Tell us what you need",
-  "home.step1Copy": "Pick a service and add the cars you’d like us to care for.",
+  "home.step1Copy":
+    "Pick a service and add the cars you’d like us to care for.",
   "home.step2Title": "Choose a real time",
-  "home.step2Copy": "See live availability and reserve the window that fits your day.",
+  "home.step2Copy":
+    "See live availability and reserve the window that fits your day.",
   "home.step3Title": "We come to you",
-  "home.step3Copy": "Our mobile team arrives at your chosen location, ready to work.",
+  "home.step3Copy":
+    "Our mobile team arrives at your chosen location, ready to work.",
   "home.promise": "The kind of clean that makes every drive feel better.",
   "home.standard": "THE TRIFECTA STANDARD",
   "home.ready": "Ready when you are",
   "home.ctaTitle": "Give your car the care it deserves.",
-  "home.ctaCopy": "Choose your service, location, and time in just a few minutes.",
+  "home.ctaCopy":
+    "Choose your service, location, and time in just a few minutes.",
   "home.start": "Start your booking",
   "contact.title": "We’d love to help.",
-  "contact.copy": "Our full support centre is coming soon. For a new wash, the fastest route is the booking flow.",
+  "contact.copy":
+    "Our full support centre is coming soon. For a new wash, the fastest route is the booking flow.",
   "contact.care": "Customer care",
   "contact.preparing": "Support details are being prepared.",
   "contact.privacy": "No contact form data is collected on this page.",
   "services.loading": "Loading services…",
   "services.unavailable": "Services are temporarily unavailable.",
   "services.wait": "Services are taking a moment.",
-  "services.defaultDescription": "A thorough mobile wash delivered at a place that works for you.",
+  "services.defaultDescription":
+    "A thorough mobile wash delivered at a place that works for you.",
   "services.minutes": "{minutes} min",
   "services.from": "From",
   "services.choose": "Choose this service",
   "services.expressExterior": "Express Exterior",
-  "services.expressExteriorDescription": "A careful exterior wash, wheel clean, and hand-finished dry.",
+  "services.expressExteriorDescription":
+    "A careful exterior wash, wheel clean, and hand-finished dry.",
   "services.signature": "Signature Inside & Out",
-  "services.signatureDescription": "Complete exterior care with a considered interior refresh.",
+  "services.signatureDescription":
+    "Complete exterior care with a considered interior refresh.",
   "services.premiumDetail": "Premium Detail",
-  "services.premiumDetailDescription": "Our most thorough reset for a car that deserves extra attention.",
+  "services.premiumDetailDescription":
+    "Our most thorough reset for a car that deserves extra attention.",
   "payment.status.pending": "Pending",
   "payment.status.unpaid": "Unpaid",
   "payment.status.paid": "Paid",
@@ -121,14 +134,18 @@ const en = {
   "booking.pleaseWait": "Please wait",
   "booking.help": "Need a hand?",
   "booking.helpCopy": "Your choices stay here while you move between steps.",
-  "booking.profileWarning": "We couldn’t load your saved details, but you can still book normally.",
+  "booking.profileWarning":
+    "We couldn’t load your saved details, but you can still book normally.",
   "booking.service.eyebrow": "Choose your care",
   "booking.service.title": "What does your car need?",
-  "booking.service.copy": "Select a starting service. You can assign a different service to each vehicle later.",
-  "booking.service.defaultDescription": "Professional mobile car care at your location.",
+  "booking.service.copy":
+    "Select a starting service. You can assign a different service to each vehicle later.",
+  "booking.service.defaultDescription":
+    "Professional mobile car care at your location.",
   "booking.details.eyebrow": "About you",
   "booking.details.title": "Where should we meet you?",
-  "booking.details.copy": "We’ll use these details only to arrange and confirm your service.",
+  "booking.details.copy":
+    "We’ll use these details only to arrange and confirm your service.",
   "booking.details.savedLocation": "Use saved location",
   "booking.details.default": "Default",
   "booking.details.anotherLocation": "Choose another location",
@@ -141,7 +158,8 @@ const en = {
   "booking.vehicles.eyebrow": "Your vehicles",
   "booking.vehicles.titleOne": "Tell us about your car.",
   "booking.vehicles.titleMany": "Tell us about your {count} cars.",
-  "booking.vehicles.copy": "Add every vehicle in this visit and choose the right service for each.",
+  "booking.vehicles.copy":
+    "Add every vehicle in this visit and choose the right service for each.",
   "booking.vehicles.saved": "Your saved vehicles",
   "booking.vehicles.plate": "Plate: {plate}",
   "booking.vehicles.savedVehicle": "Saved vehicle",
@@ -149,7 +167,8 @@ const en = {
   "booking.vehicles.add": "Add another vehicle",
   "booking.vehicles.remove": "Remove vehicle",
   "booking.vehicles.timeTitle": "More time, reserved automatically.",
-  "booking.vehicles.timeCopy": "The scheduling service will find a consecutive window for this visit.",
+  "booking.vehicles.timeCopy":
+    "The scheduling service will find a consecutive window for this visit.",
   "booking.vehicles.make": "Make",
   "booking.vehicles.model": "Model",
   "booking.vehicles.year": "Year (optional)",
@@ -168,7 +187,8 @@ const en = {
   "booking.vehicles.type.other": "Other",
   "booking.review.eyebrow": "Review",
   "booking.review.title": "Everything look right?",
-  "booking.review.copy": "Check the visit before choosing a date. Final pricing is confirmed by the server when you book.",
+  "booking.review.copy":
+    "Check the visit before choosing a date. Final pricing is confirmed by the server when you book.",
   "booking.review.contact": "Contact",
   "booking.review.location": "Location",
   "booking.review.openMap": "Open map link",
@@ -178,36 +198,44 @@ const en = {
   "booking.review.chooseTime": "Choose a time",
   "booking.schedule.eyebrow": "Your schedule",
   "booking.schedule.title": "When should we come?",
-  "booking.schedule.copy": "Times shown in {timezone}. Availability is live and your time is held on the next step.",
+  "booking.schedule.copy":
+    "Times shown in {timezone}. Availability is live and your time is held on the next step.",
   "booking.schedule.previousMonth": "Previous month",
   "booking.schedule.nextMonth": "Next month",
   "booking.schedule.availableStarts": "Available starts",
   "booking.schedule.checking": "Checking live times…",
   "booking.schedule.chooseDate": "Choose a date",
-  "booking.schedule.noTimes": "No times are available on this date. Please try another day.",
+  "booking.schedule.noTimes":
+    "No times are available on this date. Please try another day.",
   "booking.schedule.selectDate": "Select a date to see real-time availability.",
   "booking.schedule.consecutive": "A consecutive window is included.",
-  "booking.schedule.consecutiveCopy": "For {vehicles} vehicles, the selected start reserves {slots} back-to-back slots. The end time comes directly from live availability.",
+  "booking.schedule.consecutiveCopy":
+    "For {vehicles} vehicles, the selected start reserves {slots} back-to-back slots. The end time comes directly from live availability.",
   "booking.schedule.until": "until {time}",
   "booking.schedule.reserve": "Reserve this time",
-  "booking.schedule.taken": "That time was just taken. We refreshed availability so you can choose another.",
+  "booking.schedule.taken":
+    "That time was just taken. We refreshed availability so you can choose another.",
   "booking.payment.eyebrow": "Payment",
   "booking.payment.title": "How would you like to pay?",
-  "booking.payment.copy": "Your slot is temporarily reserved while you confirm.",
+  "booking.payment.copy":
+    "Your slot is temporarily reserved while you confirm.",
   "booking.payment.reserved": "Time reserved",
   "booking.payment.payAfter": "Pay after service",
   "booking.payment.payAfterCopy": "Pay the team once your wash is complete.",
   "booking.payment.payNow": "Pay now",
   "booking.payment.payNowCopy": "Online card payments are not connected yet.",
   "booking.payment.unavailable": "Online payment isn’t available yet.",
-  "booking.payment.unavailableCopy": "Choose “Pay after service” to complete this booking. No card details are collected.",
+  "booking.payment.unavailableCopy":
+    "Choose “Pay after service” to complete this booking. No card details are collected.",
   "booking.payment.estimate": "Booking estimate",
   "booking.payment.confirm": "Confirm booking",
-  "booking.payment.network": "The connection was interrupted, so your booking may already be confirmed. Try again to safely recover the same booking.",
+  "booking.payment.network":
+    "The connection was interrupted, so your booking may already be confirmed. Try again to safely recover the same booking.",
   "booking.confirmation.title": "Your Trifecta booking is confirmed",
   "booking.confirmation.eyebrow": "Booking confirmed",
   "booking.confirmation.greeting": "We’ll see you there, {name}.",
-  "booking.confirmation.lead": "Your wash is booked. Keep the reference below handy.",
+  "booking.confirmation.lead":
+    "Your wash is booked. Keep the reference below handy.",
   "booking.confirmation.reference": "Booking reference",
   "booking.confirmation.total": "Total confirmed",
   "booking.confirmation.vehicleOne": "Vehicle & service",
@@ -215,7 +243,8 @@ const en = {
   "booking.confirmation.manage": "Manage booking",
   "booking.confirmation.openMap": "Open map",
   "booking.confirmation.backHome": "Back to home",
-  "booking.confirmation.notification": "A confirmation notification has been queued for {email}.",
+  "booking.confirmation.notification":
+    "A confirmation notification has been queued for {email}.",
   "booking.loading.title": "Preparing your booking",
   "booking.loading.copy": "Loading live services and business settings…",
   "booking.loading.failed": "We couldn’t load booking details.",
@@ -239,29 +268,36 @@ const en = {
   "location.searchLabel": "Search for an address or place",
   "location.searchPlaceholder": "Search in Abu Dhabi or across the UAE…",
   "location.searching": "Searching places…",
-  "location.searchFailed": "We couldn’t load suggestions. You can still enter the address manually.",
+  "location.searchFailed":
+    "We couldn’t load suggestions. You can still enter the address manually.",
   "location.mapLabel": "Selected service location map",
   "location.loadingMap": "Loading map…",
   "location.mapUnavailable": "Map temporarily unavailable.",
-  "location.mapFallback": "You can still enter your address or share a Google Maps link.",
+  "location.mapFallback":
+    "You can still enter your address or share a Google Maps link.",
   "location.pinInstruction": "Drag the pin to the exact service location",
-  "location.pinTap": "Tap the map to choose your location, or drag the pin to fine-tune it.",
-  "location.coordinatesSaved": "Location coordinates are saved for this booking.",
+  "location.pinTap":
+    "Tap the map to choose your location, or drag the pin to fine-tune it.",
+  "location.coordinatesSaved":
+    "Location coordinates are saved for this booking.",
   "location.address": "Address",
   "location.addressPlaceholder": "Building, street, area",
   "location.notes": "Location notes",
   "location.required": "Required",
-  "location.notesPlaceholder": "Villa number, parking bay, access instructions…",
+  "location.notesPlaceholder":
+    "Villa number, parking bay, access instructions…",
   "location.manualToggle": "Have a Google Maps link instead?",
   "location.manualLabel": "Paste Google Maps link",
   "location.manualHint": "Only supported Google Maps share links are accepted.",
   "location.gpsSuccess": "Location coordinates found",
-  "location.gpsError": "We couldn't access your location. You can search for the address or enter it manually instead.",
+  "location.gpsError":
+    "We couldn't access your location. You can search for the address or enter it manually instead.",
   "location.mapError": "Enter a recognized Google Maps link.",
   "phone.country": "Country",
   "phone.number": "Phone number (WhatsApp number)",
   "phone.placeholder": "50 123 4567",
-  "phone.hint": "UAE is selected by default. International numbers are welcome.",
+  "phone.hint":
+    "UAE is selected by default. International numbers are welcome.",
   "account.heading": "Your account",
   "account.hello": "Hi, {name}.",
   "account.copy": "Track upcoming visits and manage changes from one place.",
@@ -270,7 +306,8 @@ const en = {
   "account.loadingBookings": "Loading bookings…",
   "account.loadError": "We couldn't load your bookings. Please try again.",
   "account.emptyTitle": "No linked bookings yet.",
-  "account.emptyCopy": "Bookings you make while logged in will appear here. Guest bookings stay available through their secure management link.",
+  "account.emptyCopy":
+    "Bookings you make while logged in will appear here. Guest bookings stay available through their secure management link.",
   "account.firstBooking": "Book your first wash",
   "account.upcoming": "Your upcoming wash",
   "account.past": "Past bookings",
@@ -287,18 +324,21 @@ const en = {
   "account.estimatedArrival": "Estimated arrival",
   "account.upcomingStatus": "Upcoming booking status",
   "account.openMaps": "Open in Google Maps",
-  "account.timeUnavailable": "That time is no longer available. Please choose another.",
+  "account.timeUnavailable":
+    "That time is no longer available. Please choose another.",
   "account.vehicleServices": "Vehicles & services",
   "account.reschedule": "Reschedule",
   "account.cancelRequest": "Request cancellation",
   "account.cancelTitle": "Request cancellation?",
-  "account.cancelCopy": "This sends a cancellation request. It does not immediately erase your booking.",
+  "account.cancelCopy":
+    "This sends a cancellation request. It does not immediately erase your booking.",
   "account.reason": "Reason",
   "account.keep": "Keep booking",
   "account.send": "Send request",
   "account.sending": "Sending…",
   "account.rescheduleTitle": "Choose a new time.",
-  "account.rescheduleCopy": "Your existing time remains reserved until the new hold is safely confirmed.",
+  "account.rescheduleCopy":
+    "Your existing time remains reserved until the new hold is safely confirmed.",
   "account.newDate": "New date",
   "account.rescheduling": "Rescheduling…",
   "account.confirmTime": "Confirm new time",
@@ -321,7 +361,8 @@ const en = {
   "profile.saveVehicle": "Save vehicle",
   "profile.notes": "Notes",
   "profile.home": "Home",
-  "profile.help": "Save personal information first to add locations and vehicles.",
+  "profile.help":
+    "Save personal information first to add locations and vehicles.",
   "profile.phoneError": "Enter a valid international phone number.",
   "profile.changesSaved": "Changes saved.",
   "profile.locationSaved": "Location saved.",
@@ -329,6 +370,29 @@ const en = {
   "profile.vehicleUpdated": "Vehicle updated.",
   "profile.vehicleAdded": "Vehicle added.",
   "profile.vehicleRemoved": "Vehicle removed.",
+  "profile.loyaltyEyebrow": "Trifecta rewards",
+  "profile.loyaltyTitle": "Your wash rewards",
+  "profile.rewardsAvailable": "{count} reward available",
+  "profile.loyaltyProgress": "{current} of {required} qualifying washes",
+  "profile.washesRemaining": "{count} washes remaining until your next reward.",
+  "profile.useRewardBooking":
+    "Your free wash reward is ready to use during booking.",
+  "profile.lifetimeWashes": "Lifetime qualifying washes: {count}",
+  "profile.redeemedRewards": "Rewards redeemed: {count}",
+  "profile.loyaltyHistory": "Reward history",
+  "profile.loyaltyEvent.qualifying_wash": "Qualifying wash",
+  "profile.loyaltyEvent.manual_credit": "Manual wash credit",
+  "profile.loyaltyEvent.manual_debit": "Manual wash credit removed",
+  "profile.loyaltyEvent.reward_earned": "Free wash reward earned",
+  "profile.loyaltyEvent.reward_reserved": "Reward reserved for booking",
+  "profile.loyaltyEvent.reward_released": "Reward returned",
+  "profile.loyaltyEvent.reward_redeemed": "Free wash reward redeemed",
+  "booking.vehicles.reward": "Trifecta reward",
+  "booking.vehicles.rewardNone": "Pay normally",
+  "booking.vehicles.rewardApply": "Use free wash reward",
+  "booking.vehicles.rewardCopy":
+    "This reward applies only to the configured service and this vehicle.",
+  "booking.review.loyaltyReward": "Free wash reward applied",
   "manage.home": "Home",
   "manage.incomplete": "This secure booking link is incomplete.",
   "manage.finding": "Finding your booking",
@@ -338,12 +402,15 @@ const en = {
   "manage.title": "Manage booking",
   "manage.bookedFor": "Booked for {name}",
   "manage.cancellationRequested": "Cancellation requested",
-  "manage.cancellationPending": "Your booking is still active until the Trifecta team reviews and approves the request.",
+  "manage.cancellationPending":
+    "Your booking is still active until the Trifecta team reviews and approves the request.",
   "manage.confirmedTotal": "Confirmed total",
   "manage.visitDetails": "Visit details",
   "manage.plansChanged": "Plans changed?",
-  "manage.cancellationCopy": "Requests can be made until {cutoff}. A request does not cancel the booking until it is approved.",
-  "manage.cancellationUnavailable": "A new cancellation request isn’t available for this booking. The cutoff is 24 hours before the service start, and all requests require review.",
+  "manage.cancellationCopy":
+    "Requests can be made until {cutoff}. A request does not cancel the booking until it is approved.",
+  "manage.cancellationUnavailable":
+    "A new cancellation request isn’t available for this booking. The cutoff is 24 hours before the service start, and all requests require review.",
   "status.driverEnRoute": "Driver on the way",
   "status.driverArrived": "Driver has arrived",
   "status.inProgress": "Wash in progress",
@@ -364,16 +431,19 @@ const en = {
   "auth.loginTitle": "Welcome back.",
   "auth.loginCopy": "Log in to keep your Trifecta bookings together.",
   "auth.signupTitle": "Create your account.",
-  "auth.signupCopy": "Save time on future bookings while guest booking stays available.",
+  "auth.signupCopy":
+    "Save time on future bookings while guest booking stays available.",
   "auth.switchSignup": "New to Trifecta? Create account",
   "auth.switchLogin": "Already have an account? Log in",
   "auth.passwordMismatch": "Passwords do not match.",
   "auth.genericError": "We couldn't complete that request. Please try again.",
   "auth.invalidCredentials": "The email or password is incorrect.",
   "auth.unavailable": "Customer login is temporarily unavailable.",
-  "auth.checkDetails": "We couldn't complete that request. Please check your details and try again.",
+  "auth.checkDetails":
+    "We couldn't complete that request. Please check your details and try again.",
   "auth.oneMoreStep": "One more step.",
-  "auth.checkEmail": "Check your email to confirm your account, then return to log in.",
+  "auth.checkEmail":
+    "Check your email to confirm your account, then return to log in.",
   "auth.confirming": "Confirming your account…",
   "auth.preparing": "Preparing login…",
   "auth.confirmingCopy": "Please keep this page open for a moment.",
@@ -381,9 +451,11 @@ const en = {
   "auth.confirmedCopy": "Your Trifecta account is ready.",
   "auth.viewBookings": "View your bookings",
   "auth.confirmFailed": "We couldn’t confirm that link.",
-  "auth.confirmFailedCopy": "It may have expired or already been used. Return to login and request a new confirmation by signing up again.",
+  "auth.confirmFailedCopy":
+    "It may have expired or already been used. Return to login and request a new confirmation by signing up again.",
   "auth.returnLogin": "Return to login",
-  "errors.network": "We could not reach Trifecta. Check your connection and try again.",
+  "errors.network":
+    "We could not reach Trifecta. Check your connection and try again.",
   "errors.generic": "Something unexpected happened. Please try again.",
 } as const;
 
@@ -435,7 +507,8 @@ const ar: Record<TranslationKey, string> = {
   "home.eyebrow": "عناية متنقلة بالسيارات في أبوظبي",
   "home.title": "سيارتك، بعناية تليق بها.",
   "home.titleAccent": "أينما كنت.",
-  "home.lead": "غسيل وتلميع احترافي للسيارات في منزلك أو مقر عملك. حجز سهل وأسعار واضحة ولمسة نهائية تلاحظها.",
+  "home.lead":
+    "غسيل وتلميع احترافي للسيارات في منزلك أو مقر عملك. حجز سهل وأسعار واضحة ولمسة نهائية تلاحظها.",
   "home.book": "احجز غسيل سيارتك",
   "home.explore": "استكشف الخدمات",
   "home.mobile": "خدمة متنقلة",
@@ -451,17 +524,20 @@ const ar: Record<TranslationKey, string> = {
   "home.benefit3Title": "خدمة تناسب يومك",
   "home.benefit3Copy": "مواعيد حقيقية تُحجز أثناء إتمام طلبك.",
   "home.servicesTitle": "كل غسيل يُنفّذ بإتقان.",
-  "home.servicesCopy": "اختر العناية التي تحتاجها سيارتك، وسنصل إليك بالمعدات والاهتمام واللمسة النهائية.",
+  "home.servicesCopy":
+    "اختر العناية التي تحتاجها سيارتك، وسنصل إليك بالمعدات والاهتمام واللمسة النهائية.",
   "home.seasonal": "عناية موسمية",
   "home.extraCare": "عناية إضافية",
   "home.promoTitle": "سيارة نظيفة. مزاج أصفى.",
-  "home.promoCopy": "نعمل على تجهيز باقة العناية القادمة. وحتى ذلك الحين، نقدم كل خدمة بالاهتمام نفسه.",
+  "home.promoCopy":
+    "نعمل على تجهيز باقة العناية القادمة. وحتى ذلك الحين، نقدم كل خدمة بالاهتمام نفسه.",
   "home.findService": "اعثر على خدمتك",
   "home.howTitle": "سيارة نظيفة في ثلاث خطوات بسيطة.",
   "home.step1Title": "أخبرنا بما تحتاجه",
   "home.step1Copy": "اختر الخدمة وأضف السيارات التي ترغب في العناية بها.",
   "home.step2Title": "اختر موعداً فعلياً",
-  "home.step2Copy": "اطّلع على المواعيد المتاحة مباشرة واحجز الوقت المناسب ليومك.",
+  "home.step2Copy":
+    "اطّلع على المواعيد المتاحة مباشرة واحجز الوقت المناسب ليومك.",
   "home.step3Title": "نصل إليك",
   "home.step3Copy": "يصل فريقنا المتنقل إلى الموقع الذي اخترته مستعداً للعمل.",
   "home.promise": "نظافة تجعل كل قيادة أجمل.",
@@ -471,7 +547,8 @@ const ar: Record<TranslationKey, string> = {
   "home.ctaCopy": "اختر الخدمة والموقع والوقت خلال دقائق قليلة.",
   "home.start": "ابدأ الحجز",
   "contact.title": "يسعدنا مساعدتك.",
-  "contact.copy": "مركز الدعم الكامل قادم قريباً. ولحجز غسيل جديد، أسرع طريقة هي مسار الحجز.",
+  "contact.copy":
+    "مركز الدعم الكامل قادم قريباً. ولحجز غسيل جديد، أسرع طريقة هي مسار الحجز.",
   "contact.care": "خدمة العملاء",
   "contact.preparing": "نعمل على تجهيز تفاصيل الدعم.",
   "contact.privacy": "لا يتم جمع بيانات نموذج تواصل في هذه الصفحة.",
@@ -483,11 +560,14 @@ const ar: Record<TranslationKey, string> = {
   "services.from": "ابتداءً من",
   "services.choose": "اختر هذه الخدمة",
   "services.expressExterior": "غسيل خارجي سريع",
-  "services.expressExteriorDescription": "غسيل خارجي دقيق وتنظيف للعجلات وتجفيف يدوي متقن.",
+  "services.expressExteriorDescription":
+    "غسيل خارجي دقيق وتنظيف للعجلات وتجفيف يدوي متقن.",
   "services.signature": "غسيل ترايفكتا الداخلي والخارجي",
-  "services.signatureDescription": "عناية خارجية متكاملة مع تنظيف منعش ومدروس للمقصورة.",
+  "services.signatureDescription":
+    "عناية خارجية متكاملة مع تنظيف منعش ومدروس للمقصورة.",
   "services.premiumDetail": "عناية تفصيلية فاخرة",
-  "services.premiumDetailDescription": "أشمل عناية لاستعادة رونق السيارة التي تستحق اهتماماً إضافياً.",
+  "services.premiumDetailDescription":
+    "أشمل عناية لاستعادة رونق السيارة التي تستحق اهتماماً إضافياً.",
   "payment.status.pending": "قيد الانتظار",
   "payment.status.unpaid": "غير مدفوع",
   "payment.status.paid": "مدفوع",
@@ -507,11 +587,14 @@ const ar: Record<TranslationKey, string> = {
   "booking.pleaseWait": "يرجى الانتظار",
   "booking.help": "هل تحتاج إلى مساعدة؟",
   "booking.helpCopy": "تبقى اختياراتك محفوظة أثناء التنقل بين الخطوات.",
-  "booking.profileWarning": "تعذر تحميل بياناتك المحفوظة، لكن يمكنك متابعة الحجز بشكل طبيعي.",
+  "booking.profileWarning":
+    "تعذر تحميل بياناتك المحفوظة، لكن يمكنك متابعة الحجز بشكل طبيعي.",
   "booking.service.eyebrow": "اختر العناية",
   "booking.service.title": "ما الذي تحتاجه سيارتك؟",
-  "booking.service.copy": "اختر خدمة للبدء، ويمكنك تخصيص خدمة مختلفة لكل مركبة لاحقاً.",
-  "booking.service.defaultDescription": "عناية احترافية متنقلة بسيارتك في موقعك.",
+  "booking.service.copy":
+    "اختر خدمة للبدء، ويمكنك تخصيص خدمة مختلفة لكل مركبة لاحقاً.",
+  "booking.service.defaultDescription":
+    "عناية احترافية متنقلة بسيارتك في موقعك.",
   "booking.details.eyebrow": "بياناتك",
   "booking.details.title": "أين نلتقي بك؟",
   "booking.details.copy": "سنستخدم هذه البيانات فقط لترتيب الخدمة وتأكيدها.",
@@ -527,7 +610,8 @@ const ar: Record<TranslationKey, string> = {
   "booking.vehicles.eyebrow": "مركباتك",
   "booking.vehicles.titleOne": "أخبرنا عن سيارتك.",
   "booking.vehicles.titleMany": "أخبرنا عن مركباتك وعددها {count}.",
-  "booking.vehicles.copy": "أضف كل مركبة في هذه الزيارة واختر الخدمة المناسبة لكل منها.",
+  "booking.vehicles.copy":
+    "أضف كل مركبة في هذه الزيارة واختر الخدمة المناسبة لكل منها.",
   "booking.vehicles.saved": "مركباتك المحفوظة",
   "booking.vehicles.plate": "اللوحة: {plate}",
   "booking.vehicles.savedVehicle": "مركبة محفوظة",
@@ -554,7 +638,8 @@ const ar: Record<TranslationKey, string> = {
   "booking.vehicles.type.other": "أخرى",
   "booking.review.eyebrow": "المراجعة",
   "booking.review.title": "هل كل شيء صحيح؟",
-  "booking.review.copy": "راجع الزيارة قبل اختيار التاريخ. يؤكد الخادم السعر النهائي عند الحجز.",
+  "booking.review.copy":
+    "راجع الزيارة قبل اختيار التاريخ. يؤكد الخادم السعر النهائي عند الحجز.",
   "booking.review.contact": "التواصل",
   "booking.review.location": "الموقع",
   "booking.review.openMap": "فتح رابط الخريطة",
@@ -564,19 +649,23 @@ const ar: Record<TranslationKey, string> = {
   "booking.review.chooseTime": "اختر موعداً",
   "booking.schedule.eyebrow": "موعدك",
   "booking.schedule.title": "متى تود أن نصل؟",
-  "booking.schedule.copy": "الأوقات معروضة حسب {timezone}. المواعيد المتاحة محدّثة مباشرة وسيُحجز وقتك مؤقتاً في الخطوة التالية.",
+  "booking.schedule.copy":
+    "الأوقات معروضة حسب {timezone}. المواعيد المتاحة محدّثة مباشرة وسيُحجز وقتك مؤقتاً في الخطوة التالية.",
   "booking.schedule.previousMonth": "الشهر السابق",
   "booking.schedule.nextMonth": "الشهر التالي",
   "booking.schedule.availableStarts": "المواعيد المتاحة",
   "booking.schedule.checking": "جارٍ التحقق من المواعيد مباشرة…",
   "booking.schedule.chooseDate": "اختر تاريخاً",
-  "booking.schedule.noTimes": "لا توجد مواعيد متاحة في هذا التاريخ. جرّب يوماً آخر.",
+  "booking.schedule.noTimes":
+    "لا توجد مواعيد متاحة في هذا التاريخ. جرّب يوماً آخر.",
   "booking.schedule.selectDate": "اختر تاريخاً لعرض المواعيد المتاحة مباشرة.",
   "booking.schedule.consecutive": "تم تضمين نافذة زمنية متتالية.",
-  "booking.schedule.consecutiveCopy": "لعدد {vehicles} مركبات، يحجز وقت البدء المحدد {slots} فترات متتالية. يأتي وقت الانتهاء مباشرة من المواعيد المتاحة.",
+  "booking.schedule.consecutiveCopy":
+    "لعدد {vehicles} مركبات، يحجز وقت البدء المحدد {slots} فترات متتالية. يأتي وقت الانتهاء مباشرة من المواعيد المتاحة.",
   "booking.schedule.until": "حتى {time}",
   "booking.schedule.reserve": "احجز هذا الموعد",
-  "booking.schedule.taken": "حُجز هذا الموعد للتو. حدّثنا المواعيد المتاحة لتختار وقتاً آخر.",
+  "booking.schedule.taken":
+    "حُجز هذا الموعد للتو. حدّثنا المواعيد المتاحة لتختار وقتاً آخر.",
   "booking.payment.eyebrow": "الدفع",
   "booking.payment.title": "كيف تود الدفع؟",
   "booking.payment.copy": "موعدك محجوز مؤقتاً أثناء التأكيد.",
@@ -586,10 +675,12 @@ const ar: Record<TranslationKey, string> = {
   "booking.payment.payNow": "الدفع الآن",
   "booking.payment.payNowCopy": "الدفع الإلكتروني بالبطاقة غير متصل بعد.",
   "booking.payment.unavailable": "الدفع الإلكتروني غير متاح حالياً.",
-  "booking.payment.unavailableCopy": "اختر «الدفع بعد الخدمة» لإكمال الحجز. لا نجمع أي بيانات بطاقات.",
+  "booking.payment.unavailableCopy":
+    "اختر «الدفع بعد الخدمة» لإكمال الحجز. لا نجمع أي بيانات بطاقات.",
   "booking.payment.estimate": "تقدير الحجز",
   "booking.payment.confirm": "تأكيد الحجز",
-  "booking.payment.network": "انقطع الاتصال، وربما تم تأكيد حجزك بالفعل. أعد المحاولة لاستعادة الحجز نفسه بأمان.",
+  "booking.payment.network":
+    "انقطع الاتصال، وربما تم تأكيد حجزك بالفعل. أعد المحاولة لاستعادة الحجز نفسه بأمان.",
   "booking.confirmation.title": "تم تأكيد حجزك مع ترايفكتا",
   "booking.confirmation.eyebrow": "تم تأكيد الحجز",
   "booking.confirmation.greeting": "نراك في الموعد، {name}.",
@@ -601,7 +692,8 @@ const ar: Record<TranslationKey, string> = {
   "booking.confirmation.manage": "إدارة الحجز",
   "booking.confirmation.openMap": "فتح الخريطة",
   "booking.confirmation.backHome": "العودة للرئيسية",
-  "booking.confirmation.notification": "تمت إضافة رسالة تأكيد إلى قائمة الإرسال إلى {email}.",
+  "booking.confirmation.notification":
+    "تمت إضافة رسالة تأكيد إلى قائمة الإرسال إلى {email}.",
   "booking.loading.title": "جارٍ تجهيز حجزك",
   "booking.loading.copy": "جارٍ تحميل الخدمات وإعدادات العمل مباشرة…",
   "booking.loading.failed": "تعذر تحميل تفاصيل الحجز.",
@@ -625,13 +717,16 @@ const ar: Record<TranslationKey, string> = {
   "location.searchLabel": "ابحث عن عنوان أو مكان",
   "location.searchPlaceholder": "ابحث في أبوظبي أو أنحاء الإمارات…",
   "location.searching": "جارٍ البحث عن الأماكن…",
-  "location.searchFailed": "تعذر تحميل الاقتراحات. لا يزال بإمكانك إدخال العنوان يدوياً.",
+  "location.searchFailed":
+    "تعذر تحميل الاقتراحات. لا يزال بإمكانك إدخال العنوان يدوياً.",
   "location.mapLabel": "خريطة موقع الخدمة المحدد",
   "location.loadingMap": "جارٍ تحميل الخريطة…",
   "location.mapUnavailable": "الخريطة غير متاحة مؤقتاً.",
-  "location.mapFallback": "لا يزال بإمكانك إدخال عنوانك أو مشاركة رابط خرائط Google.",
+  "location.mapFallback":
+    "لا يزال بإمكانك إدخال عنوانك أو مشاركة رابط خرائط Google.",
   "location.pinInstruction": "حرّك الدبوس إلى موقع الخدمة بدقة",
-  "location.pinTap": "اضغط على الخريطة لاختيار موقعك أو حرّك الدبوس لضبطه بدقة.",
+  "location.pinTap":
+    "اضغط على الخريطة لاختيار موقعك أو حرّك الدبوس لضبطه بدقة.",
   "location.coordinatesSaved": "تم حفظ إحداثيات الموقع لهذا الحجز.",
   "location.address": "العنوان",
   "location.addressPlaceholder": "المبنى، الشارع، المنطقة",
@@ -642,7 +737,8 @@ const ar: Record<TranslationKey, string> = {
   "location.manualLabel": "الصق رابط خرائط Google",
   "location.manualHint": "نقبل روابط المشاركة المعتمدة من خرائط Google فقط.",
   "location.gpsSuccess": "تم تحديد إحداثيات الموقع",
-  "location.gpsError": "تعذر الوصول إلى موقعك. يمكنك البحث عن العنوان أو إدخاله يدوياً بدلاً من ذلك.",
+  "location.gpsError":
+    "تعذر الوصول إلى موقعك. يمكنك البحث عن العنوان أو إدخاله يدوياً بدلاً من ذلك.",
   "location.mapError": "أدخل رابطاً معتمداً من خرائط Google.",
   "phone.country": "الدولة",
   "phone.number": "رقم الهاتف (رقم واتساب)",
@@ -656,7 +752,8 @@ const ar: Record<TranslationKey, string> = {
   "account.loadingBookings": "جارٍ تحميل الحجوزات…",
   "account.loadError": "تعذر تحميل حجوزاتك. يرجى المحاولة مرة أخرى.",
   "account.emptyTitle": "لا توجد حجوزات مرتبطة بعد.",
-  "account.emptyCopy": "ستظهر هنا الحجوزات التي تنشئها أثناء تسجيل الدخول. تبقى حجوزات الضيف متاحة عبر رابط الإدارة الآمن.",
+  "account.emptyCopy":
+    "ستظهر هنا الحجوزات التي تنشئها أثناء تسجيل الدخول. تبقى حجوزات الضيف متاحة عبر رابط الإدارة الآمن.",
   "account.firstBooking": "احجز غسيلك الأول",
   "account.upcoming": "غسيلك القادم",
   "account.past": "الحجوزات السابقة",
@@ -684,7 +781,8 @@ const ar: Record<TranslationKey, string> = {
   "account.send": "إرسال الطلب",
   "account.sending": "جارٍ الإرسال…",
   "account.rescheduleTitle": "اختر موعداً جديداً.",
-  "account.rescheduleCopy": "يبقى موعدك الحالي محجوزاً حتى تأكيد الحجز المؤقت الجديد بأمان.",
+  "account.rescheduleCopy":
+    "يبقى موعدك الحالي محجوزاً حتى تأكيد الحجز المؤقت الجديد بأمان.",
   "account.newDate": "التاريخ الجديد",
   "account.rescheduling": "جارٍ إعادة الجدولة…",
   "account.confirmTime": "تأكيد الموعد الجديد",
@@ -707,7 +805,8 @@ const ar: Record<TranslationKey, string> = {
   "profile.saveVehicle": "حفظ المركبة",
   "profile.notes": "ملاحظات",
   "profile.home": "المنزل",
-  "profile.help": "احفظ معلوماتك الشخصية أولاً لتتمكن من إضافة المواقع والمركبات.",
+  "profile.help":
+    "احفظ معلوماتك الشخصية أولاً لتتمكن من إضافة المواقع والمركبات.",
   "profile.phoneError": "أدخل رقم هاتف دولياً صحيحاً.",
   "profile.changesSaved": "تم حفظ التغييرات.",
   "profile.locationSaved": "تم حفظ الموقع.",
@@ -715,6 +814,29 @@ const ar: Record<TranslationKey, string> = {
   "profile.vehicleUpdated": "تم تحديث المركبة.",
   "profile.vehicleAdded": "تمت إضافة المركبة.",
   "profile.vehicleRemoved": "تم حذف المركبة.",
+  "profile.loyaltyEyebrow": "مكافآت ترايفكتا",
+  "profile.loyaltyTitle": "مكافآت غسيل مركبتك",
+  "profile.rewardsAvailable": "لديك {count} مكافأة متاحة",
+  "profile.loyaltyProgress": "{current} من {required} غسلات مؤهلة",
+  "profile.washesRemaining": "متبقي {count} غسلات حتى مكافأتك التالية.",
+  "profile.useRewardBooking":
+    "مكافأة الغسيل المجاني جاهزة للاستخدام عند الحجز.",
+  "profile.lifetimeWashes": "إجمالي الغسلات المؤهلة: {count}",
+  "profile.redeemedRewards": "المكافآت المستخدمة: {count}",
+  "profile.loyaltyHistory": "سجل المكافآت",
+  "profile.loyaltyEvent.qualifying_wash": "غسلة مؤهلة",
+  "profile.loyaltyEvent.manual_credit": "إضافة رصيد غسلة",
+  "profile.loyaltyEvent.manual_debit": "خصم رصيد غسلة",
+  "profile.loyaltyEvent.reward_earned": "تم كسب مكافأة غسيل مجاني",
+  "profile.loyaltyEvent.reward_reserved": "تم حجز المكافأة للحجز",
+  "profile.loyaltyEvent.reward_released": "تمت إعادة المكافأة",
+  "profile.loyaltyEvent.reward_redeemed": "تم استخدام مكافأة الغسيل المجاني",
+  "booking.vehicles.reward": "مكافأة ترايفكتا",
+  "booking.vehicles.rewardNone": "الدفع بالطريقة المعتادة",
+  "booking.vehicles.rewardApply": "استخدام مكافأة الغسيل المجاني",
+  "booking.vehicles.rewardCopy":
+    "تُطبق هذه المكافأة على الخدمة المحددة وهذه المركبة فقط.",
+  "booking.review.loyaltyReward": "تم تطبيق مكافأة الغسيل المجاني",
   "manage.home": "الرئيسية",
   "manage.incomplete": "رابط الحجز الآمن غير مكتمل.",
   "manage.finding": "جارٍ البحث عن حجزك",
@@ -724,12 +846,15 @@ const ar: Record<TranslationKey, string> = {
   "manage.title": "إدارة الحجز",
   "manage.bookedFor": "الحجز باسم {name}",
   "manage.cancellationRequested": "تم طلب الإلغاء",
-  "manage.cancellationPending": "يبقى حجزك نشطاً حتى يراجع فريق ترايفكتا الطلب ويوافق عليه.",
+  "manage.cancellationPending":
+    "يبقى حجزك نشطاً حتى يراجع فريق ترايفكتا الطلب ويوافق عليه.",
   "manage.confirmedTotal": "الإجمالي المؤكد",
   "manage.visitDetails": "تفاصيل الزيارة",
   "manage.plansChanged": "هل تغيرت خططك؟",
-  "manage.cancellationCopy": "يمكن تقديم الطلبات حتى {cutoff}. لا يُلغى الحجز إلا بعد الموافقة على الطلب.",
-  "manage.cancellationUnavailable": "لا يتوفر طلب إلغاء جديد لهذا الحجز. ينتهي الموعد قبل بدء الخدمة بـ24 ساعة، وتخضع كل الطلبات للمراجعة.",
+  "manage.cancellationCopy":
+    "يمكن تقديم الطلبات حتى {cutoff}. لا يُلغى الحجز إلا بعد الموافقة على الطلب.",
+  "manage.cancellationUnavailable":
+    "لا يتوفر طلب إلغاء جديد لهذا الحجز. ينتهي الموعد قبل بدء الخدمة بـ24 ساعة، وتخضع كل الطلبات للمراجعة.",
   "status.driverEnRoute": "السائق في الطريق",
   "status.driverArrived": "وصل السائق",
   "status.inProgress": "جاري تنظيف المركبة",
@@ -759,7 +884,8 @@ const ar: Record<TranslationKey, string> = {
   "auth.unavailable": "تسجيل دخول العملاء غير متاح مؤقتاً.",
   "auth.checkDetails": "تعذر إكمال الطلب. تحقق من بياناتك وحاول مرة أخرى.",
   "auth.oneMoreStep": "خطوة أخيرة.",
-  "auth.checkEmail": "تحقق من بريدك الإلكتروني لتأكيد حسابك، ثم عد لتسجيل الدخول.",
+  "auth.checkEmail":
+    "تحقق من بريدك الإلكتروني لتأكيد حسابك، ثم عد لتسجيل الدخول.",
   "auth.confirming": "جارٍ تأكيد حسابك…",
   "auth.preparing": "جارٍ تجهيز تسجيل الدخول…",
   "auth.confirmingCopy": "يرجى إبقاء هذه الصفحة مفتوحة للحظات.",
@@ -767,13 +893,17 @@ const ar: Record<TranslationKey, string> = {
   "auth.confirmedCopy": "حساب ترايفكتا الخاص بك جاهز.",
   "auth.viewBookings": "عرض حجوزاتك",
   "auth.confirmFailed": "تعذر تأكيد هذا الرابط.",
-  "auth.confirmFailedCopy": "قد تكون صلاحيته انتهت أو تم استخدامه من قبل. عد إلى تسجيل الدخول واطلب تأكيداً جديداً بإنشاء الحساب مرة أخرى.",
+  "auth.confirmFailedCopy":
+    "قد تكون صلاحيته انتهت أو تم استخدامه من قبل. عد إلى تسجيل الدخول واطلب تأكيداً جديداً بإنشاء الحساب مرة أخرى.",
   "auth.returnLogin": "العودة إلى تسجيل الدخول",
   "errors.network": "تعذر الوصول إلى ترايفكتا. تحقق من اتصالك وحاول مرة أخرى.",
   "errors.generic": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
 };
 
-export const translations: Record<Language, Record<TranslationKey, string>> = { en, ar };
+export const translations: Record<Language, Record<TranslationKey, string>> = {
+  en,
+  ar,
+};
 
 export function appLocale(language: Language): AppLocale {
   return language === "ar" ? "ar-AE" : "en-AE";
@@ -805,9 +935,12 @@ const serviceNameKeys: Record<string, TranslationKey> = {
 };
 
 const serviceDescriptionKeys: Record<string, TranslationKey> = {
-  "A careful exterior wash, wheel clean, and hand-finished dry.": "services.expressExteriorDescription",
-  "Complete exterior care with a considered interior refresh.": "services.signatureDescription",
-  "Our most thorough reset for a car that deserves extra attention.": "services.premiumDetailDescription",
+  "A careful exterior wash, wheel clean, and hand-finished dry.":
+    "services.expressExteriorDescription",
+  "Complete exterior care with a considered interior refresh.":
+    "services.signatureDescription",
+  "Our most thorough reset for a car that deserves extra attention.":
+    "services.premiumDetailDescription",
 };
 
 export function localizeServiceName(language: Language, name: string): string {
@@ -815,13 +948,22 @@ export function localizeServiceName(language: Language, name: string): string {
   return key ? translate(language, key) : name;
 }
 
-export function localizeServiceDescription(language: Language, description: string | null | undefined, fallback: TranslationKey): string {
+export function localizeServiceDescription(
+  language: Language,
+  description: string | null | undefined,
+  fallback: TranslationKey,
+): string {
   if (!description) return translate(language, fallback);
   const key = serviceDescriptionKeys[description];
   return key ? translate(language, key) : description;
 }
 
-export function localizePaymentStatus(language: Language, status: string): string {
-  const key = (`payment.status.${status.toLowerCase()}`) as TranslationKey;
-  return key in translations.en ? translate(language, key) : status.replaceAll("_", " ");
+export function localizePaymentStatus(
+  language: Language,
+  status: string,
+): string {
+  const key = `payment.status.${status.toLowerCase()}` as TranslationKey;
+  return key in translations.en
+    ? translate(language, key)
+    : status.replaceAll("_", " ");
 }

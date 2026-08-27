@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import structlog
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import select
 
 from app.auth.dependencies import ManagerContext, SessionDep, StaffContext, staff_context
@@ -17,7 +17,24 @@ from app.integrations.eta import GoogleRoutesEtaProvider
 from app.integrations.supabase_admin import SupabaseAdminClient
 from app.integrations.supabase_storage import SupabaseStorageAdminClient
 from app.models.entities import Booking, Job, JobPhoto
-from app.schemas.customer import ManagerRescheduleCreate
+from app.schemas.customer import (
+    CustomerAddressResponse,
+    CustomerAddressWrite,
+    CustomerVehicleResponse,
+    CustomerVehicleWrite,
+    ManagerRescheduleCreate,
+)
+from app.schemas.loyalty import (
+    LoyaltyAdjustment,
+    LoyaltySettingsUpdate,
+    LoyaltySettingsView,
+    LoyaltySummary,
+)
+from app.schemas.manager_customers import (
+    ManagerCustomerDetail,
+    ManagerCustomerList,
+    ManagerCustomerUpdate,
+)
 from app.schemas.staff import (
     AssignmentAction,
     AttendanceAction,
@@ -26,6 +43,8 @@ from app.schemas.staff import (
     AttendanceRecord,
     CancellationItem,
     CancellationReview,
+    CashPaymentResult,
+    CashTenderAction,
     JobAction,
     JobChecklistUpdate,
     JobComplaintCreate,
@@ -75,6 +94,22 @@ from app.services.job_quality import (
     review_complaint,
     save_inspection,
     update_checklist,
+)
+from app.services.loyalty import (
+    adjust_loyalty,
+    get_loyalty_settings,
+    update_loyalty_settings,
+)
+from app.services.manager_customers import (
+    create_manager_address,
+    create_manager_vehicle,
+    deactivate_manager_vehicle,
+    delete_manager_address,
+    list_manager_customers,
+    manager_customer_detail,
+    update_manager_address,
+    update_manager_customer,
+    update_manager_vehicle,
 )
 from app.services.staff_accounts import (
     create_staff_account,
@@ -625,7 +660,7 @@ async def job_quality_complaint(
 ) -> None:
     async with session.begin():
         await create_complaint(session, context, job_id, payload)
-        await bump_sync_revisions(session, context.business_id, "jobs")
+        await bump_sync_revisions(session, context.business_id, "jobs", "customers")
 
 
 @router.post("/jobs/{job_id}/quality/complaints/{complaint_id}/review", status_code=204)
@@ -639,7 +674,9 @@ async def job_quality_complaint_review(
     async with session.begin():
         await review_complaint(session, context, job_id, complaint_id, payload)
         domains = (
-            ("jobs", "schedule", "finance") if payload.decision == "approve_rewash" else ("jobs",)
+            ("jobs", "schedule", "finance", "customers")
+            if payload.decision == "approve_rewash"
+            else ("jobs",)
         )
         await bump_sync_revisions(session, context.business_id, *domains)
 
@@ -678,7 +715,7 @@ async def job_start_trip(
             logger.warning("eta_provider_failed", job_id=str(job_id))
     async with session.begin():
         result = await start_trip(session, context, job_id, payload, eta)
-        await bump_sync_revisions(session, context.business_id, "jobs")
+        await bump_sync_revisions(session, context.business_id, "jobs", "customers")
         return result
 
 
@@ -691,7 +728,7 @@ async def job_start(
 ) -> StaffJob:
     async with session.begin():
         result = await transition_job(session, context, job_id, payload, JobStatus.IN_PROGRESS)
-        await bump_sync_revisions(session, context.business_id, "jobs")
+        await bump_sync_revisions(session, context.business_id, "jobs", "customers")
         return result
 
 
@@ -704,7 +741,7 @@ async def job_arrive(
 ) -> StaffJob:
     async with session.begin():
         result = await transition_job(session, context, job_id, payload, JobStatus.ARRIVED)
-        await bump_sync_revisions(session, context.business_id, "jobs")
+        await bump_sync_revisions(session, context.business_id, "jobs", "customers")
         return result
 
 
@@ -717,20 +754,20 @@ async def job_complete(
 ) -> StaffJob:
     async with session.begin():
         result = await transition_job(session, context, job_id, payload, JobStatus.COMPLETED)
-        await bump_sync_revisions(session, context.business_id, "jobs")
+        await bump_sync_revisions(session, context.business_id, "jobs", "customers")
         return result
 
 
-@router.post("/jobs/{job_id}/cash-payment", response_model=StaffJob)
+@router.post("/jobs/{job_id}/cash-payment", response_model=CashPaymentResult)
 async def job_cash(
     job_id: uuid.UUID,
-    payload: JobAction,
+    payload: CashTenderAction,
     session: SessionDep,
     context: Annotated[StaffContext, Depends(staff_context)],
-) -> StaffJob:
+) -> CashPaymentResult:
     async with session.begin():
         result = await record_cash(session, context, job_id, payload)
-        await bump_sync_revisions(session, context.business_id, "jobs", "finance")
+        await bump_sync_revisions(session, context.business_id, "jobs", "finance", "customers")
         return result
 
 
@@ -770,7 +807,176 @@ async def cancellation_review(
 ) -> CancellationItem:
     async with session.begin():
         result = await review_cancellation(session, context, cancellation_id, payload)
-        await bump_sync_revisions(session, context.business_id, "jobs", "schedule")
+        await bump_sync_revisions(session, context.business_id, "jobs", "schedule", "customers")
+        return result
+
+
+@router.get("/customers", response_model=ManagerCustomerList)
+async def manager_customers(
+    session: SessionDep,
+    context: ManagerContext,
+    search: str | None = Query(default=None, max_length=160),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=30, ge=1, le=50),
+) -> ManagerCustomerList:
+    return await list_manager_customers(session, context, search=search, offset=offset, limit=limit)
+
+
+@router.get("/customers/{customer_id}", response_model=ManagerCustomerDetail)
+async def manager_customer(
+    customer_id: uuid.UUID,
+    session: SessionDep,
+    context: ManagerContext,
+    history_offset: int = Query(default=0, ge=0),
+    history_limit: int = Query(default=30, ge=1, le=50),
+) -> ManagerCustomerDetail:
+    return await manager_customer_detail(
+        session,
+        context,
+        customer_id,
+        history_offset=history_offset,
+        history_limit=history_limit,
+    )
+
+
+@router.patch("/customers/{customer_id}", response_model=ManagerCustomerDetail)
+async def manager_customer_update(
+    customer_id: uuid.UUID,
+    payload: ManagerCustomerUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ManagerCustomerDetail:
+    async with session.begin():
+        result = await update_manager_customer(session, context, customer_id, payload)
+        await bump_sync_revisions(session, context.business_id, "customers")
+        return result
+
+
+@router.post(
+    "/customers/{customer_id}/addresses",
+    response_model=CustomerAddressResponse,
+    status_code=201,
+)
+async def manager_customer_address_create(
+    customer_id: uuid.UUID,
+    payload: CustomerAddressWrite,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CustomerAddressResponse:
+    async with session.begin():
+        result = await create_manager_address(session, context, customer_id, payload)
+        await bump_sync_revisions(session, context.business_id, "customers")
+        return result
+
+
+@router.patch(
+    "/customers/{customer_id}/addresses/{address_id}",
+    response_model=CustomerAddressResponse,
+)
+async def manager_customer_address_update(
+    customer_id: uuid.UUID,
+    address_id: uuid.UUID,
+    payload: CustomerAddressWrite,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CustomerAddressResponse:
+    async with session.begin():
+        result = await update_manager_address(session, context, customer_id, address_id, payload)
+        await bump_sync_revisions(session, context.business_id, "customers")
+        return result
+
+
+@router.delete("/customers/{customer_id}/addresses/{address_id}", status_code=204)
+async def manager_customer_address_delete(
+    customer_id: uuid.UUID,
+    address_id: uuid.UUID,
+    session: SessionDep,
+    context: ManagerContext,
+) -> Response:
+    async with session.begin():
+        await delete_manager_address(session, context, customer_id, address_id)
+        await bump_sync_revisions(session, context.business_id, "customers")
+    return Response(status_code=204)
+
+
+@router.post(
+    "/customers/{customer_id}/vehicles",
+    response_model=CustomerVehicleResponse,
+    status_code=201,
+)
+async def manager_customer_vehicle_create(
+    customer_id: uuid.UUID,
+    payload: CustomerVehicleWrite,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CustomerVehicleResponse:
+    async with session.begin():
+        result = await create_manager_vehicle(session, context, customer_id, payload)
+        await bump_sync_revisions(session, context.business_id, "customers")
+        return result
+
+
+@router.patch(
+    "/customers/{customer_id}/vehicles/{vehicle_id}",
+    response_model=CustomerVehicleResponse,
+)
+async def manager_customer_vehicle_update(
+    customer_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    payload: CustomerVehicleWrite,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CustomerVehicleResponse:
+    async with session.begin():
+        result = await update_manager_vehicle(session, context, customer_id, vehicle_id, payload)
+        await bump_sync_revisions(session, context.business_id, "customers")
+        return result
+
+
+@router.delete("/customers/{customer_id}/vehicles/{vehicle_id}", status_code=204)
+async def manager_customer_vehicle_delete(
+    customer_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    session: SessionDep,
+    context: ManagerContext,
+) -> Response:
+    async with session.begin():
+        await deactivate_manager_vehicle(session, context, customer_id, vehicle_id)
+        await bump_sync_revisions(session, context.business_id, "customers")
+    return Response(status_code=204)
+
+
+@router.post("/customers/{customer_id}/loyalty/adjustments", response_model=LoyaltySummary)
+async def manager_customer_loyalty_adjustment(
+    customer_id: uuid.UUID,
+    payload: LoyaltyAdjustment,
+    session: SessionDep,
+    context: ManagerContext,
+) -> LoyaltySummary:
+    async with session.begin():
+        result = await adjust_loyalty(
+            session,
+            business_id=context.business_id,
+            customer_profile_id=customer_id,
+            actor_staff_id=context.staff_id,
+            request=payload,
+        )
+        await bump_sync_revisions(session, context.business_id, "customers")
+        return result
+
+
+@router.get("/loyalty/settings", response_model=LoyaltySettingsView)
+async def loyalty_settings(session: SessionDep, context: ManagerContext) -> LoyaltySettingsView:
+    return await get_loyalty_settings(session, context.business_id)
+
+
+@router.patch("/loyalty/settings", response_model=LoyaltySettingsView)
+async def loyalty_settings_update(
+    payload: LoyaltySettingsUpdate, session: SessionDep, context: ManagerContext
+) -> LoyaltySettingsView:
+    async with session.begin():
+        result = await update_loyalty_settings(session, context.business_id, payload)
+        await bump_sync_revisions(session, context.business_id, "customers")
         return result
 
 
@@ -801,5 +1007,5 @@ async def manager_reschedule(
         job = (await session.scalars(select(Job).where(Job.booking_id == booking.id))).one()
         await session.flush()
         result = await get_job(session, context, job.id)
-        await bump_sync_revisions(session, context.business_id, "jobs", "schedule")
+        await bump_sync_revisions(session, context.business_id, "jobs", "schedule", "customers")
         return result

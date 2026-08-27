@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, Response
 
 from app.auth.dependencies import SessionDep, required_identity
 from app.auth.verifier import VerifiedIdentity
+from app.repositories.business import load_default_business
 from app.schemas.customer import (
     CustomerAddressResponse,
     CustomerAddressWrite,
@@ -68,7 +69,10 @@ async def profile_update(
     request: CustomerProfileUpdate, session: SessionDep, identity: IdentityDep
 ) -> CustomerProfileBootstrap:
     async with session.begin():
-        return await update_customer_profile(session, identity, request)
+        result = await update_customer_profile(session, identity, request)
+        configuration = await load_default_business(session)
+        await bump_sync_revisions(session, configuration.business.id, "customers")
+        return result
 
 
 @router.get("/addresses", response_model=list[CustomerAddressResponse])
@@ -81,7 +85,10 @@ async def address_create(
     request: CustomerAddressWrite, session: SessionDep, identity: IdentityDep
 ) -> CustomerAddressResponse:
     async with session.begin():
-        return await create_customer_address(session, identity, request)
+        result = await create_customer_address(session, identity, request)
+        configuration = await load_default_business(session)
+        await bump_sync_revisions(session, configuration.business.id, "customers")
+        return result
 
 
 @router.patch("/addresses/{address_id}", response_model=CustomerAddressResponse)
@@ -92,7 +99,10 @@ async def address_update(
     identity: IdentityDep,
 ) -> CustomerAddressResponse:
     async with session.begin():
-        return await update_customer_address(session, identity, address_id, request)
+        result = await update_customer_address(session, identity, address_id, request)
+        configuration = await load_default_business(session)
+        await bump_sync_revisions(session, configuration.business.id, "customers")
+        return result
 
 
 @router.delete("/addresses/{address_id}", status_code=204)
@@ -101,6 +111,8 @@ async def address_delete(
 ) -> Response:
     async with session.begin():
         await delete_customer_address(session, identity, address_id)
+        configuration = await load_default_business(session)
+        await bump_sync_revisions(session, configuration.business.id, "customers")
     return Response(status_code=204)
 
 
@@ -114,7 +126,10 @@ async def vehicle_create(
     request: CustomerVehicleWrite, session: SessionDep, identity: IdentityDep
 ) -> CustomerVehicleResponse:
     async with session.begin():
-        return await create_customer_vehicle(session, identity, request)
+        result = await create_customer_vehicle(session, identity, request)
+        configuration = await load_default_business(session)
+        await bump_sync_revisions(session, configuration.business.id, "customers")
+        return result
 
 
 @router.patch("/vehicles/{vehicle_id}", response_model=CustomerVehicleResponse)
@@ -125,7 +140,10 @@ async def vehicle_update(
     identity: IdentityDep,
 ) -> CustomerVehicleResponse:
     async with session.begin():
-        return await update_customer_vehicle(session, identity, vehicle_id, request)
+        result = await update_customer_vehicle(session, identity, vehicle_id, request)
+        configuration = await load_default_business(session)
+        await bump_sync_revisions(session, configuration.business.id, "customers")
+        return result
 
 
 @router.delete("/vehicles/{vehicle_id}", status_code=204)
@@ -134,6 +152,8 @@ async def vehicle_delete(
 ) -> Response:
     async with session.begin():
         await deactivate_customer_vehicle(session, identity, vehicle_id)
+        configuration = await load_default_business(session)
+        await bump_sync_revisions(session, configuration.business.id, "customers")
     return Response(status_code=204)
 
 
@@ -177,7 +197,7 @@ async def cancellation_request(
         await request_booking_cancellation(
             session, booking, CancellationRequestCreate(reason=request.reason)
         )
-        await bump_sync_revisions(session, booking.business_id, "jobs")
+        await bump_sync_revisions(session, booking.business_id, "jobs", "customers")
         response = CustomerBookingActionResponse(
             booking=await customer_booking_detail_for_record(session, booking)
         )
@@ -219,7 +239,7 @@ async def reschedule(
         if existing is not None:
             return CustomerBookingActionResponse.model_validate(existing.response_json)
         detail = await reschedule_customer_booking(session, booking, request)
-        await bump_sync_revisions(session, booking.business_id, "jobs", "schedule")
+        await bump_sync_revisions(session, booking.business_id, "jobs", "schedule", "customers")
         response = CustomerBookingActionResponse(booking=detail)
         store_idempotent_response(
             session,

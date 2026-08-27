@@ -212,6 +212,7 @@ class SyncState(BaseModel):
     workforce: int = Field(ge=0)
     schedule: int = Field(ge=0)
     finance: int = Field(ge=0)
+    customers: int = Field(default=0, ge=0)
 
 
 class Coordinates(StrictRequest):
@@ -222,6 +223,18 @@ class Coordinates(StrictRequest):
 class JobAction(StrictRequest):
     client_event_id: str = Field(min_length=8, max_length=160)
     client_timestamp: datetime | None = None
+
+
+class CashTenderAction(JobAction):
+    tendered_minor: int = Field(ge=0)
+    change_minor: int = Field(ge=0)
+
+
+class CashPaymentResult(BaseModel):
+    job: StaffJob
+    amount_applied_minor: int
+    tendered_minor: int
+    change_minor: int
 
 
 class StartTripAction(JobAction):

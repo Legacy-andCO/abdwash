@@ -20,6 +20,22 @@ For real booking email, configure backend-only `RESEND_API_KEY`, `EMAIL_FROM`, a
 
 Choose the PostgreSQL endpoint for the compute model. A persistent regional container can use the direct endpoint when IPv6 is available or Supavisor session mode on IPv4-only networks. Serverless/elastic compute should use an appropriate transaction pooler and disable prepared statements when required by that pooler.
 
+## Private job-quality photo storage
+
+Apply Alembic revision `80826dfc3c2d` before deploying the matching API. When the target is Supabase and `storage.buckets` is available, the migration idempotently creates or updates a private bucket named `job-quality-photos` with an 8 MiB object limit and JPEG, PNG, and WebP MIME allow-list. The migration never creates a public read policy; all access is mediated by FastAPI using the backend-only Supabase service-role key.
+
+Configure these backend values (defaults are shown only where safe):
+
+```text
+JOB_PHOTO_BUCKET=job-quality-photos
+JOB_PHOTO_SIGNED_URL_SECONDS=300
+JOB_PHOTO_MAX_BYTES=8388608
+```
+
+If the migration runs against a PostgreSQL target without Supabase's `storage` schema, it safely skips bucket creation. Before enabling photo uploads in the Supabase project, manually create the same **private** bucket in **Storage → New bucket**, then set the size and MIME restrictions above. Do not add anonymous/public object policies. The mobile bundle needs no Storage service credential; it uploads only with a short-lived backend-issued token.
+
+This release adds Expo Image Picker and Image Manipulator plus Android camera/media permission configuration. Run `npx expo prebuild --platform android --no-install --no-clean`, verify the generated manifest, and distribute a new APK/AAB. An OTA JavaScript update alone is insufficient for first adoption of the native modules/permissions.
+
 ## Supabase Cron notification dispatch
 
 The Vercel-compatible path is bounded and returns after at most `OUTBOX_BATCH_SIZE` records:
@@ -185,10 +201,12 @@ For Operations V2, apply Alembic revision `96493956784a`, deploy the API, then r
 ## Release order
 
 1. Back up and verify the intended environment.
-2. Apply Alembic migrations only when the release contains a new migration; this customer-web completion phase does not.
+2. Apply Alembic revision `7d3f2a9c8e41` before deploying this release. It performs no historical loyalty-credit backfill.
 3. Run the explicit seed only for initial bootstrap when appropriate.
 4. Deploy the API and either its persistent worker or the secured one-shot scheduler near the database.
 5. Configure explicit web/mobile API origins and URLs.
 6. Deploy/select `apps/web` in Vercel when separately authorized.
+
+After the API is live, open manager mobile Customers → Loyalty settings and select the intended active reward service. The migration populates `loyalty_reward_service_id` only for businesses with exactly one active service; it deliberately does not infer a service by name. No new environment variable is required for loyalty or cash tender.
 
 No deployment is performed by this foundation task.

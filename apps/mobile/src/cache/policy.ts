@@ -11,6 +11,8 @@ export const cacheTimes = {
   shifts: 5 * 60_000,
   profile: 5 * 60_000,
   reports: 2 * 60_000,
+  quality: 30_000,
+  customers: 60_000,
 } as const;
 
 export const retentionTimes = {
@@ -26,6 +28,8 @@ export const retentionTimes = {
   reports: 7 * 24 * 60 * 60_000,
   profile: 3 * 24 * 60 * 60_000,
   cancellations: 24 * 60 * 60_000,
+  quality: 24 * 60 * 60_000,
+  customers: 2 * 24 * 60 * 60_000,
 } as const;
 
 export function operationalScope(context: StaffContext) {
@@ -43,6 +47,13 @@ export const queryKeys = {
   jobs: (scope: string, filters: JobFilters) =>
     ["jobs", scope, filters] as const,
   job: (scope: string, id: string) => ["job", scope, id] as const,
+  quality: (scope: string, id: string) => ["quality", scope, id] as const,
+  customers: (scope: string, search: string, offset: number) =>
+    ["customers", scope, search, offset] as const,
+  customer: (scope: string, id: string, historyOffset = 0) =>
+    ["customer", scope, id, historyOffset] as const,
+  loyaltySettings: (scope: string) => ["loyalty-settings", scope] as const,
+  serviceOptions: ["service-options"] as const,
   teams: (scope: string) => ["teams", scope] as const,
   team: (scope: string, id: string) => ["team", scope, id] as const,
   staff: (scope: string) => ["staff", scope] as const,

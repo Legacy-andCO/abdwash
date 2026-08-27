@@ -8,13 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.entities import BusinessSyncRevision
 from app.schemas.staff import SyncState
 
-SyncDomain = Literal["jobs", "workforce", "schedule", "finance"]
+SyncDomain = Literal["jobs", "workforce", "schedule", "finance", "customers"]
 
 _COLUMNS = {
     "jobs": BusinessSyncRevision.jobs_revision,
     "workforce": BusinessSyncRevision.workforce_revision,
     "schedule": BusinessSyncRevision.schedule_revision,
     "finance": BusinessSyncRevision.finance_revision,
+    "customers": BusinessSyncRevision.customers_revision,
 }
 
 
@@ -49,10 +50,11 @@ async def get_sync_state(session: AsyncSession, business_id: uuid.UUID) -> SyncS
         select(BusinessSyncRevision).where(BusinessSyncRevision.business_id == business_id)
     )
     if row is None:
-        return SyncState(jobs=0, workforce=0, schedule=0, finance=0)
+        return SyncState(jobs=0, workforce=0, schedule=0, finance=0, customers=0)
     return SyncState(
         jobs=row.jobs_revision,
         workforce=row.workforce_revision,
         schedule=row.schedule_revision,
         finance=row.finance_revision,
+        customers=row.customers_revision or 0,
     )

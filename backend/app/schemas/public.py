@@ -132,6 +132,7 @@ class BookingVehicleCreate(StrictRequest):
     plate_number: NonBlank = Field(max_length=40)
     notes: str | None = Field(default=None, max_length=2000)
     service_id: uuid.UUID
+    loyalty_reward_id: uuid.UUID | None = None
 
 
 class BookingCreate(StrictRequest):
@@ -152,6 +153,10 @@ class BookingVehicleSummary(BaseModel):
     plate_number: str | None
     service_name: str
     line_total_minor: int
+    list_price_minor: int | None = None
+    discount_minor: int = 0
+    discount_type: str | None = None
+    loyalty_reward_id: uuid.UUID | None = None
 
 
 class BookingResponse(BaseModel):

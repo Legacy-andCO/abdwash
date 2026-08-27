@@ -26,7 +26,13 @@ const context = {
   staff_id: "staff-1",
   role: "manager",
 } as StaffContext;
-const state: SyncState = { jobs: 1, workforce: 2, schedule: 3, finance: 4 };
+const state: SyncState = {
+  jobs: 1,
+  workforce: 2,
+  schedule: 3,
+  finance: 4,
+  customers: 5,
+};
 
 beforeEach(() => values.clear());
 
@@ -79,6 +85,13 @@ describe("revision-aware sync", () => {
     const prefixes = queryPrefixesForDomains(["workforce"]);
     expect(prefixes).toContain("staff");
     expect(prefixes).toContain("shifts");
+    expect(prefixes).not.toContain("reports");
+  });
+
+  it("invalidates persisted quality reads with the jobs domain only", () => {
+    const prefixes = queryPrefixesForDomains(["jobs"]);
+    expect(prefixes).toContain("quality");
+    expect(prefixes).not.toContain("profile");
     expect(prefixes).not.toContain("reports");
   });
 

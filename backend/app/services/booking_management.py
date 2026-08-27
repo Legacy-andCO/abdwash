@@ -101,6 +101,10 @@ async def booking_management_response(
                 plate_number=vehicle.plate_number,
                 service_name=service.service_name,
                 line_total_minor=service.line_total_minor,
+                list_price_minor=service.list_price_minor or service.unit_price_minor,
+                discount_minor=service.discount_minor or 0,
+                discount_type=service.discount_type,
+                loyalty_reward_id=service.loyalty_reward_id,
             )
             for vehicle, service in rows
         ],

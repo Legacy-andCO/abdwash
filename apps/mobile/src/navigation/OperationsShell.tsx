@@ -1,23 +1,14 @@
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { useEffect, useRef } from "react";
-import {
-  AppState,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { queryClient } from "../cache/queryClient";
 import { synchronizeOperations } from "../cache/sync";
 import type { StaffContext } from "../lib";
 import { navigationTabs, type MainTab } from "../operations";
-import {
-  JobsScreen,
-  type JobsNavigationState,
-} from "../screens/JobsScreen";
+import { JobsScreen, type JobsNavigationState } from "../screens/JobsScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import {
   ReportsScreen,
@@ -25,11 +16,14 @@ import {
 } from "../screens/ReportsScreen";
 import { TeamScreen, type TeamSection } from "../screens/TeamScreen";
 import { TodayScreen } from "../screens/TodayScreen";
+import { CustomersScreen } from "../screens/CustomersScreen";
 import { colors, spacing } from "../theme";
 
 export function OperationsShell({ context }: { context: StaffContext }) {
   const tabs = navigationTabs(context.role);
   const [tab, setTab] = useState<MainTab>("today");
+  const [customersOpen, setCustomersOpen] = useState(false);
+  const [jobDrillId, setJobDrillId] = useState<string | null>(null);
   const [jobsNavigation, setJobsNavigation] = useState<JobsNavigationState>({
     view: "today",
     offset: 0,
@@ -84,13 +78,28 @@ export function OperationsShell({ context }: { context: StaffContext }) {
         <Text style={styles.role}>{context.role.toUpperCase()}</Text>
       </View>
       <View style={styles.body}>
-        {tab === "today" ? (
-          <TodayScreen context={context} />
+        {customersOpen ? (
+          <CustomersScreen
+            context={context}
+            onBack={() => setCustomersOpen(false)}
+            onOpenJob={(jobId) => {
+              setCustomersOpen(false);
+              setTab("jobs");
+              setJobDrillId(jobId);
+            }}
+          />
+        ) : tab === "today" ? (
+          <TodayScreen
+            context={context}
+            onOpenCustomers={() => setCustomersOpen(true)}
+          />
         ) : tab === "jobs" ? (
           <JobsScreen
             context={context}
             navigationState={jobsNavigation}
             onNavigationStateChange={setJobsNavigation}
+            initialJobId={jobDrillId}
+            onInitialJobClosed={() => setJobDrillId(null)}
           />
         ) : tab === "team" ? (
           <TeamScreen
@@ -108,26 +117,28 @@ export function OperationsShell({ context }: { context: StaffContext }) {
           <ProfileScreen context={context} />
         )}
       </View>
-      <View style={styles.tabs}>
-        {tabs.map((value) => (
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === value }}
-            key={value}
-            onPress={() => setTab(value)}
-            style={[styles.tab, tab === value ? styles.tabActive : undefined]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                tab === value ? styles.tabTextActive : undefined,
-              ]}
+      {!customersOpen ? (
+        <View style={styles.tabs}>
+          {tabs.map((value) => (
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === value }}
+              key={value}
+              onPress={() => setTab(value)}
+              style={[styles.tab, tab === value ? styles.tabActive : undefined]}
             >
-              {value[0].toUpperCase() + value.slice(1)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+              <Text
+                style={[
+                  styles.tabText,
+                  tab === value ? styles.tabTextActive : undefined,
+                ]}
+              >
+                {value[0].toUpperCase() + value.slice(1)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
