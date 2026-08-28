@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.finance import FinanceOverview
 from app.schemas.public import StrictRequest
 
 
@@ -213,6 +214,7 @@ class SyncState(BaseModel):
     workforce: int = Field(ge=0)
     schedule: int = Field(ge=0)
     finance: int = Field(ge=0)
+    inventory: int = Field(default=0, ge=0)
     customers: int = Field(default=0, ge=0)
 
 
@@ -559,3 +561,4 @@ class ReportV2(BaseModel):
     service_mix: list[MixRow] = Field(default_factory=list)
     payment_mix: list[MixRow] = Field(default_factory=list)
     team_performance: list[TeamPerformanceRow] = Field(default_factory=list)
+    finance: FinanceOverview | None = None

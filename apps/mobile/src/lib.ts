@@ -215,6 +215,127 @@ export type ReportV2 = {
   service_mix: MixRow[];
   payment_mix: MixRow[];
   team_performance: TeamPerformance[];
+  finance?: FinanceOverview | null;
+};
+export type ExpenseCategoryTotal = {
+  category: string;
+  amount_minor: number;
+  percentage: number;
+};
+export type Expense = {
+  id: string;
+  expense_date: string;
+  category: string;
+  description: string;
+  amount_minor: number;
+  currency_code: string;
+  payment_method: string;
+  paid_by_staff_id: string | null;
+  paid_by_staff_name: string | null;
+  team_id: string | null;
+  team_name: string | null;
+  related_job_id: string | null;
+  related_booking_reference: string | null;
+  supplier_name: string | null;
+  reference_number: string | null;
+  notes: string | null;
+  receipt_available: boolean;
+  status: "active" | "voided";
+  created_by_staff_id: string;
+  created_at: string;
+  voided_at: string | null;
+  void_reason: string | null;
+};
+export type ExpenseList = {
+  items: Expense[];
+  next_cursor: string | null;
+  total_expenses_minor: number;
+  category_totals: ExpenseCategoryTotal[];
+  currency_code: string;
+};
+export type CashPendingPayment = {
+  payment_transaction_id: string;
+  booking_reference: string;
+  job_id: string;
+  amount_minor: number;
+  currency_code: string;
+  collected_at: string;
+};
+export type CashPendingStaff = {
+  staff_id: string;
+  staff_name: string;
+  payment_count: number;
+  expected_cash_minor: number;
+  currency_code: string;
+  oldest_unreconciled_at: string;
+};
+export type CashPendingList = { items: CashPendingStaff[] };
+export type CashPendingDetail = {
+  staff_id: string;
+  staff_name: string;
+  expected_cash_minor: number;
+  currency_code: string;
+  payments: CashPendingPayment[];
+};
+export type CashReconciliation = {
+  id: string;
+  staff_id: string;
+  staff_name: string;
+  team_id: string | null;
+  team_name: string | null;
+  period_start: string;
+  period_end: string;
+  expected_cash_minor: number;
+  declared_cash_minor: number;
+  difference_minor: number;
+  difference_label: "exact" | "short" | "over";
+  currency_code: string;
+  status: "confirmed" | "voided";
+  note: string | null;
+  payment_count: number;
+  payments: CashPendingPayment[];
+  created_by_staff_id: string;
+  confirmed_at: string;
+  voided_at: string | null;
+  void_reason: string | null;
+};
+export type CashReconciliationList = {
+  items: CashReconciliation[];
+  next_cursor: string | null;
+};
+export type FinanceOverview = {
+  start_date: string;
+  end_date: string;
+  currency_code: string;
+  booked_sales_minor: number;
+  collected_revenue_minor: number;
+  outstanding_minor: number;
+  expenses_minor: number;
+  operational_profit_minor: number;
+  margin_percent: number;
+  cash_pending_minor: number;
+  cash_short_over_minor: number;
+  expense_categories: ExpenseCategoryTotal[];
+  series: {
+    date: string;
+    collected_revenue_minor: number;
+    expenses_minor: number;
+    operational_profit_minor: number;
+  }[];
+  team_contributions: {
+    team_id: string;
+    team_name: string;
+    collected_revenue_minor: number;
+    completed_jobs: number;
+    direct_expenses_minor: number;
+    direct_contribution_minor: number;
+  }[];
+};
+export type PersonalCashSummary = {
+  date: string;
+  currency_code: string;
+  collected_today_minor: number;
+  awaiting_handover_minor: number;
 };
 export type Dashboard = {
   date: string;
@@ -248,7 +369,90 @@ export type SyncState = {
   workforce: number;
   schedule: number;
   finance: number;
+  inventory: number;
   customers: number;
+};
+export type InventoryItem = {
+  id: string;
+  name: string;
+  category: string;
+  code: string | null;
+  unit: string;
+  is_active: boolean;
+  default_low_stock_threshold: number;
+  notes: string | null;
+  total_quantity: number;
+  has_movements: boolean;
+};
+export type InventoryLocation = {
+  id: string;
+  name: string;
+  location_type: "main" | "mobile_team" | "van" | "other";
+  linked_team_id: string | null;
+  linked_team_name: string | null;
+  is_active: boolean;
+  low_stock_count: number;
+  out_of_stock_count: number;
+};
+export type InventoryStockLine = {
+  item_id: string;
+  item_name: string;
+  code: string | null;
+  category: string;
+  unit: string;
+  location_id: string;
+  location_name: string;
+  quantity: number;
+  threshold: number;
+  status: "normal" | "low" | "out";
+};
+export type InventoryOverview = {
+  active_item_count: number;
+  low_stock_count: number;
+  out_of_stock_count: number;
+  locations: {
+    location_id: string;
+    location_name: string;
+    location_type: string;
+    low_stock_count: number;
+    out_of_stock_count: number;
+  }[];
+};
+export type InventoryOperation = {
+  id: string;
+  operation_type: string;
+  client_event_id: string;
+  expense_id: string | null;
+  movement_count: number;
+  created_at: string;
+};
+export type InventoryMovement = {
+  id: string;
+  operation_id: string;
+  item_id: string;
+  item_name: string;
+  unit: string;
+  movement_type: string;
+  quantity: number;
+  signed_quantity: number;
+  location_id: string;
+  location_name: string;
+  from_location_name: string | null;
+  to_location_name: string | null;
+  job_id: string | null;
+  booking_reference: string | null;
+  actor_name: string;
+  reason: string | null;
+  created_at: string;
+};
+export type TeamStockSummary = {
+  team_id: string;
+  location_id: string | null;
+  location_name: string | null;
+  item_count: number;
+  low_stock_count: number;
+  out_of_stock_count: number;
+  items: InventoryStockLine[];
 };
 export type CashPaymentResult = {
   job: Job;
@@ -843,6 +1047,134 @@ export const reviewLeave = (id: string, decision: "approved" | "rejected") =>
   api<Leave>(`/api/v1/staff/leave/${id}/review`, json("POST", { decision }));
 export const getReport = (start: string, end: string) =>
   api<ReportV2>(`/api/v1/staff/reports/v2?start_date=${start}&end_date=${end}`);
+export const getFinanceOverview = (start: string, end: string) =>
+  api<FinanceOverview>(
+    `/api/v1/staff/finance/overview?start_date=${start}&end_date=${end}`,
+  );
+export type ExpenseFilters = {
+  category?: string;
+  payment_method?: string;
+  staff_id?: string;
+  team_id?: string;
+  status?: "active" | "voided";
+  search?: string;
+};
+export const getExpenses = (
+  start: string,
+  end: string,
+  filters: ExpenseFilters = {},
+  cursor?: string,
+) => {
+  const params = new URLSearchParams({ start_date: start, end_date: end });
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
+  if (cursor) params.set("cursor", cursor);
+  return api<ExpenseList>(`/api/v1/staff/finance/expenses?${params.toString()}`);
+};
+export const createExpense = (body: object) =>
+  api<Expense>("/api/v1/staff/finance/expenses", json("POST", body));
+export const voidExpense = (expenseId: string, reason: string) =>
+  api<Expense>(
+    `/api/v1/staff/finance/expenses/${expenseId}/void`,
+    json("POST", { reason }),
+  );
+export const getPendingCash = () =>
+  api<CashPendingList>("/api/v1/staff/finance/cash/pending");
+export const getPendingCashDetail = (staffId: string) =>
+  api<CashPendingDetail>(`/api/v1/staff/finance/cash/pending/${staffId}`);
+export const getCashReconciliations = () =>
+  api<CashReconciliationList>(
+    "/api/v1/staff/finance/cash/reconciliations",
+  );
+export const createCashReconciliation = (body: object) =>
+  api<CashReconciliation>(
+    "/api/v1/staff/finance/cash/reconciliations",
+    json("POST", body),
+  );
+export const voidCashReconciliation = (id: string, reason: string) =>
+  api<CashReconciliation>(
+    `/api/v1/staff/finance/cash/reconciliations/${id}/void`,
+    json("POST", { reason }),
+  );
+export const getPersonalCash = (day: string) =>
+  api<PersonalCashSummary>(`/api/v1/staff/finance/cash/mine?day=${day}`);
+export const getInventoryOverview = () =>
+  api<InventoryOverview>("/api/v1/staff/inventory/overview");
+export const getInventoryItems = (search = "", offset = 0) => {
+  const params = new URLSearchParams({
+    offset: String(offset),
+    limit: "50",
+    include_inactive: "true",
+  });
+  if (search.trim()) params.set("search", search.trim());
+  return api<{ items: InventoryItem[]; next_offset: number | null }>(
+    `/api/v1/staff/inventory/items?${params}`,
+  );
+};
+export const createInventoryItem = (body: object) =>
+  api<InventoryItem>("/api/v1/staff/inventory/items", json("POST", body));
+export const updateInventoryItem = (id: string, body: object) =>
+  api<InventoryItem>(
+    `/api/v1/staff/inventory/items/${id}`,
+    json("PATCH", body),
+  );
+export const getInventoryLocations = () =>
+  api<InventoryLocation[]>("/api/v1/staff/inventory/locations");
+export const createInventoryLocation = (body: object) =>
+  api<InventoryLocation>(
+    "/api/v1/staff/inventory/locations",
+    json("POST", body),
+  );
+export const getInventoryStock = (
+  locationId = "",
+  search = "",
+  status = "",
+) => {
+  const params = new URLSearchParams({ limit: "100" });
+  if (locationId) params.set("location_id", locationId);
+  if (search.trim()) params.set("search", search.trim());
+  if (status) params.set("status", status);
+  return api<{ items: InventoryStockLine[]; next_offset: number | null }>(
+    `/api/v1/staff/inventory/stock?${params}`,
+  );
+};
+export const getInventoryMovements = (locationId = "") => {
+  const params = new URLSearchParams({ limit: "50" });
+  if (locationId) params.set("location_id", locationId);
+  return api<{ items: InventoryMovement[]; next_offset: number | null }>(
+    `/api/v1/staff/inventory/movements?${params}`,
+  );
+};
+export const receiveInventoryStock = (body: object) =>
+  api<InventoryOperation>(
+    "/api/v1/staff/inventory/receipts",
+    json("POST", body),
+  );
+export const transferInventoryStock = (body: object) =>
+  api<InventoryOperation>(
+    "/api/v1/staff/inventory/transfers",
+    json("POST", body),
+  );
+export const recordInventoryUsage = (body: object) =>
+  api<InventoryOperation>(
+    "/api/v1/staff/inventory/usage",
+    json("POST", body),
+  );
+export const recordInventoryWastage = (body: object) =>
+  api<InventoryOperation>(
+    "/api/v1/staff/inventory/wastage",
+    json("POST", body),
+  );
+export const recordInventoryStockCount = (body: object) =>
+  api<InventoryOperation>(
+    "/api/v1/staff/inventory/stock-counts",
+    json("POST", body),
+  );
+export const getTeamStockSummary = (teamId: string) =>
+  api<TeamStockSummary>(
+    `/api/v1/staff/inventory/teams/${teamId}/summary`,
+  );
 export const getCancellations = () =>
   api<Cancellation[]>("/api/v1/staff/cancellations");
 export const reviewCancellation = (

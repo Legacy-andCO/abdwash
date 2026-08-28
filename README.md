@@ -49,6 +49,8 @@ The platform is a modular monolith: Supabase provides PostgreSQL and Auth, FastA
 - Manager/admin customer management is reachable from Today and provides tenant-scoped paginated search by name, phone, email, or plate; safe profile, saved-location, saved-vehicle, booking/job history, and audited loyalty controls reuse the existing customer architecture.
 - TanStack Query caching, selected AsyncStorage persistence, scope-aware cache keys, last-updated/offline read states, pull-to-refresh, foreground/network synchronization, and revision-based targeted invalidation.
 - Online authority for all operational and financial writes. There is intentionally no offline mutation replay queue yet.
+- Manager/admin Finance area with authoritative booked-versus-collected reporting, expense ledger/category summaries, operational profit/margin, direct team contribution, and cash handover reconciliation. Employees see only their own collected/awaiting-handover cash summary.
+- Manager/admin Inventory area with controlled consumable catalogue, main/shop, mobile-team and named-van stock locations, low/out alerts, bounded search, append-only movement history, batch receiving, atomic transfers, usage, wastage, stock counts, and optional receipt-to-expense recording. Employees can view their active team stock and record assigned-job usage only.
 - Checked-in Android native project with safe-area and edge-to-edge keyboard/IME handling.
 
 ### Backend and platform
@@ -68,6 +70,9 @@ The platform is a modular monolith: Supabase provides PostgreSQL and Auth, FastA
 - Supabase Cron + `pg_net` schedule support for one-minute dispatcher invocation, with URL and secret stored in Supabase Vault.
 - Payment abstraction and safe provider-reference schema. Pay Now and real card capture are not implemented; PAN, CVV/CVC, PIN, track data, and other raw card credentials must never enter AbdWash.
 - Append-only loyalty events, durable available/reserved/redeemed reward records, reward pricing snapshots, and transaction-level cash tender/change fields preserve auditability and historical financial truth.
+- Auditable operational-finance ledger with integer-minor-unit expenses, active/voided correction history, actor attribution, bounded server-side filtering/pagination, and business-timezone aggregates.
+- Tenant-scoped inventory ledger with `NUMERIC(14,3)` quantities, authoritative non-negative balances, deterministic row locking, retry-safe operation IDs, team-linked locations, append-only movements, service-consumption templates, RLS, and selective inventory sync revisions.
+- Cash reconciliation derives expected liability only from successful cash payment transaction amounts, attributes each payment to its recording staff member, prevents active double reconciliation, records exact/short/over handovers, and preserves void/replacement history. Tender and change never inflate revenue or expected cash.
 - Scoped idempotency records, append-only job events with client-event deduplication, optimistic versioning, audit events, and domain-specific sync revisions.
 - Structured request telemetry with correlation IDs, route templates, total/auth/staff-context/SQL/application timings, query counts, cold-process state, and sanitized provider/auth diagnostics.
 - Explicit CORS origins, backend-only service credentials, no direct browser/mobile access to business tables, and RLS defense in depth.
@@ -77,7 +82,9 @@ The platform is a modular monolith: Supabase provides PostgreSQL and Auth, FastA
 - Pay Now, saved-card creation, payment-provider capture, refunds through a real gateway, NFC, and Tap-to-Pay are not implemented.
 - The mobile app is English-only in this phase; English/Arabic localization applies to the customer website.
 - Cached mobile reads are available offline, but operational writes require connectivity and an authoritative server response.
-- Background/live employee tracking, durable offline mutation replay, WhatsApp, inventory/van stock, subscriptions, corporate credit, expenses/profitability, commissions, AI assistance, and multi-branch management remain deferred.
+- Background/live employee tracking, durable offline mutation replay, WhatsApp, subscriptions, corporate credit, commissions, AI assistance, and multi-branch management remain deferred.
+- Supplier catalogues, purchase orders, supplier pricing, inventory valuation/COGS, fleet management, automatic unconfirmed chemical deduction, and fixed-asset/equipment tracking are not implemented. Vans are currently named stock locations rather than fleet records.
+- Expense receipt uploads and full accounting functions such as a general ledger, tax filing, payroll, bank feeds, and arbitrary cost allocation remain deferred. Current profit is explicitly operational profit: collected revenue minus active recorded expenses.
 - Google Maps/Places and routing depend on correctly enabled APIs, billing, map ID, and restricted browser/backend keys. Manual address entry remains available when Maps is unavailable.
 
 ## Repository structure
@@ -140,6 +147,24 @@ app foreground / connectivity restored / periodic check
 → refresh active views
 ```
 
+### Operational finance
+
+```text
+successful cash payment transaction (recording staff is accountable collector)
+→ unreconciled cash queue
+→ manager confirms declared handover
+→ exact / short / over reconciliation with immutable payment links
+→ void with reason and create replacement if correction is required
+```
+
+```text
+booked booking snapshots + successful payment transactions + active expense ledger
+→ bounded server-side aggregates
+→ Reports / Finance overview, expense mix, cash status, and direct team contribution
+```
+
+General expenses are not arbitrarily allocated to services, teams, or employees. Direct team contribution includes only expenses explicitly linked to that team.
+
 ### Job quality and correction
 
 ```text
@@ -149,6 +174,19 @@ required checklist complete → completed
 manager complaint → resolve/reject OR approve scheduled zero-value rewash
 rewash follows the normal job lifecycle → complaint resolved
 ```
+
+### Inventory
+
+```text
+catalogue item + main/team/van location
+→ opening balance or receipt
+→ authoritative InventoryStock row
+→ append-only InventoryMovement audit
+→ transfer / confirmed job usage / wastage / physical-count adjustment
+→ inventory revision invalidates only affected mobile inventory reads
+```
+
+A receipt can optionally create one linked `chemicals_supplies` expense in the same transaction. Retries reuse the original inventory operation and never create duplicate stock or expense. Receipt costs are operational metadata only: FIFO, weighted-average valuation, COGS, and accounting journals are intentionally outside this phase.
 
 ## Requirements
 
@@ -259,7 +297,7 @@ alembic upgrade head
 python -m app.cli.seed
 ```
 
-The current Alembic head is `7d3f2a9c8e41`. The migration chain includes the foundation schema, en-route/arrived job states, case-insensitive staff usernames, Operations V2 workforce features, query indexes, sync revisions/assignment repair, forced password-change state, tenant-scoped job-quality controls with a private photo bucket, loyalty ledger/reward state, customer sync revision, booking discount snapshots, and auditable cash tender fields.
+The current Alembic head is `f29a61e82c45`. The migration chain includes the foundation schema, en-route/arrived job states, case-insensitive staff usernames, Operations V2 workforce features, query indexes, sync revisions/assignment repair, forced password-change state, tenant-scoped job-quality controls with a private photo bucket, loyalty ledger/reward state, customer sync revision, booking discount snapshots, auditable cash tender fields, the operational finance ledger, and tenant-scoped inventory catalogue/location/balance/operation/movement/service-template tables.
 
 `python -m app.cli.seed` is idempotent and creates the AbdWash business, business settings, Mobile Team 1, and the initial customer-facing service catalogue.
 

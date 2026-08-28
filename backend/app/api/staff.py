@@ -24,6 +24,44 @@ from app.schemas.customer import (
     CustomerVehicleWrite,
     ManagerRescheduleCreate,
 )
+from app.schemas.finance import (
+    CashPendingDetail,
+    CashPendingList,
+    CashReconciliationCreate,
+    CashReconciliationList,
+    CashReconciliationView,
+    CashReconciliationVoid,
+    ExpenseCreate,
+    ExpenseList,
+    ExpenseView,
+    ExpenseVoid,
+    FinanceOverview,
+    PersonalCashSummary,
+)
+from app.schemas.inventory import (
+    InventoryItemCreate,
+    InventoryItemList,
+    InventoryItemUpdate,
+    InventoryItemView,
+    InventoryLocationCreate,
+    InventoryLocationUpdate,
+    InventoryLocationView,
+    InventoryMovementList,
+    InventoryOperationView,
+    InventoryOverview,
+    InventoryReceiptCreate,
+    InventoryStockCountCreate,
+    InventoryThresholdUpdate,
+    InventoryTransferCreate,
+    InventoryUsageCreate,
+    InventoryUsageReport,
+    InventoryWastageCreate,
+    ServiceConsumptionTemplateLine,
+    ServiceConsumptionTemplateUpdate,
+    StockLine,
+    StockList,
+    TeamStockSummary,
+)
 from app.schemas.loyalty import (
     LoyaltyAdjustment,
     LoyaltySettingsUpdate,
@@ -84,6 +122,42 @@ from app.schemas.staff import (
     TemporaryPasswordUpdate,
 )
 from app.services.customers import reschedule_managed_booking
+from app.services.finance import (
+    create_expense,
+    create_reconciliation,
+    finance_overview,
+    get_expense,
+    get_reconciliation,
+    list_expenses,
+    list_reconciliations,
+    pending_cash,
+    pending_cash_detail,
+    personal_cash_summary,
+    void_expense,
+    void_reconciliation,
+)
+from app.services.inventory import (
+    create_item,
+    create_location,
+    get_item,
+    get_service_template,
+    inventory_overview,
+    list_items,
+    list_locations,
+    list_movements,
+    list_stock,
+    receive_stock,
+    record_stock_count,
+    record_usage,
+    record_wastage,
+    team_stock_summary,
+    transfer_stock,
+    update_item,
+    update_location,
+    update_service_template,
+    update_threshold,
+    usage_report,
+)
 from app.services.job_quality import (
     add_issue,
     confirm_photo,
@@ -459,6 +533,423 @@ async def reports_v2(
     context: ManagerContext,
 ) -> ReportV2:
     return await report_v2(session, context, start_date, end_date)
+
+
+@router.get("/finance/overview", response_model=FinanceOverview)
+async def finance_overview_view(
+    start_date: date,
+    end_date: date,
+    session: SessionDep,
+    context: ManagerContext,
+) -> FinanceOverview:
+    return await finance_overview(session, context, start_date, end_date)
+
+
+@router.get("/finance/expenses", response_model=ExpenseList)
+async def finance_expenses(
+    start_date: date,
+    end_date: date,
+    session: SessionDep,
+    context: ManagerContext,
+    category: str | None = None,
+    payment_method: str | None = None,
+    staff_id: uuid.UUID | None = None,
+    team_id: uuid.UUID | None = None,
+    status: Annotated[str | None, Query(pattern="^(active|voided)$")] = None,
+    search: str | None = None,
+    cursor: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 30,
+) -> ExpenseList:
+    return await list_expenses(
+        session,
+        context,
+        start_date=start_date,
+        end_date=end_date,
+        category=category,
+        payment_method=payment_method,
+        staff_id=staff_id,
+        team_id=team_id,
+        status=status,
+        search=search,
+        cursor=cursor,
+        limit=limit,
+    )
+
+
+@router.post("/finance/expenses", response_model=ExpenseView, status_code=201)
+async def finance_expense_create(
+    payload: ExpenseCreate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ExpenseView:
+    async with session.begin():
+        result = await create_expense(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "finance")
+        return result
+
+
+@router.get("/finance/expenses/{expense_id}", response_model=ExpenseView)
+async def finance_expense_detail(
+    expense_id: uuid.UUID,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ExpenseView:
+    return await get_expense(session, context, expense_id)
+
+
+@router.post("/finance/expenses/{expense_id}/void", response_model=ExpenseView)
+async def finance_expense_void(
+    expense_id: uuid.UUID,
+    payload: ExpenseVoid,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ExpenseView:
+    async with session.begin():
+        result = await void_expense(session, context, expense_id, payload.reason)
+        await bump_sync_revisions(session, context.business_id, "finance")
+        return result
+
+
+@router.get("/finance/cash/pending", response_model=CashPendingList)
+async def finance_cash_pending(
+    session: SessionDep,
+    context: ManagerContext,
+    staff_id: uuid.UUID | None = None,
+) -> CashPendingList:
+    return await pending_cash(session, context, staff_id)
+
+
+@router.get("/finance/cash/pending/{staff_id}", response_model=CashPendingDetail)
+async def finance_cash_pending_detail(
+    staff_id: uuid.UUID,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CashPendingDetail:
+    return await pending_cash_detail(session, context, staff_id)
+
+
+@router.get("/finance/cash/reconciliations", response_model=CashReconciliationList)
+async def finance_cash_reconciliations(
+    session: SessionDep,
+    context: ManagerContext,
+    cursor: datetime | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 30,
+) -> CashReconciliationList:
+    return await list_reconciliations(session, context, cursor=cursor, limit=limit)
+
+
+@router.post(
+    "/finance/cash/reconciliations",
+    response_model=CashReconciliationView,
+    status_code=201,
+)
+async def finance_cash_reconciliation_create(
+    payload: CashReconciliationCreate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CashReconciliationView:
+    async with session.begin():
+        result = await create_reconciliation(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "finance")
+        return result
+
+
+@router.get(
+    "/finance/cash/reconciliations/{reconciliation_id}",
+    response_model=CashReconciliationView,
+)
+async def finance_cash_reconciliation_detail(
+    reconciliation_id: uuid.UUID,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CashReconciliationView:
+    return await get_reconciliation(session, context, reconciliation_id)
+
+
+@router.post(
+    "/finance/cash/reconciliations/{reconciliation_id}/void",
+    response_model=CashReconciliationView,
+)
+async def finance_cash_reconciliation_void(
+    reconciliation_id: uuid.UUID,
+    payload: CashReconciliationVoid,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CashReconciliationView:
+    async with session.begin():
+        result = await void_reconciliation(session, context, reconciliation_id, payload.reason)
+        await bump_sync_revisions(session, context.business_id, "finance")
+        return result
+
+
+@router.get("/finance/cash/mine", response_model=PersonalCashSummary)
+async def finance_my_cash(
+    session: SessionDep,
+    context: StaffDep,
+    day: date | None = None,
+) -> PersonalCashSummary:
+    target = day or datetime.now(ZoneInfo(context.timezone)).date()
+    return await personal_cash_summary(session, context, target)
+
+
+@router.get("/inventory/overview", response_model=InventoryOverview)
+async def inventory_overview_view(
+    session: SessionDep, context: ManagerContext
+) -> InventoryOverview:
+    return await inventory_overview(session, context)
+
+
+@router.get("/inventory/items", response_model=InventoryItemList)
+async def inventory_items(
+    session: SessionDep,
+    context: StaffDep,
+    search: str | None = None,
+    category: str | None = None,
+    active: bool | None = True,
+    include_inactive: bool = False,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> InventoryItemList:
+    return await list_items(
+        session,
+        context,
+        search=search,
+        category=category,
+        active=None if include_inactive else active,
+        offset=offset,
+        limit=limit,
+    )
+
+
+@router.post("/inventory/items", response_model=InventoryItemView, status_code=201)
+async def inventory_item_create(
+    payload: InventoryItemCreate, session: SessionDep, context: ManagerContext
+) -> InventoryItemView:
+    async with session.begin():
+        result = await create_item(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.get("/inventory/items/{item_id}", response_model=InventoryItemView)
+async def inventory_item_detail(
+    item_id: uuid.UUID, session: SessionDep, context: StaffDep
+) -> InventoryItemView:
+    return await get_item(session, context, item_id)
+
+
+@router.patch("/inventory/items/{item_id}", response_model=InventoryItemView)
+async def inventory_item_update(
+    item_id: uuid.UUID,
+    payload: InventoryItemUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> InventoryItemView:
+    async with session.begin():
+        result = await update_item(session, context, item_id, payload)
+        await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.get("/inventory/locations", response_model=list[InventoryLocationView])
+async def inventory_locations(
+    session: SessionDep, context: StaffDep, active: bool | None = True
+) -> list[InventoryLocationView]:
+    return await list_locations(session, context, active=active)
+
+
+@router.post("/inventory/locations", response_model=InventoryLocationView, status_code=201)
+async def inventory_location_create(
+    payload: InventoryLocationCreate, session: SessionDep, context: ManagerContext
+) -> InventoryLocationView:
+    async with session.begin():
+        result = await create_location(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.patch("/inventory/locations/{location_id}", response_model=InventoryLocationView)
+async def inventory_location_update(
+    location_id: uuid.UUID,
+    payload: InventoryLocationUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> InventoryLocationView:
+    async with session.begin():
+        result = await update_location(session, context, location_id, payload)
+        await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.get("/inventory/stock", response_model=StockList)
+async def inventory_stock(
+    session: SessionDep,
+    context: StaffDep,
+    location_id: uuid.UUID | None = None,
+    search: str | None = None,
+    category: str | None = None,
+    status: Annotated[str | None, Query(pattern="^(normal|low|out)$")] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> StockList:
+    return await list_stock(
+        session,
+        context,
+        location_id=location_id,
+        search=search,
+        category=category,
+        status=status,
+        offset=offset,
+        limit=limit,
+    )
+
+
+@router.patch(
+    "/inventory/locations/{location_id}/items/{item_id}/threshold",
+    response_model=StockLine,
+)
+async def inventory_threshold_update(
+    location_id: uuid.UUID,
+    item_id: uuid.UUID,
+    payload: InventoryThresholdUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> StockLine:
+    async with session.begin():
+        result = await update_threshold(session, context, location_id, item_id, payload)
+        await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.post("/inventory/receipts", response_model=InventoryOperationView, status_code=201)
+async def inventory_receive(
+    payload: InventoryReceiptCreate, session: SessionDep, context: ManagerContext
+) -> InventoryOperationView:
+    async with session.begin():
+        result, created, finance_created = await receive_stock(session, context, payload)
+        if created:
+            await bump_sync_revisions(session, context.business_id, "inventory")
+        if finance_created:
+            await bump_sync_revisions(session, context.business_id, "finance")
+        return result
+
+
+@router.post("/inventory/transfers", response_model=InventoryOperationView, status_code=201)
+async def inventory_transfer(
+    payload: InventoryTransferCreate, session: SessionDep, context: ManagerContext
+) -> InventoryOperationView:
+    async with session.begin():
+        result, created = await transfer_stock(session, context, payload)
+        if created:
+            await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.post("/inventory/usage", response_model=InventoryOperationView, status_code=201)
+async def inventory_usage(
+    payload: InventoryUsageCreate, session: SessionDep, context: StaffDep
+) -> InventoryOperationView:
+    async with session.begin():
+        result, created = await record_usage(session, context, payload)
+        if created:
+            await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.post("/inventory/wastage", response_model=InventoryOperationView, status_code=201)
+async def inventory_wastage(
+    payload: InventoryWastageCreate, session: SessionDep, context: ManagerContext
+) -> InventoryOperationView:
+    async with session.begin():
+        result, created = await record_wastage(session, context, payload)
+        if created:
+            await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.post("/inventory/stock-counts", response_model=InventoryOperationView, status_code=201)
+async def inventory_stock_count(
+    payload: InventoryStockCountCreate, session: SessionDep, context: ManagerContext
+) -> InventoryOperationView:
+    async with session.begin():
+        result, created = await record_stock_count(session, context, payload)
+        if created:
+            await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
+@router.get("/inventory/movements", response_model=InventoryMovementList)
+async def inventory_movements(
+    session: SessionDep,
+    context: StaffDep,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
+    item_id: uuid.UUID | None = None,
+    location_id: uuid.UUID | None = None,
+    movement_type: str | None = None,
+    team_id: uuid.UUID | None = None,
+    job_id: uuid.UUID | None = None,
+    actor_id: uuid.UUID | None = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> InventoryMovementList:
+    return await list_movements(
+        session,
+        context,
+        start_at=start_at,
+        end_at=end_at,
+        item_id=item_id,
+        location_id=location_id,
+        movement_type=movement_type,
+        team_id=team_id,
+        job_id=job_id,
+        actor_id=actor_id,
+        offset=offset,
+        limit=limit,
+    )
+
+
+@router.get("/inventory/reports/usage", response_model=InventoryUsageReport)
+async def inventory_usage_report(
+    start_at: datetime,
+    end_at: datetime,
+    session: SessionDep,
+    context: ManagerContext,
+) -> InventoryUsageReport:
+    return await usage_report(session, context, start_at, end_at)
+
+
+@router.get("/inventory/teams/{team_id}/summary", response_model=TeamStockSummary)
+async def inventory_team_summary(
+    team_id: uuid.UUID, session: SessionDep, context: StaffDep
+) -> TeamStockSummary:
+    return await team_stock_summary(session, context, team_id)
+
+
+@router.get(
+    "/inventory/services/{service_id}/template",
+    response_model=list[ServiceConsumptionTemplateLine],
+)
+async def inventory_service_template(
+    service_id: uuid.UUID, session: SessionDep, context: StaffDep
+) -> list[ServiceConsumptionTemplateLine]:
+    return await get_service_template(session, context, service_id)
+
+
+@router.put(
+    "/inventory/services/{service_id}/template",
+    response_model=list[ServiceConsumptionTemplateLine],
+)
+async def inventory_service_template_update(
+    service_id: uuid.UUID,
+    payload: ServiceConsumptionTemplateUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> list[ServiceConsumptionTemplateLine]:
+    async with session.begin():
+        result = await update_service_template(session, context, service_id, payload)
+        await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
 
 
 @router.get("/management-check")

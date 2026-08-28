@@ -1,4 +1,4 @@
-import type { Job, JobFilters, StaffContext } from "../lib";
+import type { ExpenseFilters, Job, JobFilters, StaffContext } from "../lib";
 
 export const cacheTimes = {
   activeJob: 20_000,
@@ -11,6 +11,8 @@ export const cacheTimes = {
   shifts: 5 * 60_000,
   profile: 5 * 60_000,
   reports: 2 * 60_000,
+  finance: 60_000,
+  inventory: 60_000,
   quality: 30_000,
   customers: 60_000,
 } as const;
@@ -26,6 +28,8 @@ export const retentionTimes = {
   shifts: 3 * 24 * 60 * 60_000,
   leave: 3 * 24 * 60 * 60_000,
   reports: 7 * 24 * 60 * 60_000,
+  finance: 7 * 24 * 60 * 60_000,
+  inventory: 3 * 24 * 60 * 60_000,
   profile: 3 * 24 * 60 * 60_000,
   cancellations: 24 * 60 * 60_000,
   quality: 24 * 60 * 60_000,
@@ -69,6 +73,36 @@ export const queryKeys = {
   cancellations: (scope: string) => ["cancellations", scope] as const,
   reports: (scope: string, start: string, end: string) =>
     ["reports", scope, start, end] as const,
+  finance: (scope: string, start: string, end: string) =>
+    ["finance", scope, start, end] as const,
+  expenses: (
+    scope: string,
+    start: string,
+    end: string,
+    filters: ExpenseFilters = {},
+    cursor = "",
+  ) => ["expenses", scope, start, end, filters, cursor] as const,
+  cashPending: (scope: string) => ["cash-pending", scope] as const,
+  cashPendingDetail: (scope: string, staffId: string) =>
+    ["cash-pending-detail", scope, staffId] as const,
+  cashReconciliations: (scope: string) =>
+    ["cash-reconciliations", scope] as const,
+  personalCash: (scope: string, day: string) =>
+    ["personal-cash", scope, day] as const,
+  inventoryOverview: (scope: string) => ["inventory-overview", scope] as const,
+  inventoryItems: (scope: string, search: string, offset: number) =>
+    ["inventory-items", scope, search, offset] as const,
+  inventoryLocations: (scope: string) => ["inventory-locations", scope] as const,
+  inventoryStock: (
+    scope: string,
+    locationId: string,
+    search: string,
+    status: string,
+  ) => ["inventory-stock", scope, locationId, search, status] as const,
+  inventoryMovements: (scope: string, locationId: string) =>
+    ["inventory-movements", scope, locationId] as const,
+  teamStock: (scope: string, teamId: string) =>
+    ["team-stock", scope, teamId] as const,
   availability: (
     scope: string,
     bookingId: string,

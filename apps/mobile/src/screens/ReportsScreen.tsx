@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import {
+  AppButton,
   Card,
   EmptyState,
   MetricCard,
@@ -20,6 +21,7 @@ import { domainErrorMessage } from "../errors/domainErrors";
 import type { MixRow, ReportV2, StaffContext } from "../lib";
 import { useReportQuery } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
+import { FinanceScreen } from "./FinanceScreen";
 
 export type Period = "today" | "week" | "month" | "custom";
 export type ReportsNavigationState = {
@@ -33,10 +35,12 @@ export function ReportsScreen({
   context,
   navigationState,
   onNavigationStateChange,
+  onOpenInventory,
 }: {
   context: StaffContext;
   navigationState?: ReportsNavigationState;
   onNavigationStateChange?: (value: ReportsNavigationState) => void;
+  onOpenInventory?: () => void;
 }) {
   const initial = navigationState ?? {
     period: "week" as const,
@@ -46,6 +50,7 @@ export function ReportsScreen({
   const [period, setPeriod] = useState<Period>(initial.period);
   const [customStart, setCustomStart] = useState(initial.customStart);
   const [customEnd, setCustomEnd] = useState(initial.customEnd);
+  const [financeOpen, setFinanceOpen] = useState(false);
   function updateNavigation(value: Partial<ReportsNavigationState>) {
     const next = { period, customStart, customEnd, ...value };
     if (value.period) setPeriod(value.period);
@@ -64,6 +69,9 @@ export function ReportsScreen({
   }, [customEnd, customStart, period]);
   const query = useReportQuery(context, range.start, range.end);
   const report = query.data;
+  if (financeOpen) {
+    return <FinanceScreen context={context} onBack={() => setFinanceOpen(false)} />;
+  }
   return (
     <ScrollView
       refreshControl={
@@ -77,6 +85,12 @@ export function ReportsScreen({
       <ScreenTitle
         title="Reports"
         subtitle="Booked and collected revenue stay distinct"
+      />
+      <AppButton title="Open Finance" onPress={() => setFinanceOpen(true)} />
+      <AppButton
+        title="Open Inventory"
+        tone="secondary"
+        onPress={() => onOpenInventory?.()}
       />
       <View style={styles.periods}>
         {(["today", "week", "month", "custom"] as const).map((item) => (
@@ -159,6 +173,26 @@ function ReportContent({ report }: { report: ReportV2 }) {
           label="Completed washes"
           value={String(summary.completed_washes)}
         />
+        {report.finance ? (
+          <>
+            <MetricCard
+              label="Expenses"
+              value={`${report.finance.currency_code} ${(
+                report.finance.expenses_minor / 100
+              ).toLocaleString()}`}
+            />
+            <MetricCard
+              label="Operational profit"
+              value={`${report.finance.currency_code} ${(
+                report.finance.operational_profit_minor / 100
+              ).toLocaleString()}`}
+            />
+            <MetricCard
+              label="Margin"
+              value={`${report.finance.margin_percent.toFixed(1)}%`}
+            />
+          </>
+        ) : null}
       </View>
       <Card>
         <Text style={styles.cardTitle}>Revenue and jobs</Text>

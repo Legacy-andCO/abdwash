@@ -31,7 +31,8 @@ const state: SyncState = {
   workforce: 2,
   schedule: 3,
   finance: 4,
-  customers: 5,
+  inventory: 5,
+  customers: 6,
 };
 
 beforeEach(() => values.clear());
@@ -79,6 +80,15 @@ describe("revision-aware sync", () => {
     expect(changedSyncDomains(state, { ...state, finance: 5 })).toEqual([
       "finance",
     ]);
+  });
+
+  it("invalidates only inventory cache families for inventory changes", () => {
+    const prefixes = queryPrefixesForDomains(["inventory"]);
+    expect(prefixes).toContain("inventory-stock");
+    expect(prefixes).toContain("inventory-movements");
+    expect(prefixes).toContain("team-stock");
+    expect(prefixes).not.toContain("jobs");
+    expect(prefixes).not.toContain("finance");
   });
 
   it("keeps workforce refreshes away from finance reports", () => {

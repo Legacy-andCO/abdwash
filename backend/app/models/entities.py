@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime, time
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -97,6 +98,9 @@ class BusinessSyncRevision(Base):
         BigInteger, nullable=False, default=0, server_default=text("0")
     )
     finance_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    inventory_revision: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=0, server_default=text("0")
     )
     customers_revision: Mapped[int] = mapped_column(
@@ -804,6 +808,393 @@ class PaymentTransaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         UniqueConstraint("payment_id", "client_event_id", name="uq_payment_transaction_event"),
         Index("ix_payment_transactions_provider_id", "provider_transaction_id"),
+    )
+
+
+class InventoryItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "inventory_items"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    category: Mapped[str] = mapped_column(String(40), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(80))
+    unit: Mapped[str] = mapped_column(String(24), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    default_low_stock_threshold: Mapped[Decimal] = mapped_column(
+        Numeric(14, 3), nullable=False, default=Decimal("0"), server_default=text("0")
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('chemicals','cleaning_products','microfibers_towels','brushes',"
+            "'pads','bottles_sprayers','ppe','disposable_consumables',"
+            "'equipment_consumables','other')",
+            name="inventory_item_category",
+        ),
+        CheckConstraint(
+            "unit IN ('piece','liter','milliliter','kilogram','gram','meter','roll','box','pack')",
+            name="inventory_item_unit",
+        ),
+        CheckConstraint(
+            "default_low_stock_threshold >= 0", name="inventory_item_nonnegative_threshold"
+        ),
+        Index("ix_inventory_items_business_active_name", "business_id", "is_active", "name"),
+        Index("ix_inventory_items_business_category", "business_id", "category"),
+        Index(
+            "uq_inventory_items_business_code_ci",
+            "business_id",
+            func.lower(code),
+            unique=True,
+            postgresql_where=text("code IS NOT NULL"),
+        ),
+    )
+
+
+class InventoryLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "inventory_locations"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    location_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    linked_team_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("schedule_resources.id", ondelete="SET NULL")
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    __table_args__ = (
+        CheckConstraint(
+            "location_type IN ('main','mobile_team','van','other')",
+            name="inventory_location_type",
+        ),
+        UniqueConstraint("business_id", "name", name="uq_inventory_location_business_name"),
+        Index(
+            "ix_inventory_locations_business_active",
+            "business_id",
+            "is_active",
+            "location_type",
+        ),
+        Index("ix_inventory_locations_linked_team", "linked_team_id"),
+        Index(
+            "uq_inventory_locations_active_team",
+            "linked_team_id",
+            unique=True,
+            postgresql_where=text("linked_team_id IS NOT NULL AND is_active IS TRUE"),
+        ),
+    )
+
+
+class InventoryStock(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "inventory_stock"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    inventory_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("inventory_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    location_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("inventory_locations.id", ondelete="RESTRICT"), nullable=False
+    )
+    quantity: Mapped[Decimal] = mapped_column(
+        Numeric(14, 3), nullable=False, default=Decimal("0"), server_default=text("0")
+    )
+    low_stock_threshold: Mapped[Decimal | None] = mapped_column(Numeric(14, 3))
+    __table_args__ = (
+        UniqueConstraint(
+            "inventory_item_id", "location_id", name="uq_inventory_stock_item_location"
+        ),
+        CheckConstraint("quantity >= 0", name="inventory_stock_nonnegative_quantity"),
+        CheckConstraint(
+            "low_stock_threshold IS NULL OR low_stock_threshold >= 0",
+            name="inventory_stock_nonnegative_threshold",
+        ),
+        Index("ix_inventory_stock_business_location", "business_id", "location_id"),
+        Index("ix_inventory_stock_business_item", "business_id", "inventory_item_id"),
+    )
+
+
+class InventoryOperation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "inventory_operations"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    operation_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    client_event_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    expense_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("expenses.id", ondelete="SET NULL")
+    )
+    __table_args__ = (
+        CheckConstraint(
+            "operation_type IN ('opening_balance','receipt','transfer','usage','wastage',"
+            "'stock_count','return')",
+            name="inventory_operation_type",
+        ),
+        UniqueConstraint(
+            "business_id", "client_event_id", name="uq_inventory_operation_business_event"
+        ),
+        Index("ix_inventory_operations_actor", "actor_staff_id"),
+        Index("ix_inventory_operations_expense", "expense_id"),
+    )
+
+
+class InventoryMovement(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "inventory_movements"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    operation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("inventory_operations.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    inventory_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("inventory_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    location_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("inventory_locations.id", ondelete="RESTRICT"), nullable=False
+    )
+    movement_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    from_location_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("inventory_locations.id", ondelete="RESTRICT")
+    )
+    to_location_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("inventory_locations.id", ondelete="RESTRICT")
+    )
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    expense_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("expenses.id", ondelete="SET NULL")
+    )
+    actor_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    reason: Mapped[str | None] = mapped_column(Text)
+    reference_number: Mapped[str | None] = mapped_column(String(160))
+    unit_cost_minor: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="inventory_movement_positive_quantity"),
+        CheckConstraint(
+            "movement_type IN ('opening_balance','receipt','transfer_out','transfer_in','usage',"
+            "'wastage','adjustment_in','adjustment_out','return')",
+            name="inventory_movement_type",
+        ),
+        CheckConstraint(
+            "unit_cost_minor IS NULL OR unit_cost_minor >= 0",
+            name="inventory_movement_nonnegative_cost",
+        ),
+        UniqueConstraint("operation_id", "sequence", name="uq_inventory_movement_sequence"),
+        Index("ix_inventory_movements_business_created", "business_id", "created_at", "id"),
+        Index(
+            "ix_inventory_movements_business_item_created",
+            "business_id",
+            "inventory_item_id",
+            "created_at",
+        ),
+        Index(
+            "ix_inventory_movements_business_location_created",
+            "business_id",
+            "location_id",
+            "created_at",
+        ),
+        Index("ix_inventory_movements_operation", "operation_id"),
+        Index("ix_inventory_movements_job_created", "job_id", "created_at"),
+        Index("ix_inventory_movements_actor", "actor_staff_id"),
+        Index("ix_inventory_movements_from_location", "from_location_id"),
+        Index("ix_inventory_movements_to_location", "to_location_id"),
+        Index("ix_inventory_movements_expense", "expense_id"),
+    )
+
+
+class ServiceInventoryTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "service_inventory_templates"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("services.id", ondelete="CASCADE"), nullable=False
+    )
+    inventory_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("inventory_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    expected_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    __table_args__ = (
+        CheckConstraint(
+            "expected_quantity > 0", name="service_inventory_template_positive_quantity"
+        ),
+        UniqueConstraint(
+            "service_id", "inventory_item_id", name="uq_service_inventory_template_item"
+        ),
+        Index("ix_service_inventory_templates_business", "business_id"),
+        Index("ix_service_inventory_templates_item", "inventory_item_id"),
+    )
+
+
+class Expense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "expenses"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    expense_date: Mapped[date] = mapped_column(nullable=False)
+    category: Mapped[str] = mapped_column(String(40), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    amount_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency_code: Mapped[str] = mapped_column(String(3), nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(40), nullable=False)
+    paid_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("staff_profiles.id", ondelete="SET NULL")
+    )
+    team_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("schedule_resources.id", ondelete="SET NULL")
+    )
+    related_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="SET NULL")
+    )
+    supplier_name: Mapped[str | None] = mapped_column(String(200))
+    reference_number: Mapped[str | None] = mapped_column(String(160))
+    notes: Mapped[str | None] = mapped_column(Text)
+    receipt_object_path: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="active", server_default=text("'active'")
+    )
+    client_event_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    created_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    voided_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    void_reason: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (
+        CheckConstraint("amount_minor > 0", name="positive_expense_amount"),
+        CheckConstraint("status IN ('active','voided')", name="expense_status"),
+        CheckConstraint(
+            "category IN ('chemicals_supplies','fuel','vehicle_transport','equipment',"
+            "'maintenance_repairs','staff','marketing','rent_utilities',"
+            "'software_subscriptions','government_fees','professional_services',"
+            "'miscellaneous')",
+            name="expense_category",
+        ),
+        CheckConstraint(
+            "(status = 'active' AND voided_at IS NULL AND voided_by_staff_id IS NULL "
+            "AND void_reason IS NULL) OR "
+            "(status = 'voided' AND voided_at IS NOT NULL AND voided_by_staff_id IS NOT NULL "
+            "AND void_reason IS NOT NULL)",
+            name="expense_void_state",
+        ),
+        UniqueConstraint("business_id", "client_event_id", name="uq_expense_business_event"),
+        Index("ix_expenses_business_date", "business_id", "expense_date", "id"),
+        Index("ix_expenses_business_status_date", "business_id", "status", "expense_date"),
+        Index("ix_expenses_business_category_date", "business_id", "category", "expense_date"),
+        Index("ix_expenses_paid_by_staff", "paid_by_staff_id"),
+        Index("ix_expenses_team", "team_id"),
+        Index("ix_expenses_related_job", "related_job_id"),
+        Index("ix_expenses_created_by_staff", "created_by_staff_id"),
+        Index("ix_expenses_voided_by_staff", "voided_by_staff_id"),
+    )
+
+
+class CashReconciliation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "cash_reconciliations"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    staff_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("staff_profiles.id"), nullable=False)
+    team_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("schedule_resources.id", ondelete="SET NULL")
+    )
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expected_cash_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    declared_cash_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    difference_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency_code: Mapped[str] = mapped_column(String(3), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="confirmed", server_default=text("'confirmed'")
+    )
+    note: Mapped[str | None] = mapped_column(Text)
+    client_event_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    created_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    confirmed_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id"), nullable=False
+    )
+    confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    voided_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    void_reason: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (
+        CheckConstraint("expected_cash_minor >= 0", name="nonnegative_expected_cash"),
+        CheckConstraint("declared_cash_minor >= 0", name="nonnegative_declared_cash"),
+        CheckConstraint(
+            "difference_minor = declared_cash_minor - expected_cash_minor",
+            name="cash_reconciliation_difference",
+        ),
+        CheckConstraint("period_end >= period_start", name="cash_reconciliation_period"),
+        CheckConstraint("status IN ('confirmed','voided')", name="cash_reconciliation_status"),
+        CheckConstraint(
+            "difference_minor = 0 OR note IS NOT NULL",
+            name="cash_reconciliation_discrepancy_note",
+        ),
+        CheckConstraint(
+            "(status = 'confirmed' AND voided_at IS NULL AND voided_by_staff_id IS NULL "
+            "AND void_reason IS NULL) OR "
+            "(status = 'voided' AND voided_at IS NOT NULL AND voided_by_staff_id IS NOT NULL "
+            "AND void_reason IS NOT NULL)",
+            name="cash_reconciliation_void_state",
+        ),
+        UniqueConstraint(
+            "business_id", "client_event_id", name="uq_cash_reconciliation_business_event"
+        ),
+        Index("ix_cash_reconciliations_business_created", "business_id", "created_at", "id"),
+        Index(
+            "ix_cash_reconciliations_business_staff_confirmed",
+            "business_id",
+            "staff_id",
+            "confirmed_at",
+        ),
+        Index("ix_cash_reconciliations_team", "team_id"),
+        Index("ix_cash_reconciliations_staff", "staff_id"),
+        Index("ix_cash_reconciliations_created_by", "created_by_staff_id"),
+        Index("ix_cash_reconciliations_confirmed_by", "confirmed_by_staff_id"),
+        Index("ix_cash_reconciliations_voided_by", "voided_by_staff_id"),
+    )
+
+
+class CashReconciliationPayment(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "cash_reconciliation_payments"
+
+    reconciliation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("cash_reconciliations.id", ondelete="CASCADE"), nullable=False
+    )
+    payment_transaction_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("payment_transactions.id"), nullable=False
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    __table_args__ = (
+        Index("ix_cash_reconciliation_payments_reconciliation", "reconciliation_id"),
+        Index("ix_cash_reconciliation_payments_transaction", "payment_transaction_id"),
+        Index(
+            "uq_cash_reconciliation_payment_active",
+            "payment_transaction_id",
+            unique=True,
+            postgresql_where=text("active IS TRUE"),
+        ),
     )
 
 

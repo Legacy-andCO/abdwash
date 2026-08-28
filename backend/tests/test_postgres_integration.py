@@ -33,6 +33,9 @@ from app.models.entities import (
     BusinessSyncRevision,
     CancellationRequest,
     IdempotencyRecord,
+    InventoryItem,
+    InventoryLocation,
+    InventoryStock,
     Job,
     JobChecklistItem,
     JobComplaint,
@@ -46,6 +49,7 @@ from app.models.entities import (
     StaffProfile,
     TeamMembership,
 )
+from app.schemas.inventory import InventoryReceiptCreate, InventoryTransferCreate
 from app.schemas.public import BookingCreate, HoldCreate, HoldResponse
 from app.schemas.staff import (
     AttendanceAction,
@@ -64,6 +68,7 @@ from app.services.idempotency import (
     find_idempotent_response,
     store_idempotent_response,
 )
+from app.services.inventory import receive_stock, transfer_stock
 from app.services.job_quality import (
     add_issue,
     create_complaint,
@@ -192,6 +197,79 @@ async def _attempt_hold(
         return await create_hold(session, request)
 
 
+async def _inventory_fixture(
+    factory: async_sessionmaker[AsyncSession],
+) -> tuple[StaffContext, uuid.UUID, uuid.UUID, uuid.UUID]:
+    async with factory() as session, session.begin():
+        business = await session.scalar(select(Business).where(Business.slug == "abdwash"))
+        assert business is not None
+        staff = StaffProfile(
+            business_id=business.id,
+            auth_user_id=uuid.uuid4(),
+            username=f"inventory.{uuid.uuid4().hex}",
+            display_name="Inventory Manager",
+            role=StaffRole.MANAGER,
+        )
+        inventory_item = InventoryItem(
+            business_id=business.id,
+            name=f"Cleaner {uuid.uuid4().hex}",
+            category="chemicals",
+            unit="liter",
+            default_low_stock_threshold=1,
+        )
+        source = InventoryLocation(
+            business_id=business.id,
+            name=f"Main {uuid.uuid4().hex}",
+            location_type="main",
+        )
+        destination = InventoryLocation(
+            business_id=business.id,
+            name=f"Van {uuid.uuid4().hex}",
+            location_type="van",
+        )
+        session.add_all([staff, inventory_item, source, destination])
+        await session.flush()
+        manager = StaffContext(
+            auth_user_id=staff.auth_user_id,
+            staff_id=staff.id,
+            business_id=business.id,
+            business_name=business.name,
+            role=StaffRole.MANAGER,
+            timezone="Asia/Dubai",
+        )
+        await receive_stock(
+            session,
+            manager,
+            InventoryReceiptCreate(
+                location_id=source.id,
+                lines=[{"item_id": inventory_item.id, "quantity": "5"}],
+                opening_balance=True,
+                client_event_id=f"opening-{uuid.uuid4()}",
+            ),
+        )
+        return manager, inventory_item.id, source.id, destination.id
+
+
+async def _attempt_inventory_transfer(
+    factory: async_sessionmaker[AsyncSession],
+    context: StaffContext,
+    item_id: uuid.UUID,
+    source_id: uuid.UUID,
+    destination_id: uuid.UUID,
+) -> object:
+    async with factory() as session, session.begin():
+        return await transfer_stock(
+            session,
+            context,
+            InventoryTransferCreate(
+                from_location_id=source_id,
+                to_location_id=destination_id,
+                lines=[{"item_id": item_id, "quantity": "4"}],
+                client_event_id=f"transfer-{uuid.uuid4()}",
+            ),
+        )
+
+
 @pytest.mark.asyncio
 async def test_concurrent_slot_acquisition_allows_one_winner(
     database: async_sessionmaker[AsyncSession],
@@ -211,6 +289,31 @@ async def test_concurrent_slot_acquisition_allows_one_winner(
             ).all()
         )
     assert len(active) == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_inventory_transfer_allows_one_winner_without_negative_stock(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    context, item_id, source_id, destination_id = await _inventory_fixture(database)
+    results = await asyncio.gather(
+        _attempt_inventory_transfer(database, context, item_id, source_id, destination_id),
+        _attempt_inventory_transfer(database, context, item_id, source_id, destination_id),
+        return_exceptions=True,
+    )
+    assert sum(not isinstance(result, Exception) for result in results) == 1
+    assert sum(isinstance(result, ConflictError) for result in results) == 1
+    async with database() as session:
+        balances = {
+            row.location_id: row.quantity
+            for row in (
+                await session.scalars(
+                    select(InventoryStock).where(InventoryStock.inventory_item_id == item_id)
+                )
+            ).all()
+        }
+    assert balances[source_id] == 1
+    assert balances[destination_id] == 4
 
 
 @pytest.mark.asyncio
@@ -643,9 +746,7 @@ async def test_job_quality_completion_and_zero_value_rewash_workflow(
         correction_checklist = list(
             (
                 await session.scalars(
-                    select(JobChecklistItem).where(
-                        JobChecklistItem.job_id == correction_job_id
-                    )
+                    select(JobChecklistItem).where(JobChecklistItem.job_id == correction_job_id)
                 )
             ).all()
         )
@@ -655,10 +756,7 @@ async def test_job_quality_completion_and_zero_value_rewash_workflow(
             correction_job_id,
             JobChecklistUpdate(
                 client_event_id="rewash-checklist-complete",
-                items=[
-                    {"id": item.id, "completed": True}
-                    for item in correction_checklist
-                ],
+                items=[{"id": item.id, "completed": True} for item in correction_checklist],
             ),
         )
         await transition_job(
@@ -672,9 +770,7 @@ async def test_job_quality_completion_and_zero_value_rewash_workflow(
     async with database() as session:
         resolved = await session.get(JobComplaint, complaint.id)
         inspection = (
-            await session.scalars(
-                select(JobInspection).where(JobInspection.job_id == job_id)
-            )
+            await session.scalars(select(JobInspection).where(JobInspection.job_id == job_id))
         ).one()
     assert resolved is not None and resolved.status == "resolved"
     assert inspection.damage_category == "scratch"
@@ -1030,27 +1126,21 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
                 },
             )
             assert searched_jobs.status_code == 200, searched_jobs.text
-            assert job_id in {
-                uuid.UUID(item["id"]) for item in searched_jobs.json()["jobs"]
-            }
+            assert job_id in {uuid.UUID(item["id"]) for item in searched_jobs.json()["jobs"]}
         unrelated_search = await client.get(
             "/api/v1/staff/jobs",
             headers=manager_headers,
             params={"view": "all", "scope": "all", "search": "NoSuchCustomer"},
         )
         assert unrelated_search.status_code == 200, unrelated_search.text
-        assert job_id not in {
-            uuid.UUID(item["id"]) for item in unrelated_search.json()["jobs"]
-        }
+        assert job_id not in {uuid.UUID(item["id"]) for item in unrelated_search.json()["jobs"]}
 
         unassigned_jobs = await client.get(
             "/api/v1/staff/jobs",
             headers=manager_headers,
             params={"view": "unassigned", "scope": "all"},
         )
-        assert job_id not in {
-            uuid.UUID(item["id"]) for item in unassigned_jobs.json()["jobs"]
-        }
+        assert job_id not in {uuid.UUID(item["id"]) for item in unassigned_jobs.json()["jobs"]}
 
         reassignment_response = await client.patch(
             f"/api/v1/staff/jobs/{job_id}/assignment",
@@ -1059,10 +1149,7 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         )
         assert reassignment_response.status_code == 200, reassignment_response.text
         assert reassignment_response.json()["assigned_staff_id"] == employee_id
-        assert (
-            reassignment_response.json()["assigned_staff_name"]
-            == "Workflow Employee Updated"
-        )
+        assert reassignment_response.json()["assigned_staff_name"] == "Workflow Employee Updated"
 
         employee_jobs = await client.get(
             "/api/v1/staff/jobs",
@@ -1163,9 +1250,7 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
         )
         assert approved_response.status_code == 200, approved_response.text
         assert approved_response.json()["status"] == "approved"
-        sync_response = await client.get(
-            "/api/v1/staff/sync-state", headers=manager_headers
-        )
+        sync_response = await client.get("/api/v1/staff/sync-state", headers=manager_headers)
         assert sync_response.status_code == 200, sync_response.text
         assert sync_response.json()["jobs"] > 0
         assert sync_response.json()["workforce"] > 0
@@ -1282,9 +1367,7 @@ async def test_public_api_guest_booking_and_query_count_guard(
         ).one()
         assert "management_token" not in idempotency_record.response_json
         booking_business_id = await session.scalar(
-            select(Booking.business_id).where(
-                Booking.id == idempotency_record.resource_id
-            )
+            select(Booking.business_id).where(Booking.id == idempotency_record.resource_id)
         )
         assert booking_business_id is not None
         revision = (

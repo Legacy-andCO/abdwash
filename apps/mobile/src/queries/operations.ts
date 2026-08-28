@@ -6,6 +6,10 @@ import {
   assignShift,
   clockAttendance,
   createHold,
+  createCashReconciliation,
+  createExpense,
+  createInventoryItem,
+  createInventoryLocation,
   createManagerCustomerAddress,
   createManagerCustomerVehicle,
   createJobComplaint,
@@ -17,6 +21,14 @@ import {
   getAvailability,
   getCancellations,
   getDashboard,
+  getCashReconciliations,
+  getExpenses,
+  getFinanceOverview,
+  getInventoryItems,
+  getInventoryLocations,
+  getInventoryMovements,
+  getInventoryOverview,
+  getInventoryStock,
   getJob,
   getJobQuality,
   getJobs,
@@ -25,15 +37,23 @@ import {
   getManagerCustomer,
   getManagerCustomers,
   getProfile,
+  getPendingCash,
+  getPendingCashDetail,
+  getPersonalCash,
   getReport,
   getShiftAssignments,
   getShifts,
   getServiceOptions,
   getStaff,
   getTeam,
+  getTeamStockSummary,
   getTeams,
   mutateJob,
+  receiveInventoryStock,
   recordCashPayment,
+  recordInventoryStockCount,
+  recordInventoryUsage,
+  recordInventoryWastage,
   adjustManagerCustomerLoyalty,
   deleteManagerCustomerAddress,
   deleteManagerCustomerVehicle,
@@ -47,15 +67,23 @@ import {
   updateStaff,
   updateProfile,
   updateLoyaltySettings,
+  updateInventoryItem,
   updateManagerCustomer,
   updateManagerCustomerAddress,
   updateManagerCustomerVehicle,
   updateTeam,
   updateTeamMembers,
+  transferInventoryStock,
   uploadJobPhoto,
+  voidCashReconciliation,
+  voidExpense,
   type Attendance,
   type Cancellation,
+  type CashPendingDetail,
   type Dashboard,
+  type Expense,
+  type ExpenseFilters,
+  type InventoryLocation,
   type Job,
   type JobPhoto,
   type JobFilters,
@@ -435,6 +463,21 @@ export function useTeamQuery(
   });
 }
 
+export function useTeamStockSummaryQuery(
+  context: StaffContext,
+  teamId: string,
+  enabled = true,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.teamStock(scope, teamId),
+    queryFn: () => getTeamStockSummary(teamId),
+    enabled: enabled && Boolean(teamId),
+    staleTime: cacheTimes.inventory,
+    meta: persistedQueryMeta(retentionTimes.inventory),
+  });
+}
+
 export function useCreateTeamMutation(context: StaffContext) {
   const client = useQueryClient();
   const scope = operationalScope(context);
@@ -630,6 +673,269 @@ export function useReportQuery(
   });
 }
 
+export function useFinanceOverviewQuery(
+  context: StaffContext,
+  start: string,
+  end: string,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.finance(scope, start, end),
+    queryFn: () => getFinanceOverview(start, end),
+    staleTime: cacheTimes.finance,
+    meta: persistedQueryMeta(retentionTimes.finance),
+  });
+}
+
+export function useInventoryOverviewQuery(
+  context: StaffContext,
+  enabled = true,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.inventoryOverview(scope),
+    queryFn: getInventoryOverview,
+    enabled,
+    staleTime: cacheTimes.inventory,
+    meta: persistedQueryMeta(retentionTimes.inventory),
+  });
+}
+
+export function useInventoryItemsQuery(
+  context: StaffContext,
+  search = "",
+  offset = 0,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.inventoryItems(scope, search, offset),
+    queryFn: () => getInventoryItems(search, offset),
+    staleTime: cacheTimes.inventory,
+    meta: persistedQueryMeta(retentionTimes.inventory),
+  });
+}
+
+export function useInventoryLocationsQuery(context: StaffContext) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.inventoryLocations(scope),
+    queryFn: getInventoryLocations,
+    staleTime: cacheTimes.inventory,
+    meta: persistedQueryMeta(retentionTimes.inventory),
+  });
+}
+
+export function useInventoryStockQuery(
+  context: StaffContext,
+  locationId = "",
+  search = "",
+  status = "",
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.inventoryStock(scope, locationId, search, status),
+    queryFn: () => getInventoryStock(locationId, search, status),
+    staleTime: cacheTimes.inventory,
+    meta: persistedQueryMeta(retentionTimes.inventory),
+  });
+}
+
+export function useInventoryMovementsQuery(
+  context: StaffContext,
+  locationId = "",
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.inventoryMovements(scope, locationId),
+    queryFn: () => getInventoryMovements(locationId),
+    staleTime: cacheTimes.inventory,
+    meta: persistedQueryMeta(retentionTimes.inventory),
+  });
+}
+
+type InventoryMutationInput =
+  | { action: "create_item"; body: object }
+  | { action: "edit_item"; itemId: string; body: object }
+  | { action: "create_location"; body: object }
+  | {
+      action: "receive" | "transfer" | "usage" | "wastage" | "stock_count";
+      body: object;
+    };
+
+export function useInventoryMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  const eventIds = useRef(new ClientEventIdStore()).current;
+  return useMutation({
+    mutationFn: async (input: InventoryMutationInput) => {
+      const { action, body } = input;
+      if (action === "create_item") return createInventoryItem(body);
+      if (action === "edit_item")
+        return updateInventoryItem(input.itemId, body);
+      if (action === "create_location")
+        return createInventoryLocation(body) as Promise<InventoryLocation>;
+      const key = `${action}:${JSON.stringify(body)}`;
+      const payload = { ...body, client_event_id: eventIds.get(key) };
+      try {
+        const result =
+          action === "receive"
+            ? await receiveInventoryStock(payload)
+            : action === "transfer"
+              ? await transferInventoryStock(payload)
+              : action === "usage"
+                ? await recordInventoryUsage(payload)
+                : action === "wastage"
+                  ? await recordInventoryWastage(payload)
+                  : await recordInventoryStockCount(payload);
+        eventIds.succeeded(key);
+        return result;
+      } catch (error) {
+        eventIds.failed(key, error);
+        throw error;
+      }
+    },
+    onSuccess: (_result, input) => {
+      void client.invalidateQueries({ queryKey: ["inventory-overview", scope] });
+      void client.invalidateQueries({ queryKey: ["inventory-items", scope] });
+      void client.invalidateQueries({ queryKey: ["inventory-locations", scope] });
+      void client.invalidateQueries({ queryKey: ["inventory-stock", scope] });
+      void client.invalidateQueries({ queryKey: ["inventory-movements", scope] });
+      void client.invalidateQueries({ queryKey: ["team-stock", scope] });
+      if (
+        input.action === "receive" &&
+        Boolean((input.body as { record_as_expense?: boolean }).record_as_expense)
+      ) {
+        void client.invalidateQueries({ queryKey: ["finance", scope] });
+        void client.invalidateQueries({ queryKey: ["expenses", scope] });
+        void client.invalidateQueries({ queryKey: ["reports", scope] });
+      }
+    },
+  });
+}
+
+export function useExpensesQuery(
+  context: StaffContext,
+  start: string,
+  end: string,
+  filters: ExpenseFilters = {},
+  cursor = "",
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.expenses(scope, start, end, filters, cursor),
+    queryFn: () => getExpenses(start, end, filters, cursor || undefined),
+    staleTime: cacheTimes.finance,
+    meta: persistedQueryMeta(retentionTimes.finance),
+  });
+}
+
+export function useExpenseMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: createExpense,
+    onSuccess: (expense: Expense) => {
+      void client.invalidateQueries({ queryKey: ["expenses", scope] });
+      void client.invalidateQueries({ queryKey: ["finance", scope] });
+      void client.invalidateQueries({ queryKey: ["reports", scope] });
+      return expense;
+    },
+  });
+}
+
+export function useVoidExpenseMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      voidExpense(id, reason),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["expenses", scope] });
+      void client.invalidateQueries({ queryKey: ["finance", scope] });
+      void client.invalidateQueries({ queryKey: ["reports", scope] });
+    },
+  });
+}
+
+export function usePendingCashQuery(context: StaffContext) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.cashPending(scope),
+    queryFn: getPendingCash,
+    staleTime: cacheTimes.finance,
+    meta: persistedQueryMeta(retentionTimes.finance),
+  });
+}
+
+export function usePendingCashDetailQuery(
+  context: StaffContext,
+  staffId: string,
+) {
+  const scope = operationalScope(context);
+  return useQuery<CashPendingDetail>({
+    queryKey: queryKeys.cashPendingDetail(scope, staffId),
+    queryFn: () => getPendingCashDetail(staffId),
+    enabled: Boolean(staffId),
+    staleTime: cacheTimes.finance,
+  });
+}
+
+export function useCashReconciliationsQuery(context: StaffContext) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.cashReconciliations(scope),
+    queryFn: getCashReconciliations,
+    staleTime: cacheTimes.finance,
+    meta: persistedQueryMeta(retentionTimes.finance),
+  });
+}
+
+export function useCashReconciliationMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: createCashReconciliation,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["cash-pending", scope] });
+      void client.invalidateQueries({
+        queryKey: ["cash-pending-detail", scope],
+      });
+      void client.invalidateQueries({
+        queryKey: ["cash-reconciliations", scope],
+      });
+      void client.invalidateQueries({ queryKey: ["finance", scope] });
+      void client.invalidateQueries({ queryKey: ["personal-cash", scope] });
+    },
+  });
+}
+
+export function useVoidCashReconciliationMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      voidCashReconciliation(id, reason),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["cash-pending", scope] });
+      void client.invalidateQueries({
+        queryKey: ["cash-reconciliations", scope],
+      });
+      void client.invalidateQueries({ queryKey: ["finance", scope] });
+      void client.invalidateQueries({ queryKey: ["personal-cash", scope] });
+    },
+  });
+}
+
+export function usePersonalCashQuery(context: StaffContext, businessDay: string) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.personalCash(scope, businessDay),
+    queryFn: () => getPersonalCash(businessDay),
+    staleTime: cacheTimes.finance,
+    meta: persistedQueryMeta(retentionTimes.finance),
+  });
+}
+
 export function useAvailabilityQuery(
   context: StaffContext,
   bookingId: string,
@@ -712,6 +1018,9 @@ export function useCashPaymentMutation(context: StaffContext) {
     onSuccess: (receipt) => {
       updateJobCaches(client, scope, receipt.job);
       void client.invalidateQueries({ queryKey: ["reports", scope] });
+      void client.invalidateQueries({ queryKey: ["finance", scope] });
+      void client.invalidateQueries({ queryKey: ["cash-pending", scope] });
+      void client.invalidateQueries({ queryKey: ["personal-cash", scope] });
       void client.invalidateQueries({ queryKey: ["customers", scope] });
     },
   });

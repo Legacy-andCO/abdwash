@@ -37,6 +37,7 @@ import {
   type StaffContext,
   type Team,
   type TeamDetail,
+  type TeamStockSummary,
 } from "../lib";
 import { ApiError, domainErrorMessage } from "../errors/domainErrors";
 import {
@@ -62,6 +63,7 @@ import {
   useShiftsQuery,
   useStaffQuery,
   useTeamQuery,
+  useTeamStockSummaryQuery,
   useTeamsQuery,
   useUpdateStaffMutation,
   useUpdateTeamMutation,
@@ -134,6 +136,11 @@ function TeamsPane({ context }: { context: StaffContext }) {
     selectedTeamId,
     Boolean(selectedTeamId),
   );
+  const teamStock = useTeamStockSummaryQuery(
+    context,
+    selectedTeamId,
+    Boolean(selectedTeamId),
+  );
   if (add) {
     return (
       <SimpleCreate
@@ -181,6 +188,7 @@ function TeamsPane({ context }: { context: StaffContext }) {
     return (
       <TeamMembersSheet
         detail={detail}
+        stock={teamStock.data ?? null}
         staff={(staffQuery.data ?? []).filter((member) => member.is_active)}
         saving={membersMutation.isPending}
         updating={updateMutation.isPending}
@@ -942,6 +950,7 @@ function SimpleCreate({
 }
 function TeamMembersSheet({
   detail,
+  stock,
   staff,
   saving,
   updating,
@@ -952,6 +961,7 @@ function TeamMembersSheet({
   onMembersSaved,
 }: {
   detail: TeamDetail | null;
+  stock: TeamStockSummary | null;
   staff: Profile[];
   saving: boolean;
   updating: boolean;
@@ -1015,6 +1025,21 @@ function TeamMembersSheet({
         </Pressable>
       </View>
       <Text style={uiStyles.muted}>{detail.jobs_today} jobs today</Text>
+      <Card>
+        <Text style={styles.section}>STOCK</Text>
+        <Text style={styles.cardTitle}>{stock?.location_name ?? "No linked stock location"}</Text>
+        {stock?.items.map((item) => (
+          <View key={item.item_id} style={uiStyles.row}>
+            <Text style={uiStyles.body}>{item.item_name}</Text>
+            <Text style={uiStyles.muted}>{item.quantity} {item.unit}</Text>
+          </View>
+        ))}
+        {stock ? (
+          <Text style={uiStyles.muted}>
+            {stock.low_stock_count} low · {stock.out_of_stock_count} out
+          </Text>
+        ) : null}
+      </Card>
       <Text style={uiStyles.label}>TEAM NAME</Text>
       <TextInput
         style={uiStyles.field}

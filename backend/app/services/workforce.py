@@ -58,6 +58,7 @@ from app.schemas.staff import (
     TeamSummary,
     TeamUpdate,
 )
+from app.services.finance import finance_overview
 from app.services.staff_accounts import _profile_data
 from app.services.staff_operations import list_jobs, report_summary
 
@@ -1466,6 +1467,7 @@ async def report_v2(
             active_days,
         ) in team_rows
     ]
+    finance = await finance_overview(session, context, start_date, end_date)
     return ReportV2(
         summary=summary,
         series=series,
@@ -1473,4 +1475,5 @@ async def report_v2(
         service_mix=service_mix,
         payment_mix=payment_mix,
         team_performance=team_performance,
+        finance=finance,
     )

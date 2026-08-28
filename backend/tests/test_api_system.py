@@ -34,6 +34,7 @@ async def test_mutable_database_metrics_cross_downstream_task_boundary() -> None
     metrics = RequestDatabaseMetrics(request_started=time.perf_counter())
     token = request_database_metrics.set(metrics)
     try:
+
         async def downstream() -> None:
             inherited = request_database_metrics.get()
             assert inherited is metrics
@@ -125,6 +126,20 @@ def test_manager_route_rejects_employee() -> None:
     try:
         with TestClient(app) as client:
             response = client.get("/api/v1/staff/management-check")
+        assert response.status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_employee_cannot_access_business_finance() -> None:
+    app.dependency_overrides[staff_context] = lambda: _context(StaffRole.EMPLOYEE)
+    app.dependency_overrides[session_dependency] = lambda: MagicMock()
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/staff/finance/overview",
+                params={"start_date": "2026-08-01", "end_date": "2026-08-28"},
+            )
         assert response.status_code == 403
     finally:
         app.dependency_overrides.clear()

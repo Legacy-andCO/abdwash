@@ -22,7 +22,27 @@ const domainPrefixes: Record<SyncDomain, string[]> = {
     "jobs",
   ],
   schedule: ["availability", "jobs", "job", "dashboard", "teams", "team"],
-  finance: ["reports", "dashboard", "jobs", "job", "cancellations"],
+  finance: [
+    "reports",
+    "finance",
+    "expenses",
+    "cash-pending",
+    "cash-pending-detail",
+    "cash-reconciliations",
+    "personal-cash",
+    "dashboard",
+    "jobs",
+    "job",
+    "cancellations",
+  ],
+  inventory: [
+    "inventory-overview",
+    "inventory-items",
+    "inventory-locations",
+    "inventory-stock",
+    "inventory-movements",
+    "team-stock",
+  ],
   customers: ["customers", "customer", "loyalty-settings"],
 };
 

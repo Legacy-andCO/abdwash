@@ -17,12 +17,14 @@ import {
 import { TeamScreen, type TeamSection } from "../screens/TeamScreen";
 import { TodayScreen } from "../screens/TodayScreen";
 import { CustomersScreen } from "../screens/CustomersScreen";
+import { InventoryScreen } from "../screens/InventoryScreen";
 import { colors, spacing } from "../theme";
 
 export function OperationsShell({ context }: { context: StaffContext }) {
   const tabs = navigationTabs(context.role);
   const [tab, setTab] = useState<MainTab>("today");
   const [customersOpen, setCustomersOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   const [jobDrillId, setJobDrillId] = useState<string | null>(null);
   const [jobsNavigation, setJobsNavigation] = useState<JobsNavigationState>({
     view: "today",
@@ -78,7 +80,12 @@ export function OperationsShell({ context }: { context: StaffContext }) {
         <Text style={styles.role}>{context.role.toUpperCase()}</Text>
       </View>
       <View style={styles.body}>
-        {customersOpen ? (
+        {inventoryOpen ? (
+          <InventoryScreen
+            context={context}
+            onBack={() => setInventoryOpen(false)}
+          />
+        ) : customersOpen ? (
           <CustomersScreen
             context={context}
             onBack={() => setCustomersOpen(false)}
@@ -92,6 +99,7 @@ export function OperationsShell({ context }: { context: StaffContext }) {
           <TodayScreen
             context={context}
             onOpenCustomers={() => setCustomersOpen(true)}
+            onOpenInventory={() => setInventoryOpen(true)}
           />
         ) : tab === "jobs" ? (
           <JobsScreen
@@ -112,12 +120,13 @@ export function OperationsShell({ context }: { context: StaffContext }) {
             context={context}
             navigationState={reportsNavigation}
             onNavigationStateChange={setReportsNavigation}
+            onOpenInventory={() => setInventoryOpen(true)}
           />
         ) : (
           <ProfileScreen context={context} />
         )}
       </View>
-      {!customersOpen ? (
+      {!customersOpen && !inventoryOpen ? (
         <View style={styles.tabs}>
           {tabs.map((value) => (
             <Pressable

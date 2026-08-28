@@ -26,6 +26,7 @@ import {
   useClockMutation,
   useDashboardQuery,
   useJobsQuery,
+  usePersonalCashQuery,
   useShiftAssignmentsQuery,
 } from "../queries/operations";
 import { colors, spacing } from "../theme";
@@ -35,9 +36,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 export function TodayScreen({
   context,
   onOpenCustomers,
+  onOpenInventory,
 }: {
   context: StaffContext;
   onOpenCustomers?: () => void;
+  onOpenInventory?: () => void;
 }) {
   const management = capabilities(context.role).canViewAllJobs;
   const dashboard = useDashboardQuery(context, today(), management);
@@ -50,6 +53,7 @@ export function TodayScreen({
   const attendance = useAttendanceOverviewQuery(context);
   const shifts = useShiftAssignmentsQuery(context);
   const clock = useClockMutation(context);
+  const personalCash = usePersonalCashQuery(context, today());
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
@@ -72,16 +76,25 @@ export function TodayScreen({
     ? dashboard.isPending || attendance.isPending
     : jobs.isPending || attendance.isPending || shifts.isPending;
   const refreshing = management
-    ? dashboard.isRefetching || attendance.isRefetching
-    : jobs.isRefetching || attendance.isRefetching || shifts.isRefetching;
+    ? dashboard.isRefetching || attendance.isRefetching || personalCash.isRefetching
+    :
+        jobs.isRefetching ||
+        attendance.isRefetching ||
+        shifts.isRefetching ||
+        personalCash.isRefetching;
   const error = management
     ? (dashboard.error ?? attendance.error)
     : (jobs.error ?? attendance.error ?? shifts.error);
   async function refresh() {
     await Promise.all(
       management
-        ? [dashboard.refetch(), attendance.refetch()]
-        : [jobs.refetch(), attendance.refetch(), shifts.refetch()],
+        ? [dashboard.refetch(), attendance.refetch(), personalCash.refetch()]
+        : [
+            jobs.refetch(),
+            attendance.refetch(),
+            shifts.refetch(),
+            personalCash.refetch(),
+          ],
     );
   }
   async function toggleClock() {
@@ -124,6 +137,30 @@ export function TodayScreen({
             : "Everything you need for today's work"
         }
       />
+      <AppButton
+        title="Open Inventory"
+        tone="secondary"
+        onPress={() => onOpenInventory?.()}
+      />
+      {personalCash.data ? (
+        <Card>
+          <Text style={styles.kicker}>MY CASH</Text>
+          <View style={styles.cashMetrics}>
+            <MetricCard
+              label="Collected today"
+              value={`${personalCash.data.currency_code} ${(
+                personalCash.data.collected_today_minor / 100
+              ).toLocaleString()}`}
+            />
+            <MetricCard
+              label="Awaiting handover"
+              value={`${personalCash.data.currency_code} ${(
+                personalCash.data.awaiting_handover_minor / 100
+              ).toLocaleString()}`}
+            />
+          </View>
+        </Card>
+      ) : null}
       {error ? (
         <Text style={uiStyles.error}>
           {domainErrorMessage(
@@ -371,6 +408,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  cashMetrics: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   section: {
