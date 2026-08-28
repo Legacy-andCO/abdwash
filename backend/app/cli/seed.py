@@ -1,11 +1,17 @@
 import asyncio
 from datetime import time
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.config import get_settings
 from app.core.database import create_engine, create_session_factory
-from app.models.entities import Business, BusinessSettings, ScheduleResource, Service
+from app.models.entities import (
+    Business,
+    BusinessSettings,
+    InventoryLocation,
+    ScheduleResource,
+    Service,
+)
 
 
 async def seed() -> None:
@@ -18,9 +24,35 @@ async def seed() -> None:
                 await session.scalars(select(Business).where(Business.slug == "abdwash"))
             ).one_or_none()
             if business is None:
-                business = Business(name="AbdWash", slug="abdwash", is_active=True)
+                business = Business(name="Trifecta", slug="abdwash", is_active=True)
                 session.add(business)
                 await session.flush()
+            elif business.name != "Trifecta":
+                business.name = "Trifecta"
+            main_location = (
+                await session.scalars(
+                    select(InventoryLocation).where(
+                        InventoryLocation.business_id == business.id,
+                        InventoryLocation.location_type == "main",
+                        InventoryLocation.is_active.is_(True),
+                    )
+                )
+            ).first()
+            if main_location is None:
+                main_shop_name_taken = await session.scalar(
+                    select(InventoryLocation.id).where(
+                        InventoryLocation.business_id == business.id,
+                        func.lower(InventoryLocation.name) == "main shop",
+                    )
+                )
+                session.add(
+                    InventoryLocation(
+                        business_id=business.id,
+                        name="Main Shop (Primary)" if main_shop_name_taken else "Main Shop",
+                        location_type="main",
+                        is_active=True,
+                    )
+                )
             business_settings = (
                 await session.scalars(
                     select(BusinessSettings).where(BusinessSettings.business_id == business.id)

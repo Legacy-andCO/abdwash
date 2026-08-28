@@ -1,6 +1,6 @@
 package com.abdwash.staff
 
-// ABDWASH_IME_IMPORTS
+// TRIFECTA_IME_IMPORTS
 import android.view.View
 import android.view.WindowManager
 import androidx.core.view.ViewCompat
@@ -23,8 +23,8 @@ class MainActivity : ReactActivity() {
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
     super.onCreate(null)
-    // ABDWASH_IME_INSTALL
-    installAbdWashImeInsets()
+    // TRIFECTA_IME_INSTALL
+    installTrifectaImeInsets()
   }
 
   /**
@@ -67,13 +67,13 @@ class MainActivity : ReactActivity() {
       super.invokeDefaultOnBackPressed()
   }
 
-  // ABDWASH_IME_HANDLER
+  // TRIFECTA_IME_HANDLER
   /**
    * Edge-to-edge windows are not resized reliably by adjustResize on every Android version.
    * Apply the complete IME obstruction to the activity content root so React Native lays out
    * against the genuinely usable viewport. Insets continue to descendants for safe-area use.
    */
-  private fun installAbdWashImeInsets() {
+  private fun installTrifectaImeInsets() {
     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     val content = findViewById<View>(android.R.id.content)
     val initialLeft = content.paddingLeft

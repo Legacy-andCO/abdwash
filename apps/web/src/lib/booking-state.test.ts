@@ -26,7 +26,7 @@ const location: Location = {
 };
 
 const catalogue: Catalogue = {
-  business_name: "AbdWash",
+  business_name: "Trifecta",
   settings: {
     timezone: "Asia/Dubai",
     currency_code: "AED",
@@ -91,6 +91,16 @@ describe("booking state", () => {
         plate_number: "ABC 123",
         notes: null,
       },
+      {
+        id: "vehicle-2",
+        make: "Toyota",
+        model: "Land Cruiser",
+        year: 2023,
+        vehicle_type: "suv",
+        colour: "White",
+        plate_number: "XYZ 456",
+        notes: "Roof rack",
+      },
     ],
   };
   it("prefills contact and the default saved location", () => {
@@ -118,14 +128,97 @@ describe("booking state", () => {
     );
   });
   it("populates a booking vehicle with its authorized saved id", () => {
+    const bookingVehicle = {
+      ...initialBookingState.vehicles[0],
+      service_id: "full",
+      loyalty_reward_id: "reward-1",
+    };
     const state = bookingReducer(
-      { ...initialBookingState, defaultServiceId: "basic", customerProfile },
-      { type: "saved_vehicle", value: customerProfile.vehicles[0] },
+      {
+        ...initialBookingState,
+        defaultServiceId: "basic",
+        customerProfile,
+        vehicles: [bookingVehicle],
+      },
+      {
+        type: "apply_saved_vehicle",
+        vehicleKey: bookingVehicle.key,
+        value: customerProfile.vehicles[0],
+      },
     );
     expect(state.vehicles[0]).toMatchObject({
       vehicle_id: "vehicle-1",
       make: "BMW",
-      service_id: "basic",
+      service_id: "full",
+      loyalty_reward_id: "reward-1",
+      key: bookingVehicle.key,
+    });
+  });
+  it("assigns saved vehicles to their chosen slots without reordering", () => {
+    const first = { ...emptyVehicle("basic"), key: "slot-1" };
+    const second = { ...emptyVehicle("full"), key: "slot-2" };
+    const base = {
+      ...initialBookingState,
+      customerProfile,
+      vehicles: [first, second],
+    };
+    const withFirst = bookingReducer(base, {
+      type: "apply_saved_vehicle",
+      vehicleKey: first.key,
+      value: customerProfile.vehicles[0],
+    });
+    const withBoth = bookingReducer(withFirst, {
+      type: "apply_saved_vehicle",
+      vehicleKey: second.key,
+      value: customerProfile.vehicles[1],
+    });
+    expect(withBoth.vehicles.map((vehicle) => vehicle.key)).toEqual([
+      "slot-1",
+      "slot-2",
+    ]);
+    expect(withBoth.vehicles.map((vehicle) => vehicle.vehicle_id)).toEqual([
+      "vehicle-1",
+      "vehicle-2",
+    ]);
+    expect(withBoth.vehicles.map((vehicle) => vehicle.service_id)).toEqual([
+      "basic",
+      "full",
+    ]);
+  });
+  it("prevents assigning the same saved vehicle to two slots", () => {
+    const first = { ...emptyVehicle("basic"), key: "slot-1" };
+    const second = { ...emptyVehicle("basic"), key: "slot-2" };
+    const selected = bookingReducer(
+      { ...initialBookingState, vehicles: [first, second] },
+      {
+        type: "apply_saved_vehicle",
+        vehicleKey: first.key,
+        value: customerProfile.vehicles[0],
+      },
+    );
+    expect(
+      bookingReducer(selected, {
+        type: "apply_saved_vehicle",
+        vehicleKey: second.key,
+        value: customerProfile.vehicles[0],
+      }),
+    ).toBe(selected);
+  });
+  it("switches a saved-vehicle slot to manual entry without losing details", () => {
+    const selected = {
+      ...initialBookingState.vehicles[0],
+      vehicle_id: "vehicle-1",
+      make: "BMW",
+      service_id: "full",
+    };
+    const state = bookingReducer(
+      { ...initialBookingState, vehicles: [selected] },
+      { type: "clear_saved_vehicle", vehicleKey: selected.key },
+    );
+    expect(state.vehicles[0]).toMatchObject({
+      vehicle_id: undefined,
+      make: "BMW",
+      service_id: "full",
     });
   });
   it("loads the first real service as the default", () => {

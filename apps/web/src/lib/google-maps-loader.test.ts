@@ -20,7 +20,7 @@ function existingMapsScript() {
 
 afterEach(() => {
   vi.useRealTimers();
-  document.querySelectorAll('script[src^="https://maps.googleapis.com/maps/api/js"], #abdwash-google-maps').forEach((script) => script.remove());
+  document.querySelectorAll('script[src^="https://maps.googleapis.com/maps/api/js"], #trifecta-google-maps').forEach((script) => script.remove());
   setGoogle(undefined);
   resetGoogleMapsLoaderForTests();
 });
@@ -29,7 +29,7 @@ describe("shared Google Maps loader", () => {
   it("waits after a new script load until importLibrary becomes available", async () => {
     vi.useFakeTimers();
     const loading = loadGoogleMaps("public-test-key");
-    const script = document.getElementById("abdwash-google-maps") as HTMLScriptElement;
+    const script = document.getElementById("trifecta-google-maps") as HTMLScriptElement;
     script.dispatchEvent(new Event("load"));
     await vi.advanceTimersByTimeAsync(100);
     setGoogle(usableGoogle());
@@ -59,9 +59,9 @@ describe("shared Google Maps loader", () => {
     const first = loadGoogleMaps("public-test-key");
     const second = loadGoogleMaps("public-test-key");
     expect(second).toBe(first);
-    expect(document.querySelectorAll("#abdwash-google-maps")).toHaveLength(1);
+    expect(document.querySelectorAll("#trifecta-google-maps")).toHaveLength(1);
     setGoogle(usableGoogle());
-    document.getElementById("abdwash-google-maps")?.dispatchEvent(new Event("load"));
+    document.getElementById("trifecta-google-maps")?.dispatchEvent(new Event("load"));
     await expect(first).resolves.toBe(window.google);
   });
 
@@ -86,7 +86,7 @@ describe("shared Google Maps loader", () => {
 
   it("clears the failed shared promise so a later call can succeed", async () => {
     const failed = loadGoogleMaps("public-test-key");
-    const failedScript = document.getElementById("abdwash-google-maps") as HTMLScriptElement;
+    const failedScript = document.getElementById("trifecta-google-maps") as HTMLScriptElement;
     failedScript.dispatchEvent(new Event("error"));
     await expect(failed).rejects.toThrow("failed to load");
     expect(failedScript.isConnected).toBe(false);
@@ -94,7 +94,7 @@ describe("shared Google Maps loader", () => {
     const retry = loadGoogleMaps("public-test-key");
     expect(retry).not.toBe(failed);
     setGoogle(usableGoogle());
-    document.getElementById("abdwash-google-maps")?.dispatchEvent(new Event("load"));
+    document.getElementById("trifecta-google-maps")?.dispatchEvent(new Event("load"));
     await expect(retry).resolves.toBe(window.google);
   });
 });

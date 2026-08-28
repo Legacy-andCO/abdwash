@@ -305,7 +305,7 @@ function JobCard({ job }: { job: Job }) {
       !job.assigned_team_name &&
       !job.assigned_staff_name
     ) {
-      console.warn("[AbdWash Assignment] assigned_name_missing", {
+      console.warn("[Trifecta Assignment] assigned_name_missing", {
         job_id: job.id,
         status: job.status,
         assigned_team_id: job.assigned_team_id,

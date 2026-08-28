@@ -53,7 +53,7 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
                 "Cancellation request received",
                 "<p>We received your cancellation request for booking "
                 f"<strong>{reference}</strong>. "
-                "Your booking remains active until the AbdWash team reviews it.</p>",
+                "Your booking remains active until the Trifecta team reviews it.</p>",
             ),
         )
     raise ValueError(f"Unsupported notification type {notification_type!r}")
@@ -80,19 +80,19 @@ def render_driver_en_route(payload: dict[str, Any]) -> tuple[str, str]:
     )
     manage_button = (
         f'<p style="margin:30px 0"><a href="{manage_url}" '
-        'style="background:#0b6b5f;color:#fff;text-decoration:none;padding:13px 22px;'
+        'style="background:#D65A1F;color:#fff;text-decoration:none;padding:13px 22px;'
         'border-radius:8px;display:inline-block;font-weight:700">View booking</a></p>'
     )
     content = f"""
       <p style="margin:0 0 24px">Hi {first_name},</p>
-      <p style="margin:0 0 24px">Your AbdWash driver is on the way.</p>
+      <p style="margin:0 0 24px">Your Trifecta driver is on the way.</p>
       {(_detail("Estimated arrival", eta.strftime("%H:%M")) if eta else "")}
       {_detail("Appointment", f"{start:%H:%M}–{end:%H:%M}")}
       {vehicle_detail}
       {manage_button}
     """
-    return f"Your AbdWash driver is on the way — {reference}", _email_shell(
-        "Your AbdWash driver is on the way", content
+    return f"Your Trifecta driver is on the way — {reference}", _email_shell(
+        "Your Trifecta driver is on the way", content
     )
 
 
@@ -128,43 +128,44 @@ def render_booking_confirmation(payload: dict[str, Any]) -> tuple[str, str]:
       {_detail("Total", f"{currency} {total_minor / 100:,.2f}")}
       {_detail("Payment", f"{payment_label} · {payment_status}")}
       <p style="margin:30px 0">
-        <a href="{manage_url}" style="background:#0b6b5f;color:#fff;text-decoration:none;
+        <a href="{manage_url}" style="background:#D65A1F;color:#fff;text-decoration:none;
           padding:13px 22px;border-radius:8px;display:inline-block;font-weight:700">
           Manage booking
         </a>
       </p>
-      <p style="color:#52645f;font-size:14px;line-height:1.6;margin:0">
+      <p style="color:#8A8A88;font-size:14px;line-height:1.6;margin:0">
         Need to make a change? Cancellation requests can be submitted until {cutoff} hours
         before the appointment.
       </p>
     """
-    return f"Your AbdWash booking is confirmed — {reference}", _email_shell(
-        "Your AbdWash booking is confirmed", content
+    return f"Your Trifecta booking is confirmed — {reference}", _email_shell(
+        "Your Trifecta booking is confirmed", content
     )
 
 
 def _detail(label: str, value: str) -> str:
     return (
         "<div style='margin:0 0 16px'>"
-        "<div style='color:#667a74;font-size:12px;font-weight:700;"
+        "<div style='color:#8A8A88;font-size:12px;font-weight:700;"
         f"text-transform:uppercase;letter-spacing:.06em'>{label}</div>"
-        f"<div style='color:#163d37;font-size:16px;font-weight:700;margin-top:3px'>{value}</div>"
+        f"<div style='color:#241C1A;font-size:16px;font-weight:700;margin-top:3px'>{value}</div>"
         "</div>"
     )
 
 
 def _email_shell(title: str, content: str) -> str:
     return f"""<!doctype html>
-<html><body style="margin:0;background:#f3f7f5;font-family:Arial,sans-serif;color:#163d37">
+<html><body style="margin:0;background:#F4EDE4;font-family:Arial,sans-serif;color:#241C1A">
   <div style="display:none;max-height:0;overflow:hidden">{escape(title)}</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-    style="background:#f3f7f5">
+    style="background:#F4EDE4">
     <tr><td align="center" style="padding:32px 16px">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
         style="max-width:600px;background:#fff;border-radius:16px">
         <tr><td style="padding:32px">
-          <div style="font-size:20px;font-weight:800;color:#0b6b5f;margin-bottom:26px">AbdWash</div>
-          <h1 style="font-size:28px;line-height:1.2;margin:0 0 24px;color:#163d37">
+          <div style="font-size:20px;font-weight:800;color:#D65A1F;
+            margin-bottom:26px">TRIFECTA</div>
+          <h1 style="font-size:28px;line-height:1.2;margin:0 0 24px;color:#241C1A">
             {escape(title)}
           </h1>
           {content}

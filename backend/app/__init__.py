@@ -1,1 +1,1 @@
-"""AbdWash backend package."""
+"""Trifecta backend package."""

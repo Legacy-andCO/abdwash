@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -13,6 +13,7 @@ import { AppButton, Card, EmptyState, MetricCard, ScreenTitle, Skeleton, StatusC
 import { domainErrorMessage } from "../errors/domainErrors";
 import {
   inventoryCategories,
+  getInventoryActionValidation,
   inventoryUnits,
   managementInventoryActions,
   quantityLabel,
@@ -255,12 +256,31 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
   const [expenseAmount, setExpenseAmount] = useState("");
   const selected = useMemo(() => items.find((item) => item.id === itemId), [itemId, items]);
   const isCount = action === "stock_count";
+  const requiresLocation = !["create_item", "edit_item", "create_location"].includes(action);
   const hasCurrentLine = Boolean(itemId && validQuantity(quantity, isCount));
-  const canSubmit = ["create_item", "edit_item"].includes(action)
-    ? Boolean(name.trim()) && validQuantity(threshold, true)
-    : action === "create_location"
-      ? Boolean(name.trim())
-      : Boolean(locationId && (draftLines.length > 0 || hasCurrentLine) && (action !== "transfer" || (destinationId && destinationId !== locationId)) && (!["wastage", "stock_count"].includes(action) || reason.trim()));
+  const validation = getInventoryActionValidation(action, {
+    name,
+    threshold,
+    itemId,
+    locationId,
+    destinationId,
+    hasQuantityLine: draftLines.length > 0 || hasCurrentLine,
+    reason,
+    jobId,
+    expenseAmount,
+    isEmployee: context.role === "employee",
+  });
+  useEffect(() => {
+    if (!locationId && locations.length) setLocationId(locations[0].id);
+  }, [locationId, locations]);
+  useEffect(() => {
+    if (
+      action === "transfer" &&
+      (!destinationId || destinationId === locationId)
+    ) {
+      setDestinationId(locations.find((location) => location.id !== locationId)?.id ?? "");
+    }
+  }, [action, destinationId, locationId, locations]);
   function addDraftLine() {
     if (!hasCurrentLine) return;
     setDraftLines((current) => {
@@ -302,6 +322,46 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
       Alert.alert("Inventory not updated", domainErrorMessage(error, "The server did not confirm this stock operation."));
     }
   }
+  async function createMainShop() {
+    try {
+      await mutation.mutateAsync({
+        action: "create_location",
+        body: { name: "Main Shop", location_type: "main", linked_team_id: null },
+      });
+      Alert.alert("Main Shop created", "The primary stock location is ready.");
+    } catch (error) {
+      Alert.alert(
+        "Location not created",
+        domainErrorMessage(error, "The server did not confirm this location."),
+      );
+    }
+  }
+  if (requiresLocation && locations.length === 0) {
+    const management = context.role === "manager" || context.role === "admin";
+    return (
+      <ScrollView contentContainerStyle={uiStyles.content}>
+        <Pressable onPress={onBack} accessibilityRole="button">
+          <Text style={uiStyles.link}>← Inventory</Text>
+        </Pressable>
+        <ScreenTitle title={actionLabel(action)} subtitle="A stock location is required" />
+        <Card>
+          <Text style={styles.title}>No stock location is configured.</Text>
+          <Text style={uiStyles.muted}>
+            {management
+              ? "Create the primary Main Shop location to continue."
+              : "Ask a manager to configure an inventory location."}
+          </Text>
+        </Card>
+        {management ? (
+          <AppButton
+            title="Create Main Shop Location"
+            onPress={() => void createMainShop()}
+            loading={mutation.isPending}
+          />
+        ) : null}
+      </ScrollView>
+    );
+  }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <Pressable onPress={onBack}><Text style={uiStyles.link}>← Inventory</Text></Pressable>
@@ -323,7 +383,14 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
       ) : (
         <>
           <Label text="Item" /><ChoiceRow values={items.map((value) => ({ id: value.id, label: value.name }))} selected={itemId} onSelect={setItemId} />
-          <Label text={action === "transfer" ? "From" : "Location"} /><ChoiceRow values={locations.map((value) => ({ id: value.id, label: value.name }))} selected={locationId} onSelect={setLocationId} />
+          <Label text={action === "transfer" ? "From" : "Location"} />
+          {locations.length === 1 ? (
+            <View style={styles.selectedLocation}>
+              <Text style={styles.selectedLocationText}>{locations[0].name} ✓</Text>
+            </View>
+          ) : (
+            <ChoiceRow values={locations.map((value) => ({ id: value.id, label: value.name }))} selected={locationId} onSelect={setLocationId} />
+          )}
           {action === "transfer" ? <><Label text="To" /><ChoiceRow values={locations.filter((value) => value.id !== locationId).map((value) => ({ id: value.id, label: value.name }))} selected={destinationId} onSelect={setDestinationId} /></> : null}
           <Field label={isCount ? "Counted quantity" : `Quantity${selected ? ` (${selected.unit})` : ""}`} value={quantity} onChange={setQuantity} keyboard="decimal-pad" />
           {draftLines.map((line) => {
@@ -352,7 +419,12 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
           <Field label={["wastage", "stock_count"].includes(action) ? "Reason" : "Reference / notes (optional)"} value={reason} onChange={setReason} placeholder={action === "wastage" ? "Spilled during refill" : ""} />
         </>
       )}
-      <AppButton title={actionLabel(action)} onPress={() => void submit()} disabled={!canSubmit} loading={mutation.isPending} />
+      {!validation.canSubmit && validation.reason ? (
+        <Text accessibilityRole="alert" style={styles.validationReason}>
+          {validation.reason}
+        </Text>
+      ) : null}
+      <AppButton title={actionLabel(action)} onPress={() => void submit()} disabled={!validation.canSubmit} loading={mutation.isPending} />
       {action === "edit_item" && initialItem ? (
         <AppButton
           title={initialItem.is_active ? "Deactivate item" : "Reactivate item"}
@@ -403,5 +475,8 @@ const styles = StyleSheet.create({
   quantity: { color: colors.text, fontSize: 22, fontWeight: "900" },
   positive: { color: colors.success, fontWeight: "900" },
   negative: { color: colors.danger, fontWeight: "900" },
+  selectedLocation: { backgroundColor: colors.secondary, borderColor: colors.primary, borderRadius: radii.md, borderWidth: 1, padding: spacing.md },
+  selectedLocationText: { color: colors.primary, fontWeight: "900" },
+  validationReason: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.xs },
   flex: { flex: 1 },
 });

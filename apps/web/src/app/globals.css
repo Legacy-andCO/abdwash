@@ -1955,11 +1955,44 @@
     width: 100%;
   }
   .vehicle-card legend button {
-    background: none;
-    border: 0;
+    background: var(--brand-surface);
+    border: 1px solid currentColor;
+    border-radius: 8px;
     color: var(--danger);
     cursor: pointer;
     font-size: 0.72rem;
+    min-height: 2.25rem;
+    padding: 0.45rem 0.7rem;
+  }
+  .saved-vehicle-slot {
+    background: var(--brand-background);
+    border: 1px solid var(--brand-border);
+    border-radius: 10px;
+    padding: 0.9rem;
+  }
+  .saved-vehicle-summary {
+    align-items: center;
+    color: var(--brand-text);
+    display: flex;
+    gap: 0.65rem;
+    margin-top: 0.7rem;
+  }
+  .saved-vehicle-summary > span:first-child {
+    align-items: center;
+    background: var(--brand-primary);
+    border-radius: 50%;
+    color: var(--brand-surface);
+    display: inline-flex;
+    flex: 0 0 1.55rem;
+    height: 1.55rem;
+    justify-content: center;
+  }
+  .saved-vehicle-summary > span:last-child {
+    display: flex;
+    flex-direction: column;
+  }
+  .saved-vehicle-summary small {
+    color: var(--brand-muted);
   }
   .add-button {
     align-items: center;
@@ -1979,6 +2012,20 @@
   }
   .add-button span {
     font-size: 1.2rem;
+  }
+  .add-button-copy {
+    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+  }
+  .add-button-copy strong {
+    font-size: 0.82rem;
+  }
+  .add-button-copy small {
+    color: var(--brand-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
   }
   .inline-notice,
   .error-banner {

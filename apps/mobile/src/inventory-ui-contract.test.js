@@ -59,6 +59,21 @@ describe("inventory mobile contract", () => {
     expect(queries).toContain('queryKey: ["finance", scope]');
   });
 
+  it("shows the active location and explains every disabled action", () => {
+    const screen = source("./screens/InventoryScreen.tsx");
+    expect(screen).toContain("getInventoryActionValidation");
+    expect(screen).toContain("{locations[0].name} ✓");
+    expect(screen).toContain("validation.reason");
+    expect(screen).toContain('accessibilityRole="alert"');
+  });
+
+  it("provides role-appropriate recovery when no stock location exists", () => {
+    const screen = source("./screens/InventoryScreen.tsx");
+    expect(screen).toContain("No stock location is configured.");
+    expect(screen).toContain('title="Create Main Shop Location"');
+    expect(screen).toContain("Ask a manager to configure an inventory location.");
+  });
+
   it("shows compact stock in Team Detail", () => {
     const team = source("./screens/TeamScreen.tsx");
     expect(team).toContain("useTeamStockSummaryQuery");

@@ -76,14 +76,14 @@ begin
     perform vault.create_secret(
       'https://abdwash.vercel.app/api/v1/internal/notifications/dispatch',
       'abdwash_outbox_dispatch_url',
-      'AbdWash bounded notification dispatcher URL'
+      'Trifecta bounded notification dispatcher URL'
     );
   else
     perform vault.update_secret(
       dispatch_url_id,
       'https://abdwash.vercel.app/api/v1/internal/notifications/dispatch',
       'abdwash_outbox_dispatch_url',
-      'AbdWash bounded notification dispatcher URL'
+      'Trifecta bounded notification dispatcher URL'
     );
   end if;
 
@@ -94,14 +94,14 @@ begin
     perform vault.create_secret(
       '<OUTBOX_DISPATCH_SECRET>',
       'abdwash_outbox_dispatch_secret',
-      'AbdWash bounded notification dispatcher secret'
+      'Trifecta bounded notification dispatcher secret'
     );
   else
     perform vault.update_secret(
       dispatch_secret_id,
       '<OUTBOX_DISPATCH_SECRET>',
       'abdwash_outbox_dispatch_secret',
-      'AbdWash bounded notification dispatcher secret'
+      'Trifecta bounded notification dispatcher secret'
     );
   end if;
 end

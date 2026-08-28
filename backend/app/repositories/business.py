@@ -21,7 +21,7 @@ async def load_default_business(session: AsyncSession) -> BusinessConfiguration:
         )
     ).one_or_none()
     if row is None:
-        raise RuntimeError("AbdWash bootstrap data is missing; run the explicit seed command.")
+        raise RuntimeError("Trifecta bootstrap data is missing; run the explicit seed command.")
     return BusinessConfiguration(business=row[0], settings=row[1])
 
 

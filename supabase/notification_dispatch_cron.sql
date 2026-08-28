@@ -1,4 +1,4 @@
--- AbdWash notification outbox scheduling.
+-- Trifecta notification outbox scheduling. Stable deployed job and Vault names are retained.
 -- Vault values are deliberately provisioned separately and never committed here.
 
 create extension if not exists pg_cron with schema pg_catalog;

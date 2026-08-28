@@ -1,8 +1,23 @@
-# AbdWash / Trifecta
+# Trifecta
 
-AbdWash is the internal platform and API name for Trifecta's mobile car-care system. This monorepo contains the production customer website, the independently distributed staff operations app, shared TypeScript concepts, and the authoritative FastAPI/PostgreSQL backend.
+Trifecta is a mobile car-care platform. This monorepo contains the production customer website, the independently distributed staff operations app, shared TypeScript concepts, and the authoritative FastAPI/PostgreSQL backend.
 
-The platform is a modular monolith: Supabase provides PostgreSQL and Auth, FastAPI owns all business workflows and authorization, Next.js serves the customer experience, and Expo/React Native serves employees, managers, and admins. Customer-facing and staff-facing interfaces use the Trifecta brand; existing backend identifiers remain AbdWash.
+The platform is a modular monolith: Supabase provides PostgreSQL and Auth, FastAPI owns all business workflows and authorization, Next.js serves the customer experience, and Expo/React Native serves employees, managers, and admins. Customer-facing and staff-facing interfaces use the Trifecta brand; selected legacy infrastructure identifiers remain stable for deployment compatibility.
+
+### Stable legacy infrastructure identifiers
+
+The product brand is Trifecta, but these deployed identifiers intentionally retain their original spelling. Rename them only through a separately planned infrastructure migration:
+
+- Android namespace/application ID and Kotlin package: `com.abdwash.staff`. Changing it creates a different Android application identity and breaks normal upgrades and app-scoped storage.
+- Expo/EAS slug: `abdwash-staff`, plus the existing EAS project ID in `apps/mobile/app.json`. Changing either can disconnect builds and updates from the distributed app.
+- Persisted mobile cache/revision keys beginning `abdwash:`. Changing them without a cache migration discards installed-app state.
+- Staff synthetic Supabase Auth domain: `staff.abdwash.local`. Changing it would make existing staff identities unreachable through username login.
+- Seeded business slug: `abdwash`. It is a database lookup key referenced by existing tenant data.
+- Existing Vercel deployment origins under `abdwash.vercel.app` and `abdwash-vdtc.vercel.app`. They remain live deployment addresses until domains/projects are migrated.
+- Supabase Cron job `abdwash-notification-dispatch` and Vault names `abdwash_outbox_dispatch_url` / `abdwash_outbox_dispatch_secret`. Renaming them in source alone would duplicate or disconnect the deployed schedule and secrets.
+- Existing local/example PostgreSQL database name `abdwash`. It is infrastructure configuration, not customer-visible branding.
+- Applied Alembic revision files and their historical repair NOTICE text. Applied migration history is immutable.
+- The repository/workspace directory may continue to be named `abdwash`; changing a local checkout path is outside application behavior.
 
 ## Current implementation status
 
@@ -18,7 +33,7 @@ The platform is a modular monolith: Supabase provides PostgreSQL and Auth, FastA
 - International phone entry with UAE as the default and independent E.164 normalization/validation in the browser and backend.
 - Google Places search, browser geolocation on explicit user action, reverse geocoding, responsive map preview, map click selection, and a draggable advanced marker.
 - A shared singleton Google Maps loader supports hard refresh, client navigation, remounts, delayed readiness, and an accessible manual-address/validated Google Maps-link fallback.
-- Authenticated customer profiles with reusable personal information, default/saved service locations, saved vehicles, and booking autofill without mutating historical booking snapshots.
+- Authenticated customer profiles with reusable personal information, default/saved service locations, saved vehicles, and booking autofill without mutating historical booking snapshots. Saved vehicles are selected within each booking vehicle slot, so multi-car bookings preserve order, per-car service, and reward allocation while preventing accidental duplicate saved-car selection.
 - Trifecta Rewards for authenticated customers: every completed, fully paid normal vehicle service earns one ledger credit; nine credits create one configurable free-service reward. Available rewards can be atomically reserved in booking, released on approved cancellation, and redeemed on completion.
 - Customer reward progress, available/redeemed rewards, and concise wash history are visible in the bilingual account profile; eligible rewards can be applied to one matching vehicle/service line without client-controlled pricing.
 - Customer account views for upcoming, history, and cancelled bookings; detailed live job status and estimated arrival when available; authorized rescheduling and cancellation requests.
@@ -50,7 +65,7 @@ The platform is a modular monolith: Supabase provides PostgreSQL and Auth, FastA
 - TanStack Query caching, selected AsyncStorage persistence, scope-aware cache keys, last-updated/offline read states, pull-to-refresh, foreground/network synchronization, and revision-based targeted invalidation.
 - Online authority for all operational and financial writes. There is intentionally no offline mutation replay queue yet.
 - Manager/admin Finance area with authoritative booked-versus-collected reporting, expense ledger/category summaries, operational profit/margin, direct team contribution, and cash handover reconciliation. Employees see only their own collected/awaiting-handover cash summary.
-- Manager/admin Inventory area with controlled consumable catalogue, main/shop, mobile-team and named-van stock locations, low/out alerts, bounded search, append-only movement history, batch receiving, atomic transfers, usage, wastage, stock counts, and optional receipt-to-expense recording. Employees can view their active team stock and record assigned-job usage only.
+- Manager/admin Inventory area with controlled consumable catalogue, main/shop, mobile-team and named-van stock locations, low/out alerts, bounded search, append-only movement history, batch receiving, atomic transfers, usage, wastage, stock counts, and optional receipt-to-expense recording. Every active tenant is backfilled with an idempotent primary Main Shop when no active main location exists; the mobile forms auto-select a sole location, explain disabled actions, and offer role-aware recovery when none exists. Employees can view their active team stock and record assigned-job usage only.
 - Checked-in Android native project with safe-area and edge-to-edge keyboard/IME handling.
 
 ### Backend and platform
@@ -68,7 +83,7 @@ The platform is a modular monolith: Supabase provides PostgreSQL and Auth, FastA
 - Resend transactional booking-confirmation and driver-en-route email through the existing notification-provider abstraction; development can use the log provider.
 - Persistent notification worker for long-lived hosts and an authenticated bounded one-shot dispatcher for serverless deployments.
 - Supabase Cron + `pg_net` schedule support for one-minute dispatcher invocation, with URL and secret stored in Supabase Vault.
-- Payment abstraction and safe provider-reference schema. Pay Now and real card capture are not implemented; PAN, CVV/CVC, PIN, track data, and other raw card credentials must never enter AbdWash.
+- Payment abstraction and safe provider-reference schema. Pay Now and real card capture are not implemented; PAN, CVV/CVC, PIN, track data, and other raw card credentials must never enter Trifecta.
 - Append-only loyalty events, durable available/reserved/redeemed reward records, reward pricing snapshots, and transaction-level cash tender/change fields preserve auditability and historical financial truth.
 - Auditable operational-finance ledger with integer-minor-unit expenses, active/voided correction history, actor attribution, bounded server-side filtering/pagination, and business-timezone aggregates.
 - Tenant-scoped inventory ledger with `NUMERIC(14,3)` quantities, authoritative non-negative balances, deterministic row locking, retry-safe operation IDs, team-linked locations, append-only movements, service-consumption templates, RLS, and selective inventory sync revisions.
@@ -299,7 +314,7 @@ python -m app.cli.seed
 
 The current Alembic head is `f29a61e82c45`. The migration chain includes the foundation schema, en-route/arrived job states, case-insensitive staff usernames, Operations V2 workforce features, query indexes, sync revisions/assignment repair, forced password-change state, tenant-scoped job-quality controls with a private photo bucket, loyalty ledger/reward state, customer sync revision, booking discount snapshots, auditable cash tender fields, the operational finance ledger, and tenant-scoped inventory catalogue/location/balance/operation/movement/service-template tables.
 
-`python -m app.cli.seed` is idempotent and creates the AbdWash business, business settings, Mobile Team 1, and the initial customer-facing service catalogue.
+`python -m app.cli.seed` is idempotent and creates the Trifecta business, business settings, Main Shop inventory location, Mobile Team 1, and the initial customer-facing service catalogue.
 
 Demo staff provisioning is a separate idempotent command:
 
@@ -359,17 +374,17 @@ PostgreSQL concurrency/integration tests require `TEST_DATABASE_URL` pointing to
 Customer web:
 
 ```bash
-npm test --workspace=@abdwash/web
-npm run lint --workspace=@abdwash/web
-npm run typecheck --workspace=@abdwash/web
-npm run build --workspace=@abdwash/web
+npm test --workspace=@trifecta/web
+npm run lint --workspace=@trifecta/web
+npm run typecheck --workspace=@trifecta/web
+npm run build --workspace=@trifecta/web
 ```
 
 Staff mobile:
 
 ```bash
-npm test --workspace=@abdwash/mobile
-npm run typecheck --workspace=@abdwash/mobile
+npm test --workspace=@trifecta/mobile
+npm run typecheck --workspace=@trifecta/mobile
 ```
 
 Android compile check after native/configuration changes:
@@ -428,7 +443,7 @@ git diff --check
 - Booking management tokens are signed, kept in URL fragments, and never persisted raw in the notification outbox.
 - Notification dispatch uses constant-time secret comparison and bounded batches.
 - Business tables are backend-owned; browser and mobile clients do not write them through the Supabase Data API.
-- Card PAN, CVV/CVC, PIN, track data, and raw payment credentials are never stored or sent through AbdWash.
+- Card PAN, CVV/CVC, PIN, track data, and raw payment credentials are never stored or sent through Trifecta.
 
 ## Further documentation
 

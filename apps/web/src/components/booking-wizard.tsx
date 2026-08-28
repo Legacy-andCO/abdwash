@@ -43,6 +43,7 @@ import {
 import { normalizePhone } from "@/lib/phone";
 import type {
   AvailabilitySlot,
+  CustomerSavedVehicle,
   LoyaltySummary,
   Service,
   Vehicle,
@@ -549,37 +550,6 @@ function VehiclesStep({ state, dispatch }: StepProps) {
         }
         copy={t("booking.vehicles.copy")}
       />
-      {(state.customerProfile?.vehicles.length ?? 0) > 0 && (
-        <div className="form-section">
-          <h2>{t("booking.vehicles.saved")}</h2>
-          <div className="choice-list compact">
-            {state.customerProfile!.vehicles.map((vehicle) => (
-              <button
-                className="choice-card"
-                type="button"
-                key={vehicle.id}
-                onClick={() =>
-                  dispatch({ type: "saved_vehicle", value: vehicle })
-                }
-              >
-                <span className="choice-content">
-                  <strong>
-                    {vehicle.make} {vehicle.model}
-                  </strong>
-                  <small className="bidi-ltr">
-                    {vehicle.plate_number
-                      ? t("booking.vehicles.plate", {
-                          plate: vehicle.plate_number,
-                        })
-                      : t("booking.vehicles.savedVehicle")}
-                  </small>
-                </span>
-                <b>{t("booking.vehicles.use")}</b>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
       <div className="vehicle-stack">
         {state.vehicles.map((vehicle, index) => (
           <VehicleCard
@@ -587,6 +557,11 @@ function VehiclesStep({ state, dispatch }: StepProps) {
             vehicle={vehicle}
             index={index}
             services={state.catalogue!.services}
+            savedVehicles={state.customerProfile?.vehicles ?? []}
+            selectedSavedVehicleIds={state.vehicles
+              .filter((item) => item.key !== vehicle.key)
+              .map((item) => item.vehicle_id)
+              .filter((id): id is string => Boolean(id))}
             rewards={rewards.filter(
               (reward) =>
                 reward.service.id === vehicle.service_id &&
@@ -608,7 +583,11 @@ function VehiclesStep({ state, dispatch }: StepProps) {
         type="button"
         onClick={() => dispatch({ type: "add_vehicle" })}
       >
-        <span>+</span> {t("booking.vehicles.add")}
+        <span aria-hidden="true">+</span>
+        <span className="add-button-copy">
+          <strong>{t("booking.vehicles.add")}</strong>
+          <small>{t("booking.vehicles.addCopy")}</small>
+        </span>
       </button>
       {state.vehicles.length >=
         state.catalogue!.settings.multi_vehicle_threshold && (
@@ -629,6 +608,8 @@ function VehicleCard({
   vehicle,
   index,
   services,
+  savedVehicles,
+  selectedSavedVehicleIds,
   rewards,
   errors,
   canRemove,
@@ -637,6 +618,8 @@ function VehicleCard({
   vehicle: Vehicle;
   index: number;
   services: Service[];
+  savedVehicles: CustomerSavedVehicle[];
+  selectedSavedVehicleIds: string[];
   rewards: LoyaltySummary["rewards"];
   errors: Record<string, string>;
   canRemove: boolean;
@@ -673,6 +656,7 @@ function VehicleCard({
         </span>
         {canRemove && (
           <button
+            className="vehicle-remove"
             type="button"
             onClick={() =>
               dispatch({ type: "remove_vehicle", key: vehicle.key })
@@ -682,6 +666,73 @@ function VehicleCard({
           </button>
         )}
       </legend>
+      {savedVehicles.length > 0 && (
+        <div className="saved-vehicle-slot">
+          <label>
+            <span>{t("booking.vehicles.savedSelect")}</span>
+            <select
+              value={vehicle.vehicle_id ?? ""}
+              onChange={(event) => {
+                const savedVehicle = savedVehicles.find(
+                  (item) => item.id === event.target.value,
+                );
+                if (savedVehicle) {
+                  dispatch({
+                    type: "apply_saved_vehicle",
+                    vehicleKey: vehicle.key,
+                    value: savedVehicle,
+                  });
+                } else {
+                  dispatch({
+                    type: "clear_saved_vehicle",
+                    vehicleKey: vehicle.key,
+                  });
+                }
+              }}
+            >
+              <option value="">{t("booking.vehicles.manual")}</option>
+              {savedVehicles.map((savedVehicle) => {
+                const alreadySelected = selectedSavedVehicleIds.includes(
+                  savedVehicle.id,
+                );
+                return (
+                  <option
+                    key={savedVehicle.id}
+                    value={savedVehicle.id}
+                    disabled={alreadySelected}
+                  >
+                    {savedVehicle.make} {savedVehicle.model}
+                    {savedVehicle.plate_number
+                      ? ` — ${savedVehicle.plate_number}`
+                      : ""}
+                    {alreadySelected
+                      ? ` — ${t("booking.vehicles.alreadySelected")}`
+                      : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          {vehicle.vehicle_id && (
+            <div className="saved-vehicle-summary" role="status">
+              <span aria-hidden="true">✓</span>
+              <span>
+                <small>{t("booking.vehicles.savedSelected")}</small>
+                <strong>
+                  {vehicle.make} {vehicle.model}
+                </strong>
+                {vehicle.plate_number && (
+                  <small className="bidi-ltr">
+                    {t("booking.vehicles.plate", {
+                      plate: vehicle.plate_number,
+                    })}
+                  </small>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       <div className="form-grid two">
         {input("make", t("booking.vehicles.make"), "Toyota")}
         {input("model", t("booking.vehicles.model"), "Camry")}

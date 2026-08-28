@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseApiErrorPayload } from "./parseApiError";
 
 describe("FastAPI error parsing", () => {
-  it("preserves AbdWash domain errors and request IDs", () => {
+  it("preserves Trifecta domain errors and request IDs", () => {
     expect(
       parseApiErrorPayload(
         { code: "STAFF_NOT_ON_TEAM", message: "Join the team first.", request_id: "req-1" },

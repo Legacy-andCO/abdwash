@@ -484,3 +484,28 @@ def test_movement_ledger_has_no_edit_or_delete_route() -> None:
     ]
     assert len(movement_routes) == 1
     assert movement_routes[0].methods == {"GET"}
+
+
+def test_main_shop_backfill_is_tenant_scoped_and_idempotent() -> None:
+    migration = (
+        Path(__file__).parents[1]
+        / "migrations"
+        / "versions"
+        / "5e2c8f7a1b4d_provision_main_shop_and_rebrand.py"
+    ).read_text(encoding="utf-8")
+    assert "FROM businesses business" in migration
+    assert "main_location.business_id = business.id" in migration
+    assert "main_location.location_type = 'main'" in migration
+    assert "main_location.is_active IS TRUE" in migration
+    assert "AND NOT EXISTS" in migration
+    assert "WHERE slug = 'abdwash'" in migration
+    assert "SET name = 'Trifecta'" in migration
+
+
+def test_seed_provisions_main_shop_without_replacing_existing_main_location() -> None:
+    seed = (Path(__file__).parents[1] / "app" / "cli" / "seed.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'InventoryLocation.location_type == "main"' in seed
+    assert "if main_location is None:" in seed
+    assert '"Main Shop"' in seed

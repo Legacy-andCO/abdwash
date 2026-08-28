@@ -19,6 +19,10 @@ from app.main import app
 from app.schemas.public import CatalogueResponse
 
 
+def test_api_uses_trifecta_brand() -> None:
+    assert app.title == "Trifecta API"
+
+
 def test_health_is_lightweight() -> None:
     with TestClient(app) as client:
         response = client.get("/health")
@@ -66,7 +70,7 @@ def test_catalogue_injects_request_scoped_session(
         received_sessions.append(received_session)
         return CatalogueResponse.model_validate(
             {
-                "business_name": "AbdWash",
+                "business_name": "Trifecta",
                 "settings": {
                     "timezone": "Asia/Dubai",
                     "currency_code": "AED",
@@ -104,7 +108,7 @@ def _context(role: StaffRole) -> StaffContext:
         auth_user_id=uuid.uuid4(),
         staff_id=uuid.uuid4(),
         business_id=uuid.uuid4(),
-        business_name="AbdWash",
+        business_name="Trifecta",
         role=role,
         timezone="Asia/Dubai",
     )

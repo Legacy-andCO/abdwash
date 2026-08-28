@@ -37,7 +37,7 @@ request_database_metrics: contextvars.ContextVar[RequestDatabaseMetrics | None] 
 
 
 def create_engine(settings: Settings) -> AsyncEngine:
-    connect_args: dict[str, object] = {"server_settings": {"application_name": "abdwash-api"}}
+    connect_args: dict[str, object] = {"server_settings": {"application_name": "trifecta-api"}}
     if settings.db_disable_prepared_statements:
         connect_args.update(prepared_statement_cache_size=0, statement_cache_size=0)
     engine = create_async_engine(
@@ -59,11 +59,11 @@ def create_engine(settings: Settings) -> AsyncEngine:
                     time.perf_counter() - metrics.request_started
                 ) * 1000
         query_count.set(query_count.get() + 1)
-        conn._abdwash_query_started = time.perf_counter()
+        conn._trifecta_query_started = time.perf_counter()
 
     @event.listens_for(engine.sync_engine, "after_cursor_execute")
     def after_cursor_execute(conn: Any, *args: object) -> None:
-        started = getattr(conn, "_abdwash_query_started", None)
+        started = getattr(conn, "_trifecta_query_started", None)
         if started is not None:
             elapsed = (time.perf_counter() - started) * 1000
             metrics = request_database_metrics.get()

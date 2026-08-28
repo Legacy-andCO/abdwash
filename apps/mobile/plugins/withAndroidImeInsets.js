@@ -4,9 +4,9 @@ const {
   withMainActivity,
 } = require("expo/config-plugins");
 
-const IMPORT_MARKER = "// ABDWASH_IME_IMPORTS";
-const METHOD_MARKER = "// ABDWASH_IME_HANDLER";
-const CALL_MARKER = "// ABDWASH_IME_INSTALL";
+const IMPORT_MARKER = "// TRIFECTA_IME_IMPORTS";
+const METHOD_MARKER = "// TRIFECTA_IME_HANDLER";
+const CALL_MARKER = "// TRIFECTA_IME_INSTALL";
 
 const kotlinImports = `${IMPORT_MARKER}
 import android.view.View
@@ -21,7 +21,7 @@ const kotlinMethod = `
    * Apply the complete IME obstruction to the activity content root so React Native lays out
    * against the genuinely usable viewport. Insets continue to descendants for safe-area use.
    */
-  private fun installAbdWashImeInsets() {
+  private fun installTrifectaImeInsets() {
     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     val content = findViewById<View>(android.R.id.content)
     val initialLeft = content.paddingLeft
@@ -66,7 +66,7 @@ function addImeInsetsToMainActivity(source, language) {
   if (!next.includes(CALL_MARKER)) {
     next = next.replace(
       /super\.onCreate\(null\)/,
-      `super.onCreate(null)\n    ${CALL_MARKER}\n    installAbdWashImeInsets()`,
+      `super.onCreate(null)\n    ${CALL_MARKER}\n    installTrifectaImeInsets()`,
     );
   }
   if (!next.includes(METHOD_MARKER)) {

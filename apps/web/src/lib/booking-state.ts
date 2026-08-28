@@ -89,7 +89,12 @@ export type BookingAction =
   | { type: "catalogue"; value: Catalogue }
   | { type: "customer_bootstrap"; value: CustomerProfileBootstrap }
   | { type: "saved_location"; value: CustomerSavedAddress }
-  | { type: "saved_vehicle"; value: CustomerSavedVehicle }
+  | {
+      type: "apply_saved_vehicle";
+      vehicleKey: string;
+      value: CustomerSavedVehicle;
+    }
+  | { type: "clear_saved_vehicle"; vehicleKey: string }
   | { type: "step"; value: BookingStep }
   | { type: "service"; value: string }
   | { type: "contact"; field: keyof Contact; value: string }
@@ -170,28 +175,45 @@ export function bookingReducer(
           instructions: action.value.location_instructions ?? "",
         },
       };
-    case "saved_vehicle":
+    case "apply_saved_vehicle":
+      if (
+        state.vehicles.some(
+          (vehicle) =>
+            vehicle.key !== action.vehicleKey &&
+            vehicle.vehicle_id === action.value.id,
+        )
+      ) {
+        return state;
+      }
       return {
         ...state,
-        vehicles: [
-          {
-            key: emptyVehicle().key,
-            vehicle_id: action.value.id,
-            make: action.value.make,
-            model: action.value.model,
-            year: action.value.year?.toString() ?? "",
-            vehicle_type: action.value.vehicle_type,
-            colour: action.value.colour ?? "",
-            plate_number: action.value.plate_number ?? "",
-            notes: action.value.notes ?? "",
-            service_id: state.defaultServiceId,
-          },
-          ...state.vehicles.filter(
-            (vehicle) =>
-              (vehicle.make || vehicle.model) &&
-              vehicle.vehicle_id !== action.value.id,
-          ),
-        ],
+        vehicles: state.vehicles.map((vehicle) =>
+          vehicle.key === action.vehicleKey
+            ? {
+                ...vehicle,
+                vehicle_id: action.value.id,
+                make: action.value.make,
+                model: action.value.model,
+                year: action.value.year?.toString() ?? "",
+                vehicle_type: action.value.vehicle_type,
+                colour: action.value.colour ?? "",
+                plate_number: action.value.plate_number ?? "",
+                notes: action.value.notes ?? "",
+              }
+            : vehicle,
+        ),
+        availability: null,
+        selectedSlotTime: "",
+        hold: null,
+      };
+    case "clear_saved_vehicle":
+      return {
+        ...state,
+        vehicles: state.vehicles.map((vehicle) =>
+          vehicle.key === action.vehicleKey
+            ? { ...vehicle, vehicle_id: undefined }
+            : vehicle,
+        ),
         availability: null,
         selectedSlotTime: "",
         hold: null,

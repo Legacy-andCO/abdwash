@@ -1,3 +1,4 @@
+from email.utils import parseaddr
 from functools import lru_cache
 from typing import Literal
 
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    app_name: str = "AbdWash API"
+    app_name: str = "Trifecta API"
     app_env: Literal["development", "test", "staging", "production"] = "development"
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/abdwash"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
@@ -22,7 +23,7 @@ class Settings(BaseSettings):
     db_pool_timeout_seconds: float = Field(default=10, gt=0, le=60)
     db_disable_prepared_statements: bool = False
     log_level: str = "INFO"
-    booking_management_signing_key: str = "development-only-abdwash-management-key"
+    booking_management_signing_key: str = "development-only-trifecta-management-key"
     resend_api_key: str | None = None
     email_from: str | None = None
     public_web_url: str | None = None
@@ -49,6 +50,18 @@ class Settings(BaseSettings):
             return value.replace("postgresql://", "postgresql+asyncpg://", 1)
         if value.startswith("postgres://"):
             return value.replace("postgres://", "postgresql+asyncpg://", 1)
+        return value
+
+    @field_validator("email_from")
+    @classmethod
+    def validate_email_from(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        display_name, address = parseaddr(value)
+        if display_name.strip().casefold() != "trifecta" or "@" not in address:
+            raise ValueError(
+                "EMAIL_FROM must use the format 'Trifecta <bookings@verified-domain>'"
+            )
         return value
 
     @model_validator(mode="after")

@@ -693,7 +693,7 @@ export async function api<T>(
     }
     if (init?.signal?.aborted) throw error;
     if (__DEV__) {
-      console.warn("[AbdWash API] request_failed", {
+      console.warn("[Trifecta API] request_failed", {
         endpoint: path,
         status: 0,
       });
@@ -716,7 +716,7 @@ export async function api<T>(
     const requestId =
       parsed.requestId ?? response.headers.get("X-Request-ID") ?? undefined;
     if (__DEV__) {
-      console.warn("[AbdWash API] response_failed", {
+      console.warn("[Trifecta API] response_failed", {
         request_id: requestId,
         endpoint: path,
         status: response.status,

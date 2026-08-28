@@ -125,7 +125,7 @@ async def seed_demo_staff(settings: Settings) -> None:
                 await session.scalars(select(Business).where(Business.slug == "abdwash"))
             ).one_or_none()
             if business is None:
-                raise RuntimeError("The AbdWash business must be seeded first.")
+                raise RuntimeError("The Trifecta business must be seeded first.")
             for demo in DEMO_STAFF:
                 await upsert_staff_profile(
                     session,

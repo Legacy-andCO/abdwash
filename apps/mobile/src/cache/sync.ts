@@ -83,7 +83,7 @@ export async function synchronizeOperations(
   }
   await AsyncStorage.setItem(key, JSON.stringify(next));
   if (typeof __DEV__ !== "undefined" && __DEV__ && domains.length) {
-    console.info("[AbdWash Sync] revisions_changed", {
+    console.info("[Trifecta Sync] revisions_changed", {
       previous,
       next,
       domains,

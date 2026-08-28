@@ -44,7 +44,7 @@ def context(role: StaffRole) -> StaffContext:
         auth_user_id=uuid.uuid4(),
         staff_id=uuid.uuid4(),
         business_id=uuid.uuid4(),
-        business_name="AbdWash",
+        business_name="Trifecta",
         role=role,
         timezone="Asia/Dubai",
     )

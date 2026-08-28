@@ -32,7 +32,7 @@ def confirmation_payload() -> dict[str, Any]:
         "currency_code": "AED",
         "payment_choice": "pay_after_service",
         "payment_status": "unpaid",
-        "management_url": "https://abdwash.example/manage#secure-management-token",
+        "management_url": "https://trifecta.example/manage#secure-management-token",
         "cancellation_cutoff_hours": 24,
     }
 
@@ -57,15 +57,20 @@ def test_booking_email_contains_reference_and_management_url() -> None:
     subject, html = render_email("booking_confirmed", confirmation_payload())
     assert "AW-ABC123" in subject
     assert "AW-ABC123" in html
-    assert "https://abdwash.example/manage#secure-management-token" in html
+    assert "https://trifecta.example/manage#secure-management-token" in html
     assert "Pay after service" in html
+    assert "Trifecta" in subject
+    assert "TRIFECTA" in html
+    assert "AbdWash" not in subject + html
+    assert "ABD Wash" not in subject + html
+    assert "ADB Wash" not in subject + html
 
 
 def test_driver_en_route_email_includes_real_eta_and_management_url() -> None:
     payload = confirmation_payload() | {"estimated_arrival_at": "2026-08-28T13:24:00+04:00"}
     subject, html = render_email("driver_en_route", payload)
     assert "on the way" in subject
-    assert "Your AbdWash driver is on the way." in html
+    assert "Your Trifecta driver is on the way." in html
     assert "13:24" in html
     assert payload["management_url"] in html
 
@@ -73,8 +78,39 @@ def test_driver_en_route_email_includes_real_eta_and_management_url() -> None:
 def test_driver_en_route_email_without_eta_still_confirms_trip() -> None:
     subject, html = render_email("driver_en_route", confirmation_payload())
     assert "driver is on the way" in subject
-    assert "Your AbdWash driver is on the way." in html
+    assert "Your Trifecta driver is on the way." in html
     assert "Estimated arrival" not in html
+
+
+def test_cancellation_email_uses_only_current_brand() -> None:
+    subject, html = render_email("cancellation_requested", confirmation_payload())
+    rendered = subject + html
+    assert "Trifecta" in rendered
+    assert "AbdWash" not in rendered
+    assert "ABD Wash" not in rendered
+    assert "ADB Wash" not in rendered
+
+
+@pytest.mark.parametrize(
+    "notification_type",
+    ["booking_confirmed", "driver_en_route", "cancellation_requested"],
+)
+def test_every_transactional_email_uses_only_trifecta_brand(
+    notification_type: str,
+) -> None:
+    subject, html = render_email(notification_type, confirmation_payload())
+    rendered = subject + html
+    assert "trifecta" in rendered.casefold()
+    assert "AbdWash" not in rendered
+    assert "ABD Wash" not in rendered
+    assert "ADB Wash" not in rendered
+
+
+def test_email_from_requires_trifecta_display_name() -> None:
+    settings = Settings(email_from="Trifecta <bookings@example.com>")
+    assert settings.email_from == "Trifecta <bookings@example.com>"
+    with pytest.raises(ValueError, match="EMAIL_FROM"):
+        Settings(email_from="Old Brand <bookings@example.com>")
 
 
 @pytest.mark.asyncio
@@ -89,7 +125,7 @@ async def test_resend_uses_correct_recipient_and_marks_success_possible() -> Non
         provider = ResendNotificationProvider(
             client,
             api_key="test-resend-key",
-            email_from="AbdWash <bookings@example.com>",
+            email_from="Trifecta <bookings@example.com>",
         )
         await provider.send(
             channel="email",
@@ -101,6 +137,7 @@ async def test_resend_uses_correct_recipient_and_marks_success_possible() -> Non
 
     body = json.loads(captured[0].content)
     assert body["to"] == ["ahmad@example.com"]
+    assert body["from"] == "Trifecta <bookings@example.com>"
     assert "AW-ABC123" in body["subject"]
     assert captured[0].headers["Idempotency-Key"] == "notification-1"
 
@@ -119,7 +156,7 @@ async def test_resend_failure_moves_notification_to_retry() -> None:
         provider = ResendNotificationProvider(
             client,
             api_key="test-resend-key",
-            email_from="AbdWash <bookings@example.com>",
+            email_from="Trifecta <bookings@example.com>",
         )
         with pytest.raises(httpx.HTTPStatusError) as caught:
             await provider.send(
@@ -176,7 +213,7 @@ def test_internal_dispatch_runs_one_bounded_batch(monkeypatch: pytest.MonkeyPatc
         booking_management_signing_key="x" * 48,
         outbox_dispatch_secret="d" * 48,
         outbox_batch_size=3,
-        public_web_url="https://abdwash.example",
+        public_web_url="https://trifecta.example",
     )
     calls: list[int] = []
 

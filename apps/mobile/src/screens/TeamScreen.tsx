@@ -1506,7 +1506,7 @@ function ShiftAssignmentSheet({
           : message,
       );
       if (__DEV__)
-        console.warn("[AbdWash Shift] assignment_failed", {
+        console.warn("[Trifecta Shift] assignment_failed", {
           endpoint: error instanceof ApiError ? error.endpoint : undefined,
           status: error instanceof ApiError ? error.status : undefined,
           code: error instanceof ApiError ? error.code : undefined,

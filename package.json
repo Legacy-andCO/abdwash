@@ -1,5 +1,5 @@
 {
-  "name": "abdwash",
+  "name": "trifecta",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
@@ -7,11 +7,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace=@abdwash/web",
+    "build": "npm run build --workspace=@trifecta/web",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "web": "npm run dev --workspace=@abdwash/web",
-    "mobile": "npm run start --workspace=@abdwash/mobile"
+    "web": "npm run dev --workspace=@trifecta/web",
+    "mobile": "npm run start --workspace=@trifecta/mobile"
   },
   "engines": {
     "node": ">=22"

@@ -3,7 +3,7 @@ type MapsEnvironment = {
   window: Window & typeof globalThis;
 };
 
-const scriptId = "abdwash-google-maps";
+const scriptId = "trifecta-google-maps";
 const readinessIntervalMs = 75;
 const readinessTimeoutMs = 15_000;
 let loaderPromise: Promise<typeof google> | null = null;

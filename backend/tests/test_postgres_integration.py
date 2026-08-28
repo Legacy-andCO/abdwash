@@ -146,7 +146,7 @@ async def database() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
     async with factory() as session, session.begin():
-        business = Business(name="AbdWash", slug="abdwash")
+        business = Business(name="Trifecta", slug="abdwash")
         session.add(business)
         await session.flush()
         session.add(

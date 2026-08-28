@@ -17,8 +17,8 @@ describe("withAndroidImeInsets", () => {
     const twice = plugin.addImeInsetsToMainActivity(once, "kt");
 
     expect(twice).toBe(once);
-    expect(once.match(/ABDWASH_IME_INSTALL/g)).toHaveLength(1);
-    expect(once.match(/ABDWASH_IME_HANDLER/g)).toHaveLength(1);
+    expect(once.match(/TRIFECTA_IME_INSTALL/g)).toHaveLength(1);
+    expect(once.match(/TRIFECTA_IME_HANDLER/g)).toHaveLength(1);
     expect(once).toContain("WindowInsetsCompat.Type.ime()");
     expect(once).toContain("SOFT_INPUT_ADJUST_RESIZE");
   });

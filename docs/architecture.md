@@ -1,6 +1,6 @@
 # Architecture
 
-AbdWash is a modular monolith. Next.js serves the customer experience, Expo hosts the independently distributed staff application, and one FastAPI backend owns business operations. Supabase provides PostgreSQL and Auth. This keeps transactions—especially booking and multi-slot acquisition—inside one database boundary and avoids premature network and operational complexity.
+Trifecta is a modular monolith. Next.js serves the customer experience, Expo hosts the independently distributed staff application, and one FastAPI backend owns business operations. Supabase provides PostgreSQL and Auth. This keeps transactions—especially booking and multi-slot acquisition—inside one database boundary and avoids premature network and operational complexity.
 
 ## Request flow
 
