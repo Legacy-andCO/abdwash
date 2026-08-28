@@ -12,6 +12,7 @@ from app.domain.scheduling import cancellation_allowed
 from app.models.entities import (
     Booking,
     BookingService,
+    BookingServiceAddon,
     BookingVehicle,
     BusinessSettings,
     CancellationRequest,
@@ -32,6 +33,7 @@ from app.schemas.customer import (
     CustomerRescheduleCreate,
 )
 from app.schemas.public import BookingVehicleSummary
+from app.services.booking_snapshots import vehicle_summaries_from_rows
 from app.services.scheduling import hold_token_hash
 
 
@@ -214,8 +216,12 @@ async def list_customer_bookings(
     vehicle_rows = (
         (
             await session.execute(
-                select(BookingVehicle, BookingService)
+                select(BookingVehicle, BookingService, BookingServiceAddon)
                 .join(BookingService, BookingService.booking_vehicle_id == BookingVehicle.id)
+                .outerjoin(
+                    BookingServiceAddon,
+                    BookingServiceAddon.booking_vehicle_id == BookingVehicle.id,
+                )
                 .where(BookingVehicle.booking_id.in_(booking_ids))
                 .order_by(BookingVehicle.booking_id, BookingVehicle.position)
             )
@@ -223,24 +229,7 @@ async def list_customer_bookings(
         if booking_ids
         else []
     )
-    vehicles_by_booking: dict[uuid.UUID, list[BookingVehicleSummary]] = {}
-    for vehicle, service in vehicle_rows:
-        vehicles_by_booking.setdefault(vehicle.booking_id, []).append(
-            BookingVehicleSummary(
-                make=vehicle.make,
-                model=vehicle.model,
-                year=vehicle.year,
-                vehicle_type=vehicle.vehicle_type,
-                colour=vehicle.colour,
-                plate_number=vehicle.plate_number,
-                service_name=service.service_name,
-                line_total_minor=service.line_total_minor,
-                list_price_minor=service.list_price_minor or service.unit_price_minor,
-                discount_minor=service.discount_minor or 0,
-                discount_type=service.discount_type,
-                loyalty_reward_id=service.loyalty_reward_id,
-            )
-        )
+    vehicles_by_booking = vehicle_summaries_from_rows(vehicle_rows)
     bookings = []
     for row in rows:
         booking = row.Booking
@@ -300,8 +289,12 @@ async def customer_booking_detail_for_record(
 ) -> CustomerBookingDetail:
     vehicle_rows = (
         await session.execute(
-            select(BookingVehicle, BookingService)
+            select(BookingVehicle, BookingService, BookingServiceAddon)
             .join(BookingService, BookingService.booking_vehicle_id == BookingVehicle.id)
+            .outerjoin(
+                BookingServiceAddon,
+                BookingServiceAddon.booking_vehicle_id == BookingVehicle.id,
+            )
             .where(BookingVehicle.booking_id == booking.id)
             .order_by(BookingVehicle.position)
         )
@@ -331,23 +324,7 @@ async def customer_booking_detail_for_record(
         job_status,
         cancellation_eligible=cancellation_eligible,
         reschedule_eligible=reschedule_eligible,
-        vehicles=[
-            BookingVehicleSummary(
-                make=vehicle.make,
-                model=vehicle.model,
-                year=vehicle.year,
-                vehicle_type=vehicle.vehicle_type,
-                colour=vehicle.colour,
-                plate_number=vehicle.plate_number,
-                service_name=service.service_name,
-                line_total_minor=service.line_total_minor,
-                list_price_minor=service.list_price_minor or service.unit_price_minor,
-                discount_minor=service.discount_minor or 0,
-                discount_type=service.discount_type,
-                loyalty_reward_id=service.loyalty_reward_id,
-            )
-            for vehicle, service in vehicle_rows
-        ],
+        vehicles=vehicle_summaries_from_rows(vehicle_rows).get(booking.id, []),
         estimated_arrival_at=job_row[1] if job_row else None,
     )
     return CustomerBookingDetail(

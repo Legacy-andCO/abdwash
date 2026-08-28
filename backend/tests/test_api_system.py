@@ -17,6 +17,7 @@ from app.core.database import (
 from app.core.providers import observe_provider_call
 from app.domain.enums import StaffRole
 from app.main import app
+from app.schemas.catalogue import CatalogueManagementView
 from app.schemas.public import CatalogueResponse
 
 
@@ -179,6 +180,42 @@ def test_manager_route_accepts_manager_and_admin() -> None:
             assert response.status_code == 200
         finally:
             app.dependency_overrides.clear()
+
+
+def test_employee_can_read_but_cannot_mutate_managed_catalogue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    employee = _context(StaffRole.EMPLOYEE)
+    app.dependency_overrides[staff_context] = lambda: employee
+    app.dependency_overrides[session_dependency] = lambda: MagicMock()
+    monkeypatch.setattr(
+        staff_api,
+        "list_managed_catalogue",
+        AsyncMock(
+            return_value=CatalogueManagementView(
+                currency_code="AED",
+                vehicle_types=["sedan"],
+                services=[],
+            )
+        ),
+    )
+    try:
+        with TestClient(app) as client:
+            read = client.get("/api/v1/staff/catalogue")
+            write = client.post(
+                "/api/v1/staff/catalogue/services",
+                json={
+                    "name": "Standard Wash",
+                    "default_duration_minutes": 90,
+                    "mobile_available": True,
+                    "shop_available": True,
+                    "prices": [{"vehicle_type": "sedan", "price_minor": 8500}],
+                },
+            )
+        assert read.status_code == 200
+        assert write.status_code == 403
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_employee_cannot_reset_staff_password() -> None:

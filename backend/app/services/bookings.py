@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.verifier import VerifiedIdentity
+from app.domain.catalogue import is_vehicle_type
 from app.domain.enums import (
     BookingStatus,
     HoldStatus,
@@ -19,6 +20,7 @@ from app.domain.errors import ConflictError, DomainError
 from app.models.entities import (
     Booking,
     BookingService,
+    BookingServiceAddon,
     BookingVehicle,
     Job,
     JobEvent,
@@ -28,11 +30,14 @@ from app.models.entities import (
     Payment,
     ScheduleSlot,
     Service,
+    ServiceAddon,
+    ServicePrice,
     SlotHoldGroup,
     Vehicle,
 )
 from app.repositories.business import load_default_business
 from app.schemas.public import (
+    BookingAddonSummary,
     BookingCreate,
     BookingResponse,
     BookingVehicleSummary,
@@ -104,6 +109,59 @@ async def create_booking(
     services_by_id = {service.id: service for service in services}
     if set(services_by_id) != service_ids:
         raise DomainError("INVALID_SERVICE", "One or more selected services are unavailable.")
+    if any(not service.mobile_available for service in services):
+        raise DomainError(
+            "SERVICE_CHANNEL_UNAVAILABLE",
+            "One or more selected services are not available for mobile bookings.",
+        )
+    if any(not is_vehicle_type(vehicle.vehicle_type) for vehicle in request.vehicles):
+        raise DomainError("INVALID_VEHICLE_TYPE", "Choose a supported vehicle type.")
+    price_rows = list(
+        (
+            await session.scalars(
+                select(ServicePrice).where(
+                    ServicePrice.business_id == hold.business_id,
+                    ServicePrice.service_id.in_(service_ids),
+                )
+            )
+        ).all()
+    )
+    prices = {(row.service_id, row.vehicle_type): row.price_minor for row in price_rows}
+    if any(
+        (vehicle.service_id, vehicle.vehicle_type) not in prices for vehicle in request.vehicles
+    ):
+        raise DomainError(
+            "SERVICE_PRICE_UNAVAILABLE",
+            "The selected service is not priced for this vehicle type.",
+        )
+    addon_ids = {addon_id for vehicle in request.vehicles for addon_id in vehicle.addon_ids}
+    addon_rows = (
+        list(
+            (
+                await session.scalars(
+                    select(ServiceAddon).where(
+                        ServiceAddon.id.in_(addon_ids),
+                        ServiceAddon.business_id == hold.business_id,
+                        ServiceAddon.is_active.is_(True),
+                        ServiceAddon.mobile_available.is_(True),
+                    )
+                )
+            ).all()
+        )
+        if addon_ids
+        else []
+    )
+    addons_by_id = {addon.id: addon for addon in addon_rows}
+    if set(addons_by_id) != addon_ids:
+        raise DomainError("INVALID_SERVICE_ADDON", "One or more selected add-ons are unavailable.")
+    for vehicle in request.vehicles:
+        if any(
+            addons_by_id[addon_id].service_id != vehicle.service_id
+            for addon_id in vehicle.addon_ids
+        ):
+            raise DomainError(
+                "SERVICE_ADDON_MISMATCH", "An add-on does not belong to the selected service."
+            )
 
     customer_profile_id = await _resolve_customer_profile(
         session,
@@ -182,9 +240,19 @@ async def create_booking(
     booking_status = BookingStatus.CONFIRMED if confirmed else BookingStatus.PENDING_PAYMENT
     payment_status = PaymentStatus.UNPAID if confirmed else PaymentStatus.PENDING
     total = sum(
-        0 if item.loyalty_reward_id is not None else services_by_id[item.service_id].price_minor
+        (0 if item.loyalty_reward_id is not None else prices[(item.service_id, item.vehicle_type)])
+        + sum(addons_by_id[addon_id].price_minor for addon_id in item.addon_ids)
         for item in request.vehicles
     )
+    if (
+        configuration.settings.mobile_minimum_enabled
+        and total < configuration.settings.mobile_minimum_minor
+    ):
+        raise DomainError(
+            "MOBILE_MINIMUM_NOT_MET",
+            "The mobile booking minimum has not been met.",
+            status_code=422,
+        )
     if total == 0:
         payment_status = PaymentStatus.PAID
     booking = Booking(
@@ -239,19 +307,21 @@ async def create_booking(
             if requested_vehicle.loyalty_reward_id
             else None
         )
-        discount_minor = service.price_minor if selected_reward else 0
+        selected_price = prices[(service.id, requested_vehicle.vehicle_type)]
+        discount_minor = selected_price if selected_reward else 0
         booking_service = BookingService(
             booking_id=booking.id,
             booking_vehicle_id=booking_vehicle.id,
             service_id=service.id,
             service_name=service.name,
-            unit_price_minor=service.price_minor,
-            list_price_minor=service.price_minor,
+            unit_price_minor=selected_price,
+            list_price_minor=selected_price,
             discount_minor=discount_minor,
             discount_type="loyalty_reward" if selected_reward else None,
             loyalty_reward_id=selected_reward.id if selected_reward else None,
             quantity=1,
-            line_total_minor=service.price_minor - discount_minor,
+            line_total_minor=selected_price - discount_minor,
+            expected_duration_minutes=service.estimated_duration_minutes,
         )
         session.add(booking_service)
         await session.flush()
@@ -272,6 +342,26 @@ async def create_booking(
                     source_key=f"reward-reserved:{selected_reward.id}:{booking.id}",
                 )
             )
+        addon_summaries: list[BookingAddonSummary] = []
+        for addon_id in requested_vehicle.addon_ids:
+            addon = addons_by_id[addon_id]
+            session.add(
+                BookingServiceAddon(
+                    booking_id=booking.id,
+                    booking_vehicle_id=booking_vehicle.id,
+                    service_addon_id=addon.id,
+                    addon_name=addon.name,
+                    unit_price_minor=addon.price_minor,
+                    expected_duration_minutes=addon.default_duration_minutes,
+                )
+            )
+            addon_summaries.append(
+                BookingAddonSummary(
+                    name=addon.name,
+                    price_minor=addon.price_minor,
+                    expected_duration_minutes=addon.default_duration_minutes,
+                )
+            )
         vehicle_summaries.append(
             BookingVehicleSummary(
                 make=requested_vehicle.make,
@@ -281,11 +371,14 @@ async def create_booking(
                 colour=requested_vehicle.colour,
                 plate_number=requested_vehicle.plate_number,
                 service_name=service.name,
-                line_total_minor=service.price_minor - discount_minor,
-                list_price_minor=service.price_minor,
+                line_total_minor=(selected_price - discount_minor)
+                + sum(item.price_minor for item in addon_summaries),
+                list_price_minor=selected_price,
                 discount_minor=discount_minor,
                 discount_type="loyalty_reward" if selected_reward else None,
                 loyalty_reward_id=selected_reward.id if selected_reward else None,
+                expected_duration_minutes=service.estimated_duration_minutes,
+                addons=addon_summaries,
             )
         )
 

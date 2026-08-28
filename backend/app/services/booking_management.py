@@ -10,6 +10,7 @@ from app.domain.scheduling import cancellation_allowed
 from app.models.entities import (
     Booking,
     BookingService,
+    BookingServiceAddon,
     BookingVehicle,
     BusinessSettings,
     CancellationRequest,
@@ -19,10 +20,10 @@ from app.models.entities import (
 )
 from app.schemas.public import (
     BookingManagementResponse,
-    BookingVehicleSummary,
     CancellationRequestCreate,
     CancellationRequestResponse,
 )
+from app.services.booking_snapshots import vehicle_summaries_from_rows
 from app.services.management_tokens import (
     booking_id_from_management_token,
     management_token_hash,
@@ -51,10 +52,14 @@ async def booking_management_response(
 ) -> BookingManagementResponse:
     rows = (
         await session.execute(
-            select(BookingVehicle, BookingService)
+            select(BookingVehicle, BookingService, BookingServiceAddon)
             .join(
                 BookingService,
                 BookingService.booking_vehicle_id == BookingVehicle.id,
+            )
+            .outerjoin(
+                BookingServiceAddon,
+                BookingServiceAddon.booking_vehicle_id == BookingVehicle.id,
             )
             .where(BookingVehicle.booking_id == booking.id)
             .order_by(BookingVehicle.position)
@@ -91,23 +96,7 @@ async def booking_management_response(
         written_address=booking.written_address,
         location_url=booking.location_url,
         location_instructions=booking.location_instructions,
-        vehicles=[
-            BookingVehicleSummary(
-                make=vehicle.make,
-                model=vehicle.model,
-                year=vehicle.year,
-                vehicle_type=vehicle.vehicle_type,
-                colour=vehicle.colour,
-                plate_number=vehicle.plate_number,
-                service_name=service.service_name,
-                line_total_minor=service.line_total_minor,
-                list_price_minor=service.list_price_minor or service.unit_price_minor,
-                discount_minor=service.discount_minor or 0,
-                discount_type=service.discount_type,
-                loyalty_reward_id=service.loyalty_reward_id,
-            )
-            for vehicle, service in rows
-        ],
+        vehicles=vehicle_summaries_from_rows(rows).get(booking.id, []),
         cancellation_eligible=eligible,
         cancellation_cutoff_at=cutoff,
         cancellation_status=cancellation.status if cancellation else None,

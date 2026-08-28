@@ -18,6 +18,7 @@ from app.domain.scheduling import (
     resolve_requested_windows,
 )
 from app.models.entities import (
+    BusinessOperatingHour,
     BusinessSettings,
     ScheduleResource,
     ScheduleSlot,
@@ -49,11 +50,47 @@ def policy_from_settings(settings: BusinessSettings) -> SchedulePolicy:
     )
 
 
+async def policy_for_day(
+    session: AsyncSession, settings: BusinessSettings, day: date
+) -> SchedulePolicy | None:
+    hours = await session.scalar(
+        select(BusinessOperatingHour).where(
+            BusinessOperatingHour.business_id == settings.business_id,
+            BusinessOperatingHour.weekday == day.weekday(),
+        )
+    )
+    if hours is None:
+        return policy_from_settings(settings)
+    if not hours.is_open or hours.opening_time is None or hours.closing_time is None:
+        return None
+    return SchedulePolicy(
+        timezone=settings.timezone,
+        opening_time=hours.opening_time,
+        closing_time=hours.closing_time,
+        slot_duration_minutes=settings.slot_duration_minutes,
+        multi_vehicle_threshold=settings.multi_vehicle_threshold,
+        multi_vehicle_required_slots=settings.multi_vehicle_required_slots,
+        hold_duration_minutes=settings.hold_duration_minutes,
+    )
+
+
 async def availability_for_date(
     session: AsyncSession, *, day: date, vehicle_count: int
 ) -> AvailabilityResponse:
     configuration = await load_default_business(session)
-    policy = policy_from_settings(configuration.settings)
+    policy = await policy_for_day(session, configuration.settings, day)
+    if policy is None:
+        return AvailabilityResponse(
+            date=day,
+            timezone=configuration.settings.timezone,
+            vehicle_count=vehicle_count,
+            required_slot_count=required_slot_count(
+                vehicle_count,
+                configuration.settings.multi_vehicle_threshold,
+                configuration.settings.multi_vehicle_required_slots,
+            ),
+            slots=[],
+        )
     windows = generate_slot_windows(day, policy)
     required = required_slot_count(
         vehicle_count, policy.multi_vehicle_threshold, policy.multi_vehicle_required_slots
@@ -138,7 +175,9 @@ def _slot_blocks(slot: ScheduleSlot, now: datetime) -> bool:
 
 async def create_hold(session: AsyncSession, request: HoldCreate) -> HoldResponse:
     configuration = await load_default_business(session)
-    policy = policy_from_settings(configuration.settings)
+    policy = await policy_for_day(session, configuration.settings, request.date)
+    if policy is None:
+        raise DomainError("BUSINESS_CLOSED", "The business is closed on this day.")
     windows = resolve_requested_windows(
         request.date, request.start_time, request.vehicle_count, policy
     )

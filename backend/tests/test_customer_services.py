@@ -342,7 +342,7 @@ async def test_reschedule_atomically_swaps_slots_and_updates_job() -> None:
         ]
     )
     vehicle_rows = MagicMock()
-    vehicle_rows.all.return_value = [(vehicle, service)]
+    vehicle_rows.all.return_value = [(vehicle, service, None)]
     job_status_row = MagicMock()
     job_status_row.one_or_none.return_value = (job.status, None)
     session.execute = AsyncMock(side_effect=[vehicle_rows, job_status_row])
@@ -455,7 +455,7 @@ async def test_confirmed_active_manager_reschedule_resets_operational_state() ->
         ]
     )
     vehicle_rows = MagicMock()
-    vehicle_rows.all.return_value = [(vehicle, service)]
+    vehicle_rows.all.return_value = [(vehicle, service, None)]
     job_status_row = MagicMock()
     job_status_row.one_or_none.return_value = (JobStatus.ASSIGNED, None)
     session.execute = AsyncMock(side_effect=[vehicle_rows, job_status_row])
@@ -506,7 +506,7 @@ async def test_overdue_assigned_job_can_be_rescheduled_by_manager() -> None:
         ]
     )
     vehicle_rows = MagicMock()
-    vehicle_rows.all.return_value = [(vehicle, service)]
+    vehicle_rows.all.return_value = [(vehicle, service, None)]
     job_status_row = MagicMock()
     job_status_row.one_or_none.return_value = (JobStatus.ASSIGNED, None)
     session.execute = AsyncMock(side_effect=[vehicle_rows, job_status_row])

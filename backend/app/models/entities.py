@@ -72,6 +72,15 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     loyalty_reward_service_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("services.id", ondelete="SET NULL")
     )
+    mobile_minimum_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    mobile_minimum_minor: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    default_team_turnaround_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=60, server_default=text("60")
+    )
     __table_args__ = (
         CheckConstraint("slot_duration_minutes > 0", name="positive_slot_duration"),
         CheckConstraint("multi_vehicle_threshold > 0", name="positive_vehicle_threshold"),
@@ -79,6 +88,34 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint("closing_time > opening_time", name="valid_business_hours"),
         CheckConstraint("attendance_grace_minutes >= 0", name="nonnegative_attendance_grace"),
         CheckConstraint("loyalty_required_washes > 0", name="positive_loyalty_required_washes"),
+        CheckConstraint("mobile_minimum_minor >= 0", name="nonnegative_mobile_minimum"),
+        CheckConstraint(
+            "default_team_turnaround_minutes BETWEEN 0 AND 480",
+            name="valid_default_team_turnaround",
+        ),
+    )
+
+
+class BusinessOperatingHour(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "business_operating_hours"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_open: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    opening_time: Mapped[time | None] = mapped_column(Time)
+    closing_time: Mapped[time | None] = mapped_column(Time)
+    __table_args__ = (
+        UniqueConstraint("business_id", "weekday", name="uq_business_operating_hour_weekday"),
+        CheckConstraint("weekday BETWEEN 0 AND 6", name="valid_operating_hour_weekday"),
+        CheckConstraint(
+            "(is_open IS FALSE) OR "
+            "(opening_time IS NOT NULL AND closing_time IS NOT NULL "
+            "AND closing_time > opening_time)",
+            name="valid_operating_hour_window",
+        ),
+        Index("ix_business_operating_hours_business", "business_id", "weekday"),
     )
 
 
@@ -191,24 +228,69 @@ class Service(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     vehicle_applicability: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     checklist_template: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    mobile_available: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    shop_available: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
     sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     __table_args__ = (
         CheckConstraint("price_minor >= 0", name="nonnegative_service_price"),
         Index("ix_services_business_active_sort", "business_id", "is_active", "sort_order"),
+        CheckConstraint(
+            "estimated_duration_minutes BETWEEN 15 AND 1440",
+            name="valid_service_duration",
+        ),
+    )
+
+
+class ServicePrice(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "service_prices"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("services.id", ondelete="CASCADE"), nullable=False
+    )
+    vehicle_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (
+        UniqueConstraint("service_id", "vehicle_type", name="uq_service_price_vehicle_type"),
+        CheckConstraint("price_minor >= 0", name="nonnegative_service_vehicle_price"),
+        Index("ix_service_prices_business_service", "business_id", "service_id"),
     )
 
 
 class ServiceAddon(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "service_addons"
 
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
     service_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("services.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
     price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    default_duration_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    mobile_available: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    shop_available: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
-    __table_args__ = (CheckConstraint("price_minor >= 0", name="nonnegative_addon_price"),)
+    __table_args__ = (
+        CheckConstraint("price_minor >= 0", name="nonnegative_addon_price"),
+        CheckConstraint("default_duration_minutes BETWEEN 0 AND 1440", name="valid_addon_duration"),
+        Index("ix_service_addons_business_service", "business_id", "service_id"),
+    )
 
 
 class ScheduleResource(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -475,6 +557,7 @@ class BookingService(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     line_total_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=120)
     __table_args__ = (
         CheckConstraint("quantity > 0", name="positive_booking_service_quantity"),
         CheckConstraint("list_price_minor >= 0", name="nonnegative_booking_service_list_price"),
@@ -488,6 +571,38 @@ class BookingService(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="booking_service_discount_type",
         ),
         Index("ix_booking_services_booking_service", "booking_id", "service_id"),
+        CheckConstraint(
+            "expected_duration_minutes BETWEEN 15 AND 1440",
+            name="valid_booking_service_duration",
+        ),
+    )
+
+
+class BookingServiceAddon(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "booking_service_addons"
+
+    booking_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False
+    )
+    booking_vehicle_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("booking_vehicles.id", ondelete="CASCADE"), nullable=False
+    )
+    service_addon_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("service_addons.id", ondelete="RESTRICT"), nullable=False
+    )
+    addon_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    unit_price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    __table_args__ = (
+        UniqueConstraint(
+            "booking_vehicle_id", "service_addon_id", name="uq_booking_vehicle_service_addon"
+        ),
+        CheckConstraint("unit_price_minor >= 0", name="nonnegative_booking_addon_price"),
+        CheckConstraint(
+            "expected_duration_minutes BETWEEN 0 AND 1440",
+            name="valid_booking_addon_duration",
+        ),
+        Index("ix_booking_service_addons_booking", "booking_id", "booking_vehicle_id"),
     )
 
 

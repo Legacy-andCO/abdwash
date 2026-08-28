@@ -17,6 +17,17 @@ from app.integrations.eta import GoogleRoutesEtaProvider
 from app.integrations.supabase_admin import SupabaseAdminClient
 from app.integrations.supabase_storage import SupabaseStorageAdminClient
 from app.models.entities import Booking, Job, JobPhoto
+from app.schemas.catalogue import (
+    AddonInput,
+    AddonPatch,
+    AddonView,
+    BusinessBookingSettingsPatch,
+    BusinessBookingSettingsView,
+    CatalogueManagementView,
+    ServiceInput,
+    ServiceManagementView,
+    ServicePatch,
+)
 from app.schemas.customer import (
     CustomerAddressResponse,
     CustomerAddressWrite,
@@ -185,6 +196,15 @@ from app.services.manager_customers import (
     update_manager_customer,
     update_manager_vehicle,
 )
+from app.services.service_catalogue import (
+    create_addon,
+    create_service,
+    get_business_booking_settings,
+    list_managed_catalogue,
+    update_addon,
+    update_business_booking_settings,
+    update_service,
+)
 from app.services.staff_accounts import (
     create_staff_account,
     get_own_profile,
@@ -231,6 +251,79 @@ from app.services.workforce import (
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 logger = structlog.get_logger()
 StaffDep = Annotated[StaffContext, Depends(staff_context)]
+
+
+@router.get("/catalogue", response_model=CatalogueManagementView)
+async def managed_catalogue(session: SessionDep, context: StaffDep) -> CatalogueManagementView:
+    return await list_managed_catalogue(session, context)
+
+
+@router.post("/catalogue/services", response_model=ServiceManagementView, status_code=201)
+async def managed_service_create(
+    payload: ServiceInput, session: SessionDep, context: ManagerContext
+) -> ServiceManagementView:
+    async with session.begin():
+        result = await create_service(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "schedule")
+        return result
+
+
+@router.patch("/catalogue/services/{service_id}", response_model=ServiceManagementView)
+async def managed_service_update(
+    service_id: uuid.UUID,
+    payload: ServicePatch,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ServiceManagementView:
+    async with session.begin():
+        result = await update_service(session, context, service_id, payload)
+        await bump_sync_revisions(session, context.business_id, "schedule")
+        return result
+
+
+@router.post("/catalogue/services/{service_id}/addons", response_model=AddonView, status_code=201)
+async def managed_addon_create(
+    service_id: uuid.UUID,
+    payload: AddonInput,
+    session: SessionDep,
+    context: ManagerContext,
+) -> AddonView:
+    async with session.begin():
+        result = await create_addon(session, context, service_id, payload)
+        await bump_sync_revisions(session, context.business_id, "schedule")
+        return result
+
+
+@router.patch("/catalogue/addons/{addon_id}", response_model=AddonView)
+async def managed_addon_update(
+    addon_id: uuid.UUID,
+    payload: AddonPatch,
+    session: SessionDep,
+    context: ManagerContext,
+) -> AddonView:
+    async with session.begin():
+        result = await update_addon(session, context, addon_id, payload)
+        await bump_sync_revisions(session, context.business_id, "schedule")
+        return result
+
+
+@router.get("/business-settings", response_model=BusinessBookingSettingsView)
+async def business_booking_settings(
+    session: SessionDep, context: StaffDep
+) -> BusinessBookingSettingsView:
+    return await get_business_booking_settings(session, context)
+
+
+@router.patch("/business-settings", response_model=BusinessBookingSettingsView)
+async def business_booking_settings_update(
+    payload: BusinessBookingSettingsPatch,
+    session: SessionDep,
+    context: ManagerContext,
+) -> BusinessBookingSettingsView:
+    async with session.begin():
+        result = await update_business_booking_settings(session, context, payload)
+        await bump_sync_revisions(session, context.business_id, "schedule")
+        return result
 
 
 def _photo_storage(request: Request) -> SupabaseStorageAdminClient:

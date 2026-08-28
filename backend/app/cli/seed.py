@@ -5,12 +5,15 @@ from sqlalchemy import func, select
 
 from app.core.config import get_settings
 from app.core.database import create_engine, create_session_factory
+from app.domain.catalogue import VEHICLE_TYPES
 from app.models.entities import (
     Business,
+    BusinessOperatingHour,
     BusinessSettings,
     InventoryLocation,
     ScheduleResource,
     Service,
+    ServicePrice,
 )
 
 
@@ -59,20 +62,40 @@ async def seed() -> None:
                 )
             ).one_or_none()
             if business_settings is None:
-                session.add(
-                    BusinessSettings(
-                        business_id=business.id,
-                        timezone="Asia/Dubai",
-                        currency_code="AED",
-                        opening_time=time(9),
-                        closing_time=time(21),
-                        slot_duration_minutes=120,
-                        multi_vehicle_threshold=3,
-                        multi_vehicle_required_slots=2,
-                        cancellation_cutoff_hours=24,
-                        hold_duration_minutes=10,
-                    )
+                business_settings = BusinessSettings(
+                    business_id=business.id,
+                    timezone="Asia/Dubai",
+                    currency_code="AED",
+                    opening_time=time(9),
+                    closing_time=time(21),
+                    slot_duration_minutes=120,
+                    multi_vehicle_threshold=3,
+                    multi_vehicle_required_slots=2,
+                    cancellation_cutoff_hours=24,
+                    hold_duration_minutes=10,
                 )
+                session.add(business_settings)
+                await session.flush()
+            operating_hours = set(
+                (
+                    await session.scalars(
+                        select(BusinessOperatingHour.weekday).where(
+                            BusinessOperatingHour.business_id == business.id
+                        )
+                    )
+                ).all()
+            )
+            for weekday in range(7):
+                if weekday not in operating_hours:
+                    session.add(
+                        BusinessOperatingHour(
+                            business_id=business.id,
+                            weekday=weekday,
+                            is_open=True,
+                            opening_time=business_settings.opening_time,
+                            closing_time=business_settings.closing_time,
+                        )
+                    )
             team = (
                 await session.scalars(
                     select(ScheduleResource).where(
@@ -164,25 +187,33 @@ async def seed() -> None:
             for name, description, price, duration, sort_order, checklist in service_seed:
                 service = existing_services.get(name)
                 if service is None:
-                    session.add(
-                        Service(
-                            business_id=business.id,
-                            name=name,
-                            description=description,
-                            price_minor=price,
-                            estimated_duration_minutes=duration,
-                            is_active=True,
-                            sort_order=sort_order,
-                            checklist_template=checklist,
-                        )
+                    service = Service(
+                        business_id=business.id,
+                        name=name,
+                        description=description,
+                        price_minor=price,
+                        estimated_duration_minutes=duration,
+                        is_active=True,
+                        sort_order=sort_order,
+                        checklist_template=checklist,
                     )
-                else:
-                    service.description = description
-                    service.price_minor = price
-                    service.estimated_duration_minutes = duration
-                    service.is_active = True
-                    service.sort_order = sort_order
-                    service.checklist_template = checklist
+                    session.add(service)
+                    await session.flush()
+                price_count = await session.scalar(
+                    select(func.count(ServicePrice.id)).where(ServicePrice.service_id == service.id)
+                )
+                if not price_count:
+                    session.add_all(
+                        [
+                            ServicePrice(
+                                business_id=business.id,
+                                service_id=service.id,
+                                vehicle_type=vehicle_type,
+                                price_minor=service.price_minor,
+                            )
+                            for vehicle_type in VEHICLE_TYPES
+                        ]
+                    )
     finally:
         await engine.dispose()
 

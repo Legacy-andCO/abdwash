@@ -33,6 +33,24 @@ class SafeBusinessSettings(BaseModel):
     multi_vehicle_required_slots: int
     hold_duration_minutes: int
     cancellation_cutoff_hours: int
+    mobile_minimum_enabled: bool = False
+    mobile_minimum_minor: int = 0
+
+
+class ServicePricePublic(BaseModel):
+    vehicle_type: str
+    price_minor: int
+
+
+class ServiceAddonPublic(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    price_minor: int
+    currency_code: str
+    default_duration_minutes: int
+    mobile_available: bool
+    shop_available: bool
 
 
 class ServicePublic(BaseModel):
@@ -42,6 +60,10 @@ class ServicePublic(BaseModel):
     price_minor: int
     currency_code: str
     estimated_duration_minutes: int
+    mobile_available: bool = True
+    shop_available: bool = True
+    prices: list[ServicePricePublic] = Field(default_factory=list)
+    addons: list[ServiceAddonPublic] = Field(default_factory=list)
 
 
 class CatalogueResponse(BaseModel):
@@ -132,7 +154,21 @@ class BookingVehicleCreate(StrictRequest):
     plate_number: NonBlank = Field(max_length=40)
     notes: str | None = Field(default=None, max_length=2000)
     service_id: uuid.UUID
+    addon_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
     loyalty_reward_id: uuid.UUID | None = None
+
+    @field_validator("addon_ids")
+    @classmethod
+    def unique_addons(cls, value: list[uuid.UUID]) -> list[uuid.UUID]:
+        if len(set(value)) != len(value):
+            raise ValueError("Each add-on can be selected only once.")
+        return value
+
+
+class BookingAddonSummary(BaseModel):
+    name: str
+    price_minor: int
+    expected_duration_minutes: int
 
 
 class BookingCreate(StrictRequest):
@@ -157,6 +193,8 @@ class BookingVehicleSummary(BaseModel):
     discount_minor: int = 0
     discount_type: str | None = None
     loyalty_reward_id: uuid.UUID | None = None
+    expected_duration_minutes: int | None = None
+    addons: list[BookingAddonSummary] = Field(default_factory=list)
 
 
 class BookingResponse(BaseModel):
