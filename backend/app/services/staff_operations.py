@@ -84,10 +84,17 @@ async def _job_rows(
     lock: bool = False,
 ) -> Any:
     statement = (
-        select(Job, Booking, Payment, StaffProfile.display_name)
+        select(
+            Job,
+            Booking,
+            Payment,
+            StaffProfile.display_name.label("assigned_staff_name"),
+            ScheduleResource.name.label("assigned_team_name"),
+        )
         .join(Booking, Booking.id == Job.booking_id)
         .join(Payment, Payment.booking_id == Booking.id)
         .outerjoin(StaffProfile, StaffProfile.id == Job.assigned_staff_id)
+        .outerjoin(ScheduleResource, ScheduleResource.id == Job.assigned_resource_id)
         .where(Job.business_id == context.business_id)
     )
     if job_id:
@@ -194,22 +201,8 @@ _EVENT_LABELS = {
 async def _serialize_jobs(
     session: AsyncSession, rows: Any, *, include_timeline: bool = False
 ) -> list[StaffJob]:
-    booking_ids = [booking.id for _job, booking, _payment, _name in rows]
-    resource_ids = {
-        job.assigned_resource_id
-        for job, _booking, _payment, _name in rows
-        if job.assigned_resource_id is not None
-    }
-    team_names: dict[uuid.UUID, str] = {}
-    if resource_ids:
-        team_rows = (
-            await session.execute(
-                select(ScheduleResource.id, ScheduleResource.name).where(
-                    ScheduleResource.id.in_(resource_ids)
-                )
-            )
-        ).all()
-        team_names = {team_id: team_name for team_id, team_name in team_rows}
+    unpacked = [_job_row_values(row) for row in rows]
+    booking_ids = [booking.id for _job, booking, _payment, _staff, _team in unpacked]
     vehicle_rows = (
         (
             await session.execute(
@@ -239,7 +232,7 @@ async def _serialize_jobs(
         )
     timeline_by_job: dict[uuid.UUID, list[JobTimelineEvent]] = {}
     if include_timeline and rows:
-        job_ids = [job.id for job, _booking, _payment, _name in rows]
+        job_ids = [job.id for job, _booking, _payment, _staff, _team in unpacked]
         event_rows = (
             await session.execute(
                 select(JobEvent, StaffProfile.display_name)
@@ -269,9 +262,9 @@ async def _serialize_jobs(
             booking_id=booking.id,
             booking_reference=booking.reference,
             assigned_staff_id=job.assigned_staff_id,
-            assigned_staff_name=name,
+            assigned_staff_name=staff_name,
             assigned_team_id=job.assigned_resource_id,
-            assigned_team_name=team_names.get(job.assigned_resource_id),
+            assigned_team_name=team_name,
             status=job.status,
             scheduled_start=job.scheduled_start,
             scheduled_end=job.scheduled_end,
@@ -295,8 +288,25 @@ async def _serialize_jobs(
             vehicles=by_booking.get(booking.id, []),
             timeline=timeline_by_job.get(job.id, []),
         )
-        for job, booking, payment, name in rows
+        for job, booking, payment, staff_name, team_name in unpacked
     ]
+
+
+def _job_row_values(row: Any) -> tuple[Any, Any, Any, str | None, str | None]:
+    """Read the explicit job projection without positional-unpack fragility."""
+
+    mapping = getattr(row, "_mapping", None)
+    if mapping is not None:
+        return (
+            mapping[Job],
+            mapping[Booking],
+            mapping[Payment],
+            mapping["assigned_staff_name"],
+            mapping["assigned_team_name"],
+        )
+    # Unit-test adapters historically use tuple rows. Keep that small seam while
+    # production SQLAlchemy rows use the named projection above.
+    return row[0], row[1], row[2], row[3], row[4] if len(row) > 4 else None
 
 
 async def list_jobs(session: AsyncSession, context: StaffContext, **filters: Any) -> StaffJobList:
@@ -350,7 +360,9 @@ async def start_trip(
     request: StartTripAction,
     eta: EtaResult | None,
 ) -> StaffJob:
-    job, booking, _payment, _name = await _locked_job(session, context, job_id)
+    job, booking, _payment, _staff_name, _team_name = _job_row_values(
+        await _locked_job(session, context, job_id)
+    )
     if await _duplicate_event(session, job.id, request.client_event_id):
         return await get_job(session, context, job.id)
     validate_transition(JobStatus(job.status), JobStatus.EN_ROUTE, JOB_TRANSITIONS)
@@ -398,7 +410,9 @@ async def transition_job(
     request: JobAction,
     target: JobStatus,
 ) -> StaffJob:
-    job, booking, _payment, _name = await _locked_job(session, context, job_id)
+    job, booking, _payment, _staff_name, _team_name = _job_row_values(
+        await _locked_job(session, context, job_id)
+    )
     if await _duplicate_event(session, job.id, request.client_event_id):
         return await get_job(session, context, job.id)
     if target == JobStatus.COMPLETED:
@@ -484,7 +498,9 @@ async def record_cash(
     job_id: uuid.UUID,
     request: CashTenderAction,
 ) -> CashPaymentResult:
-    job, booking, payment, _name = await _locked_job(session, context, job_id)
+    job, booking, payment, _staff_name, _team_name = _job_row_values(
+        await _locked_job(session, context, job_id)
+    )
     if await _duplicate_event(session, job.id, request.client_event_id):
         transaction = await session.scalar(
             select(PaymentTransaction).where(
@@ -568,7 +584,9 @@ async def record_cash(
 async def assign_job(
     session: AsyncSession, context: StaffContext, job_id: uuid.UUID, request: AssignmentAction
 ) -> StaffJob:
-    job, booking, _payment, _name = await _locked_job(session, context, job_id)
+    job, booking, _payment, _staff_name, _team_name = _job_row_values(
+        await _locked_job(session, context, job_id)
+    )
     if request.expected_version and request.expected_version != job.version:
         raise ConflictError("JOB_VERSION_CONFLICT", "The job was changed by another user.")
     if (

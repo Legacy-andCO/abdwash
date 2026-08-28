@@ -71,7 +71,8 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 ### Backend and platform
 
 - FastAPI modular monolith with versioned public, customer, staff, and internal APIs.
-- Async SQLAlchemy/asyncpg with a single lifespan-managed engine, bounded pool settings, short-lived request sessions, and optional prepared-statement disabling for transaction poolers.
+- Async SQLAlchemy/asyncpg with a single lifespan-managed engine, bounded/recycled LIFO pool settings, measured checkout wait, short-lived request sessions, and optional prepared-statement disabling for transaction poolers.
+- Evidence-labelled performance architecture with request/query baselines, tenant/role-scoped mobile SWR caching, web single-flight resources, query-count regression ceilings, safe provider timing, and a production verification checklist in [`docs/PERFORMANCE_ARCHITECTURE.md`](docs/PERFORMANCE_ARCHITECTURE.md).
 - Supabase JWT verification with issuer, audience, expiry, algorithm, subject, and cryptographic signature validation.
 - Resilient JWKS caching retains the last successful key set beyond its freshness TTL. Timeout, network, and provider 5xx refresh failures use a matching stale key; unknown `kid` values force refresh for key rotation; an outage without a usable key returns `503 AUTHENTICATION_SERVICE_UNAVAILABLE` rather than a false `401`. Genuine invalid tokens remain `401`; legacy HS256 verification remains available only when explicitly configured.
 - Authoritative staff role, active state, business, and branch/resource scope are loaded from PostgreSQL rather than user-editable JWT metadata.
@@ -281,7 +282,8 @@ Only public values belong in `EXPO_PUBLIC_*`. Never embed a service-role, databa
 | `APP_ENV`                                                    | `development`, `test`, `staging`, or `production`.                                                 |
 | `DATABASE_URL`                                               | Async PostgreSQL/Supavisor connection URL.                                                         |
 | `CORS_ORIGINS`                                               | Explicit allowed customer-web origins.                                                             |
-| `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT_SECONDS` | Bounded connection-pool configuration.                                                             |
+| `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT_SECONDS` | Bounded connection-pool capacity and checkout timeout.                                              |
+| `DB_POOL_RECYCLE_SECONDS`, `DB_POOL_PRE_PING`                | Connection lifetime and liveness policy; tune for the selected host/pooler.                         |
 | `DB_DISABLE_PREPARED_STATEMENTS`                             | Enable for transaction-mode poolers that do not support prepared-statement caches.                 |
 | `SUPABASE_URL`                                               | Supabase project/Auth issuer and JWKS base URL.                                                    |
 | `SUPABASE_JWT_AUDIENCE`                                      | Expected access-token audience.                                                                    |

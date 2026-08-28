@@ -2,27 +2,34 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { getCustomerBookings } from "./api";
+import {
+  cachedCustomerBookings,
+  loadCustomerBookings,
+} from "./customer-bookings-resource";
 import type { CustomerBookingSummary } from "./types";
 
 export function useCustomerBookings({ polling = false }: { polling?: boolean } = {}) {
   const { user, loading: authLoading } = useAuth();
   const [bookings, setBookings] = useState<CustomerBookingSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    const hasData = cachedCustomerBookings(user.id) !== null;
+    setLoading(!hasData);
+    setRefreshing(hasData);
     try {
-      setBookings(await getCustomerBookings());
+      setBookings(await loadCustomerBookings(user.id, { refresh: true }));
       setLoadedUserId(user.id);
       setError("");
     } catch {
       setError("We couldn’t load your bookings. Please try again.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [user]);
 
@@ -30,14 +37,23 @@ export function useCustomerBookings({ polling = false }: { polling?: boolean } =
     let active = true;
     if (authLoading) return;
     if (!user) return;
-    const userId = user.id;
+      const userId = user.id;
     async function load() {
       await Promise.resolve();
       if (!active) return;
-      setLoading(true);
+      const cached = cachedCustomerBookings(userId);
+      if (cached) {
+        setBookings(cached);
+        setLoadedUserId(userId);
+        setLoading(false);
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+        setRefreshing(false);
+      }
       setError("");
       try {
-        const nextBookings = await getCustomerBookings();
+        const nextBookings = await loadCustomerBookings(userId);
         if (!active) return;
         setBookings(nextBookings);
         setLoadedUserId(userId);
@@ -48,6 +64,7 @@ export function useCustomerBookings({ polling = false }: { polling?: boolean } =
         if (active) {
           setLoadedUserId(userId);
           setLoading(false);
+          setRefreshing(false);
         }
       }
     }
@@ -66,6 +83,7 @@ export function useCustomerBookings({ polling = false }: { polling?: boolean } =
   return {
     bookings: user && loadedUserId === user.id ? bookings : [],
     loading: authLoading || (user !== null && !error && (loading || loadedUserId !== user.id)),
+    refreshing: Boolean(user) && refreshing,
     error: user ? error : "",
     refresh,
   };

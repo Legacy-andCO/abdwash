@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, quote, urljoin, urlparse
 
 import httpx
 
+from app.core.providers import observe_provider_call
 from app.domain.errors import DomainError
 
 
@@ -36,10 +37,14 @@ class SupabaseStorageAdminClient:
 
     async def create_signed_upload(self, path: str) -> str:
         try:
-            response = await self.client.post(
-                f"{self.base_url}/storage/v1/object/upload/sign/{self._object_path(path)}",
-                headers=self.headers,
-                json={"upsert": True},
+            response = await observe_provider_call(
+                "supabase_storage",
+                "sign_upload",
+                lambda: self.client.post(
+                    f"{self.base_url}/storage/v1/object/upload/sign/{self._object_path(path)}",
+                    headers=self.headers,
+                    json={"upsert": True},
+                ),
             )
         except httpx.HTTPError as exc:
             raise self._unavailable() from exc
@@ -57,9 +62,13 @@ class SupabaseStorageAdminClient:
 
     async def object_info(self, path: str) -> dict[str, Any]:
         try:
-            response = await self.client.get(
-                f"{self.base_url}/storage/v1/object/info/{self._object_path(path)}",
-                headers=self.headers,
+            response = await observe_provider_call(
+                "supabase_storage",
+                "object_info",
+                lambda: self.client.get(
+                    f"{self.base_url}/storage/v1/object/info/{self._object_path(path)}",
+                    headers=self.headers,
+                ),
             )
         except httpx.HTTPError as exc:
             raise self._unavailable() from exc
@@ -68,10 +77,14 @@ class SupabaseStorageAdminClient:
 
     async def create_signed_download(self, path: str, expires_in: int) -> str:
         try:
-            response = await self.client.post(
-                f"{self.base_url}/storage/v1/object/sign/{self._object_path(path)}",
-                headers=self.headers,
-                json={"expiresIn": expires_in},
+            response = await observe_provider_call(
+                "supabase_storage",
+                "sign_download",
+                lambda: self.client.post(
+                    f"{self.base_url}/storage/v1/object/sign/{self._object_path(path)}",
+                    headers=self.headers,
+                    json={"expiresIn": expires_in},
+                ),
             )
         except httpx.HTTPError as exc:
             raise self._unavailable() from exc

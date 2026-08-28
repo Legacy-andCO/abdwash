@@ -1,8 +1,10 @@
 import uuid
+from functools import partial
 from typing import Any
 
 import httpx
 
+from app.core.providers import observe_provider_call
 from app.domain.errors import ConflictError, DomainError
 from app.domain.staff_usernames import normalize_staff_username, staff_synthetic_email
 
@@ -33,10 +35,15 @@ class SupabaseAdminClient:
     async def find_by_email(self, email: str) -> dict[str, Any] | None:
         page = 1
         while True:
-            response = await self.client.get(
-                f"{self.base_url}/auth/v1/admin/users",
-                headers=self.headers,
-                params={"page": page, "per_page": 1000},
+            response = await observe_provider_call(
+                "supabase_auth_admin",
+                "list_users",
+                partial(
+                    self.client.get,
+                    f"{self.base_url}/auth/v1/admin/users",
+                    headers=self.headers,
+                    params={"page": page, "per_page": 1000},
+                ),
             )
             self._raise(response, "STAFF_AUTH_LOOKUP_FAILED")
             users = response.json().get("users", [])
@@ -50,10 +57,14 @@ class SupabaseAdminClient:
 
     async def create_staff_user(self, username: str, password: str) -> uuid.UUID:
         normalized = normalize_staff_username(username)
-        response = await self.client.post(
-            f"{self.base_url}/auth/v1/admin/users",
-            headers=self.headers,
-            json=self._body(normalized, password),
+        response = await observe_provider_call(
+            "supabase_auth_admin",
+            "create_user",
+            lambda: self.client.post(
+                f"{self.base_url}/auth/v1/admin/users",
+                headers=self.headers,
+                json=self._body(normalized, password),
+            ),
         )
         if response.status_code in {400, 409, 422} and any(
             marker in response.text.lower()
@@ -94,17 +105,25 @@ class SupabaseAdminClient:
             )
         if password is not None:
             body["password"] = password
-        response = await self.client.put(
-            f"{self.base_url}/auth/v1/admin/users/{user_id}",
-            headers=self.headers,
-            json=body,
+        response = await observe_provider_call(
+            "supabase_auth_admin",
+            "update_user",
+            lambda: self.client.put(
+                f"{self.base_url}/auth/v1/admin/users/{user_id}",
+                headers=self.headers,
+                json=body,
+            ),
         )
         self._raise(response, "STAFF_AUTH_UPDATE_FAILED")
 
     async def delete_staff_user(self, user_id: uuid.UUID) -> None:
-        response = await self.client.delete(
-            f"{self.base_url}/auth/v1/admin/users/{user_id}",
-            headers=self.headers,
+        response = await observe_provider_call(
+            "supabase_auth_admin",
+            "delete_user",
+            lambda: self.client.delete(
+                f"{self.base_url}/auth/v1/admin/users/{user_id}",
+                headers=self.headers,
+            ),
         )
         self._raise(response, "STAFF_AUTH_COMPENSATION_FAILED")
 

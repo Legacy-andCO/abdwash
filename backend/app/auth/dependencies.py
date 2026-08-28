@@ -71,7 +71,17 @@ async def staff_context(
 ) -> StaffContext:
     started = time.perf_counter()
     statement = (
-        select(StaffProfile, Business.name, BusinessSettings.timezone)
+        select(
+            StaffProfile.id.label("staff_id"),
+            StaffProfile.business_id,
+            StaffProfile.role,
+            StaffProfile.display_name,
+            StaffProfile.username,
+            StaffProfile.phone,
+            StaffProfile.must_change_password,
+            Business.name.label("business_name"),
+            BusinessSettings.timezone,
+        )
         .join(Business, Business.id == StaffProfile.business_id)
         .join(BusinessSettings, BusinessSettings.business_id == Business.id)
         .where(StaffProfile.auth_user_id == identity.user_id, StaffProfile.is_active.is_(True))
@@ -84,18 +94,18 @@ async def staff_context(
             row = (await session.execute(statement)).one_or_none()
             if row is None:
                 raise HTTPException(status_code=403, detail={"code": "STAFF_ACCESS_REQUIRED"})
-            staff, business_name, timezone = row
+            values = row._mapping
             context = StaffContext(
                 auth_user_id=identity.user_id,
-                staff_id=staff.id,
-                business_id=staff.business_id,
-                business_name=business_name,
-                role=StaffRole(staff.role),
-                timezone=timezone,
-                display_name=staff.display_name,
-                username=staff.username,
-                phone=staff.phone,
-                must_change_password=staff.must_change_password,
+                staff_id=values["staff_id"],
+                business_id=values["business_id"],
+                business_name=values["business_name"],
+                role=StaffRole(values["role"]),
+                timezone=values["timezone"],
+                display_name=values["display_name"],
+                username=values["username"],
+                phone=values["phone"],
+                must_change_password=values["must_change_password"],
             )
             if context.must_change_password and request.url.path not in {
                 "/api/v1/staff/context",

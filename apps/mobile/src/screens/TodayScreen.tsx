@@ -49,9 +49,9 @@ export function TodayScreen({
     scope: management ? "all" : "my",
     date: today(),
     limit: 50,
-  });
+  }, !management);
   const attendance = useAttendanceOverviewQuery(context);
-  const shifts = useShiftAssignmentsQuery(context);
+  const shifts = useShiftAssignmentsQuery(context, undefined, undefined, !management);
   const clock = useClockMutation(context);
   const personalCash = usePersonalCashQuery(context, today());
   const [now, setNow] = useState(Date.now());

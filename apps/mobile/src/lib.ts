@@ -4,6 +4,7 @@ import "react-native-url-polyfill/auto";
 import type { Role } from "./capabilities";
 import { ApiError } from "./errors/domainErrors";
 import { parseApiErrorPayload } from "./errors/parseApiError";
+import { apiDurationMs, apiRouteTemplate } from "./network/apiPerformance";
 import { RequestTimedOut, withRequestTimeout } from "./network/requestTimeout";
 import { beginTrackedWrite } from "./network/writeRegistry";
 import { reportTripDiagnostic } from "./location/tripDiagnostics";
@@ -654,6 +655,8 @@ export async function api<T>(
   session?: Session | null,
   timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
+  const requestStartedAt = Date.now();
+  const diagnosticRoute = apiRouteTemplate(path);
   const headers = new Headers(init?.headers);
   const access = await token(session);
   if (access) headers.set("Authorization", `Bearer ${access}`);
@@ -677,6 +680,14 @@ export async function api<T>(
     );
   } catch (error) {
     if (error instanceof RequestTimedOut) {
+      if (__DEV__) {
+        console.warn("[Trifecta API] request_failed", {
+          endpoint: diagnosticRoute,
+          status: 0,
+          code: "REQUEST_TIMEOUT",
+          duration_ms: apiDurationMs(requestStartedAt),
+        });
+      }
       if (isStartTrip)
         reportTripDiagnostic("trip_api_failed", {
           endpoint: path,
@@ -694,8 +705,9 @@ export async function api<T>(
     if (init?.signal?.aborted) throw error;
     if (__DEV__) {
       console.warn("[Trifecta API] request_failed", {
-        endpoint: path,
+        endpoint: diagnosticRoute,
         status: 0,
+        duration_ms: apiDurationMs(requestStartedAt),
       });
     }
     if (isStartTrip)
@@ -718,9 +730,10 @@ export async function api<T>(
     if (__DEV__) {
       console.warn("[Trifecta API] response_failed", {
         request_id: requestId,
-        endpoint: path,
+        endpoint: diagnosticRoute,
         status: response.status,
         code: parsed.code,
+        duration_ms: apiDurationMs(requestStartedAt),
       });
     }
     if (isStartTrip)
@@ -744,6 +757,14 @@ export async function api<T>(
       endpoint: path,
       status: response.status,
     });
+  if (__DEV__) {
+    console.info("[Trifecta API] response_timing", {
+      request_id: response.headers.get("X-Request-ID") ?? undefined,
+      endpoint: diagnosticRoute,
+      status: response.status,
+      duration_ms: apiDurationMs(requestStartedAt),
+    });
+  }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }

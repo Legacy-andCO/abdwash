@@ -749,7 +749,22 @@ async def finance_overview(
     end_date: date,
 ) -> FinanceOverview:
     start, end = _bounds(start_date, end_date, context.timezone)
-    booked, outstanding, currency = (
+    pending_transactions = _pending_base(context).subquery()
+    cash_pending_query = select(
+        func.coalesce(func.sum(pending_transactions.c.amount_minor), 0)
+    ).correlate(None).scalar_subquery()
+    discrepancy_query = (
+        select(func.coalesce(func.sum(CashReconciliation.difference_minor), 0))
+        .where(
+            CashReconciliation.business_id == context.business_id,
+            CashReconciliation.status == "confirmed",
+            CashReconciliation.confirmed_at >= start,
+            CashReconciliation.confirmed_at < end,
+        )
+        .correlate(None)
+        .scalar_subquery()
+    )
+    booked, outstanding, currency, cash_pending, discrepancy = (
         await session.execute(
             select(
                 func.coalesce(func.sum(Booking.total_amount_minor), 0),
@@ -763,6 +778,8 @@ async def finance_overview(
                     0,
                 ),
                 func.max(Booking.currency_code),
+                cash_pending_query,
+                discrepancy_query,
             )
             .join(Payment, Payment.booking_id == Booking.id)
             .where(
@@ -828,18 +845,6 @@ async def finance_overview(
             )
         )
     ).all()
-    pending_transactions = _pending_base(context).subquery()
-    cash_pending = await session.scalar(
-        select(func.coalesce(func.sum(pending_transactions.c.amount_minor), 0))
-    )
-    discrepancy = await session.scalar(
-        select(func.coalesce(func.sum(CashReconciliation.difference_minor), 0)).where(
-            CashReconciliation.business_id == context.business_id,
-            CashReconciliation.status == "confirmed",
-            CashReconciliation.confirmed_at >= start,
-            CashReconciliation.confirmed_at < end,
-        )
-    )
     collected = sum(int(row[3]) for row in revenue_rows)
     expenses = sum(int(row[4]) for row in expense_rows)
     profit = collected - expenses

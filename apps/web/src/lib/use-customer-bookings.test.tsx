@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/components/auth-provider";
 import { getCustomerBookings } from "./api";
+import { resetCustomerBookingsResourceForTests } from "./customer-bookings-resource";
 import { useCustomerBookings } from "./use-customer-bookings";
 
 vi.mock("@/components/auth-provider", () => ({ useAuth: vi.fn() }));
@@ -12,6 +13,7 @@ vi.mock("./api", () => ({ getCustomerBookings: vi.fn() }));
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
+  resetCustomerBookingsResourceForTests();
 });
 
 describe("useCustomerBookings", () => {

@@ -1,7 +1,18 @@
 import uuid
 
 from pydantic import EmailStr, TypeAdapter, ValidationError
-from sqlalchemy import delete, select, update
+from sqlalchemy import (
+    Boolean,
+    Integer,
+    String,
+    cast,
+    delete,
+    literal,
+    null,
+    select,
+    union_all,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -119,6 +130,85 @@ def vehicle_response(vehicle: Vehicle) -> CustomerVehicleResponse:
     )
 
 
+async def load_saved_customer_details(
+    session: AsyncSession, customer_id: uuid.UUID
+) -> tuple[list[CustomerAddressResponse], list[CustomerVehicleResponse]]:
+    """Load both saved-template collections with one bounded round trip."""
+
+    addresses = select(
+        literal("address").label("kind"),
+        CustomerAddress.id.label("record_id"),
+        CustomerAddress.label.label("value_1"),
+        CustomerAddress.written_address.label("value_2"),
+        CustomerAddress.location_url.label("value_3"),
+        CustomerAddress.location_instructions.label("value_4"),
+        cast(null(), String).label("value_5"),
+        cast(null(), String).label("value_6"),
+        cast(null(), Integer).label("year"),
+        CustomerAddress.latitude.label("latitude"),
+        CustomerAddress.longitude.label("longitude"),
+        CustomerAddress.is_default.label("is_default"),
+        CustomerAddress.created_at.label("created_at"),
+    ).where(CustomerAddress.customer_id == customer_id)
+    vehicles = select(
+        literal("vehicle").label("kind"),
+        Vehicle.id.label("record_id"),
+        Vehicle.make.label("value_1"),
+        Vehicle.model.label("value_2"),
+        Vehicle.vehicle_type.label("value_3"),
+        Vehicle.colour.label("value_4"),
+        Vehicle.plate_number.label("value_5"),
+        Vehicle.notes.label("value_6"),
+        Vehicle.year.label("year"),
+        cast(null(), CustomerAddress.latitude.type).label("latitude"),
+        cast(null(), CustomerAddress.longitude.type).label("longitude"),
+        cast(null(), Boolean).label("is_default"),
+        Vehicle.created_at.label("created_at"),
+    ).where(Vehicle.customer_id == customer_id, Vehicle.is_active.is_(True))
+    saved = union_all(addresses, vehicles).subquery()
+    rows = (
+        await session.execute(
+            select(saved).order_by(
+                saved.c.kind,
+                saved.c.is_default.desc().nullslast(),
+                saved.c.created_at,
+            )
+        )
+    ).mappings()
+    address_views: list[CustomerAddressResponse] = []
+    vehicle_views: list[CustomerVehicleResponse] = []
+    for row in rows:
+        if row["kind"] == "address":
+            address_views.append(
+                CustomerAddressResponse(
+                    id=row["record_id"],
+                    label=row["value_1"],
+                    written_address=row["value_2"],
+                    location_url=row["value_3"],
+                    latitude=float(row["latitude"]) if row["latitude"] is not None else None,
+                    longitude=(
+                        float(row["longitude"]) if row["longitude"] is not None else None
+                    ),
+                    location_instructions=row["value_4"],
+                    is_default=bool(row["is_default"]),
+                )
+            )
+        else:
+            vehicle_views.append(
+                CustomerVehicleResponse(
+                    id=row["record_id"],
+                    make=row["value_1"],
+                    model=row["value_2"],
+                    year=row["year"],
+                    vehicle_type=row["value_3"],
+                    colour=row["value_4"],
+                    plate_number=row["value_5"],
+                    notes=row["value_6"],
+                )
+            )
+    return address_views, vehicle_views
+
+
 async def load_customer_profile(
     session: AsyncSession,
     identity: VerifiedIdentity,
@@ -162,29 +252,12 @@ async def customer_profile_bootstrap(
             vehicles=[],
             loyalty=None,
         )
-    addresses = list(
-        (
-            await session.scalars(
-                select(CustomerAddress)
-                .where(CustomerAddress.customer_id == profile.id)
-                .order_by(CustomerAddress.is_default.desc(), CustomerAddress.created_at)
-            )
-        ).all()
-    )
-    vehicles = list(
-        (
-            await session.scalars(
-                select(Vehicle)
-                .where(Vehicle.customer_id == profile.id, Vehicle.is_active.is_(True))
-                .order_by(Vehicle.created_at)
-            )
-        ).all()
-    )
+    addresses, vehicles = await load_saved_customer_details(session, profile.id)
     return CustomerProfileBootstrap(
         authenticated_email=verified_identity_email(identity),
         profile=profile_response(profile),
-        addresses=[address_response(address) for address in addresses],
-        vehicles=[vehicle_response(vehicle) for vehicle in vehicles],
+        addresses=addresses,
+        vehicles=vehicles,
         loyalty=await loyalty_summary(
             session,
             business_id=profile.business_id,

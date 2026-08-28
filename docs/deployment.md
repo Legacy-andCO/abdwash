@@ -18,7 +18,7 @@ Set a stable, randomly generated `BOOKING_MANAGEMENT_SIGNING_KEY` of at least 32
 
 For real booking email, configure backend-only `RESEND_API_KEY`, `EMAIL_FROM`, and `PUBLIC_WEB_URL`. Verify the sender domain in Resend before using a custom sender. The dispatcher derives `/manage#<signed-token>` from `PUBLIC_WEB_URL` at send time. Configure a strong random `OUTBOX_DISPATCH_SECRET`; it is accepted only in `X-Outbox-Dispatch-Secret` on `POST /api/v1/internal/notifications/dispatch`. Missing Resend configuration in production records retries/failure rather than pretending delivery succeeded.
 
-Choose the PostgreSQL endpoint for the compute model. A persistent regional container can use the direct endpoint when IPv6 is available or Supavisor session mode on IPv4-only networks. Serverless/elastic compute should use an appropriate transaction pooler and disable prepared statements when required by that pooler.
+Choose the PostgreSQL endpoint for the compute model. A persistent regional container can use the direct endpoint when IPv6 is available or Supavisor session mode on IPv4-only networks. Serverless/elastic compute should use an appropriate transaction pooler and disable prepared statements when required by that pooler. Configure `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT_SECONDS`, `DB_POOL_RECYCLE_SECONDS`, and `DB_POOL_PRE_PING` against the Supabase connection budget. For a Vercel transaction-pooler deployment, start conservatively (for example size 2 and overflow 0-1 per warm instance), set `DB_DISABLE_PREPARED_STATEMENTS=true`, then adjust only from checkout/connection telemetry. See [`PERFORMANCE_ARCHITECTURE.md`](PERFORMANCE_ARCHITECTURE.md).
 
 ## Private job-quality photo storage
 

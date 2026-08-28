@@ -45,6 +45,7 @@ from app.schemas.staff import (
     OperationsDashboard,
     PerformanceRow,
     ReportPoint,
+    ReportSummary,
     ReportV2,
     ShiftAssignmentCreate,
     ShiftAssignmentView,
@@ -60,7 +61,7 @@ from app.schemas.staff import (
 )
 from app.services.finance import finance_overview
 from app.services.staff_accounts import _profile_data
-from app.services.staff_operations import list_jobs, report_summary
+from app.services.staff_operations import list_jobs
 
 
 def _day_bounds(day: date, timezone: str) -> tuple[datetime, datetime]:
@@ -1091,6 +1092,25 @@ async def operations_dashboard(
     session: AsyncSession, context: StaffContext, *, day: date
 ) -> OperationsDashboard:
     start, end = _day_bounds(day, context.timezone)
+    pending_leave_query = (
+        select(func.count(LeaveRequest.id))
+        .where(
+            LeaveRequest.business_id == context.business_id,
+            LeaveRequest.status == LeaveStatus.PENDING,
+        )
+        .correlate(None)
+        .scalar_subquery()
+    )
+    cancellations_query = (
+        select(func.count(CancellationRequest.id))
+        .join(Booking, Booking.id == CancellationRequest.booking_id)
+        .where(
+            Booking.business_id == context.business_id,
+            CancellationRequest.status == CancellationStatus.REQUESTED,
+        )
+        .correlate(None)
+        .scalar_subquery()
+    )
     financial = (
         await session.execute(
             select(
@@ -1110,6 +1130,8 @@ async def operations_dashboard(
                     0,
                 ),
                 func.max(Booking.currency_code),
+                pending_leave_query,
+                cancellations_query,
             )
             .select_from(Job)
             .join(Booking, Booking.id == Job.booking_id)
@@ -1121,25 +1143,22 @@ async def operations_dashboard(
             )
         )
     ).one()
-    jobs, completed, unassigned, en_route, washing, booked, collected, currency = financial
+    (
+        jobs,
+        completed,
+        unassigned,
+        en_route,
+        washing,
+        booked,
+        collected,
+        currency,
+        pending_leave,
+        cancellations,
+    ) = financial
     attendance_snapshot = await attendance_overview(session, context, day=day)
     clocked_in = sum(item.status in {"working", "late"} for item in attendance_snapshot)
     late_staff = sum(item.status == "late" for item in attendance_snapshot)
     missed_staff = sum(item.missed_shift for item in attendance_snapshot)
-    pending_leave = await session.scalar(
-        select(func.count(LeaveRequest.id)).where(
-            LeaveRequest.business_id == context.business_id,
-            LeaveRequest.status == LeaveStatus.PENDING,
-        )
-    )
-    cancellations = await session.scalar(
-        select(func.count(CancellationRequest.id))
-        .join(Booking, Booking.id == CancellationRequest.booking_id)
-        .where(
-            Booking.business_id == context.business_id,
-            CancellationRequest.status == CancellationStatus.REQUESTED,
-        )
-    )
     attention = []
     for kind, count, label in (
         ("unassigned_jobs", unassigned, "unassigned jobs"),
@@ -1186,7 +1205,6 @@ async def report_v2(
             "Choose a report range of up to 366 days.",
             status_code=422,
         )
-    summary = await report_summary(session, context, start_date, end_date)
     start, _ = _day_bounds(start_date, context.timezone)
     _, end = _day_bounds(end_date, context.timezone)
     local_date = func.date(func.timezone(context.timezone, Booking.scheduled_start))
@@ -1207,6 +1225,7 @@ async def report_v2(
                 func.count(Booking.id),
                 func.count(Booking.id).filter(Booking.status == BookingStatus.COMPLETED),
                 func.count(Booking.id).filter(Booking.status == BookingStatus.CANCELLED),
+                func.max(Booking.currency_code),
             )
             .join(Payment, Payment.booking_id == Booking.id)
             .where(
@@ -1227,8 +1246,24 @@ async def report_v2(
             completed=completed,
             cancelled=cancelled,
         )
-        for day, booked, collected, jobs, completed, cancelled in rows
+        for day, booked, collected, jobs, completed, cancelled, _currency in rows
     ]
+    booking_count = sum(int(row[3]) for row in rows)
+    booked_total = sum(int(row[1]) for row in rows)
+    collected_total = sum(int(row[2]) for row in rows)
+    completed_total = sum(int(row[4]) for row in rows)
+    report_currency = next((str(row[6]) for row in rows if row[6]), "AED")
+    summary = ReportSummary(
+        start_date=start_date,
+        end_date=end_date,
+        bookings=booking_count,
+        completed_washes=completed_total,
+        booked_sales_minor=booked_total,
+        collected_revenue_minor=collected_total,
+        outstanding_minor=max(0, booked_total - collected_total),
+        average_booking_value_minor=(booked_total // booking_count if booking_count else 0),
+        currency_code=report_currency,
+    )
     attendance = (
         select(
             AttendanceSession.staff_profile_id.label("staff_id"),
@@ -1302,6 +1337,7 @@ async def report_v2(
                 AttendanceSession.clock_in_at,
                 StaffShiftAssignment.work_date,
                 Shift.start_time,
+                BusinessSettings.attendance_grace_minutes,
             )
             .join(
                 StaffShiftAssignment,
@@ -1312,6 +1348,10 @@ async def report_v2(
                 ),
             )
             .join(Shift, Shift.id == StaffShiftAssignment.shift_id)
+            .join(
+                BusinessSettings,
+                BusinessSettings.business_id == AttendanceSession.business_id,
+            )
             .where(
                 AttendanceSession.business_id == context.business_id,
                 AttendanceSession.clock_in_at >= start,
@@ -1319,15 +1359,8 @@ async def report_v2(
             )
         )
     ).all()
-    grace_minutes = (
-        await session.scalar(
-            select(BusinessSettings.attendance_grace_minutes).where(
-                BusinessSettings.business_id == context.business_id
-            )
-        )
-    ) or 0
     late_by_staff: dict[uuid.UUID, int] = {}
-    for staff_id, clock_in_at, work_date, shift_start in late_rows:
+    for staff_id, clock_in_at, work_date, shift_start, grace_minutes in late_rows:
         if attendance_late_minutes(
             clock_in_at, work_date, shift_start, context.timezone, grace_minutes
         ):

@@ -52,16 +52,27 @@ export function InventoryScreen({
   const overview = useInventoryOverviewQuery(context, management);
   const items = useInventoryItemsQuery(context, search);
   const locations = useInventoryLocationsQuery(context);
-  const stock = useInventoryStockQuery(context, locationId, search, status);
-  const movements = useInventoryMovementsQuery(context, locationId);
+  const stock = useInventoryStockQuery(
+    context,
+    locationId,
+    search,
+    status,
+    tab === "stock",
+  );
+  const movements = useInventoryMovementsQuery(
+    context,
+    locationId,
+    tab === "movements",
+  );
   const refresh = async () => {
-    await Promise.all([
+    const requests: Promise<unknown>[] = [
       items.refetch(),
       locations.refetch(),
-      stock.refetch(),
-      movements.refetch(),
-      ...(management ? [overview.refetch()] : []),
-    ]);
+    ];
+    if (tab === "stock") requests.push(stock.refetch());
+    if (tab === "movements") requests.push(movements.refetch());
+    if (tab === "overview" && management) requests.push(overview.refetch());
+    await Promise.all(requests);
   };
   if (action) {
     return (

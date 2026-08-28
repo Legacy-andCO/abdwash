@@ -33,7 +33,12 @@ from app.schemas.manager_customers import (
     ManagerCustomerListItem,
     ManagerCustomerUpdate,
 )
-from app.services.customer_profiles import address_response, profile_response, vehicle_response
+from app.services.customer_profiles import (
+    address_response,
+    load_saved_customer_details,
+    profile_response,
+    vehicle_response,
+)
 from app.services.loyalty import loyalty_summary
 
 
@@ -213,24 +218,7 @@ async def manager_customer_detail(
     history_limit: int = 30,
 ) -> ManagerCustomerDetail:
     profile = await _owned_profile(session, context, customer_id)
-    addresses = list(
-        (
-            await session.scalars(
-                select(CustomerAddress)
-                .where(CustomerAddress.customer_id == customer_id)
-                .order_by(CustomerAddress.is_default.desc(), CustomerAddress.created_at)
-            )
-        ).all()
-    )
-    vehicles = list(
-        (
-            await session.scalars(
-                select(Vehicle)
-                .where(Vehicle.customer_id == customer_id, Vehicle.is_active.is_(True))
-                .order_by(Vehicle.created_at)
-            )
-        ).all()
-    )
+    addresses, vehicles = await load_saved_customer_details(session, customer_id)
     booking_rows = list(
         (
             await session.scalars(
@@ -291,8 +279,8 @@ async def manager_customer_detail(
     }
     return ManagerCustomerDetail(
         profile=profile_response(profile),
-        addresses=[address_response(item) for item in addresses],
-        vehicles=[vehicle_response(item) for item in vehicles],
+        addresses=addresses,
+        vehicles=vehicles,
         bookings=[
             ManagerCustomerBooking(
                 id=item.id,

@@ -108,12 +108,17 @@ import { ClientEventIdStore } from "../idempotency/clientEventId";
 
 const day = () => new Date().toISOString().slice(0, 10);
 
-export function useJobsQuery(context: StaffContext, filters: JobFilters) {
+export function useJobsQuery(
+  context: StaffContext,
+  filters: JobFilters,
+  enabled = true,
+) {
   const scope = operationalScope(context);
   return useQuery({
     queryKey: queryKeys.jobs(scope, filters),
     queryFn: ({ signal }) => getJobs(filters, signal),
     staleTime: cacheTimes.jobs,
+    enabled,
     meta: persistedQueryMeta(retentionTimes.jobs),
   });
 }
@@ -633,11 +638,13 @@ export function useShiftAssignmentsQuery(
   context: StaffContext,
   start = day(),
   end = day(),
+  enabled = true,
 ) {
   return useQuery({
     queryKey: queryKeys.shiftAssignments(operationalScope(context), start, end),
     queryFn: () => getShiftAssignments(start, end),
     staleTime: cacheTimes.attendance,
+    enabled,
     meta: persistedQueryMeta(retentionTimes.shifts),
   });
 }
@@ -730,11 +737,13 @@ export function useInventoryStockQuery(
   locationId = "",
   search = "",
   status = "",
+  enabled = true,
 ) {
   const scope = operationalScope(context);
   return useQuery({
     queryKey: queryKeys.inventoryStock(scope, locationId, search, status),
     queryFn: () => getInventoryStock(locationId, search, status),
+    enabled,
     staleTime: cacheTimes.inventory,
     meta: persistedQueryMeta(retentionTimes.inventory),
   });
@@ -743,11 +752,13 @@ export function useInventoryStockQuery(
 export function useInventoryMovementsQuery(
   context: StaffContext,
   locationId = "",
+  enabled = true,
 ) {
   const scope = operationalScope(context);
   return useQuery({
     queryKey: queryKeys.inventoryMovements(scope, locationId),
     queryFn: () => getInventoryMovements(locationId),
+    enabled,
     staleTime: cacheTimes.inventory,
     meta: persistedQueryMeta(retentionTimes.inventory),
   });

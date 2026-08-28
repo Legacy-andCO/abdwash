@@ -81,32 +81,35 @@ async def loyalty_summary(
     history_limit: int = 20,
 ) -> LoyaltySummary:
     settings, service = await _settings_and_service(session, business_id)
-    credit_total = int(
-        await session.scalar(
-            select(func.coalesce(func.sum(LoyaltyEvent.quantity), 0)).where(
-                LoyaltyEvent.business_id == business_id,
-                LoyaltyEvent.customer_profile_id == customer_profile_id,
-                LoyaltyEvent.event_type.in_(
-                    [
-                        LoyaltyEventType.QUALIFYING_WASH,
-                        LoyaltyEventType.MANUAL_CREDIT,
-                        LoyaltyEventType.MANUAL_DEBIT,
-                    ]
+    credit_total, qualifying_total = (
+        await session.execute(
+            select(
+                func.coalesce(
+                    func.sum(LoyaltyEvent.quantity).filter(
+                        LoyaltyEvent.event_type.in_(
+                            [
+                                LoyaltyEventType.QUALIFYING_WASH,
+                                LoyaltyEventType.MANUAL_CREDIT,
+                                LoyaltyEventType.MANUAL_DEBIT,
+                            ]
+                        )
+                    ),
+                    0,
                 ),
-            )
-        )
-        or 0
-    )
-    qualifying_total = int(
-        await session.scalar(
-            select(func.coalesce(func.sum(LoyaltyEvent.quantity), 0)).where(
+                func.coalesce(
+                    func.sum(LoyaltyEvent.quantity).filter(
+                        LoyaltyEvent.event_type == LoyaltyEventType.QUALIFYING_WASH
+                    ),
+                    0,
+                ),
+            ).where(
                 LoyaltyEvent.business_id == business_id,
                 LoyaltyEvent.customer_profile_id == customer_profile_id,
-                LoyaltyEvent.event_type == LoyaltyEventType.QUALIFYING_WASH,
             )
         )
-        or 0
-    )
+    ).one()
+    credit_total = int(credit_total or 0)
+    qualifying_total = int(qualifying_total or 0)
     rewards = list(
         (
             await session.scalars(

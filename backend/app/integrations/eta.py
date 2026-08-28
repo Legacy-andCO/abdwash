@@ -4,6 +4,8 @@ from typing import Protocol
 
 import httpx
 
+from app.core.providers import observe_provider_call
+
 
 @dataclass(frozen=True)
 class EtaResult:
@@ -24,19 +26,33 @@ class GoogleRoutesEtaProvider:
     async def estimate(
         self, *, origin: tuple[float, float], destination: tuple[float, float]
     ) -> EtaResult | None:
-        response = await self.client.post(
-            "https://routes.googleapis.com/directions/v2:computeRoutes",
-            headers={"X-Goog-Api-Key": self.api_key, "X-Goog-FieldMask": "routes.duration"},
-            json={
-                "origin": {"location": {"latLng": {"latitude": origin[0], "longitude": origin[1]}}},
-                "destination": {
-                    "location": {
-                        "latLng": {"latitude": destination[0], "longitude": destination[1]}
-                    }
+        response = await observe_provider_call(
+            "google_routes",
+            "eta",
+            lambda: self.client.post(
+                "https://routes.googleapis.com/directions/v2:computeRoutes",
+                headers={
+                    "X-Goog-Api-Key": self.api_key,
+                    "X-Goog-FieldMask": "routes.duration",
                 },
-                "travelMode": "DRIVE",
-                "routingPreference": "TRAFFIC_AWARE",
-            },
+                json={
+                    "origin": {
+                        "location": {
+                            "latLng": {"latitude": origin[0], "longitude": origin[1]}
+                        }
+                    },
+                    "destination": {
+                        "location": {
+                            "latLng": {
+                                "latitude": destination[0],
+                                "longitude": destination[1],
+                            }
+                        }
+                    },
+                    "travelMode": "DRIVE",
+                    "routingPreference": "TRAFFIC_AWARE",
+                },
+            ),
         )
         response.raise_for_status()
         value = response.json().get("routes", [{}])[0].get("duration")

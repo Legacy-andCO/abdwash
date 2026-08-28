@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     db_pool_size: int = Field(default=5, ge=1, le=20)
     db_max_overflow: int = Field(default=5, ge=0, le=20)
     db_pool_timeout_seconds: float = Field(default=10, gt=0, le=60)
+    db_pool_recycle_seconds: int = Field(default=300, ge=30, le=3600)
+    db_pool_pre_ping: bool = True
     db_disable_prepared_statements: bool = False
     log_level: str = "INFO"
     booking_management_signing_key: str = "development-only-trifecta-management-key"

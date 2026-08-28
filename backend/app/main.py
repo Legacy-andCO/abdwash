@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 from app.api.customer import router as customer_router
 from app.api.internal import router as internal_router
@@ -104,7 +105,9 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
         timing_parts = [
             f"auth;dur={auth_ms:.2f}",
             f"staff-context;dur={staff_context_ms:.2f}",
+            f"db-checkout;dur={database_metrics.checkout_duration_ms:.2f}",
             f"sql;dur={database_metrics.query_duration_ms:.2f}",
+            f"providers;dur={database_metrics.provider_duration_ms:.2f}",
             f"app;dur={application_ms:.2f}",
         ]
         if database_metrics.first_query_started_ms is not None:
@@ -131,6 +134,9 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
             ),
             sql_query_count=database_metrics.query_count,
             sql_duration_ms=round(database_metrics.query_duration_ms, 2),
+            db_checkout_count=database_metrics.checkout_count,
+            db_checkout_ms=round(database_metrics.checkout_duration_ms, 2),
+            db_pool_checked_out_peak=database_metrics.pool_checked_out_peak,
             first_sql_started_ms=(
                 round(database_metrics.first_query_started_ms, 2)
                 if database_metrics.first_query_started_ms is not None
@@ -140,6 +146,9 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
             staff_context_ms=round(
                 float(getattr(request.state, "staff_context_ms", 0.0)), 2
             ),
+            provider_attempt_count=database_metrics.provider_attempt_count,
+            provider_duration_ms=round(database_metrics.provider_duration_ms, 2),
+            provider_outcomes=database_metrics.provider_outcomes,
             cold_process=cold_process,
             process_age_ms=round((time.perf_counter() - process_started) * 1000, 2),
         )
@@ -163,7 +172,10 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 
 
 @app.exception_handler(DBAPIError)
-async def database_error_handler(request: Request, exc: DBAPIError) -> JSONResponse:
+@app.exception_handler(SQLAlchemyTimeoutError)
+async def database_error_handler(
+    request: Request, exc: DBAPIError | SQLAlchemyTimeoutError
+) -> JSONResponse:
     logger.error(
         "database_error",
         request_id=getattr(request.state, "request_id", None),

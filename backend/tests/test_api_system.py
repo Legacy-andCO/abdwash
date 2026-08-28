@@ -14,6 +14,7 @@ from app.core.database import (
     request_database_metrics,
     session_dependency,
 )
+from app.core.providers import observe_provider_call
 from app.domain.enums import StaffRole
 from app.main import app
 from app.schemas.public import CatalogueResponse
@@ -31,6 +32,8 @@ def test_health_is_lightweight() -> None:
     assert response.headers["x-sql-query-count"] == "0"
     assert response.headers.get("x-request-id")
     assert "sql;dur=" in response.headers["server-timing"]
+    assert "db-checkout;dur=" in response.headers["server-timing"]
+    assert "providers;dur=" in response.headers["server-timing"]
 
 
 @pytest.mark.asyncio
@@ -48,6 +51,24 @@ async def test_mutable_database_metrics_cross_downstream_task_boundary() -> None
         await asyncio.create_task(downstream())
         assert metrics.query_count == 1
         assert metrics.query_duration_ms == 2.5
+    finally:
+        request_database_metrics.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_provider_attempts_are_aggregated_without_request_data() -> None:
+    metrics = RequestDatabaseMetrics(request_started=time.perf_counter())
+    token = request_database_metrics.set(metrics)
+    try:
+        response = await observe_provider_call(
+            "test_provider",
+            "health",
+            lambda: asyncio.sleep(0, result=object()),
+        )
+        assert response is not None
+        assert metrics.provider_attempt_count == 1
+        assert metrics.provider_duration_ms >= 0
+        assert metrics.provider_outcomes == {"test_provider:success": 1}
     finally:
         request_database_metrics.reset(token)
 

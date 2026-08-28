@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from app.core.providers import observe_provider_call
+
 
 class ResendNotificationProvider:
     def __init__(self, client: httpx.AsyncClient, *, api_key: str, email_from: str) -> None:
@@ -24,18 +26,22 @@ class ResendNotificationProvider:
         if channel != "email":
             raise ValueError(f"Resend cannot deliver channel {channel!r}")
         subject, html = render_email(notification_type, payload)
-        response = await self._client.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {self._api_key}",
-                "Idempotency-Key": idempotency_key,
-            },
-            json={
-                "from": self._email_from,
-                "to": [recipient],
-                "subject": subject,
-                "html": html,
-            },
+        response = await observe_provider_call(
+            "resend",
+            "send_email",
+            lambda: self._client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Idempotency-Key": idempotency_key,
+                },
+                json={
+                    "from": self._email_from,
+                    "to": [recipient],
+                    "subject": subject,
+                    "html": html,
+                },
+            ),
         )
         response.raise_for_status()
 

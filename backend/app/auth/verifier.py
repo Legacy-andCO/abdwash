@@ -10,6 +10,7 @@ import structlog
 from jwt import PyJWKSet
 
 from app.core.config import Settings
+from app.core.providers import observe_provider_call
 
 logger = structlog.get_logger()
 
@@ -65,6 +66,7 @@ class SupabaseTokenVerifier:
     ) -> PyJWKSet:
         if not self.settings.supabase_jwks_url:
             raise AuthenticationServiceUnavailable("Supabase Auth is not configured.")
+        jwks_url = self.settings.supabase_jwks_url
         async with self._lock:
             if not force and self._jwks_is_fresh():
                 logger.info("jwks_cache_hit")
@@ -79,7 +81,11 @@ class SupabaseTokenVerifier:
                 logger.info("jwks_cache_hit")
                 return self._jwks
             try:
-                response = await self.client.get(self.settings.supabase_jwks_url)
+                response = await observe_provider_call(
+                    "supabase_auth",
+                    "jwks_refresh",
+                    lambda: self.client.get(jwks_url),
+                )
                 response.raise_for_status()
                 refreshed = PyJWKSet.from_dict(response.json())
             except httpx.TimeoutException as exc:

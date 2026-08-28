@@ -1,8 +1,9 @@
 import asyncio
 import os
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, date, datetime, time, timedelta
+from time import perf_counter
 from types import SimpleNamespace
 from typing import Annotated
 
@@ -20,7 +21,13 @@ from app.api.staff import router as staff_router
 from app.auth.dependencies import StaffContext, optional_identity, staff_context
 from app.auth.verifier import AuthenticationError, VerifiedIdentity
 from app.core.config import Settings
-from app.core.database import create_engine, query_count, session_dependency
+from app.core.database import (
+    RequestDatabaseMetrics,
+    create_engine,
+    query_count,
+    request_database_metrics,
+    session_dependency,
+)
 from app.domain.enums import JobStatus, SlotStatus, StaffRole
 from app.domain.errors import ConflictError, DomainError
 from app.models import Base
@@ -32,6 +39,7 @@ from app.models.entities import (
     BusinessSettings,
     BusinessSyncRevision,
     CancellationRequest,
+    CustomerProfile,
     IdempotencyRecord,
     InventoryItem,
     InventoryLocation,
@@ -63,12 +71,13 @@ from app.schemas.staff import (
     ShiftCreate,
 )
 from app.services.bookings import create_booking
+from app.services.finance import finance_overview
 from app.services.idempotency import (
     canonical_request_hash,
     find_idempotent_response,
     store_idempotent_response,
 )
-from app.services.inventory import receive_stock, transfer_stock
+from app.services.inventory import inventory_overview, list_items, receive_stock, transfer_stock
 from app.services.job_quality import (
     add_issue,
     create_complaint,
@@ -76,9 +85,17 @@ from app.services.job_quality import (
     save_inspection,
     update_checklist,
 )
+from app.services.manager_customers import list_manager_customers, manager_customer_detail
 from app.services.scheduling import create_hold, hold_token_hash
-from app.services.staff_operations import transition_job
-from app.services.workforce import assign_shift, clock_in, create_shift
+from app.services.staff_operations import list_jobs, transition_job
+from app.services.sync_state import get_sync_state
+from app.services.workforce import (
+    assign_shift,
+    clock_in,
+    create_shift,
+    operations_dashboard,
+    report_v2,
+)
 from app.workers.notifications import claim_batch
 
 RAW_TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
@@ -501,6 +518,59 @@ async def _staff_context(factory: async_sessionmaker[AsyncSession], *, suffix: s
 
 
 @pytest.mark.asyncio
+async def test_hot_read_query_count_contracts(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    context = await _staff_context(database, suffix="performance")
+    target = date(2035, 1, 5)
+    start = target - timedelta(days=30)
+
+    async def assert_queries(
+        limit: int, call: Callable[[AsyncSession], Awaitable[object]]
+    ) -> None:
+        query_count.set(0)
+        async with database() as session:
+            await call(session)
+        assert query_count.get() <= limit
+
+    await assert_queries(1, lambda session: get_sync_state(session, context.business_id))
+    await assert_queries(
+        2,
+        lambda session: list_jobs(session, context, view="all", scope="all", limit=50),
+    )
+    await assert_queries(7, lambda session: operations_dashboard(session, context, day=target))
+    await assert_queries(9, lambda session: report_v2(session, context, start, target))
+    await assert_queries(3, lambda session: finance_overview(session, context, start, target))
+    await assert_queries(2, lambda session: inventory_overview(session, context))
+    await assert_queries(1, lambda session: list_items(session, context, limit=50))
+    await assert_queries(
+        2,
+        lambda session: list_manager_customers(
+            session,
+            context,
+            search=None,
+            offset=0,
+            limit=30,
+        ),
+    )
+    async with database() as session, session.begin():
+        customer = CustomerProfile(
+            business_id=context.business_id,
+            first_name="Performance",
+            surname="Contract",
+            email=f"performance-{uuid.uuid4().hex[:8]}@example.com",
+            phone="+971500000099",
+        )
+        session.add(customer)
+        await session.flush()
+        customer_id = customer.id
+    await assert_queries(
+        9,
+        lambda session: manager_customer_detail(session, context, customer_id),
+    )
+
+
+@pytest.mark.asyncio
 async def test_concurrent_clock_in_returns_one_open_session(
     database: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -897,8 +967,16 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
     employee_headers = {"Authorization": "Bearer employee-token"}
     transport = httpx.ASGITransport(app=test_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        context_response = await client.get("/api/v1/staff/context", headers=manager_headers)
+        context_metrics = RequestDatabaseMetrics(request_started=perf_counter())
+        context_token = request_database_metrics.set(context_metrics)
+        try:
+            context_response = await client.get(
+                "/api/v1/staff/context", headers=manager_headers
+            )
+        finally:
+            request_database_metrics.reset(context_token)
         assert context_response.status_code == 200
+        assert context_metrics.query_count == 1
         transaction_response = await client.get(
             "/_staff-transaction-state", headers=manager_headers
         )
