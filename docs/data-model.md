@@ -34,6 +34,7 @@ All primary keys are UUIDs, money uses integer minor units plus ISO currency cod
 - `job_checklist_items` — historically stable service-checklist snapshots per job, including required/optional state and completion attribution.
 - `job_photos` — private Storage object metadata, category, upload state, actor, and retry-safe client request ID; image bytes and signed URLs are not stored here.
 - `job_quality_issues` — categorized job exception notes with an optional same-job ready photo reference.
+- `business_settings.default_inventory_location_id` — nullable pointer to the active business stock pool used for routine expected service consumption; runtime validation enforces same-tenant ownership.
 - `job_complaints` — lightweight manager complaint workflow linking the original completed job to at most one zero-value correction job.
 - `job_inventory_consumption_runs` — one prospective, immutable completion-time inventory outcome per job, including resolved source, linked automatic inventory operation, applied/no-template/needs-review status, and manager review metadata.
 - `job_inventory_consumption_lines` — per-booking-service expected-usage snapshots with service/item/unit names, pre-existing manual coverage, automatically applied quantity, truthful shortfall, and stable issue code.
@@ -61,3 +62,5 @@ Checklist templates are copied into `job_checklist_items` when a booking creates
 Loyalty is ledger-derived rather than a mutable customer counter. One eligible paid booking-service snapshot can create at most one qualifying event. Reward records snapshot the service, normal list price, and earning threshold so later catalogue/settings changes do not rewrite history. The loyalty migration deliberately does not backfill historical jobs.
 
 Expected consumable templates are read at the first successful job completion, not booking time. Repeated items are aggregated only for stock locking/movement efficiency; the line table preserves which booking service contributed each expected quantity. `UNIQUE(job_id)` and the existing job row lock/client-event flow make automatic consumption exactly once. Historical completed jobs are not backfilled, template edits never rewrite completed-job lines, and a review records acknowledgement without changing expected/applied/shortfall history.
+
+`notification_outbox.dedupe_key` is nullable for historical/general messages. New reschedule and completion events set deterministic business-scoped keys protected by a partial unique index, while the raw booking management token remains derived only at dispatch time.

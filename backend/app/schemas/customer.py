@@ -1,8 +1,17 @@
 import uuid
+from datetime import date as date_type
 from datetime import datetime
+from datetime import time as time_type
 from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from app.domain.phones import normalize_phone_number
 from app.schemas.loyalty import LoyaltySummary
@@ -137,5 +146,21 @@ class CustomerRescheduleCreate(StrictRequest):
     hold_token: Annotated[str, StringConstraints(min_length=32, max_length=255)]
 
 
-class ManagerRescheduleCreate(CustomerRescheduleCreate):
+class ManagerRescheduleCreate(StrictRequest):
+    hold_token: Annotated[str, StringConstraints(min_length=32, max_length=255)] | None = None
+    date: date_type | None = None
+    time: time_type | None = None
     confirm_active_reschedule: bool = False
+    override_turnaround: bool = False
+    client_event_id: str | None = Field(default=None, min_length=8, max_length=160)
+
+    @model_validator(mode="after")
+    def one_schedule_input(self) -> "ManagerRescheduleCreate":
+        exact = self.date is not None or self.time is not None
+        if exact and (self.date is None or self.time is None):
+            raise ValueError("Exact rescheduling requires both date and time.")
+        if bool(self.hold_token) == exact:
+            raise ValueError("Provide either a booking hold or an exact manager date/time.")
+        if exact and not self.client_event_id:
+            raise ValueError("Exact manager rescheduling requires a client event ID.")
+        return self

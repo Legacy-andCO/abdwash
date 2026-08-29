@@ -41,4 +41,27 @@ describe("smart scheduling assignment UI", () => {
     expect(operations).toContain("updateJobCaches(client, scope, job)");
     expect(operations).toContain("queryKeys.assignmentOptions(scope, job.id)");
   });
+
+  it("uses business-hour quick choices plus an arbitrary native time picker", () => {
+    const jobsScreen = source("./screens/JobsScreen.tsx");
+    expect(jobsScreen).toContain("hourlyQuickTimes");
+    expect(jobsScreen).toContain('title="Choose a custom time"');
+    expect(jobsScreen).toContain("<TimePickerField");
+    expect(jobsScreen).toContain("TEAM_TURNAROUND_CONFLICT");
+    expect(jobsScreen).not.toContain("Loading available times");
+  });
+
+  it("submits exact manager date/time with one retry-safe client event id", () => {
+    const operations = source("./queries/operations.ts");
+    const reschedule = operations.slice(
+      operations.indexOf("export function useRescheduleMutation"),
+      operations.indexOf("export function useClockMutation"),
+    );
+    expect(reschedule).toContain("date: selectedDay");
+    expect(reschedule).toContain("time: startTime");
+    expect(reschedule).toContain("client_event_id: eventIds.get(key)");
+    expect(reschedule).toContain("eventIds.failed(key, error)");
+    expect(reschedule).toContain('queryKey: ["jobs", scope]');
+    expect(reschedule).toContain('queryKey: ["dashboard", scope]');
+  });
 });

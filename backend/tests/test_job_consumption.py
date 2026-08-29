@@ -72,6 +72,57 @@ def template_row(
 
 
 @pytest.mark.asyncio
+async def test_configured_business_stock_location_wins_over_other_active_locations() -> None:
+    manager = context()
+    configured = InventoryLocation(
+        id=uuid.uuid4(),
+        business_id=manager.business_id,
+        name="Configured stock",
+        location_type="other",
+        is_active=True,
+    )
+    other = InventoryLocation(
+        id=uuid.uuid4(),
+        business_id=manager.business_id,
+        name="Main",
+        location_type="main",
+        is_active=True,
+    )
+    session = MagicMock()
+    session.execute = AsyncMock(
+        return_value=result(
+            [(configured, configured.id), (other, configured.id)]
+        )
+    )
+
+    source, resolution, issue = await consumption._source_location(session, manager)
+
+    assert source is configured
+    assert resolution == "business_default"
+    assert issue is None
+
+
+@pytest.mark.asyncio
+async def test_single_active_main_is_used_without_startup_configuration() -> None:
+    manager = context()
+    main = InventoryLocation(
+        id=uuid.uuid4(),
+        business_id=manager.business_id,
+        name="Main",
+        location_type="main",
+        is_active=True,
+    )
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=result([(main, None)]))
+
+    source, resolution, issue = await consumption._source_location(session, manager)
+
+    assert source is main
+    assert resolution == "single_location"
+    assert issue is None
+
+
+@pytest.mark.asyncio
 async def test_normal_completion_snapshots_and_applies_expected_usage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -80,9 +131,6 @@ async def test_normal_completion_snapshots_and_applies_expected_usage(
     service_id, item_id, location_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     session = MagicMock()
     session.scalar = AsyncMock(return_value=None)
-    session.execute = AsyncMock(
-        side_effect=[result([template_row(service_id=service_id, item_id=item_id)]), result([])]
-    )
     location = InventoryLocation(
         id=location_id,
         business_id=manager.business_id,
@@ -91,9 +139,13 @@ async def test_normal_completion_snapshots_and_applies_expected_usage(
         linked_team_id=current_job.assigned_resource_id,
         is_active=True,
     )
-    scalar_result = MagicMock()
-    scalar_result.all.return_value = [location]
-    session.scalars = AsyncMock(return_value=scalar_result)
+    session.execute = AsyncMock(
+        side_effect=[
+            result([template_row(service_id=service_id, item_id=item_id)]),
+            result([]),
+            result([(location, None)]),
+        ]
+    )
     session.add = MagicMock()
     session.add_all = MagicMock()
     session.flush = AsyncMock()
@@ -149,11 +201,12 @@ async def test_insufficient_stock_is_partial_and_never_blocks_completion(
     session = MagicMock()
     session.scalar = AsyncMock(return_value=None)
     session.execute = AsyncMock(
-        side_effect=[result([template_row(service_id=service_id, item_id=item_id)]), result([])]
+        side_effect=[
+            result([template_row(service_id=service_id, item_id=item_id)]),
+            result([]),
+            result([(location, None)]),
+        ]
     )
-    scalar_result = MagicMock()
-    scalar_result.all.return_value = [location]
-    session.scalars = AsyncMock(return_value=scalar_result)
     session.add = MagicMock()
     session.add_all = MagicMock()
     session.flush = AsyncMock()
@@ -192,11 +245,9 @@ async def test_missing_location_records_attention_without_fabricated_usage(
         side_effect=[
             result([template_row(service_id=uuid.uuid4(), item_id=item_id)]),
             result([]),
+            result([]),
         ]
     )
-    scalar_result = MagicMock()
-    scalar_result.all.return_value = []
-    session.scalars = AsyncMock(return_value=scalar_result)
     session.add = MagicMock()
     session.add_all = MagicMock()
     session.flush = AsyncMock()
@@ -270,6 +321,20 @@ async def test_employee_cannot_review_consumption_attention() -> None:
 
 
 @pytest.mark.asyncio
+async def test_manager_cannot_review_another_tenants_consumption() -> None:
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
+
+    with pytest.raises(DomainError) as raised:
+        await consumption.review_consumption(
+            session, context(StaffRole.MANAGER), uuid.uuid4(), None
+        )
+
+    assert raised.value.code == "INVENTORY_CONSUMPTION_NOT_FOUND"
+    assert raised.value.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_multiple_service_lines_preserve_history_and_batch_shared_item(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -305,11 +370,9 @@ async def test_multiple_service_lines_preserve_history_and_batch_shared_item(
                 ]
             ),
             result([]),
+            result([(location, None)]),
         ]
     )
-    scalar_result = MagicMock()
-    scalar_result.all.return_value = [location]
-    session.scalars = AsyncMock(return_value=scalar_result)
     session.add = MagicMock()
     session.add_all = MagicMock()
     session.flush = AsyncMock()
@@ -390,11 +453,9 @@ async def test_ambiguous_team_sources_do_not_select_or_deduct_random_location(
         side_effect=[
             result([template_row(service_id=uuid.uuid4(), item_id=uuid.uuid4())]),
             result([]),
+            result([(location, None) for location in locations]),
         ]
     )
-    scalar_result = MagicMock()
-    scalar_result.all.return_value = locations
-    session.scalars = AsyncMock(return_value=scalar_result)
     session.add = MagicMock()
     session.add_all = MagicMock()
     session.flush = AsyncMock()
@@ -450,6 +511,22 @@ def test_consumption_migration_is_forward_only_private_and_not_a_backfill() -> N
     assert "ENABLE ROW LEVEL SECURITY" in migration
     assert "REVOKE ALL" in migration
     assert "INSERT INTO" not in migration.upper()
+
+
+def test_startup_inventory_migration_adds_default_location_and_outbox_dedupe() -> None:
+    migration = (
+        Path(__file__).parents[1]
+        / "migrations"
+        / "versions"
+        / "61343828bd05_startup_inventory_and_notification_.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision: str | None = "b91c2d7e4f60"' in migration
+    assert "default_inventory_location_id" in migration
+    assert "business_default" in migration
+    assert "single_location" in migration
+    assert "fk_business_settings_default_inventory_location" in migration
+    assert "dedupe_key" in migration
+    assert "uq_notification_outbox_business_dedupe" in migration
 
 
 @pytest.mark.asyncio

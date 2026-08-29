@@ -14,7 +14,7 @@ Never put service-role, database, Resend, dispatch, payment, or Google Routes se
 
 Set `GOOGLE_ROUTES_API_KEY` only on the API deployment. Enable Google Routes API, restrict the key to that API and the backend deployment's appropriate application/IP controls. Start-trip still enters `en_route` if routing is unavailable.
 
-Apply Alembic through revision `b91c2d7e4f60` before deploying this operations release. It retains the bounded V2 reporting/filtering indexes, quality records, customer/loyalty/cash/finance/inventory/scheduling foundations, then adds prospective immutable job-consumption snapshots and manager review state. All operational/customer tables remain backend-owned with RLS enabled and no direct mobile policies.
+Apply Alembic through revision `61343828bd05` before deploying this operations release. It retains the bounded V2 reporting/filtering indexes and immutable job-consumption snapshots, then adds the startup default stock pool plus durable notification deduplication. All operational/customer tables remain backend-owned with RLS enabled and no direct mobile policies.
 
 ## Operations V2
 
@@ -29,7 +29,7 @@ Apply Alembic through revision `b91c2d7e4f60` before deploying this operations r
 - Job navigation uses server-side Today, Upcoming, History, Unassigned and All views with bounded filter/pagination parameters. Job details load a bulk event timeline without per-row queries.
 - Attendance overview categorizes scheduled, working, late, clocked-out, not-clocked-in, off-today and approved-leave staff using bulk queries and business-local dates.
 - Reports include booked/collected/job trends, service/payment mix, and staff/team performance aggregates.
-- Services & Pricing is a nested manager/admin workflow reached from Today. It owns service names/descriptions, active state, mobile/shop availability, canonical vehicle prices, expected duration, add-ons, booking-grid settings, weekday hours, mobile minimum, reward service, and expected-consumables templates. On first successful completion, the current service-level template is snapshotted and safely recorded through the existing inventory ledger.
+- Services & Pricing is a nested manager/admin workflow reached from Today. It owns mobile-service names/descriptions, active state, canonical vehicle prices, expected duration, add-ons, booking-grid settings, weekday hours, mobile minimum, reward service, and expected-consumables templates. Mobile/Shop controls are hidden from the normal startup editor; compatibility fields remain server-side. On first successful completion, the current service-level template is snapshotted and safely recorded through the existing inventory ledger.
 
 ## Android keyboard and native rebuilds
 
@@ -71,17 +71,19 @@ Job Detail loads one scoped quality record for jobs at `arrived`, `in_progress`,
 
 Camera and media-library permissions are requested only when the worker chooses the corresponding action. Images are resized to a maximum width of 1600 pixels and encoded as JPEG before upload. A preview can be removed before upload; a failed upload retains the preview and its client request ID, so retry reuses the same pending metadata/object path. Quality writes are disabled when the device is known offline, while previously persisted quality reads remain available.
 
+The quality authorization path consumes the shared five-column job projection through its named/explicit row adapter. No record, empty checklist, and no photos are valid states. A failed quality refresh is isolated from Job Detail and leaves cached quality visible with a retry action; per-photo signed-read failures yield unavailable evidence rather than a failed job record.
+
 Managers/admins can review inspections, evidence, checklist attribution, issues, and complaints from the same authorized Job Detail. Complaint outcomes are under review, resolved, rejected, or a scheduled complimentary rewash. A rewash consumes a normal scheduling hold, creates a linked zero-value booking/job, preserves the original completed job, and resolves the complaint when the correction job completes.
 
 ## Completion-time consumables and direct expenses
 
-Normal completion remains one employee action. The returned Job Detail is patched immediately with its immutable consumables summary. A shortage or missing/ambiguous team stock source produces a light non-blocking message and a manager-only Inventory **Needs review** item; it never blocks the completed customer workflow. Managers can open the job, launch the existing Stock Count workflow, and mark the historical discrepancy reviewed. Employees see a read-only summary and retain existing assigned-job manual usage for unusual/additional materials.
+Normal completion remains one employee action. The returned Job Detail is patched immediately with its immutable consumables summary. Expected usage resolves one business default/sole/obvious-main stock pool and deducts immediately. Only a real shortage, inactive item, or ambiguous/missing startup setup creates a manager-only Inventory **Needs review** item; it never blocks the completed customer workflow. Managers receive issue-specific actions and can mark historical discrepancies reviewed immediately. Stock Count is optional physical reconciliation, not a normal wash step. Employees see a read-only summary and retain existing assigned-job manual usage for unusual/additional materials.
 
 Manager/admin Job Detail also shows active expenses explicitly linked to that job and can create one through the existing Finance mutation. These cash/business costs remain separate from expected quantities. Automatic inventory usage does not post a second Finance expense.
 
 ## Notification contract
 
-`trip_started` queues one `driver_en_route` email in the existing durable outbox. Cron, retry, and Resend behavior are unchanged. The operational event is channel-neutral enough for a future WhatsApp renderer, but WhatsApp is intentionally disabled and no undeliverable WhatsApp rows are created.
+`trip_started` queues one `driver_en_route` email. A successful manager reschedule queues one `booking_rescheduled` email, and the first successful completion queues one `job_completed` email in the same authoritative transaction as job/inventory state. The completion dispatcher renders the reserved schedule, actual `started_at → completed_at` duration, and authoritative settled amount or **Pending**. A nullable dedupe key plus unique business/key index prevents duplicate new events. Cron, retry, and Resend behavior are unchanged; provider calls remain outside job transactions. WhatsApp remains disabled.
 
 ## Reporting definitions
 

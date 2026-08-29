@@ -211,7 +211,7 @@ export function JobQualityControls({
     return (
       <Card>
         <EmptyState
-          title="Quality record unavailable"
+          title="Vehicle condition record couldn't be loaded"
           body={domainErrorMessage(
             error,
             "We couldn't load this job's quality record.",
@@ -226,6 +226,14 @@ export function JobQualityControls({
   return (
     <Card>
       <Text style={styles.section}>JOB QUALITY</Text>
+      {error ? (
+        <View style={styles.block}>
+          <Text style={uiStyles.error}>
+            Vehicle condition record couldn't be refreshed. The last saved details remain visible.
+          </Text>
+          <AppButton title="Try again" tone="secondary" onPress={onRetry} />
+        </View>
+      ) : null}
       {offline ? (
         <Text style={uiStyles.error}>
           Offline · saved quality evidence is visible, but changes and uploads

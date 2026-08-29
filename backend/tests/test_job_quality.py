@@ -25,6 +25,7 @@ from app.schemas.staff import JobComplaintCreate, JobInspectionInput, JobPhotoCr
 from app.services.job_quality import (
     create_complaint,
     ensure_completion_quality,
+    get_job_quality,
     save_inspection,
     snapshot_checklist_for_job,
 )
@@ -39,6 +40,65 @@ def context(role: StaffRole = StaffRole.EMPLOYEE) -> StaffContext:
         role=role,
         timezone="Asia/Dubai",
     )
+
+
+@pytest.mark.asyncio
+async def test_authorized_job_accepts_current_five_column_job_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    employee = context()
+    booking = Booking(id=uuid.uuid4(), business_id=employee.business_id)
+    job = Job(
+        id=uuid.uuid4(),
+        booking_id=booking.id,
+        business_id=employee.business_id,
+        status=JobStatus.ARRIVED,
+    )
+    payment = Payment(id=uuid.uuid4(), booking_id=booking.id)
+    monkeypatch.setattr(
+        job_quality,
+        "_job_rows",
+        AsyncMock(return_value=[(job, booking, payment, "Employee", "Team One")]),
+    )
+
+    authorized_job, authorized_booking = await job_quality._authorized_job(
+        MagicMock(), employee, job.id
+    )
+
+    assert authorized_job is job
+    assert authorized_booking is booking
+
+
+@pytest.mark.asyncio
+async def test_quality_without_existing_record_or_photos_returns_empty_view(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    employee = context()
+    booking = Booking(id=uuid.uuid4(), business_id=employee.business_id)
+    job = Job(
+        id=uuid.uuid4(),
+        booking_id=booking.id,
+        business_id=employee.business_id,
+        status=JobStatus.ARRIVED,
+    )
+    monkeypatch.setattr(
+        job_quality,
+        "_authorized_job",
+        AsyncMock(return_value=(job, booking)),
+    )
+    monkeypatch.setattr(job_quality, "snapshot_checklist_for_job", AsyncMock())
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
+    empty = MagicMock()
+    empty.all.return_value = []
+    session.scalars = AsyncMock(return_value=empty)
+
+    result = await get_job_quality(session, employee, job.id)
+
+    assert result.inspection is None
+    assert result.photos == []
+    assert result.checklist == []
+    assert result.issues == []
 
 
 @pytest.mark.asyncio

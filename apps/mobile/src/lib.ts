@@ -673,6 +673,7 @@ export type BusinessBookingSettings = {
   mobile_minimum_enabled: boolean;
   mobile_minimum_minor: number;
   default_team_turnaround_minutes: number;
+  default_inventory_location_id: string | null;
   loyalty_reward_service_id: string | null;
   operating_hours: OperatingHour[];
 };

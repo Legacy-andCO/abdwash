@@ -6,7 +6,7 @@ from typing import Literal
 
 import httpx
 import structlog
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
@@ -20,7 +20,10 @@ from app.models.entities import (
     BookingService,
     BookingVehicle,
     BusinessSettings,
+    Job,
     NotificationOutbox,
+    Payment,
+    PaymentTransaction,
 )
 from app.services.management_tokens import create_management_token
 
@@ -119,7 +122,12 @@ async def delivery_payload(
     public_web_url: str | None,
 ) -> dict[str, object]:
     payload: dict[str, object] = dict(record.payload)
-    if record.notification_type not in {"booking_confirmed", "driver_en_route"}:
+    if record.notification_type not in {
+        "booking_confirmed",
+        "driver_en_route",
+        "booking_rescheduled",
+        "job_completed",
+    }:
         return payload
     if record.booking_id is None or not public_web_url:
         raise RuntimeError("Booking email delivery configuration is incomplete")
@@ -160,6 +168,43 @@ async def delivery_payload(
             "cancellation_cutoff_hours": settings.cancellation_cutoff_hours,
         }
     )
+    if record.notification_type == "job_completed":
+        job_payment = (
+            await session.execute(
+                select(Job, Payment)
+                .join(Payment, Payment.booking_id == Job.booking_id)
+                .where(Job.booking_id == booking.id)
+            )
+        ).one()
+        job, payment = job_payment
+        settled_transactions = int(
+            await session.scalar(
+                select(func.coalesce(func.sum(PaymentTransaction.amount_minor), 0)).where(
+                    PaymentTransaction.payment_id == payment.id,
+                    PaymentTransaction.status == "succeeded",
+                )
+            )
+            or 0
+        )
+        amount_paid_minor = 0
+        if payment.status == "paid":
+            amount_paid_minor = (
+                settled_transactions if settled_transactions > 0 else payment.amount_minor
+            )
+        duration_seconds = None
+        if job.started_at is not None and job.completed_at is not None:
+            duration_seconds = max(
+                0,
+                int((job.completed_at - job.started_at).total_seconds()),
+            )
+        payload.update(
+            {
+                "actual_service_duration_seconds": duration_seconds,
+                "amount_paid_minor": amount_paid_minor,
+                "payment_status": payment.status,
+                "payment_method": payment.method,
+            }
+        )
     return payload
 
 

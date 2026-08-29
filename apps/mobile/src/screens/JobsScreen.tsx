@@ -21,11 +21,11 @@ import {
   StatusChip,
   uiStyles,
 } from "../components/ui";
-import { DatePickerField, toIsoDate } from "../components/pickers";
+import { DatePickerField, TimePickerField, toIsoDate } from "../components/pickers";
 import { ElapsedTimer } from "../components/ElapsedTimer";
 import { JobQualityControls } from "../components/JobQualityControls";
 import { CashTenderModal } from "../components/CashTenderModal";
-import { domainErrorMessage } from "../errors/domainErrors";
+import { ApiError, domainErrorMessage } from "../errors/domainErrors";
 import { expenseAmountMinor } from "../finance/financeState";
 import { successHaptic } from "../haptics";
 import { tripLocationFailureMessage } from "../location/startTripLocation";
@@ -39,7 +39,6 @@ import {
   type JobAction,
 } from "../jobs/jobActions";
 import type {
-  AvailabilitySlot,
   Job,
   JobFilters,
   Profile,
@@ -48,8 +47,8 @@ import type {
 import { customerEmailUrl } from "../jobs/customerContact";
 import {
   useAssignJobMutation,
-  useAvailabilityQuery,
   useAssignmentOptionsQuery,
+  useBusinessSettingsQuery,
   useCashPaymentMutation,
   useExpenseMutation,
   useJobActionMutation,
@@ -66,6 +65,7 @@ import {
 } from "../cache/policy";
 import { colors, radii, spacing } from "../theme";
 import { normalizeCustomerSearch } from "../search/customerSearch";
+import { hourlyQuickTimes } from "../scheduling/exactTime";
 
 export type JobView = "today" | "upcoming" | "history" | "unassigned" | "all";
 export type JobsNavigationState = { view: JobView; offset: number };
@@ -75,6 +75,12 @@ const formatTime = (value: string) =>
     hour: "numeric",
     minute: "2-digit",
   });
+
+function formatClockTime(value: string): string {
+  const [hours, minutes] = value.split(":").map(Number);
+  const date = new Date(2000, 0, 1, hours, minutes);
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 
 export function JobsScreen({
   context,
@@ -1115,44 +1121,78 @@ function RescheduleSheet({
   job: Job;
   onClose: () => void;
 }) {
-  const [selectedDay, setSelectedDay] = useState(() => toIsoDate(new Date()));
-  const [selection, setSelection] = useState<AvailabilitySlot | null>(null);
-  const vehicleCount = Math.max(1, job.vehicles.length);
-  const availability = useAvailabilityQuery(
-    context,
-    job.booking_id,
-    selectedDay,
-    vehicleCount,
-    visible,
+  const currentAppointment = new Date(job.scheduled_start);
+  const [selectedDay, setSelectedDay] = useState(() =>
+    toIsoDate(currentAppointment),
   );
+  const [selectedTime, setSelectedTime] = useState(() =>
+    `${String(currentAppointment.getHours()).padStart(2, "0")}:${String(currentAppointment.getMinutes()).padStart(2, "0")}`,
+  );
+  const [showCustomTime, setShowCustomTime] = useState(false);
+  const settings = useBusinessSettingsQuery(context, visible);
   const mutation = useRescheduleMutation(context, job);
-  const slots = availability.data?.slots ?? [];
-  const availableSlots = slots.filter((slot) => slot.available);
   const dateChoices = upcomingDates(10);
+  const weekday = (new Date(`${selectedDay}T12:00:00`).getDay() + 6) % 7;
+  const operatingHour = settings.data?.operating_hours.find(
+    (item) => item.weekday === weekday,
+  );
+  const quickTimes = hourlyQuickTimes(
+    operatingHour?.opening_time,
+    operatingHour?.closing_time,
+    Math.max(
+      15,
+      Math.round(
+        (new Date(job.scheduled_end).getTime() -
+          new Date(job.scheduled_start).getTime()) /
+          60_000,
+      ),
+    ),
+  );
+  const selectedDayIsOpen = Boolean(operatingHour?.is_open);
   function changeDay(value: string) {
     setSelectedDay(value);
-    setSelection(null);
+    setSelectedTime("");
+    setShowCustomTime(false);
   }
-  function chooseSlot(slot: AvailabilitySlot) {
-    if (!slot.available) return;
-    setSelection(slot);
-  }
-  async function submit(confirmActiveReschedule: boolean) {
-    if (!selection) return;
+  async function submit(
+    confirmActiveReschedule: boolean,
+    overrideTurnaround = false,
+  ) {
+    if (!selectedTime) return;
     try {
       await mutation.mutateAsync({
         selectedDay,
-        startTime: selection.time,
+        startTime: selectedTime,
         confirmActiveReschedule,
+        overrideTurnaround,
       });
       await successHaptic();
       onClose();
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.code === "TEAM_TURNAROUND_CONFLICT" &&
+        !overrideTurnaround
+      ) {
+        Alert.alert(
+          "Team turnaround conflict",
+          "The assigned team needs more travel or preparation time. You can keep the manual assignment and override this buffer.",
+          [
+            { text: "Choose another time", style: "cancel" },
+            {
+              text: "Reschedule anyway",
+              onPress: () =>
+                void submit(confirmActiveReschedule, true),
+            },
+          ],
+        );
+        return;
+      }
       Alert.alert(
         "Reschedule not completed",
         domainErrorMessage(
           error,
-          "The appointment may have changed. Refresh times and retry.",
+          "That exact time is no longer operationally available. Choose another time and retry.",
         ),
       );
     }
@@ -1246,48 +1286,46 @@ function RescheduleSheet({
             minimumDate={new Date()}
             onChange={changeDay}
           />
-          {availability.isPending ? (
+          {settings.isPending ? (
             <>
-              <Text style={uiStyles.muted}>Loading available times…</Text>
+              <Text style={uiStyles.muted}>Loading business hours…</Text>
               <Skeleton rows={3} />
             </>
-          ) : availability.isError ? (
+          ) : settings.isError ? (
             <EmptyState
-              title="We couldn't load available times"
+              title="We couldn't load business hours"
               body="Check your connection and try again."
               action={
                 <AppButton
                   title="Try again"
-                  onPress={() => void availability.refetch()}
+                  onPress={() => void settings.refetch()}
                 />
               }
             />
-          ) : availableSlots.length === 0 ? (
+          ) : !selectedDayIsOpen ? (
             <EmptyState
-              title="No appointments available on this date"
-              body="Choose another day."
+              title="Business closed on this date"
+              body="Choose another day to set an exact appointment time."
             />
           ) : (
             <>
-              <Text style={styles.sectionTitle}>CHOOSE TIME</Text>
+              <Text style={styles.sectionTitle}>QUICK HOURLY TIMES</Text>
               <View style={styles.slotGrid}>
-                {slots.map((slot) => {
-                  const selected = selection?.starts_at === slot.starts_at;
+                {quickTimes.map((time) => {
+                  const selected = selectedTime === time && !showCustomTime;
                   return (
                     <Pressable
-                      key={slot.starts_at}
-                      disabled={!slot.available}
+                      key={time}
                       accessibilityRole="button"
-                      accessibilityState={{
-                        disabled: !slot.available,
-                        selected,
-                      }}
+                      accessibilityState={{ selected }}
                       style={[
                         styles.slotButton,
-                        !slot.available ? styles.slotUnavailable : undefined,
                         selected ? styles.slotSelected : undefined,
                       ]}
-                      onPress={() => chooseSlot(slot)}
+                      onPress={() => {
+                        setSelectedTime(time);
+                        setShowCustomTime(false);
+                      }}
                     >
                       <Text
                         style={[
@@ -1295,34 +1333,32 @@ function RescheduleSheet({
                           selected ? styles.dateSelectedText : undefined,
                         ]}
                       >
-                        {formatTime(slot.starts_at)}
+                        {formatClockTime(time)}
                       </Text>
-                      {slot.required_slot_count > 1 ? (
-                        <Text
-                          style={[
-                            styles.slotEnd,
-                            selected ? styles.dateSelectedText : undefined,
-                          ]}
-                        >
-                          until {formatTime(slot.ends_at)}
-                        </Text>
-                      ) : null}
                     </Pressable>
                   );
                 })}
               </View>
-              {availability.data?.required_slot_count &&
-              availability.data.required_slot_count > 1 ? (
-                <Text style={uiStyles.muted}>
-                  This booking reserves {availability.data.required_slot_count}{" "}
-                  consecutive slots for {vehicleCount} vehicles.
-                </Text>
+              <AppButton
+                title="Choose a custom time"
+                tone="secondary"
+                onPress={() => setShowCustomTime(true)}
+              />
+              {showCustomTime ? (
+                <TimePickerField
+                  label="Exact appointment time"
+                  value={selectedTime || operatingHour?.opening_time?.slice(0, 5) || "09:00"}
+                  onChange={setSelectedTime}
+                />
               ) : null}
+              <Text style={uiStyles.muted}>
+                The server validates the full service duration, team overlap, and turnaround before saving.
+              </Text>
               <AppButton
                 title={
                   mutation.isPending ? "Rescheduling…" : "Confirm reschedule"
                 }
-                disabled={mutation.isPending || !selection}
+                disabled={mutation.isPending || !selectedTime}
                 loading={mutation.isPending}
                 onPress={confirm}
               />

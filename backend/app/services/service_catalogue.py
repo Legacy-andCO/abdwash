@@ -12,6 +12,7 @@ from app.models.entities import (
     AuditEvent,
     BusinessOperatingHour,
     BusinessSettings,
+    InventoryLocation,
     Service,
     ServiceAddon,
     ServicePrice,
@@ -341,6 +342,23 @@ async def update_business_booking_settings(
                 "Select an active reward service for this business.",
                 status_code=404,
             )
+    if (
+        "default_inventory_location_id" in values
+        and values["default_inventory_location_id"] is not None
+    ):
+        location = await session.scalar(
+            select(InventoryLocation.id).where(
+                InventoryLocation.id == values["default_inventory_location_id"],
+                InventoryLocation.business_id == context.business_id,
+                InventoryLocation.is_active.is_(True),
+            )
+        )
+        if location is None:
+            raise DomainError(
+                "INVENTORY_LOCATION_NOT_FOUND",
+                "Select an active stock location for this business.",
+                status_code=404,
+            )
     for key, value in values.items():
         setattr(settings, key, value)
     if request.operating_hours is not None:
@@ -408,6 +426,7 @@ def _settings_view(
         mobile_minimum_enabled=settings.mobile_minimum_enabled,
         mobile_minimum_minor=settings.mobile_minimum_minor,
         default_team_turnaround_minutes=settings.default_team_turnaround_minutes,
+        default_inventory_location_id=settings.default_inventory_location_id,
         loyalty_reward_service_id=settings.loyalty_reward_service_id,
         operating_hours=[
             OperatingHourView(

@@ -51,6 +51,10 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
         return render_booking_confirmation(payload)
     if notification_type == "driver_en_route":
         return render_driver_en_route(payload)
+    if notification_type == "booking_rescheduled":
+        return render_booking_rescheduled(payload)
+    if notification_type == "job_completed":
+        return render_job_completed(payload)
     if notification_type == "cancellation_requested":
         reference = escape(str(payload["booking_reference"]))
         return (
@@ -63,6 +67,82 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
             ),
         )
     raise ValueError(f"Unsupported notification type {notification_type!r}")
+
+
+def render_booking_rescheduled(payload: dict[str, Any]) -> tuple[str, str]:
+    reference = escape(str(payload["booking_reference"]))
+    first_name = escape(str(payload["customer_first_name"]))
+    timezone = ZoneInfo(str(payload["timezone"]))
+    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
+    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(timezone)
+    manage_url = escape(str(payload["management_url"]), quote=True)
+    content = f"""
+      <p style="margin:0 0 24px">Hi {first_name},</p>
+      <p style="margin:0 0 24px">Your Trifecta appointment has been rescheduled.</p>
+      {_detail("Booking", reference)}
+      {_detail("New date", start.strftime("%d %B %Y"))}
+      {_detail("New scheduled time", f"{start:%H:%M}–{end:%H:%M}")}
+      <p style="margin:30px 0"><a href="{manage_url}"
+        style="background:#D65A1F;color:#fff;text-decoration:none;padding:13px 22px;
+        border-radius:8px;display:inline-block;font-weight:700">View booking</a></p>
+    """
+    return f"Your Trifecta booking was rescheduled — {reference}", _email_shell(
+        "Your appointment has been rescheduled", content
+    )
+
+
+def _human_duration(seconds: int | None) -> str | None:
+    if seconds is None:
+        return None
+    minutes = max(0, round(seconds / 60))
+    hours, remainder = divmod(minutes, 60)
+    if hours and remainder:
+        return f"{hours} hr {remainder} min"
+    if hours:
+        return f"{hours} hr" if hours == 1 else f"{hours} hrs"
+    return f"{remainder} min"
+
+
+def render_job_completed(payload: dict[str, Any]) -> tuple[str, str]:
+    reference = escape(str(payload["booking_reference"]))
+    first_name = escape(str(payload["customer_first_name"]))
+    timezone = ZoneInfo(str(payload["timezone"]))
+    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
+    duration = _human_duration(
+        int(payload["actual_service_duration_seconds"])
+        if payload.get("actual_service_duration_seconds") is not None
+        else None
+    )
+    currency = escape(str(payload["currency_code"]))
+    paid = str(payload.get("payment_status")) == "paid"
+    amount_paid_minor = int(payload.get("amount_paid_minor") or 0)
+    payment = (
+        _detail("Amount paid", f"{currency} {amount_paid_minor / 100:,.2f}")
+        if paid
+        else _detail("Payment status", "Pending")
+    )
+    vehicle_rows = "".join(
+        "<li style='margin:0 0 8px'>"
+        f"<strong>{escape(str(vehicle['make']))} {escape(str(vehicle['model']))}</strong>"
+        f" — {escape(str(vehicle['service_name']))}</li>"
+        for vehicle in payload.get("vehicles", [])
+    )
+    manage_url = escape(str(payload["management_url"]), quote=True)
+    content = f"""
+      <p style="margin:0 0 24px">Hi {first_name},</p>
+      <p style="margin:0 0 24px">Your Trifecta service is complete.</p>
+      {_detail("Booking", reference)}
+      {_detail("Scheduled service time", start.strftime("%d %B %Y at %H:%M"))}
+      {(_detail("Service duration", duration) if duration else "")}
+      {f"<ul style='padding-left:20px;margin:0 0 20px'>{vehicle_rows}</ul>" if vehicle_rows else ""}
+      {payment}
+      <p style="margin:30px 0"><a href="{manage_url}"
+        style="background:#D65A1F;color:#fff;text-decoration:none;padding:13px 22px;
+        border-radius:8px;display:inline-block;font-weight:700">View booking</a></p>
+    """
+    return f"Your Trifecta service is complete — {reference}", _email_shell(
+        "Your Trifecta service is complete", content
+    )
 
 
 def render_driver_en_route(payload: dict[str, Any]) -> tuple[str, str]:

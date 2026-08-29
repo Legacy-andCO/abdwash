@@ -498,6 +498,19 @@ async def transition_job(
         job.completed_at = now
         booking.status = BookingStatus.COMPLETED
         booking.version += 1
+        session.add(
+            NotificationOutbox(
+                business_id=context.business_id,
+                booking_id=booking.id,
+                channel="email",
+                notification_type="job_completed",
+                dedupe_key=f"job-completed:{job.id}",
+                recipient=booking.customer_email,
+                payload={"booking_reference": booking.reference},
+                status="pending",
+                next_attempt_at=now,
+            )
+        )
         complaint_row = (
             await session.execute(
                 select(JobComplaint, Job.booking_id)

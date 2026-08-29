@@ -116,7 +116,7 @@ job actions, inventory movements, cash actions, and other writes are never serve
 
 ### Completion-time service consumption
 
-Phase 3 adds only bounded SQL shapes to the completion transaction: one exactly-once run lookup, one joined query for every performed service/template/item, one grouped query for pre-existing job usage, one source-location query when automatic usage remains, and the existing inventory operation/item/location/stock-lock primitives. Repeated service items are aggregated before stock locks, and movement rows are staged together. Job Detail adds one joined consumption-run/line/location query plus one grouped additional-manual-usage query; manager-only direct expenses use one bounded job-ID query. There is no per-service or per-item read loop.
+Phase 3 adds only bounded SQL shapes to the completion transaction: one exactly-once run lookup, one joined query for every performed service/template/item, one grouped query for pre-existing job usage, one business-default/active-locations query when automatic usage remains, and the existing inventory operation/item/location/stock-lock primitives. The default location is resolved once per completion, never per item. Repeated service items are aggregated before stock locks, and movement rows are staged together. Job Detail adds one joined consumption-run/line/location query plus one grouped additional-manual-usage query; manager-only direct expenses use one bounded job-ID query. There is no per-service or per-item read loop.
 
 These are **static implementation and contract-test evidence**, not production latency. Isolated PostgreSQL concurrency/query execution remains opt-in through `TEST_DATABASE_URL`; production query/latency claims still require post-deployment telemetry.
 

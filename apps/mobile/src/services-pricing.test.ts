@@ -31,12 +31,15 @@ describe("services and pricing management", () => {
     expect(shell).toContain("<ServicesPricingScreen");
   });
 
-  it("supports service prices, durations, channels, add-ons and lifecycle", () => {
+  it("supports mobile service prices, durations, add-ons and lifecycle", () => {
     const screen = source("./screens/ServicesPricingScreen.tsx");
     expect(screen).toContain("VEHICLE PRICING");
     expect(screen).toContain("default_duration_minutes");
     expect(screen).toContain("mobile_available");
     expect(screen).toContain("shop_available");
+    expect(screen).toContain("Customer bookings are mobile service only.");
+    expect(screen).not.toContain('label="Shop service"');
+    expect(screen).not.toContain('label="Available at shop"');
     expect(screen).toContain('title="Add add-on"');
     expect(screen).toContain('"Deactivate service"');
   });
@@ -44,7 +47,7 @@ describe("services and pricing management", () => {
   it("describes consumption templates as completion-time expected usage", () => {
     const screen = source("./screens/ServicesPricingScreen.tsx");
     expect(screen).toContain(
-      "Expected standard quantities are snapshotted at job completion",
+      "Expected usage per completed service",
     );
     expect(screen).toContain("estimates, not exact physical usage");
     expect(screen).toContain('action: "update_template"');

@@ -81,6 +81,9 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     default_team_turnaround_minutes: Mapped[int] = mapped_column(
         Integer, nullable=False, default=60, server_default=text("60")
     )
+    default_inventory_location_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("inventory_locations.id", ondelete="SET NULL")
+    )
     __table_args__ = (
         CheckConstraint("slot_duration_minutes > 0", name="positive_slot_duration"),
         CheckConstraint("multi_vehicle_threshold > 0", name="positive_vehicle_threshold"),
@@ -1221,7 +1224,8 @@ class JobInventoryConsumptionRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         CheckConstraint(
             "source_resolution IN ('explicit_usage','van','mobile_team','shop_main',"
-            "'not_required','unresolved','ambiguous')",
+            "'business_default','single_location','main_default','not_required',"
+            "'unresolved','ambiguous')",
             name="job_inventory_source_resolution",
         ),
         CheckConstraint(
@@ -1494,6 +1498,7 @@ class NotificationOutbox(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     booking_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bookings.id"))
     channel: Mapped[str] = mapped_column(String(30), nullable=False)
     notification_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    dedupe_key: Mapped[str | None] = mapped_column(String(200))
     recipient: Mapped[str] = mapped_column(String(320), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default=OutboxStatus.PENDING)
@@ -1511,6 +1516,13 @@ class NotificationOutbox(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         CheckConstraint("channel IN ('email','whatsapp','push')", name="notification_channel"),
         Index("ix_notification_outbox_claim", "status", "next_attempt_at"),
+        Index(
+            "uq_notification_outbox_business_dedupe",
+            "business_id",
+            "dedupe_key",
+            unique=True,
+            postgresql_where=text("dedupe_key IS NOT NULL"),
+        ),
         CheckConstraint("attempt_count >= 0", name="nonnegative_outbox_attempts"),
     )
 

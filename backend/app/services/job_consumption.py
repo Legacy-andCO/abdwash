@@ -15,6 +15,7 @@ from app.models.entities import (
     AuditEvent,
     Booking,
     BookingService,
+    BusinessSettings,
     InventoryItem,
     InventoryLocation,
     InventoryMovement,
@@ -67,54 +68,32 @@ class _LineDraft:
 async def _source_location(
     session: AsyncSession,
     context: StaffContext,
-    job: Job,
-    manual_location_ids: set[uuid.UUID],
 ) -> tuple[InventoryLocation | None, str, str | None]:
-    location_rows = (
-        await session.scalars(
-            select(InventoryLocation).where(
+    rows = (
+        await session.execute(
+            select(InventoryLocation, BusinessSettings.default_inventory_location_id)
+            .select_from(InventoryLocation)
+            .join(BusinessSettings, BusinessSettings.business_id == InventoryLocation.business_id)
+            .where(
                 InventoryLocation.business_id == context.business_id,
                 InventoryLocation.is_active.is_(True),
-                (
-                    InventoryLocation.id.in_(manual_location_ids)
-                    if job.assigned_resource_id is None
-                    else (
-                        InventoryLocation.id.in_(manual_location_ids)
-                        | (InventoryLocation.linked_team_id == job.assigned_resource_id)
-                    )
-                ),
             )
+            .order_by(InventoryLocation.created_at, InventoryLocation.id)
         )
     ).all()
-    by_id = {location.id: location for location in location_rows}
-    if manual_location_ids:
-        if len(manual_location_ids) > 1:
-            return None, "ambiguous", "SOURCE_LOCATION_AMBIGUOUS"
-        manual_id = next(iter(manual_location_ids))
-        location = by_id.get(manual_id)
-        if location is not None:
-            return location, "explicit_usage", None
+    if not rows:
         return None, "unresolved", "SOURCE_LOCATION_MISSING"
-
-    linked = [
-        location
-        for location in location_rows
-        if location.linked_team_id == job.assigned_resource_id
-    ]
-    vans = [location for location in linked if location.location_type == "van"]
-    if len(vans) == 1:
-        return vans[0], "van", None
-    if len(vans) > 1:
-        return None, "ambiguous", "SOURCE_LOCATION_AMBIGUOUS"
-    teams = [location for location in linked if location.location_type == "mobile_team"]
-    if len(teams) == 1:
-        return teams[0], "mobile_team", None
-    if len(teams) > 1:
-        return None, "ambiguous", "SOURCE_LOCATION_AMBIGUOUS"
-
-    # The current booking product has no authoritative shop/mobile mode on a Job.
-    # Falling back to Main Shop would therefore fabricate a source for mobile work.
-    return None, "unresolved", "SOURCE_LOCATION_MISSING"
+    locations = [row[0] for row in rows]
+    configured_id = rows[0][1]
+    configured = next((item for item in locations if item.id == configured_id), None)
+    if configured is not None:
+        return configured, "business_default", None
+    if len(locations) == 1:
+        return locations[0], "single_location", None
+    main_locations = [item for item in locations if item.location_type == "main"]
+    if len(main_locations) == 1:
+        return main_locations[0], "main_default", None
+    return None, "ambiguous", "SOURCE_LOCATION_AMBIGUOUS"
 
 
 async def process_job_consumption(
@@ -229,10 +208,8 @@ async def process_job_consumption(
         )
     ).all()
     manual_by_item: dict[uuid.UUID, Decimal] = defaultdict(lambda: ZERO)
-    manual_locations: set[uuid.UUID] = set()
-    for item_id, location_id, quantity in manual_rows:
+    for item_id, _location_id, quantity in manual_rows:
         manual_by_item[item_id] += _decimal(quantity)
-        manual_locations.add(location_id)
 
     remaining_manual = dict(manual_by_item)
     automatic_needed: dict[uuid.UUID, Decimal] = defaultdict(lambda: ZERO)
@@ -253,9 +230,7 @@ async def process_job_consumption(
     source_resolution = "not_required"
     source_issue: str | None = None
     if automatic_needed:
-        source, source_resolution, source_issue = await _source_location(
-            session, context, job, manual_locations
-        )
+        source, source_resolution, source_issue = await _source_location(session, context)
 
     operation_id: uuid.UUID | None = None
     applied_by_item: dict[uuid.UUID, Decimal] = {}

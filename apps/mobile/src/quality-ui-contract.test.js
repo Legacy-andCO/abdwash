@@ -47,4 +47,11 @@ describe("job quality mobile contracts", () => {
     expect(queries).toContain("queryKeys.quality(scope, jobId)");
     expect(queries).toContain("persistedQueryMeta(retentionTimes.quality)");
   });
+
+  it("keeps cached quality visible when a refresh fails", () => {
+    const quality = source("./components/JobQualityControls.tsx");
+    expect(quality).toContain("Vehicle condition record couldn't be refreshed");
+    expect(quality).toContain("The last saved details remain visible.");
+    expect(quality).toContain("Vehicle condition record couldn't be loaded");
+  });
 });

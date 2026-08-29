@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime, time, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,10 +20,11 @@ from app.models.entities import (
     BusinessSettings,
     Job,
     JobEvent,
+    NotificationOutbox,
     ScheduleSlot,
     SlotHoldGroup,
 )
-from app.schemas.customer import CustomerRescheduleCreate
+from app.schemas.customer import CustomerRescheduleCreate, ManagerRescheduleCreate
 from app.schemas.public import CustomerContact
 from app.services.bookings import _resolve_customer_profile
 from app.services.customers import (
@@ -33,6 +35,7 @@ from app.services.customers import (
     reschedule_managed_booking,
 )
 from app.services.scheduling import hold_token_hash
+from app.services.smart_scheduling import AssignmentDecision, TeamCandidate
 
 
 def scalar_result(*, one: object | None = None, all_items: list[object] | None = None) -> MagicMock:
@@ -56,7 +59,13 @@ def isolate_smart_scheduler(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         customer_service,
         "policy_for_day",
-        AsyncMock(return_value=SimpleNamespace(closing_time=time(21), timezone="Asia/Dubai")),
+        AsyncMock(
+            return_value=SimpleNamespace(
+                opening_time=time(9),
+                closing_time=time(21),
+                timezone="Asia/Dubai",
+            )
+        ),
     )
 
 
@@ -289,7 +298,11 @@ def reschedule_records() -> tuple[
         scheduled_end=booking.scheduled_end,
         version=1,
     )
-    new_start = now + timedelta(days=6)
+    new_start = datetime.combine(
+        (now + timedelta(days=6)).date(),
+        time(10),
+        ZoneInfo("Asia/Dubai"),
+    ).astimezone(UTC)
     hold = SlotHoldGroup(
         id=uuid.uuid4(),
         business_id=business_id,
@@ -348,6 +361,7 @@ def reschedule_records() -> tuple[
 async def test_reschedule_atomically_swaps_slots_and_updates_job() -> None:
     booking, settings, job, hold, old_slot, new_slot, vehicle, service, token = reschedule_records()
     session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
                 scalar_result(one=settings),
@@ -463,6 +477,7 @@ async def test_confirmed_active_manager_reschedule_resets_operational_state() ->
     job.estimated_arrival_at = datetime.now(UTC)
     job.started_at = datetime.now(UTC)
     session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
                 scalar_result(one=job),
@@ -515,6 +530,7 @@ async def test_overdue_assigned_job_can_be_rescheduled_by_manager() -> None:
     old_slot.slot_end = booking.scheduled_end
     job.status = JobStatus.ASSIGNED
     session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
                 scalar_result(one=job),
@@ -542,3 +558,128 @@ async def test_overdue_assigned_job_can_be_rescheduled_by_manager() -> None:
 
     assert response.scheduled_start == hold.slot_start
     assert job.assigned_resource_id == hold.resource_id
+
+
+@pytest.mark.asyncio
+async def test_manager_exact_minute_reschedule_updates_only_requested_booking_and_queues_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    booking, settings, job, _hold, old_slot, _new_slot, _vehicle, _service, _token = (
+        reschedule_records()
+    )
+    team = TeamCandidate(
+        id=uuid.uuid4(),
+        name="Team One",
+        sort_order=1,
+        created_at=datetime.now(UTC),
+    )
+    decision = AssignmentDecision(
+        team=team,
+        candidate_count=1,
+        feasible_count=1,
+        same_day_job_count=0,
+        assigned_minutes=0,
+        assignment_source="auto",
+        reason="Available",
+    )
+    selected_date = (datetime.now(UTC) + timedelta(days=7)).date()
+    request = ManagerRescheduleCreate(
+        date=selected_date,
+        time=time(10, 37),
+        client_event_id="manager-reschedule-exact-1",
+    )
+    new_slot = ScheduleSlot(
+        id=uuid.uuid4(),
+        business_id=booking.business_id,
+        resource_id=team.id,
+        slot_start=datetime.combine(selected_date, time(10, 37), tzinfo=UTC),
+        slot_end=datetime.combine(selected_date, time(12, 37), tzinfo=UTC),
+        status="free",
+        version=1,
+    )
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
+    session.scalars = AsyncMock(
+        side_effect=[
+            scalar_result(one=job),
+            scalar_result(one=settings),
+            scalar_result(all_items=[old_slot]),
+        ]
+    )
+    session.flush = AsyncMock()
+    monkeypatch.setattr(
+        customer_service,
+        "choose_team_for_booking",
+        AsyncMock(return_value=decision),
+    )
+    monkeypatch.setattr(
+        customer_service,
+        "_lock_slot_sequence",
+        AsyncMock(return_value=[new_slot]),
+    )
+    monkeypatch.setattr(
+        customer_service,
+        "customer_booking_detail_for_record",
+        AsyncMock(return_value=SimpleNamespace(scheduled_start=new_slot.slot_start)),
+    )
+
+    await reschedule_managed_booking(
+        session,
+        booking,
+        request,
+        actor_staff_id=uuid.uuid4(),
+        confirm_active_reschedule=False,
+    )
+
+    assert booking.scheduled_start.minute == 37
+    assert job.scheduled_start == booking.scheduled_start
+    assert job.assigned_resource_id == team.id
+    assert old_slot.status == "free"
+    assert new_slot.status == "reserved"
+    notifications = [
+        call.args[0]
+        for call in session.add.call_args_list
+        if isinstance(call.args[0], NotificationOutbox)
+    ]
+    assert len(notifications) == 1
+    assert notifications[0].notification_type == "booking_rescheduled"
+    assert notifications[0].recipient == booking.customer_email
+    assert notifications[0].dedupe_key is not None
+
+
+@pytest.mark.asyncio
+async def test_failed_exact_reschedule_does_not_queue_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    booking, settings, job, _hold, _old_slot, _new_slot, _vehicle, _service, _token = (
+        reschedule_records()
+    )
+    selected_date = (datetime.now(UTC) + timedelta(days=7)).date()
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
+    session.scalars = AsyncMock(
+        side_effect=[scalar_result(one=job), scalar_result(one=settings)]
+    )
+    monkeypatch.setattr(
+        customer_service,
+        "choose_team_for_booking",
+        AsyncMock(side_effect=ConflictError("NO_TEAM_CAPACITY", "No team available.")),
+    )
+
+    with pytest.raises(ConflictError):
+        await reschedule_managed_booking(
+            session,
+            booking,
+            ManagerRescheduleCreate(
+                date=selected_date,
+                time=time(11, 23),
+                client_event_id="manager-reschedule-failed-1",
+            ),
+            actor_staff_id=uuid.uuid4(),
+            confirm_active_reschedule=False,
+        )
+
+    assert not any(
+        isinstance(call.args[0], NotificationOutbox)
+        for call in session.add.call_args_list
+    )

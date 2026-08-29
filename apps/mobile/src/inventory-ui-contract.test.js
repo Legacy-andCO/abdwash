@@ -85,11 +85,16 @@ describe("inventory mobile contract", () => {
   it("shows completion discrepancies in the existing Inventory manager area", () => {
     const screen = source("./screens/InventoryScreen.tsx");
     const api = source("./lib.ts");
+    const queries = source("./queries/operations.ts");
     expect(screen).toContain("useInventoryAttentionQuery");
     expect(screen).toContain('label="Needs review"');
     expect(screen).toContain('title="Open job"');
     expect(screen).toContain('title="Stock count"');
     expect(screen).toContain('title="Mark reviewed"');
+    expect(screen).toContain("Automatic consumables stock");
+    expect(screen).toContain("Automatic stock location is not set.");
+    expect(screen).toContain('"Set stock location"');
+    expect(queries).toContain("items: current.items.filter");
     expect(api).toContain('"/api/v1/staff/inventory/consumption/attention"');
     expect(api).toContain("reviewInventoryConsumption");
   });
@@ -107,7 +112,7 @@ describe("inventory mobile contract", () => {
 
   it("describes templates as completion-time expected usage and exposes inactive lines", () => {
     const services = source("./screens/ServicesPricingScreen.tsx");
-    expect(services).toContain("Expected standard quantities are snapshotted at job completion");
+    expect(services).toContain("Expected usage per completed service");
     expect(services).toContain('useInventoryItemsQuery(context, "", 0, true)');
     expect(services).toContain("inactive; remove before saving");
     expect(services).not.toContain("stock is not deducted automatically");

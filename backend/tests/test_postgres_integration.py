@@ -1891,6 +1891,19 @@ async def test_concurrent_same_job_completion_records_consumption_once(
             ).all()
         )
         assert len(movements) == 2
+        completion_notifications = list(
+            (
+                await session.scalars(
+                    select(NotificationOutbox)
+                    .join(Job, Job.booking_id == NotificationOutbox.booking_id)
+                    .where(
+                        Job.id == job_id,
+                        NotificationOutbox.notification_type == "job_completed",
+                    )
+                )
+            ).all()
+        )
+        assert len(completion_notifications) == 1
 
 
 @pytest.mark.asyncio

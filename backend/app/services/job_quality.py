@@ -50,7 +50,7 @@ from app.schemas.staff import (
 )
 from app.services.management_tokens import create_management_token, management_token_hash
 from app.services.scheduling import hold_token_hash
-from app.services.staff_operations import _job_rows
+from app.services.staff_operations import _job_row_values, _job_rows
 
 
 async def _authorized_job(
@@ -70,7 +70,7 @@ async def _authorized_job(
     )
     if not rows:
         raise DomainError("JOB_NOT_FOUND", "Job not found.", status_code=404)
-    job, booking, _payment, _staff_name = rows[0]
+    job, booking, _payment, _staff_name, _team_name = _job_row_values(rows[0])
     return job, booking
 
 

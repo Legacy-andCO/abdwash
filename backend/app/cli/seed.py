@@ -32,7 +32,7 @@ async def seed() -> None:
                 await session.flush()
             elif business.name != "Trifecta":
                 business.name = "Trifecta"
-            main_location = (
+            main_locations = list(
                 await session.scalars(
                     select(InventoryLocation).where(
                         InventoryLocation.business_id == business.id,
@@ -40,22 +40,23 @@ async def seed() -> None:
                         InventoryLocation.is_active.is_(True),
                     )
                 )
-            ).first()
-            if main_location is None:
+            )
+            main_location = main_locations[0] if len(main_locations) == 1 else None
+            if not main_locations:
                 main_shop_name_taken = await session.scalar(
                     select(InventoryLocation.id).where(
                         InventoryLocation.business_id == business.id,
                         func.lower(InventoryLocation.name) == "main shop",
                     )
                 )
-                session.add(
-                    InventoryLocation(
-                        business_id=business.id,
-                        name="Main Shop (Primary)" if main_shop_name_taken else "Main Shop",
-                        location_type="main",
-                        is_active=True,
-                    )
+                main_location = InventoryLocation(
+                    business_id=business.id,
+                    name="Main Shop (Primary)" if main_shop_name_taken else "Main Shop",
+                    location_type="main",
+                    is_active=True,
                 )
+                session.add(main_location)
+                await session.flush()
             business_settings = (
                 await session.scalars(
                     select(BusinessSettings).where(BusinessSettings.business_id == business.id)
@@ -76,6 +77,11 @@ async def seed() -> None:
                 )
                 session.add(business_settings)
                 await session.flush()
+            if (
+                business_settings.default_inventory_location_id is None
+                and main_location is not None
+            ):
+                business_settings.default_inventory_location_id = main_location.id
             operating_hours = set(
                 (
                     await session.scalars(

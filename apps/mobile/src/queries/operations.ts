@@ -97,6 +97,7 @@ import {
   type Dashboard,
   type Expense,
   type ExpenseFilters,
+  type InventoryAttention,
   type InventoryLocation,
   type ManagedCatalogue,
   type ManagedService,
@@ -121,7 +122,6 @@ import {
   replaceJobInResponse,
   retentionTimes,
 } from "../cache/policy";
-import { reschedulePayload } from "../operations";
 import { ClientEventIdStore } from "../idempotency/clientEventId";
 
 const day = () => new Date().toISOString().slice(0, 10);
@@ -856,6 +856,17 @@ export function useInventoryReviewMutation(context: StaffContext) {
         queryKeys.job(scope, input.jobId),
         (job) => (job ? { ...job, consumption: summary } : job),
       );
+      client.setQueryData<{
+        items: InventoryAttention[];
+        next_offset: number | null;
+      }>(queryKeys.inventoryAttention(scope), (current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.filter((item) => item.id !== input.runId),
+            }
+          : current,
+      );
       void client.invalidateQueries({
         queryKey: queryKeys.inventoryAttention(scope),
       });
@@ -1203,6 +1214,9 @@ export function useJobActionMutation(context: StaffContext) {
     onSuccess: (job, variables) => {
       updateJobCaches(client, scope, job);
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+      if (variables.action === "complete") {
+        void client.invalidateQueries({ queryKey: ["jobs", scope] });
+      }
       const inventoryChanged =
         variables.action === "complete" &&
         job.consumption !== null &&
@@ -1266,28 +1280,42 @@ export function useAssignJobMutation(context: StaffContext) {
 export function useRescheduleMutation(context: StaffContext, job: Job) {
   const client = useQueryClient();
   const scope = operationalScope(context);
+  const eventIds = useRef(new ClientEventIdStore()).current;
   return useMutation({
     mutationFn: async ({
       selectedDay,
       startTime,
       confirmActiveReschedule,
+      overrideTurnaround,
     }: {
       selectedDay: string;
       startTime: string;
       confirmActiveReschedule: boolean;
+      overrideTurnaround?: boolean;
     }) => {
-      const hold = await createHold(
-        selectedDay,
-        startTime,
-        Math.max(1, job.vehicles.length),
-      );
-      return rescheduleJob(job.booking_id, {
-        ...reschedulePayload(hold.hold_token),
-        confirm_active_reschedule: confirmActiveReschedule,
-      });
+      const key = `${job.id}:reschedule:${selectedDay}:${startTime}:${confirmActiveReschedule}:${Boolean(overrideTurnaround)}`;
+      try {
+        const result = await rescheduleJob(job.booking_id, {
+          date: selectedDay,
+          time: startTime,
+          confirm_active_reschedule: confirmActiveReschedule,
+          override_turnaround: Boolean(overrideTurnaround),
+          client_event_id: eventIds.get(key),
+        });
+        eventIds.succeeded(key);
+        return result;
+      } catch (error) {
+        eventIds.failed(key, error);
+        throw error;
+      }
     },
     onSuccess: (next) => {
       updateJobCaches(client, scope, next);
+      void client.invalidateQueries({ queryKey: ["jobs", scope] });
+      void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+      void client.invalidateQueries({
+        queryKey: queryKeys.assignmentOptions(scope, next.id),
+      });
       void client.invalidateQueries({
         queryKey: ["availability", scope, job.booking_id],
       });

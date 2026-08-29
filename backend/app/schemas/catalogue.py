@@ -25,7 +25,7 @@ class AddonInput(StrictRequest):
     price_minor: int = Field(ge=0)
     default_duration_minutes: int = Field(default=0, ge=0, le=1440)
     mobile_available: bool = True
-    shop_available: bool = True
+    shop_available: bool = False
     is_active: bool = True
     sort_order: int = Field(default=0, ge=0, le=10_000)
 
@@ -77,7 +77,7 @@ class ServiceInput(StrictRequest):
     description: str | None = Field(default=None, max_length=4000)
     default_duration_minutes: int = Field(ge=15, le=1440)
     mobile_available: bool = True
-    shop_available: bool = True
+    shop_available: bool = False
     is_active: bool = True
     sort_order: int = Field(default=0, ge=0, le=10_000)
     prices: list[VehiclePriceInput] = Field(min_length=1, max_length=20)
@@ -168,6 +168,7 @@ class BusinessBookingSettingsPatch(StrictRequest):
     mobile_minimum_enabled: bool | None = None
     mobile_minimum_minor: int | None = Field(default=None, ge=0)
     default_team_turnaround_minutes: int | None = Field(default=None, ge=0, le=480)
+    default_inventory_location_id: uuid.UUID | None = None
     loyalty_reward_service_id: uuid.UUID | None = None
     operating_hours: list[OperatingHourInput] | None = Field(
         default=None, min_length=7, max_length=7
@@ -175,7 +176,7 @@ class BusinessBookingSettingsPatch(StrictRequest):
 
     @model_validator(mode="after")
     def weekdays_unique(self) -> "BusinessBookingSettingsPatch":
-        nullable = {"loyalty_reward_service_id"}
+        nullable = {"loyalty_reward_service_id", "default_inventory_location_id"}
         invalid = {
             field
             for field in self.model_fields_set - nullable
@@ -197,5 +198,6 @@ class BusinessBookingSettingsView(BaseModel):
     mobile_minimum_enabled: bool
     mobile_minimum_minor: int
     default_team_turnaround_minutes: int
+    default_inventory_location_id: uuid.UUID | None
     loyalty_reward_service_id: uuid.UUID | None
     operating_hours: list[OperatingHourView]

@@ -7,7 +7,7 @@ Phase 1 implemented the immediate owner/manager controls described in `STARTUP_P
 - One backend-authoritative service catalogue shared by the public website, booking creation, and manager/admin mobile management.
 - Canonical vehicle types: sedan, SUV, hatchback, coupe, pickup, van, and other.
 - Unique normalized integer-minor-unit price per service and vehicle type.
-- Service name, description, expected duration, mobile/shop flags, active/inactive state, and sort order.
+- Service name, description, expected duration, compatibility channel fields, active/inactive state, and sort order. The current manager UI creates mobile services and does not expose Shop controls.
 - Service-owned optional add-ons with price, expected extra duration, channel flags, and active/inactive state.
 - Customer booking selection of add-ons and server recalculation of vehicle price, add-ons, loyalty discount, and mobile minimum.
 - Immutable booking snapshots for selected service price/duration and add-on name/price/duration.
@@ -16,7 +16,7 @@ Phase 1 implemented the immediate owner/manager controls described in `STARTUP_P
 - Manager/admin mobile UI and audited backend writes. Employee reads remain allowed where operationally useful, while writes are rejected by the existing role dependency.
 - Tenant-scoped cache keys and schedule/inventory revision invalidation.
 
-Public catalogue serialization uses two bounded database round trips: one business/settings configuration read and one joined service/price/add-on read. Booking creation bulk-loads services, price rows, and selected add-ons; it does not query once per vehicle or add-on.
+Public catalogue serialization uses two bounded database round trips: one business/settings configuration read and one joined mobile-service/price/mobile-add-on read. Shop-only services never enter the public customer catalogue. Booking creation bulk-loads services, price rows, and selected add-ons; it does not query once per vehicle or add-on.
 
 ## Prepared foundations
 
@@ -24,6 +24,7 @@ Public catalogue serialization uses two bounded database round trips: one busine
 - Selected add-ons store their expected additional duration.
 - `default_team_turnaround_minutes` defaults to 60.
 - Existing `service_inventory_templates` can be edited from the manager mobile surface.
+- `default_inventory_location_id` identifies the one startup stock pool used for expected completion-time deductions when multiple locations exist.
 
 These values were durable inputs in Phase 1. Current behavior uses duration snapshots for scheduling and reads the current expected-consumables template at first successful completion, then stores an immutable job snapshot and updates recorded team stock safely.
 

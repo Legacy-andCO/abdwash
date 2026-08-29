@@ -20,11 +20,12 @@ Per-service lines remain explainable, while repeated items are aggregated before
 
 Source resolution is deterministic:
 
-1. One active location already used by authoritative, job-linked manual usage.
-2. One active `van` location linked to the assigned scheduling team.
-3. One active `mobile_team` location linked to the assigned team.
-4. Shop `main` is reserved as an extension point; the current customer product has no authoritative shop/mobile job mode, so the processor does not fabricate this fallback.
-5. Otherwise the source is missing or ambiguous and requires review.
+1. The business's configured, active `default_inventory_location_id`.
+2. The sole active inventory location when only one exists.
+3. The sole active `main` location when it is the obvious startup stock pool.
+4. Otherwise the source is missing or ambiguous and requires one manager setup/review.
+
+The source is resolved once per completion, not once per consumable. Team/van locations remain available for future operational scale, but ordinary startup deductions do not require team-to-van routing. A valid template, default stock pool, and sufficient stock deduct immediately with no manager approval or stock count.
 
 Item/location stock rows use the existing deterministic `(inventory_item_id, location_id)` lock order. Applied usage is `min(recorded_available, expected_remaining)`. Stock therefore never goes below zero. Any unapplied amount is persisted as shortfall with a stable issue code. Missing source, ambiguous source, inactive item, zero stock, and ordinary shortage are business outcomes: the customer job completes and manager attention is created. Infrastructure/database failures are not swallowed.
 
@@ -44,7 +45,7 @@ Different jobs may complete concurrently. The shared inventory mutation primitiv
 
 ## Manager and employee behavior
 
-Managers/admins can edit service templates, inspect consumables and direct expenses on Job Detail, open Inventory **Needs review**, launch Stock Count, and mark a discrepancy reviewed with an optional note. Review metadata never changes historical quantities. Employees see a read-only consumption summary and can keep using authorized manual job usage, but cannot edit templates, resolve discrepancies, or see Finance-only direct costs.
+Managers/admins can edit service templates, choose the automatic stock pool when multiple active locations make it ambiguous, inspect consumables and direct expenses on Job Detail, and open Inventory **Needs review** for genuine exceptions. Cards use business language and issue-specific actions: stock setup, stock review/count, or consumable setup. **Mark reviewed** removes the active card immediately while preserving historical quantities and never fabricates a deduction. Stock Count remains an optional physical reconciliation tool, not a completion step. Employees see a read-only consumption summary and can keep using authorized manual job usage, but cannot edit templates, resolve discrepancies, or see Finance-only direct costs.
 
 ## Direct job expenses and Finance
 
@@ -71,3 +72,4 @@ Customer/public APIs expose no internal inventory data.
 - No expected-versus-physical BI/calibration engine.
 - No procurement, supplier workflow, or inventory valuation.
 - No historical consumption backfill and no automatic reversal/replay.
+- Existing unresolved shortfalls can be acknowledged after setup, but are not automatically replayed; an explicit delayed-deduction workflow remains deferred.

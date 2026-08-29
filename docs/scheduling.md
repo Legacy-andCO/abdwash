@@ -4,7 +4,7 @@ Scheduling is business-timezone-aware and server-authoritative. Each weekday now
 
 One or two vehicles consume at least one slot. Three or more consume at least two consecutive slots. The threshold and required count live in `business_settings`. These rules remain the minimum grid reservation; operational team capacity also uses the booking's trusted expected duration.
 
-Managers/admins may choose only the controlled slot intervals 60, 90, or 120 minutes. A slot interval controls possible start times; it is not assumed to be the job duration. For a new booking the backend sums the current mobile-service duration for every vehicle plus every selected add-on duration. For confirmed/rescheduled work it sums immutable booking service/add-on duration snapshots. The operational duration is the greater of that total and the existing reserved-slot floor. One V1 team services all vehicles sequentially. A future catalogue edit therefore affects future selections only, not historical capacity.
+Managers/admins may configure only the controlled public slot intervals 60, 90, or 120 minutes. Customers continue to book on that grid. Manager Job Detail rescheduling is intentionally more flexible: it offers hourly shortcuts from configured business hours plus a native exact-time picker, and the API evaluates the chosen minute-level interval without snapping it to the public grid. A slot interval controls public start times; it is not assumed to be the job duration. For a new booking the backend sums the current mobile-service duration for every vehicle plus every selected add-on duration. For confirmed/rescheduled work it uses the immutable expected-duration snapshot. One V1 team services all vehicles sequentially. A future catalogue edit therefore affects future selections only, not historical capacity.
 
 ## Smart team capacity and ranking
 
@@ -13,6 +13,8 @@ A usable V1 team is a same-business, active `mobile_team` resource with at least
 `assigned`, `en_route`, `arrived`, and `in_progress` jobs block team time. Active, unexpired holds also block it. Completed, cancelled, and unassigned jobs do not. Hard interval overlap is never allowed. Automatic assignment additionally requires the configured `default_team_turnaround_minutes` before and after the proposed job, including the next-job boundary. The final job may end exactly at closing; no artificial post-closing turnaround is required when there is no later job.
 
 Feasible teams are ranked deterministically by: zero same-day jobs, lower job count, fewer assigned operational minutes, greater surrounding idle margin, configured team sort order, creation time, then UUID. No random or continuous rebalancing occurs. `assignment_source` records `auto`, `manual`, or migration-only `legacy`; manual assignments remain sticky across rescheduling when still feasible. Managers may explicitly override a turnaround-only warning, but never a real overlap.
+
+An exact manager reschedule locks only the requested booking and business day. Automatic assignments are reranked for the new interval; manual teams remain selected when feasible. Other bookings are capacity inputs and are never moved or rebalanced. Successful manager reschedules commit one deduplicated `booking_rescheduled` outbox row with the schedule mutation; failed attempts commit neither schedule nor email.
 
 ## Atomic acquisition
 

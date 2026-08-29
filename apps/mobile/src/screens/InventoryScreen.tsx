@@ -23,6 +23,8 @@ import {
 import type { InventoryItem, InventoryLocation, StaffContext } from "../lib";
 import {
   useInventoryAttentionQuery,
+  useBusinessSettingsQuery,
+  useCatalogueMutation,
   useInventoryItemsQuery,
   useInventoryLocationsQuery,
   useInventoryMovementsQuery,
@@ -55,6 +57,8 @@ export function InventoryScreen({
   const [status, setStatus] = useState("");
   const overview = useInventoryOverviewQuery(context, management);
   const attention = useInventoryAttentionQuery(context, management);
+  const settings = useBusinessSettingsQuery(context, management && tab === "overview");
+  const settingsMutation = useCatalogueMutation(context);
   const review = useInventoryReviewMutation(context);
   const items = useInventoryItemsQuery(context, search);
   const locations = useInventoryLocationsQuery(context);
@@ -78,7 +82,7 @@ export function InventoryScreen({
     if (tab === "stock") requests.push(stock.refetch());
     if (tab === "movements") requests.push(movements.refetch());
     if (tab === "overview" && management) {
-      requests.push(overview.refetch(), attention.refetch());
+      requests.push(overview.refetch(), attention.refetch(), settings.refetch());
     }
     await Promise.all(requests);
   };
@@ -99,9 +103,9 @@ export function InventoryScreen({
   }
   const pending =
     locations.isPending ||
-    (tab === "overview" ? overview.isPending || attention.isPending : tab === "catalogue" ? items.isPending : tab === "stock" ? stock.isPending : movements.isPending);
-  const error = locations.error ?? (tab === "overview" ? overview.error ?? attention.error : tab === "catalogue" ? items.error : tab === "stock" ? stock.error : movements.error);
-  const refreshing = items.isRefetching || locations.isRefetching || stock.isRefetching || movements.isRefetching || overview.isRefetching || attention.isRefetching;
+    (tab === "overview" ? overview.isPending || attention.isPending || settings.isPending : tab === "catalogue" ? items.isPending : tab === "stock" ? stock.isPending : movements.isPending);
+  const error = locations.error ?? (tab === "overview" ? overview.error ?? attention.error ?? settings.error : tab === "catalogue" ? items.error : tab === "stock" ? stock.error : movements.error);
+  const refreshing = items.isRefetching || locations.isRefetching || stock.isRefetching || movements.isRefetching || overview.isRefetching || attention.isRefetching || settings.isRefetching;
   return (
     <ScrollView
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />}
@@ -110,7 +114,7 @@ export function InventoryScreen({
       <Pressable onPress={onBack} accessibilityRole="button">
         <Text style={uiStyles.link}>← Management</Text>
       </Pressable>
-      <ScreenTitle title="Inventory" subtitle="Authoritative stock by shop, team, and van" />
+      <ScreenTitle title="Inventory" subtitle="Authoritative consumables stock" />
       <View style={styles.tabs}>
         {(management ? ["overview", "catalogue", "stock", "movements"] : ["stock", "movements"]).map((value) => (
           <Pressable
@@ -160,9 +164,40 @@ export function InventoryScreen({
         <InventoryOverviewContent
           value={overview.data ?? null}
           attention={attention.data?.items ?? []}
+          locations={(locations.data ?? []).filter((item) => item.is_active)}
+          defaultLocationId={effectiveDefaultLocationId(
+            locations.data ?? [],
+            settings.data?.default_inventory_location_id ?? null,
+          )}
+          settingDefault={settingsMutation.isPending}
           reviewing={review.isPending}
           onOpenJob={onOpenJob}
           onStockCount={() => setAction("stock_count")}
+          onReviewStock={() => setTab("stock")}
+          onOpenConsumable={() => setTab("catalogue")}
+          onCreateLocation={() => setAction("create_location")}
+          onSetDefaultLocation={(default_inventory_location_id) =>
+            void settingsMutation
+              .mutateAsync({
+                action: "update_settings",
+                body: { default_inventory_location_id },
+              })
+              .then(() =>
+                Alert.alert(
+                  "Stock location saved",
+                  "Expected service usage will deduct from this location.",
+                ),
+              )
+              .catch((settingsError) =>
+                Alert.alert(
+                  "Stock location not saved",
+                  domainErrorMessage(
+                    settingsError,
+                    "The server did not confirm this stock location.",
+                  ),
+                ),
+              )
+          }
           onReview={(runId, jobId) =>
             void review
               .mutateAsync({ runId, jobId })
@@ -192,17 +227,42 @@ export function InventoryScreen({
   );
 }
 
-function InventoryOverviewContent({ value, attention, reviewing, onOpenJob, onStockCount, onReview }: {
+function InventoryOverviewContent({ value, attention, locations, defaultLocationId, settingDefault, reviewing, onOpenJob, onStockCount, onReviewStock, onOpenConsumable, onCreateLocation, onSetDefaultLocation, onReview }: {
   value: ReturnType<typeof useInventoryOverviewQuery>["data"] | null;
   attention: NonNullable<ReturnType<typeof useInventoryAttentionQuery>["data"]>["items"];
+  locations: InventoryLocation[];
+  defaultLocationId: string;
+  settingDefault: boolean;
   reviewing: boolean;
   onOpenJob: (jobId: string) => void;
   onStockCount: () => void;
+  onReviewStock: () => void;
+  onOpenConsumable: () => void;
+  onCreateLocation: () => void;
+  onSetDefaultLocation: (locationId: string) => void;
   onReview: (runId: string, jobId: string) => void;
 }) {
+  const [setupRunId, setSetupRunId] = useState<string | null>(null);
   if (!value) return <EmptyState title="No inventory overview" body="Pull down to try again." />;
   return (
     <>
+      {locations.length > 1 ? (
+        <Card>
+          <Text style={styles.title}>Automatic consumables stock</Text>
+          <Text style={uiStyles.muted}>
+            Completed services deduct expected usage from this business stock location.
+          </Text>
+          <ChoiceRow
+            values={locations.map((location) => ({
+              id: location.id,
+              label: location.name,
+            }))}
+            selected={defaultLocationId}
+            onSelect={onSetDefaultLocation}
+          />
+          {settingDefault ? <Text style={uiStyles.muted}>Saving…</Text> : null}
+        </Card>
+      ) : null}
       <View style={styles.metrics}>
         <MetricCard label="Active items" value={String(value.active_item_count)} />
         <MetricCard label="Low stock" value={String(value.low_stock_count)} />
@@ -216,22 +276,46 @@ function InventoryOverviewContent({ value, attention, reviewing, onOpenJob, onSt
             <Card key={item.id}>
               <Text style={styles.title}>Job {item.booking_reference}</Text>
               <Text style={uiStyles.muted}>{item.customer_name}</Text>
-              <Text style={uiStyles.body}>
-                {item.attention_lines} consumable line{item.attention_lines === 1 ? "" : "s"} need review
-              </Text>
-              <Text style={uiStyles.muted}>
-                {(item.issue_code ?? "Inventory mismatch").replaceAll("_", " ")}
-              </Text>
+              <Text style={uiStyles.body}>{inventoryIssueCopy(item.issue_code)}</Text>
               <AppButton
                 title="Open job"
                 tone="secondary"
                 onPress={() => onOpenJob(item.job_id)}
               />
-              <AppButton
-                title="Stock count"
-                tone="secondary"
-                onPress={onStockCount}
-              />
+              {item.issue_code === "SOURCE_LOCATION_MISSING" ||
+              item.issue_code === "SOURCE_LOCATION_AMBIGUOUS" ? (
+                <>
+                  <AppButton
+                    title={locations.length ? "Set stock location" : "Create stock location"}
+                    tone="secondary"
+                    onPress={() =>
+                      locations.length
+                        ? setSetupRunId(item.id)
+                        : onCreateLocation()
+                    }
+                  />
+                  {setupRunId === item.id && locations.length ? (
+                    <ChoiceRow
+                      values={locations.map((location) => ({
+                        id: location.id,
+                        label: location.name,
+                      }))}
+                      selected={defaultLocationId}
+                      onSelect={onSetDefaultLocation}
+                    />
+                  ) : null}
+                  <Text style={uiStyles.muted}>
+                    Future jobs use the saved location. This historical shortfall is not replayed automatically.
+                  </Text>
+                </>
+              ) : item.issue_code === "INVENTORY_ITEM_INACTIVE" ? (
+                <AppButton title="Open consumable setup" tone="secondary" onPress={onOpenConsumable} />
+              ) : (
+                <>
+                  <AppButton title="Review stock" tone="secondary" onPress={onReviewStock} />
+                  <AppButton title="Stock count" tone="secondary" onPress={onStockCount} />
+                </>
+              )}
               <AppButton
                 title="Mark reviewed"
                 tone="secondary"
@@ -252,6 +336,35 @@ function InventoryOverviewContent({ value, attention, reviewing, onOpenJob, onSt
       ))}
     </>
   );
+}
+
+export function effectiveDefaultLocationId(
+  locations: InventoryLocation[],
+  configuredId: string | null,
+): string {
+  const active = locations.filter((location) => location.is_active);
+  if (configuredId && active.some((location) => location.id === configuredId)) {
+    return configuredId;
+  }
+  if (active.length === 1) return active[0].id;
+  const mains = active.filter((location) => location.location_type === "main");
+  return mains.length === 1 ? mains[0].id : "";
+}
+
+export function inventoryIssueCopy(issueCode: string | null): string {
+  if (
+    issueCode === "SOURCE_LOCATION_MISSING" ||
+    issueCode === "SOURCE_LOCATION_AMBIGUOUS"
+  ) {
+    return "Automatic stock location is not set.";
+  }
+  if (issueCode === "INVENTORY_ITEM_INACTIVE") {
+    return "A configured consumable is inactive.";
+  }
+  if (issueCode === "INSUFFICIENT_RECORDED_STOCK") {
+    return "Recorded stock is lower than the expected service usage.";
+  }
+  return "Expected service usage needs a manager review.";
 }
 
 function StockContent({ items }: { items: Awaited<ReturnType<typeof import("../lib").getInventoryStock>>["items"] }) {

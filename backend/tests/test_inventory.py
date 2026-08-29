@@ -507,5 +507,7 @@ def test_seed_provisions_main_shop_without_replacing_existing_main_location() ->
         encoding="utf-8"
     )
     assert 'InventoryLocation.location_type == "main"' in seed
-    assert "if main_location is None:" in seed
+    assert "if not main_locations:" in seed
+    assert "len(main_locations) == 1" in seed
+    assert "business_settings.default_inventory_location_id" in seed
     assert '"Main Shop"' in seed

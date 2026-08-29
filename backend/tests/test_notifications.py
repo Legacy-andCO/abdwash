@@ -1,7 +1,9 @@
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -82,6 +84,98 @@ def test_driver_en_route_email_without_eta_still_confirms_trip() -> None:
     assert "Estimated arrival" not in html
 
 
+def test_reschedule_email_contains_new_time_and_management_link() -> None:
+    payload = confirmation_payload()
+    subject, html = render_email("booking_rescheduled", payload)
+    assert "rescheduled" in subject.lower()
+    assert "28 August 2026" in html
+    assert "13:00–15:00" in html
+    assert payload["management_url"] in html
+
+
+def test_completion_email_uses_actual_duration_and_authoritative_paid_amount() -> None:
+    payload = confirmation_payload() | {
+        "actual_service_duration_seconds": 5_700,
+        "amount_paid_minor": 13_000,
+        "payment_status": "paid",
+    }
+    subject, html = render_email("job_completed", payload)
+    assert "complete" in subject.lower()
+    assert "1 hr 35 min" in html
+    assert "AED 130.00" in html
+    assert "Scheduled service time" in html
+
+
+def test_completion_email_shows_pending_instead_of_claiming_payment() -> None:
+    payload = confirmation_payload() | {
+        "actual_service_duration_seconds": None,
+        "amount_paid_minor": 0,
+        "payment_status": "unpaid",
+    }
+    _subject, html = render_email("job_completed", payload)
+    assert "Payment status" in html
+    assert "Pending" in html
+    assert "Amount paid" not in html
+
+
+@pytest.mark.asyncio
+async def test_completion_dispatch_payload_uses_reserved_time_actual_elapsed_and_settled_amount(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    business_id, booking_id, payment_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    scheduled_start = datetime(2026, 8, 28, 9, tzinfo=UTC)
+    booking = SimpleNamespace(
+        id=booking_id,
+        business_id=business_id,
+        customer_first_name="Ahmad",
+        scheduled_start=scheduled_start,
+        scheduled_end=scheduled_start + timedelta(hours=2),
+        vehicle_count=1,
+        written_address="Yas Island",
+        total_amount_minor=12_500,
+        currency_code="AED",
+        payment_choice="pay_after_service",
+        payment_status="paid",
+    )
+    settings = SimpleNamespace(timezone="Asia/Dubai", cancellation_cutoff_hours=24)
+    job = SimpleNamespace(
+        started_at=scheduled_start + timedelta(minutes=8),
+        completed_at=scheduled_start + timedelta(minutes=103),
+    )
+    payment = SimpleNamespace(
+        id=payment_id,
+        status="paid",
+        method="cash",
+        amount_minor=12_500,
+    )
+    record = outbox_record()
+    record.notification_type = "job_completed"
+    record.booking_id = booking_id
+    session = MagicMock()
+    session.get = AsyncMock(return_value=booking)
+    settings_result = MagicMock()
+    settings_result.one.return_value = settings
+    session.scalars = AsyncMock(return_value=settings_result)
+    vehicle_result = MagicMock()
+    vehicle_result.all.return_value = [("Toyota", "Camry", "Standard Wash")]
+    job_payment_result = MagicMock()
+    job_payment_result.one.return_value = (job, payment)
+    session.execute = AsyncMock(side_effect=[vehicle_result, job_payment_result])
+    session.scalar = AsyncMock(return_value=12_500)
+    monkeypatch.setattr(notification_worker, "create_management_token", lambda _id: "token")
+
+    payload = await notification_worker.delivery_payload(
+        session,
+        record,
+        public_web_url="https://trifecta.example",
+    )
+
+    assert payload["scheduled_start"] == scheduled_start.isoformat()
+    assert payload["actual_service_duration_seconds"] == 5_700
+    assert payload["amount_paid_minor"] == 12_500
+    assert payload["payment_status"] == "paid"
+
+
 def test_cancellation_email_uses_only_current_brand() -> None:
     subject, html = render_email("cancellation_requested", confirmation_payload())
     rendered = subject + html
@@ -93,7 +187,13 @@ def test_cancellation_email_uses_only_current_brand() -> None:
 
 @pytest.mark.parametrize(
     "notification_type",
-    ["booking_confirmed", "driver_en_route", "cancellation_requested"],
+    [
+        "booking_confirmed",
+        "driver_en_route",
+        "booking_rescheduled",
+        "job_completed",
+        "cancellation_requested",
+    ],
 )
 def test_every_transactional_email_uses_only_trifecta_brand(
     notification_type: str,

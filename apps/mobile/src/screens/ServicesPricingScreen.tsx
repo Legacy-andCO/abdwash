@@ -157,9 +157,7 @@ function ServicesList({
                   <View style={styles.flex}>
                     <Text style={styles.title}>{service.name}</Text>
                     <Text style={uiStyles.muted}>
-                      {service.default_duration_minutes} min · {service.mobile_available ? "Mobile" : ""}
-                      {service.mobile_available && service.shop_available ? " + " : ""}
-                      {service.shop_available ? "Shop" : ""}
+                      {service.default_duration_minutes} min · Mobile service
                     </Text>
                   </View>
                   <StatusChip value={service.is_active ? "active" : "inactive"} />
@@ -202,8 +200,6 @@ function ServiceEditor({
   const [description, setDescription] = useState(service?.description ?? "");
   const [hours, setHours] = useState(String(Math.floor((service?.default_duration_minutes ?? 120) / 60)));
   const [minutes, setMinutes] = useState(String((service?.default_duration_minutes ?? 120) % 60));
-  const [mobile, setMobile] = useState(service?.mobile_available ?? true);
-  const [shop, setShop] = useState(service?.shop_available ?? true);
   const [sortOrder, setSortOrder] = useState(String(service?.sort_order ?? 0));
   const [prices, setPrices] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -219,7 +215,7 @@ function ServiceEditor({
   const duration = Number(hours) * 60 + Number(minutes);
   const validPrices = vehicleTypes.length > 0 && vehicleTypes.every((type) => moneyToMinor(prices[type]) !== null);
   const canSave =
-    Boolean(name.trim() && (mobile || shop)) &&
+    Boolean(name.trim()) &&
     duration >= 15 &&
     duration <= 1440 &&
     Number.isInteger(Number(sortOrder)) &&
@@ -233,8 +229,8 @@ function ServiceEditor({
       name: name.trim(),
       description: description.trim() || null,
       default_duration_minutes: duration,
-      mobile_available: mobile,
-      shop_available: shop,
+      mobile_available: true,
+      ...(service ? {} : { shop_available: false }),
       sort_order: Number(sortOrder),
       prices: vehicleTypes.map((vehicle_type) => ({
         vehicle_type,
@@ -287,10 +283,8 @@ function ServiceEditor({
         <View style={styles.flex}><Field label="Hours" value={hours} onChange={setHours} keyboard="number-pad" /></View>
         <View style={styles.flex}><Field label="Minutes" value={minutes} onChange={setMinutes} keyboard="number-pad" /></View>
       </View>
-      <Toggle label="Mobile service" value={mobile} onChange={setMobile} />
-      <Toggle label="Shop service" value={shop} onChange={setShop} />
+      <Text style={uiStyles.muted}>Customer bookings are mobile service only.</Text>
       <Field label="Display order" value={sortOrder} onChange={setSortOrder} keyboard="number-pad" />
-      {!mobile && !shop ? <Text style={uiStyles.error}>Select Mobile, Shop, or both.</Text> : null}
       <Text style={styles.section}>VEHICLE PRICING · {catalogue?.currency_code ?? "AED"}</Text>
       {vehicleTypes.map((type) => (
         <Field
@@ -348,17 +342,15 @@ function AddonEditor({
   const [description, setDescription] = useState(addon?.description ?? "");
   const [price, setPrice] = useState(addon ? (addon.price_minor / 100).toFixed(2) : "");
   const [duration, setDuration] = useState(String(addon?.default_duration_minutes ?? 0));
-  const [mobile, setMobile] = useState(addon?.mobile_available ?? true);
-  const [shop, setShop] = useState(addon?.shop_available ?? true);
-  const canSave = Boolean(name.trim() && (mobile || shop) && moneyToMinor(price) !== null && Number(duration) >= 0);
+  const canSave = Boolean(name.trim() && moneyToMinor(price) !== null && Number(duration) >= 0);
   async function save() {
     const body = {
       name: name.trim(),
       description: description.trim() || null,
       price_minor: moneyToMinor(price),
       default_duration_minutes: Number(duration),
-      mobile_available: mobile,
-      shop_available: shop,
+      mobile_available: true,
+      ...(addon ? {} : { shop_available: false }),
     };
     try {
       await mutation.mutateAsync(
@@ -389,8 +381,7 @@ function AddonEditor({
       <Field label="Description" value={description} onChange={setDescription} multiline />
       <Field label="Price" value={price} onChange={setPrice} keyboard="decimal-pad" placeholder="0.00" />
       <Field label="Additional minutes" value={duration} onChange={setDuration} keyboard="number-pad" />
-      <Toggle label="Available for mobile" value={mobile} onChange={setMobile} />
-      <Toggle label="Available at shop" value={shop} onChange={setShop} />
+      <Text style={uiStyles.muted}>Available with mobile service bookings.</Text>
       <AppButton title="Save add-on" onPress={() => void save()} disabled={!canSave} loading={mutation.isPending} />
       {addon ? (
         <AppButton
@@ -535,7 +526,7 @@ function ConsumablesEditor({ context, catalogue }: { context: StaffContext; cata
   return (
     <>
       <Text style={uiStyles.muted}>
-        Expected standard quantities are snapshotted at job completion. They are estimates, not exact physical usage.
+        Expected usage per completed service is snapshotted when the job completes. These quantities are estimates, not exact physical usage.
       </Text>
       <Text style={uiStyles.label}>SERVICE</Text>
       <ChoiceRow values={catalogue.services.map((service) => ({ id: service.id, label: service.name }))} selected={serviceId} onSelect={setServiceId} />

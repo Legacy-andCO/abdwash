@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.auth.dependencies import StaffContext
 from app.domain.enums import StaffRole
-from app.domain.errors import ConflictError
+from app.domain.errors import ConflictError, DomainError
 from app.models.entities import (
     BookingService,
     BookingServiceAddon,
@@ -29,7 +29,7 @@ from app.schemas.public import BookingCreate
 from app.services.booking_snapshots import vehicle_summaries_from_rows
 from app.services.catalogue import get_catalogue
 from app.services.scheduling import policy_for_day
-from app.services.service_catalogue import update_service
+from app.services.service_catalogue import update_business_booking_settings, update_service
 from tests.test_public_schemas import valid_booking_payload
 
 
@@ -53,6 +53,18 @@ def test_service_schema_keeps_integer_minor_unit_prices_and_duration() -> None:
     request = service_input()
     assert request.prices[0].price_minor == 8500
     assert request.default_duration_minutes == 90
+
+
+def test_new_service_defaults_to_mobile_only() -> None:
+    request = ServiceInput.model_validate(
+        {
+            "name": "Mobile Wash",
+            "default_duration_minutes": 60,
+            "prices": [{"vehicle_type": "sedan", "price_minor": 8500}],
+        }
+    )
+    assert request.mobile_available is True
+    assert request.shop_available is False
 
 
 def test_service_schema_rejects_duplicate_vehicle_prices() -> None:
@@ -179,6 +191,13 @@ async def test_public_catalogue_loads_prices_and_addons_in_two_bounded_queries()
     assert session.execute.await_count == 2
     assert result.services[0].prices[0].price_minor == 8500
     assert [item.name for item in result.services[0].addons] == ["Pet hair removal"]
+    catalogue_sql = str(
+        session.execute.await_args_list[1].args[0].compile(
+            compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "services.mobile_available IS true" in catalogue_sql
+    assert "service_addons.mobile_available IS true" in catalogue_sql
 
 
 @pytest.mark.asyncio
@@ -232,6 +251,41 @@ async def test_loyalty_reward_service_cannot_be_deactivated_until_replaced() -> 
     with pytest.raises(ConflictError) as caught:
         await update_service(session, context, service_id, ServicePatch(is_active=False))
     assert caught.value.code == "LOYALTY_REWARD_SERVICE_ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_default_inventory_location_must_be_active_and_same_tenant() -> None:
+    context = StaffContext(
+        auth_user_id=uuid.uuid4(),
+        staff_id=uuid.uuid4(),
+        business_id=uuid.uuid4(),
+        business_name="Trifecta",
+        role=StaffRole.MANAGER,
+        timezone="Asia/Dubai",
+    )
+    settings = BusinessSettings(
+        id=uuid.uuid4(),
+        business_id=context.business_id,
+        opening_time=time(9),
+        closing_time=time(21),
+        slot_duration_minutes=120,
+        multi_vehicle_threshold=3,
+        multi_vehicle_required_slots=2,
+        hold_duration_minutes=10,
+    )
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[settings, None])
+
+    with pytest.raises(DomainError) as caught:
+        await update_business_booking_settings(
+            session,
+            context,
+            BusinessBookingSettingsPatch(
+                default_inventory_location_id=uuid.uuid4()
+            ),
+        )
+
+    assert caught.value.code == "INVENTORY_LOCATION_NOT_FOUND"
 
 
 def test_new_tables_preserve_tenant_and_snapshot_constraints() -> None:
