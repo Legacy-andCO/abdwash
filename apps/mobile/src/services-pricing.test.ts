@@ -41,9 +41,12 @@ describe("services and pricing management", () => {
     expect(screen).toContain('"Deactivate service"');
   });
 
-  it("makes consumption templates explicitly planning-only", () => {
+  it("describes consumption templates as completion-time expected usage", () => {
     const screen = source("./screens/ServicesPricingScreen.tsx");
-    expect(screen).toContain("stock is not deducted automatically");
+    expect(screen).toContain(
+      "Expected standard quantities are snapshotted at job completion",
+    );
+    expect(screen).toContain("estimates, not exact physical usage");
     expect(screen).toContain('action: "update_template"');
   });
 

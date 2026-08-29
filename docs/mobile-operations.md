@@ -14,7 +14,7 @@ Never put service-role, database, Resend, dispatch, payment, or Google Routes se
 
 Set `GOOGLE_ROUTES_API_KEY` only on the API deployment. Enable Google Routes API, restrict the key to that API and the backend deployment's appropriate application/IP controls. Start-trip still enters `en_route` if routing is unavailable.
 
-Apply Alembic through revision `7d3f2a9c8e41` before deploying this operations release. It retains the bounded V2 reporting/filtering indexes and quality records, then adds the customer sync revision, loyalty ledger/rewards, reward price snapshots, and explicit cash tender/change fields. All operational/customer tables remain backend-owned with RLS enabled and no direct mobile policies.
+Apply Alembic through revision `b91c2d7e4f60` before deploying this operations release. It retains the bounded V2 reporting/filtering indexes, quality records, customer/loyalty/cash/finance/inventory/scheduling foundations, then adds prospective immutable job-consumption snapshots and manager review state. All operational/customer tables remain backend-owned with RLS enabled and no direct mobile policies.
 
 ## Operations V2
 
@@ -29,7 +29,7 @@ Apply Alembic through revision `7d3f2a9c8e41` before deploying this operations r
 - Job navigation uses server-side Today, Upcoming, History, Unassigned and All views with bounded filter/pagination parameters. Job details load a bulk event timeline without per-row queries.
 - Attendance overview categorizes scheduled, working, late, clocked-out, not-clocked-in, off-today and approved-leave staff using bulk queries and business-local dates.
 - Reports include booked/collected/job trends, service/payment mix, and staff/team performance aggregates.
-- Services & Pricing is a nested manager/admin workflow reached from Today. It owns service names/descriptions, active state, mobile/shop availability, canonical vehicle prices, expected duration, add-ons, booking-grid settings, weekday hours, mobile minimum, reward service, and expected-consumables templates. The latter are planning-only and never deduct stock on job completion.
+- Services & Pricing is a nested manager/admin workflow reached from Today. It owns service names/descriptions, active state, mobile/shop availability, canonical vehicle prices, expected duration, add-ons, booking-grid settings, weekday hours, mobile minimum, reward service, and expected-consumables templates. On first successful completion, the current service-level template is snapshotted and safely recorded through the existing inventory ledger.
 
 ## Android keyboard and native rebuilds
 
@@ -73,6 +73,12 @@ Camera and media-library permissions are requested only when the worker chooses 
 
 Managers/admins can review inspections, evidence, checklist attribution, issues, and complaints from the same authorized Job Detail. Complaint outcomes are under review, resolved, rejected, or a scheduled complimentary rewash. A rewash consumes a normal scheduling hold, creates a linked zero-value booking/job, preserves the original completed job, and resolves the complaint when the correction job completes.
 
+## Completion-time consumables and direct expenses
+
+Normal completion remains one employee action. The returned Job Detail is patched immediately with its immutable consumables summary. A shortage or missing/ambiguous team stock source produces a light non-blocking message and a manager-only Inventory **Needs review** item; it never blocks the completed customer workflow. Managers can open the job, launch the existing Stock Count workflow, and mark the historical discrepancy reviewed. Employees see a read-only summary and retain existing assigned-job manual usage for unusual/additional materials.
+
+Manager/admin Job Detail also shows active expenses explicitly linked to that job and can create one through the existing Finance mutation. These cash/business costs remain separate from expected quantities. Automatic inventory usage does not post a second Finance expense.
+
 ## Notification contract
 
 `trip_started` queues one `driver_en_route` email in the existing durable outbox. Cron, retry, and Resend behavior are unchanged. The operational event is channel-neutral enough for a future WhatsApp renderer, but WhatsApp is intentionally disabled and no undeliverable WhatsApp rows are created.
@@ -89,4 +95,4 @@ The report uses bounded SQL aggregation. History/job lists use offset/limit pagi
 
 ## Deferred domains
 
-Supplier/procurement workflows, inventory valuation/COGS, automatic service-consumption deduction, fleet records beyond named stock locations, subscriptions, corporate credit, commissions, WhatsApp, card/NFC/Tap-to-Pay, background/live GPS, AI assistance, multi-branch management, historical loyalty backfill, and a durable offline mutation replay queue remain out of scope.
+Supplier/procurement workflows, inventory valuation/COGS, vehicle-specific/add-on consumable recipes, fleet records beyond named stock locations, subscriptions, corporate credit, commissions, WhatsApp, card/NFC/Tap-to-Pay, background/live GPS, AI assistance, multi-branch management, historical consumption/loyalty backfill, and a durable offline mutation replay queue remain out of scope.

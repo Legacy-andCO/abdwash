@@ -475,7 +475,7 @@ function SettingsEditor({
         onChange={(selected) => setDraft({ ...draft, default_team_turnaround_minutes: Number(selected) })}
         keyboard="number-pad"
       />
-      <Text style={uiStyles.muted}>Stored for Phase 2 planning. It does not auto-assign teams in this phase.</Text>
+      <Text style={uiStyles.muted}>Automatic assignment uses this buffer between a team's mobile jobs.</Text>
       <Text style={styles.section}>LOYALTY REWARD SERVICE</Text>
       <ChoiceRow
         values={[{ id: "", label: "None" }, ...(catalogue?.services.filter((item) => item.is_active).map((item) => ({ id: item.id, label: item.name })) ?? [])]}
@@ -523,7 +523,10 @@ function ConsumablesEditor({ context, catalogue }: { context: StaffContext; cata
         serviceId,
         body: { lines: selectedLines.map(([item_id, expected_quantity]) => ({ item_id, expected_quantity: Number(expected_quantity) })) },
       });
-      Alert.alert("Template saved", "This is planning data only; stock is not deducted automatically.");
+      Alert.alert(
+        "Template saved",
+        "The current expected quantities will be snapshotted when future jobs complete.",
+      );
     } catch (error) {
       Alert.alert("Template not saved", domainErrorMessage(error, "The server did not confirm this template."));
     }
@@ -531,14 +534,16 @@ function ConsumablesEditor({ context, catalogue }: { context: StaffContext; cata
   if (!catalogue?.services.length) return <EmptyState title="No services available" />;
   return (
     <>
-      <Text style={uiStyles.muted}>Expected quantities prepare the data foundation only. Completing a job does not deduct stock automatically.</Text>
+      <Text style={uiStyles.muted}>
+        Expected standard quantities are snapshotted at job completion. They are estimates, not exact physical usage.
+      </Text>
       <Text style={uiStyles.label}>SERVICE</Text>
       <ChoiceRow values={catalogue.services.map((service) => ({ id: service.id, label: service.name }))} selected={serviceId} onSelect={setServiceId} />
       {template.error || items.error ? <Text style={uiStyles.error}>{domainErrorMessage(template.error ?? items.error, "Consumables could not load.")}</Text> : null}
       {template.isPending || items.isPending ? <Skeleton rows={3} /> : (items.data?.items ?? []).map((item) => (
         <Field
           key={item.id}
-          label={`${item.name} (${item.unit})`}
+          label={`${item.name} (${item.unit})${item.is_active ? "" : " — inactive; remove before saving"}`}
           value={quantities[item.id] ?? ""}
           onChange={(selected) => setQuantities((current) => ({ ...current, [item.id]: selected }))}
           keyboard="decimal-pad"

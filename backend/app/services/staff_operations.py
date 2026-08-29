@@ -28,6 +28,7 @@ from app.models.entities import (
     BookingVehicle,
     BusinessSettings,
     CancellationRequest,
+    Expense,
     Job,
     JobComplaint,
     JobEvent,
@@ -46,6 +47,7 @@ from app.schemas.staff import (
     CashPaymentResult,
     CashTenderAction,
     JobAction,
+    JobDirectExpense,
     JobTimelineEvent,
     ReportSummary,
     StaffJob,
@@ -55,6 +57,7 @@ from app.schemas.staff import (
     StartTripAction,
     TeamAssignmentOption,
 )
+from app.services.job_consumption import consumption_summaries, process_job_consumption
 from app.services.loyalty import evaluate_loyalty_for_job, release_booking_rewards
 from app.services.scheduling import _lock_slot_sequence
 from app.services.smart_scheduling import (
@@ -206,7 +209,11 @@ _EVENT_LABELS = {
 
 
 async def _serialize_jobs(
-    session: AsyncSession, rows: Any, *, include_timeline: bool = False
+    session: AsyncSession,
+    rows: Any,
+    *,
+    include_timeline: bool = False,
+    context: StaffContext | None = None,
 ) -> list[StaffJob]:
     unpacked = [_job_row_values(row) for row in rows]
     booking_ids = [booking.id for _job, booking, _payment, _staff, _team in unpacked]
@@ -238,6 +245,8 @@ async def _serialize_jobs(
             )
         )
     timeline_by_job: dict[uuid.UUID, list[JobTimelineEvent]] = {}
+    consumption_by_job = {}
+    direct_expenses_by_job: dict[uuid.UUID, list[JobDirectExpense]] = {}
     if include_timeline and rows:
         job_ids = [job.id for job, _booking, _payment, _staff, _team in unpacked]
         event_rows = (
@@ -263,6 +272,32 @@ async def _serialize_jobs(
                     detail=detail,
                 )
             )
+        if context is not None:
+            consumption_by_job = await consumption_summaries(session, context, job_ids)
+            if _can_manage(context):
+                expense_rows = (
+                    await session.execute(
+                        select(Expense)
+                        .where(
+                            Expense.business_id == context.business_id,
+                            Expense.related_job_id.in_(job_ids),
+                            Expense.status == "active",
+                        )
+                        .order_by(Expense.expense_date.desc(), Expense.created_at.desc())
+                    )
+                ).scalars()
+                for expense in expense_rows:
+                    if expense.related_job_id is None:
+                        continue
+                    direct_expenses_by_job.setdefault(expense.related_job_id, []).append(
+                        JobDirectExpense(
+                            id=expense.id,
+                            expense_date=expense.expense_date,
+                            description=expense.description,
+                            amount_minor=expense.amount_minor,
+                            currency_code=expense.currency_code,
+                        )
+                    )
     return [
         StaffJob(
             id=job.id,
@@ -301,6 +336,17 @@ async def _serialize_jobs(
             currency_code=booking.currency_code,
             vehicles=by_booking.get(booking.id, []),
             timeline=timeline_by_job.get(job.id, []),
+            consumption=consumption_by_job.get(job.id),
+            direct_expenses=(
+                direct_expenses_by_job.get(job.id, [])
+                if context is not None and _can_manage(context)
+                else None
+            ),
+            direct_expenses_total_minor=(
+                sum(item.amount_minor for item in direct_expenses_by_job.get(job.id, []))
+                if context is not None and _can_manage(context)
+                else None
+            ),
         )
         for job, booking, payment, staff_name, team_name in unpacked
     ]
@@ -329,7 +375,7 @@ async def list_jobs(session: AsyncSession, context: StaffContext, **filters: Any
     rows = await _job_rows(session, context, offset=offset, limit=limit + 1, **filters)
     more = len(rows) > limit
     return StaffJobList(
-        jobs=await _serialize_jobs(session, rows[:limit]),
+        jobs=await _serialize_jobs(session, rows[:limit], context=context),
         next_offset=offset + limit if more else None,
     )
 
@@ -340,7 +386,9 @@ async def get_job(session: AsyncSession, context: StaffContext, job_id: uuid.UUI
     )
     if not rows:
         raise DomainError("JOB_NOT_FOUND", "Job not found.", status_code=404)
-    return (await _serialize_jobs(session, rows, include_timeline=True))[0]
+    return (
+        await _serialize_jobs(session, rows, include_timeline=True, context=context)
+    )[0]
 
 
 async def _locked_job(session: AsyncSession, context: StaffContext, job_id: uuid.UUID) -> Any:
@@ -502,6 +550,7 @@ async def transition_job(
     )
     await session.flush()
     if target == JobStatus.COMPLETED:
+        await process_job_consumption(session, context, job)
         await evaluate_loyalty_for_job(session, business_id=context.business_id, job_id=job.id)
     return await get_job(session, context, job.id)
 

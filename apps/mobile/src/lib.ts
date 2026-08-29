@@ -60,6 +60,43 @@ export type JobTimelineEvent = {
   actor: string | null;
   detail: string | null;
 };
+export type JobConsumptionLine = {
+  id: string;
+  booking_service_id: string;
+  service_id: string | null;
+  service_name: string;
+  item_id: string | null;
+  item_name: string;
+  unit: string;
+  expected_quantity: string;
+  automatic_applied_quantity: string;
+  preexisting_manual_quantity: string;
+  additional_manual_quantity: string;
+  shortfall_quantity: string;
+  issue_code: string | null;
+};
+export type JobConsumption = {
+  id: string;
+  status: "no_template" | "applied" | "needs_review";
+  source_location_id: string | null;
+  source_location_name: string | null;
+  source_resolution: string;
+  issue_code: string | null;
+  processed_at: string;
+  expected_lines: number;
+  attention_lines: number;
+  has_attention: boolean;
+  reviewed_at: string | null;
+  review_note: string | null;
+  lines: JobConsumptionLine[];
+};
+export type JobDirectExpense = {
+  id: string;
+  expense_date: string;
+  description: string;
+  amount_minor: number;
+  currency_code: string;
+};
 export type Job = {
   id: string;
   booking_id: string;
@@ -104,6 +141,9 @@ export type Job = {
     amount_minor: number;
   }[];
   timeline: JobTimelineEvent[];
+  consumption: JobConsumption | null;
+  direct_expenses: JobDirectExpense[] | null;
+  direct_expenses_total_minor: number | null;
 };
 export type TeamAssignmentOption = {
   team_id: string;
@@ -422,6 +462,7 @@ export type InventoryOverview = {
   active_item_count: number;
   low_stock_count: number;
   out_of_stock_count: number;
+  needs_review_count: number;
   locations: {
     location_id: string;
     location_name: string;
@@ -429,6 +470,16 @@ export type InventoryOverview = {
     low_stock_count: number;
     out_of_stock_count: number;
   }[];
+};
+export type InventoryAttention = {
+  id: string;
+  job_id: string;
+  booking_reference: string;
+  customer_name: string;
+  source_location_name: string | null;
+  issue_code: string | null;
+  processed_at: string;
+  attention_lines: number;
 };
 export type InventoryOperation = {
   id: string;
@@ -1225,6 +1276,15 @@ export const getPersonalCash = (day: string) =>
   api<PersonalCashSummary>(`/api/v1/staff/finance/cash/mine?day=${day}`);
 export const getInventoryOverview = () =>
   api<InventoryOverview>("/api/v1/staff/inventory/overview");
+export const getInventoryAttention = () =>
+  api<{ items: InventoryAttention[]; next_offset: number | null }>(
+    "/api/v1/staff/inventory/consumption/attention",
+  );
+export const reviewInventoryConsumption = (runId: string, note?: string) =>
+  api<JobConsumption>(
+    `/api/v1/staff/inventory/consumption/${runId}/review`,
+    json("POST", { note: note?.trim() || null }),
+  );
 export const getInventoryItems = (search = "", offset = 0) => {
   const params = new URLSearchParams({
     offset: String(offset),

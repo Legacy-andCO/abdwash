@@ -50,6 +50,8 @@ from app.schemas.finance import (
     PersonalCashSummary,
 )
 from app.schemas.inventory import (
+    InventoryAttentionList,
+    InventoryConsumptionReview,
     InventoryItemCreate,
     InventoryItemList,
     InventoryItemUpdate,
@@ -67,6 +69,7 @@ from app.schemas.inventory import (
     InventoryUsageCreate,
     InventoryUsageReport,
     InventoryWastageCreate,
+    JobConsumptionSummary,
     ServiceConsumptionTemplateLine,
     ServiceConsumptionTemplateUpdate,
     StockLine,
@@ -170,6 +173,7 @@ from app.services.inventory import (
     update_threshold,
     usage_report,
 )
+from app.services.job_consumption import list_attention, review_consumption
 from app.services.job_quality import (
     add_issue,
     confirm_photo,
@@ -679,7 +683,10 @@ async def finance_expense_create(
 ) -> ExpenseView:
     async with session.begin():
         result = await create_expense(session, context, payload)
-        await bump_sync_revisions(session, context.business_id, "finance")
+        if result.related_job_id:
+            await bump_sync_revisions(session, context.business_id, "finance", "jobs")
+        else:
+            await bump_sync_revisions(session, context.business_id, "finance")
         return result
 
 
@@ -701,7 +708,10 @@ async def finance_expense_void(
 ) -> ExpenseView:
     async with session.begin():
         result = await void_expense(session, context, expense_id, payload.reason)
-        await bump_sync_revisions(session, context.business_id, "finance")
+        if result.related_job_id:
+            await bump_sync_revisions(session, context.business_id, "finance", "jobs")
+        else:
+            await bump_sync_revisions(session, context.business_id, "finance")
         return result
 
 
@@ -792,6 +802,32 @@ async def inventory_overview_view(
     session: SessionDep, context: ManagerContext
 ) -> InventoryOverview:
     return await inventory_overview(session, context)
+
+
+@router.get("/inventory/consumption/attention", response_model=InventoryAttentionList)
+async def inventory_consumption_attention(
+    session: SessionDep,
+    context: ManagerContext,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> InventoryAttentionList:
+    return await list_attention(session, context, offset=offset, limit=limit)
+
+
+@router.post(
+    "/inventory/consumption/{run_id}/review",
+    response_model=JobConsumptionSummary,
+)
+async def inventory_consumption_review(
+    run_id: uuid.UUID,
+    payload: InventoryConsumptionReview,
+    session: SessionDep,
+    context: ManagerContext,
+) -> JobConsumptionSummary:
+    async with session.begin():
+        result = await review_consumption(session, context, run_id, payload.note)
+        await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
 
 
 @router.get("/inventory/items", response_model=InventoryItemList)
@@ -1340,7 +1376,19 @@ async def job_complete(
 ) -> StaffJob:
     async with session.begin():
         result = await transition_job(session, context, job_id, payload, JobStatus.COMPLETED)
-        await bump_sync_revisions(session, context.business_id, "jobs", "customers")
+        inventory_changed = result.consumption is not None and (
+            result.consumption.has_attention
+            or any(
+                line.automatic_applied_quantity > 0
+                for line in result.consumption.lines
+            )
+        )
+        if inventory_changed:
+            await bump_sync_revisions(
+                session, context.business_id, "jobs", "inventory", "customers"
+            )
+        else:
+            await bump_sync_revisions(session, context.business_id, "jobs", "customers")
         return result
 
 

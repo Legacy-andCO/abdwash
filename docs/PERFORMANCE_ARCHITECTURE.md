@@ -102,7 +102,7 @@ is the single foreground invalidation authority.
 | 12 | workforce schedule/attendance/leave view | 1 per visible resource/range | 0 | range in key; hidden screens unmounted |
 | 13 | Reports | 1 | 0 | range in key; historical ranges stay fresh longer |
 | 14 | Finance screen | overview + expenses + pending + reconciliations = 4 | 0 | parallel, not a waterfall |
-| 15 | Inventory initial manager overview | overview + items + locations = 3 | 0 | hidden stock/movements no longer mount |
+| 15 | Inventory initial manager overview | overview + attention + items + locations = 4 | 0 | attention is bounded; hidden stock/movements do not mount |
 | 16 | Inventory stock or movements tab | 1 newly visible resource | 0 | active-tab pull refresh only |
 | 17 | Customer list/search | 1 per debounced page/term | 0 | account/staff/search/offset scoped |
 | 18 | Customer Detail | 1 | 0 | server returns bounded bootstrap/history |
@@ -113,6 +113,12 @@ is the single foreground invalidation authority.
 Availability is intentionally excluded from long-lived persistence: its key includes date,
 vehicle count, authoritative service/add-on selections or booking context, and it stays fresh only 20 seconds on mobile. Booking holds,
 job actions, inventory movements, cash actions, and other writes are never served from cache.
+
+### Completion-time service consumption
+
+Phase 3 adds only bounded SQL shapes to the completion transaction: one exactly-once run lookup, one joined query for every performed service/template/item, one grouped query for pre-existing job usage, one source-location query when automatic usage remains, and the existing inventory operation/item/location/stock-lock primitives. Repeated service items are aggregated before stock locks, and movement rows are staged together. Job Detail adds one joined consumption-run/line/location query plus one grouped additional-manual-usage query; manager-only direct expenses use one bounded job-ID query. There is no per-service or per-item read loop.
+
+These are **static implementation and contract-test evidence**, not production latency. Isolated PostgreSQL concurrency/query execution remains opt-in through `TEST_DATABASE_URL`; production query/latency claims still require post-deployment telemetry.
 
 ## Cache ownership and lifecycle
 

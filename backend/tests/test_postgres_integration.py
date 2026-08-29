@@ -3,6 +3,7 @@ import os
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from time import perf_counter
 from types import SimpleNamespace
 from typing import Annotated
@@ -11,7 +12,7 @@ import httpx
 import pytest
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -35,6 +36,7 @@ from app.models.entities import (
     AttendanceSession,
     Booking,
     BookingService,
+    BookingVehicle,
     Business,
     BusinessSettings,
     BusinessSyncRevision,
@@ -43,17 +45,21 @@ from app.models.entities import (
     IdempotencyRecord,
     InventoryItem,
     InventoryLocation,
+    InventoryMovement,
     InventoryStock,
     Job,
     JobChecklistItem,
     JobComplaint,
     JobInspection,
+    JobInventoryConsumptionLine,
+    JobInventoryConsumptionRun,
     LeaveRequest,
     NotificationOutbox,
     Payment,
     ScheduleResource,
     ScheduleSlot,
     Service,
+    ServiceInventoryTemplate,
     SlotHoldGroup,
     StaffProfile,
     TeamMembership,
@@ -1643,3 +1649,333 @@ async def test_public_api_guest_booking_and_query_count_guard(
         assert revision.jobs_revision == 1
         assert revision.schedule_revision == 1
         assert revision.finance_revision == 1
+
+
+@pytest.fixture(scope="module")
+async def consumption_foundation(
+    database: async_sessionmaker[AsyncSession],
+) -> tuple[StaffContext, uuid.UUID, uuid.UUID, tuple[uuid.UUID, uuid.UUID]]:
+    """Create one isolated team-stock recipe shared by concurrency tests."""
+
+    context = await _staff_context(database, suffix="consumption")
+    async with database() as session, session.begin():
+        service = (await session.scalars(select(Service).order_by(Service.id))).first()
+        resource = (
+            await session.scalars(select(ScheduleResource).order_by(ScheduleResource.id))
+        ).first()
+        assert service is not None and resource is not None
+        location = InventoryLocation(
+            business_id=context.business_id,
+            name=f"Consumption Van {uuid.uuid4().hex[:8]}",
+            location_type="van",
+            linked_team_id=resource.id,
+        )
+        shampoo = InventoryItem(
+            business_id=context.business_id,
+            name=f"Concurrency Shampoo {uuid.uuid4().hex[:8]}",
+            category="chemicals",
+            unit="milliliter",
+            default_low_stock_threshold=Decimal("0"),
+        )
+        cleaner = InventoryItem(
+            business_id=context.business_id,
+            name=f"Concurrency Cleaner {uuid.uuid4().hex[:8]}",
+            category="chemicals",
+            unit="milliliter",
+            default_low_stock_threshold=Decimal("0"),
+        )
+        session.add_all([location, shampoo, cleaner])
+        await session.flush()
+        session.add_all(
+            [
+                ServiceInventoryTemplate(
+                    business_id=context.business_id,
+                    service_id=service.id,
+                    inventory_item_id=shampoo.id,
+                    expected_quantity=Decimal("80"),
+                ),
+                ServiceInventoryTemplate(
+                    business_id=context.business_id,
+                    service_id=service.id,
+                    inventory_item_id=cleaner.id,
+                    expected_quantity=Decimal("20"),
+                ),
+                InventoryStock(
+                    business_id=context.business_id,
+                    inventory_item_id=shampoo.id,
+                    location_id=location.id,
+                    quantity=Decimal("100"),
+                ),
+                InventoryStock(
+                    business_id=context.business_id,
+                    inventory_item_id=cleaner.id,
+                    location_id=location.id,
+                    quantity=Decimal("100"),
+                ),
+            ]
+        )
+        return context, service.id, resource.id, (shampoo.id, cleaner.id)
+
+
+async def _consumption_job(
+    factory: async_sessionmaker[AsyncSession],
+    context: StaffContext,
+    service_id: uuid.UUID,
+    resource_id: uuid.UUID,
+    sequence: int,
+) -> uuid.UUID:
+    scheduled_start = datetime(2041, 1, 1, 8, tzinfo=UTC) + timedelta(hours=sequence)
+    async with factory() as session, session.begin():
+        hold = SlotHoldGroup(
+            business_id=context.business_id,
+            resource_id=resource_id,
+            token_hash=uuid.uuid4().hex,
+            status="consumed",
+            vehicle_count=1,
+            required_slot_count=1,
+            expected_duration_minutes=120,
+            slot_start=scheduled_start,
+            slot_end=scheduled_start + timedelta(hours=2),
+            expires_at=scheduled_start,
+            consumed_at=scheduled_start,
+        )
+        session.add(hold)
+        await session.flush()
+        booking = Booking(
+            business_id=context.business_id,
+            reference=f"AW-C{sequence:06d}",
+            hold_group_id=hold.id,
+            resource_id=resource_id,
+            status="confirmed",
+            payment_choice="pay_after_service",
+            payment_status="unpaid",
+            scheduled_start=scheduled_start,
+            scheduled_end=scheduled_start + timedelta(hours=2),
+            vehicle_count=1,
+            total_amount_minor=12500,
+            currency_code="AED",
+            source="web",
+            customer_first_name="Concurrency",
+            customer_surname=str(sequence),
+            customer_email=f"concurrency-{sequence}@example.com",
+            customer_phone="+971500000099",
+            written_address="Abu Dhabi",
+            location_url="https://maps.google.com/?q=Abu+Dhabi",
+            location_instructions="Test entrance",
+            management_token_hash=uuid.uuid4().hex,
+        )
+        session.add(booking)
+        await session.flush()
+        vehicle = BookingVehicle(
+            booking_id=booking.id,
+            position=1,
+            make="Toyota",
+            model="Land Cruiser",
+            vehicle_type="suv",
+            plate_number=f"T {sequence}",
+        )
+        session.add(vehicle)
+        await session.flush()
+        service = await session.get(Service, service_id)
+        assert service is not None
+        session.add(
+            BookingService(
+                booking_id=booking.id,
+                booking_vehicle_id=vehicle.id,
+                service_id=service.id,
+                service_name=service.name,
+                unit_price_minor=12500,
+                list_price_minor=12500,
+                discount_minor=0,
+                quantity=1,
+                line_total_minor=12500,
+                expected_duration_minutes=120,
+            )
+        )
+        session.add(
+            Payment(
+                booking_id=booking.id,
+                status="unpaid",
+                method="pay_after_service",
+                amount_minor=12500,
+                currency_code="AED",
+            )
+        )
+        job = Job(
+            booking_id=booking.id,
+            business_id=context.business_id,
+            assigned_resource_id=resource_id,
+            status=JobStatus.IN_PROGRESS,
+            scheduled_start=scheduled_start,
+            scheduled_end=scheduled_start + timedelta(hours=2),
+            expected_duration_minutes=120,
+            assignment_source="auto",
+            assigned_at=scheduled_start,
+            started_at=scheduled_start,
+        )
+        session.add(job)
+        await session.flush()
+        return job.id
+
+
+async def _complete_consumption_job(
+    factory: async_sessionmaker[AsyncSession],
+    context: StaffContext,
+    job_id: uuid.UUID,
+    event_id: str,
+) -> object:
+    async with factory() as session, session.begin():
+        return await transition_job(
+            session,
+            context,
+            job_id,
+            JobAction(client_event_id=event_id),
+            JobStatus.COMPLETED,
+        )
+
+
+async def _reset_consumption_stock(
+    factory: async_sessionmaker[AsyncSession],
+    item_ids: tuple[uuid.UUID, uuid.UUID],
+    quantity: Decimal,
+) -> None:
+    async with factory() as session, session.begin():
+        stocks = list(
+            (
+                await session.scalars(
+                    select(InventoryStock)
+                    .where(InventoryStock.inventory_item_id.in_(item_ids))
+                    .order_by(InventoryStock.inventory_item_id)
+                    .with_for_update()
+                )
+            ).all()
+        )
+        assert len(stocks) == 2
+        for stock in stocks:
+            stock.quantity = quantity
+
+
+@pytest.mark.asyncio
+async def test_concurrent_same_job_completion_records_consumption_once(
+    database: async_sessionmaker[AsyncSession],
+    consumption_foundation: tuple[
+        StaffContext, uuid.UUID, uuid.UUID, tuple[uuid.UUID, uuid.UUID]
+    ],
+) -> None:
+    context, service_id, resource_id, item_ids = consumption_foundation
+    await _reset_consumption_stock(database, item_ids, Decimal("100"))
+    job_id = await _consumption_job(database, context, service_id, resource_id, 100)
+    results = await asyncio.gather(
+        _complete_consumption_job(database, context, job_id, "same-completion"),
+        _complete_consumption_job(database, context, job_id, "same-completion"),
+    )
+    assert all(result.status == JobStatus.COMPLETED for result in results)
+    async with database() as session:
+        runs = list(
+            (
+                await session.scalars(
+                    select(JobInventoryConsumptionRun).where(
+                        JobInventoryConsumptionRun.job_id == job_id
+                    )
+                )
+            ).all()
+        )
+        assert len(runs) == 1
+        movements = list(
+            (
+                await session.scalars(
+                    select(InventoryMovement).where(
+                        InventoryMovement.operation_id == runs[0].inventory_operation_id
+                    )
+                )
+            ).all()
+        )
+        assert len(movements) == 2
+
+
+@pytest.mark.asyncio
+async def test_concurrent_different_jobs_apply_available_stock_without_negative_balance(
+    database: async_sessionmaker[AsyncSession],
+    consumption_foundation: tuple[
+        StaffContext, uuid.UUID, uuid.UUID, tuple[uuid.UUID, uuid.UUID]
+    ],
+) -> None:
+    context, service_id, resource_id, item_ids = consumption_foundation
+    await _reset_consumption_stock(database, item_ids, Decimal("100"))
+    job_ids = [
+        await _consumption_job(database, context, service_id, resource_id, sequence)
+        for sequence in (101, 102)
+    ]
+    completed = await asyncio.gather(
+        *[
+            _complete_consumption_job(
+                database, context, job_id, f"different-completion-{job_id}"
+            )
+            for job_id in job_ids
+        ]
+    )
+    assert all(result.status == JobStatus.COMPLETED for result in completed)
+    shampoo_id = item_ids[0]
+    async with database() as session:
+        stock = await session.scalar(
+            select(InventoryStock).where(
+                InventoryStock.inventory_item_id == shampoo_id
+            )
+        )
+        totals = (
+            await session.execute(
+                select(
+                    func.sum(JobInventoryConsumptionLine.expected_quantity),
+                    func.sum(JobInventoryConsumptionLine.automatic_applied_quantity),
+                    func.sum(JobInventoryConsumptionLine.shortfall_quantity),
+                ).where(
+                    JobInventoryConsumptionLine.inventory_item_id == shampoo_id,
+                    JobInventoryConsumptionLine.run_id.in_(
+                        select(JobInventoryConsumptionRun.id).where(
+                            JobInventoryConsumptionRun.job_id.in_(job_ids)
+                        )
+                    ),
+                )
+            )
+        ).one()
+    assert stock is not None and stock.quantity == Decimal("0.000")
+    assert totals == (Decimal("160.000"), Decimal("100.000"), Decimal("60.000"))
+
+
+@pytest.mark.asyncio
+async def test_concurrent_multi_item_completion_uses_deterministic_lock_order(
+    database: async_sessionmaker[AsyncSession],
+    consumption_foundation: tuple[
+        StaffContext, uuid.UUID, uuid.UUID, tuple[uuid.UUID, uuid.UUID]
+    ],
+) -> None:
+    context, service_id, resource_id, item_ids = consumption_foundation
+    await _reset_consumption_stock(database, item_ids, Decimal("500"))
+    job_ids = [
+        await _consumption_job(database, context, service_id, resource_id, sequence)
+        for sequence in (103, 104)
+    ]
+    await asyncio.wait_for(
+        asyncio.gather(
+            *[
+                _complete_consumption_job(
+                    database, context, job_id, f"lock-order-{job_id}"
+                )
+                for job_id in reversed(job_ids)
+            ]
+        ),
+        timeout=10,
+    )
+    async with database() as session:
+        run_count = len(
+            list(
+                (
+                    await session.scalars(
+                        select(JobInventoryConsumptionRun).where(
+                            JobInventoryConsumptionRun.job_id.in_(job_ids)
+                        )
+                    )
+                ).all()
+            )
+        )
+    assert run_count == 2

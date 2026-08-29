@@ -52,6 +52,9 @@ const job = (id: string, status: string): Job => ({
   currency_code: "AED",
   vehicles: [],
   timeline: [],
+  consumption: null,
+  direct_expenses: null,
+  direct_expenses_total_minor: null,
 });
 
 describe("reschedule data flow", () => {

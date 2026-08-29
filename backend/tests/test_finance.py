@@ -91,6 +91,48 @@ async def test_expense_create_records_minor_units_and_audit_actor(
 
 
 @pytest.mark.asyncio
+async def test_direct_job_expense_preserves_job_link_and_reuses_finance_ledger(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = manager_context()
+    job_id = uuid.uuid4()
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[None, "AED"])
+    session.add = MagicMock()
+    session.flush = AsyncMock()
+    monkeypatch.setattr(finance, "_validate_expense_ownership", AsyncMock())
+    monkeypatch.setattr(finance, "get_expense", AsyncMock(return_value=MagicMock()))
+
+    await finance.create_expense(
+        session,
+        context,
+        expense_request(related_job_id=job_id, description="Special leather product"),
+    )
+
+    created = next(
+        call.args[0] for call in session.add.call_args_list if isinstance(call.args[0], Expense)
+    )
+    assert created.related_job_id == job_id
+    assert created.description == "Special leather product"
+
+
+@pytest.mark.asyncio
+async def test_direct_job_expense_rejects_cross_tenant_job() -> None:
+    context = manager_context()
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
+
+    with pytest.raises(DomainError) as raised:
+        await finance._validate_expense_ownership(
+            session,
+            context,
+            expense_request(related_job_id=uuid.uuid4()),
+        )
+
+    assert raised.value.code == "JOB_NOT_FOUND"
+
+
+@pytest.mark.asyncio
 async def test_expense_retry_reuses_authoritative_original(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

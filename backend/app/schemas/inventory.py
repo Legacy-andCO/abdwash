@@ -121,6 +121,7 @@ class InventoryOverview(BaseModel):
     active_item_count: int
     low_stock_count: int
     out_of_stock_count: int
+    needs_review_count: int = 0
     locations: list[InventoryLocationSummary]
 
 
@@ -278,3 +279,55 @@ class ServiceConsumptionTemplateLine(BaseModel):
     item_name: str
     unit: str
     expected_quantity: Decimal
+
+
+class JobConsumptionLineView(BaseModel):
+    id: uuid.UUID
+    booking_service_id: uuid.UUID
+    service_id: uuid.UUID | None
+    service_name: str
+    item_id: uuid.UUID | None
+    item_name: str
+    unit: str
+    expected_quantity: Decimal
+    automatic_applied_quantity: Decimal
+    preexisting_manual_quantity: Decimal
+    additional_manual_quantity: Decimal = Decimal("0")
+    shortfall_quantity: Decimal
+    issue_code: str | None
+
+
+class JobConsumptionSummary(BaseModel):
+    id: uuid.UUID
+    status: str
+    source_location_id: uuid.UUID | None
+    source_location_name: str | None
+    source_resolution: str
+    issue_code: str | None
+    processed_at: datetime
+    expected_lines: int
+    attention_lines: int
+    has_attention: bool
+    reviewed_at: datetime | None
+    review_note: str | None
+    lines: list[JobConsumptionLineView]
+
+
+class InventoryAttentionItem(BaseModel):
+    id: uuid.UUID
+    job_id: uuid.UUID
+    booking_reference: str
+    customer_name: str
+    source_location_name: str | None
+    issue_code: str | None
+    processed_at: datetime
+    attention_lines: int
+
+
+class InventoryAttentionList(BaseModel):
+    items: list[InventoryAttentionItem]
+    next_offset: int | None
+
+
+class InventoryConsumptionReview(StrictRequest):
+    note: str | None = Field(default=None, max_length=4000)

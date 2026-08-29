@@ -27,6 +27,7 @@ from app.models.entities import (
     InventoryOperation,
     InventoryStock,
     Job,
+    JobInventoryConsumptionRun,
     ScheduleResource,
     Service,
     ServiceInventoryTemplate,
@@ -568,15 +569,26 @@ async def list_stock(
 
 async def inventory_overview(session: AsyncSession, context: StaffContext) -> InventoryOverview:
     _manager(context)
-    active_item_count = int(
-        await session.scalar(
-            select(func.count(InventoryItem.id)).where(
-                InventoryItem.business_id == context.business_id,
-                InventoryItem.is_active.is_(True),
-            )
+    active_items = (
+        select(func.count(InventoryItem.id))
+        .where(
+            InventoryItem.business_id == context.business_id,
+            InventoryItem.is_active.is_(True),
         )
-        or 0
+        .scalar_subquery()
     )
+    attention = (
+        select(func.count(JobInventoryConsumptionRun.id))
+        .where(
+            JobInventoryConsumptionRun.business_id == context.business_id,
+            JobInventoryConsumptionRun.has_attention.is_(True),
+            JobInventoryConsumptionRun.reviewed_at.is_(None),
+        )
+        .scalar_subquery()
+    )
+    active_item_count, needs_review_count = (
+        await session.execute(select(active_items, attention))
+    ).one()
     threshold = func.coalesce(
         InventoryStock.low_stock_threshold, InventoryItem.default_low_stock_threshold
     )
@@ -615,9 +627,10 @@ async def inventory_overview(session: AsyncSession, context: StaffContext) -> In
         for row in rows
     ]
     return InventoryOverview(
-        active_item_count=active_item_count,
+        active_item_count=int(active_item_count or 0),
         low_stock_count=sum(row.low_stock_count for row in locations),
         out_of_stock_count=sum(row.out_of_stock_count for row in locations),
+        needs_review_count=int(needs_review_count or 0),
         locations=locations,
     )
 
@@ -1019,6 +1032,105 @@ async def _consume(
         operation.id,
     )
     return await _operation_view(session, operation), True
+
+
+async def apply_available_job_usage(
+    session: AsyncSession,
+    context: StaffContext,
+    *,
+    location_id: uuid.UUID,
+    job_id: uuid.UUID,
+    quantities: dict[uuid.UUID, Decimal],
+) -> tuple[InventoryOperation, dict[uuid.UUID, Decimal]]:
+    """Apply the recorded stock that is available, without creating a negative balance.
+
+    This is the automatic-completion variant of the existing usage ledger. It deliberately
+    returns partial quantities instead of raising the normal manual-usage insufficient-stock
+    conflict; the caller persists the immutable shortfall for manager review.
+    """
+
+    ordered = sorted(
+        ((item_id, _decimal(quantity)) for item_id, quantity in quantities.items()),
+        key=lambda pair: pair[0].hex,
+    )
+    payload = {
+        "source": "service_completion",
+        "job_id": str(job_id),
+        "location_id": str(location_id),
+        "lines": [
+            {"item_id": str(item_id), "quantity": str(quantity)}
+            for item_id, quantity in ordered
+        ],
+    }
+    request_hash = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    operation, created = await _operation(
+        session,
+        context,
+        "usage",
+        f"service-completion:{job_id}",
+        request_hash,
+    )
+    if not created:
+        rows = (
+            await session.execute(
+                select(
+                    InventoryMovement.inventory_item_id,
+                    func.coalesce(func.sum(InventoryMovement.quantity), ZERO),
+                )
+                .where(
+                    InventoryMovement.operation_id == operation.id,
+                    InventoryMovement.movement_type == "usage",
+                )
+                .group_by(InventoryMovement.inventory_item_id)
+            )
+        ).all()
+        return operation, {item_id: _decimal(quantity) for item_id, quantity in rows}
+
+    await _items(session, context, [item_id for item_id, _quantity in ordered])
+    await _locations(session, context, [location_id])
+    stocks = await _lock_stock(
+        session,
+        context,
+        [(item_id, location_id) for item_id, _quantity in ordered],
+    )
+    applied: dict[uuid.UUID, Decimal] = {}
+    movements: list[InventoryMovement] = []
+    for item_id, expected in ordered:
+        stock = stocks[(item_id, location_id)]
+        available = _decimal(stock.quantity)
+        quantity = min(available, expected)
+        applied[item_id] = quantity
+        if quantity <= ZERO:
+            continue
+        stock.quantity = available - quantity
+        movements.append(
+            InventoryMovement(
+                business_id=context.business_id,
+                operation_id=operation.id,
+                sequence=len(movements),
+                inventory_item_id=item_id,
+                location_id=location_id,
+                movement_type="usage",
+                quantity=quantity,
+                from_location_id=location_id,
+                job_id=job_id,
+                actor_staff_id=context.staff_id,
+                reason="Automatic expected usage at service completion",
+                reference_number="service_completion",
+            )
+        )
+    session.add_all(movements)
+    await session.flush()
+    _audit(
+        session,
+        context,
+        "inventory_automatic_usage_recorded",
+        "inventory_operation",
+        operation.id,
+    )
+    return operation, applied
 
 
 async def record_usage(

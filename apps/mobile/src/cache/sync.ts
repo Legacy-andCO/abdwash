@@ -46,6 +46,7 @@ const domainPrefixes: Record<SyncDomain, string[]> = {
   ],
   inventory: [
     "inventory-overview",
+    "inventory-attention",
     "inventory-items",
     "inventory-locations",
     "inventory-stock",

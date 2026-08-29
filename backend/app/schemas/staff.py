@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.finance import FinanceOverview
+from app.schemas.inventory import JobConsumptionSummary
 from app.schemas.public import StrictRequest
 
 
@@ -26,6 +27,14 @@ class JobTimelineEvent(BaseModel):
     event: str
     actor: str | None
     detail: str | None = None
+
+
+class JobDirectExpense(BaseModel):
+    id: uuid.UUID
+    expense_date: date
+    description: str
+    amount_minor: int
+    currency_code: str
 
 
 class StaffJob(BaseModel):
@@ -62,6 +71,9 @@ class StaffJob(BaseModel):
     currency_code: str
     vehicles: list[StaffVehicle]
     timeline: list[JobTimelineEvent] = Field(default_factory=list)
+    consumption: JobConsumptionSummary | None = None
+    direct_expenses: list[JobDirectExpense] | None = None
+    direct_expenses_total_minor: int | None = None
 
 
 class StaffJobList(BaseModel):

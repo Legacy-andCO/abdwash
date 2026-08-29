@@ -49,6 +49,7 @@ describe("inventory mobile contract", () => {
     expect(policy).toContain('"inventory-stock", scope');
     expect(policy).toContain('"inventory-movements", scope');
     expect(sync).toContain("inventory: [");
+    expect(sync).toContain('"inventory-attention"');
     expect(sync).toContain('"team-stock"');
   });
 
@@ -79,5 +80,51 @@ describe("inventory mobile contract", () => {
     expect(team).toContain("useTeamStockSummaryQuery");
     expect(team).toContain("No linked stock location");
     expect(team).toContain("stock.low_stock_count");
+  });
+
+  it("shows completion discrepancies in the existing Inventory manager area", () => {
+    const screen = source("./screens/InventoryScreen.tsx");
+    const api = source("./lib.ts");
+    expect(screen).toContain("useInventoryAttentionQuery");
+    expect(screen).toContain('label="Needs review"');
+    expect(screen).toContain('title="Open job"');
+    expect(screen).toContain('title="Stock count"');
+    expect(screen).toContain('title="Mark reviewed"');
+    expect(api).toContain('"/api/v1/staff/inventory/consumption/attention"');
+    expect(api).toContain("reviewInventoryConsumption");
+  });
+
+  it("keeps automatic consumption and direct expenses inside Job Detail", () => {
+    const jobs = source("./screens/JobsScreen.tsx");
+    expect(jobs).toContain("job.consumption");
+    expect(jobs).toContain("Expected {line.expected_quantity}");
+    expect(jobs).toContain("Recorded {Number(line.automatic_applied_quantity)");
+    expect(jobs).toContain("Additional manual usage");
+    expect(jobs).toContain("DIRECT EXPENSES");
+    expect(jobs).toContain("useExpenseMutation");
+    expect(jobs).toContain("Inventory needs manager review.");
+  });
+
+  it("describes templates as completion-time expected usage and exposes inactive lines", () => {
+    const services = source("./screens/ServicesPricingScreen.tsx");
+    expect(services).toContain("Expected standard quantities are snapshotted at job completion");
+    expect(services).toContain('useInventoryItemsQuery(context, "", 0, true)');
+    expect(services).toContain("inactive; remove before saving");
+    expect(services).not.toContain("stock is not deducted automatically");
+  });
+
+  it("invalidates only the inventory resources affected by completion", () => {
+    const queries = source("./queries/operations.ts");
+    const completion = queries.slice(
+      queries.indexOf("export function useJobActionMutation"),
+      queries.indexOf("export function useCashPaymentMutation"),
+    );
+    expect(completion).toContain('action === "complete"');
+    expect(completion).toContain("queryKeys.inventoryOverview(scope)");
+    expect(completion).toContain("queryKeys.inventoryAttention(scope)");
+    expect(completion).toContain('queryKey: ["inventory-stock", scope]');
+    expect(completion).not.toContain('queryKey: ["finance", scope]');
+    expect(completion).not.toContain('queryKey: ["customers", scope]');
+    expect(completion).not.toContain('queryKey: ["teams", scope]');
   });
 });

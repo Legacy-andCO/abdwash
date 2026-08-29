@@ -27,6 +27,7 @@ import {
   getExpenses,
   getFinanceOverview,
   getInventoryItems,
+  getInventoryAttention,
   getInventoryLocations,
   getInventoryMovements,
   getInventoryOverview,
@@ -60,6 +61,7 @@ import {
   recordInventoryStockCount,
   recordInventoryUsage,
   recordInventoryWastage,
+  reviewInventoryConsumption,
   adjustManagerCustomerLoyalty,
   deleteManagerCustomerAddress,
   deleteManagerCustomerVehicle,
@@ -829,6 +831,41 @@ export function useInventoryOverviewQuery(
   });
 }
 
+export function useInventoryAttentionQuery(
+  context: StaffContext,
+  enabled = true,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.inventoryAttention(scope),
+    queryFn: getInventoryAttention,
+    enabled,
+    staleTime: cacheTimes.inventory,
+    meta: persistedQueryMeta(retentionTimes.inventory),
+  });
+}
+
+export function useInventoryReviewMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: ({ runId, note }: { runId: string; jobId: string; note?: string }) =>
+      reviewInventoryConsumption(runId, note),
+    onSuccess: (summary, input) => {
+      client.setQueryData<Job>(
+        queryKeys.job(scope, input.jobId),
+        (job) => (job ? { ...job, consumption: summary } : job),
+      );
+      void client.invalidateQueries({
+        queryKey: queryKeys.inventoryAttention(scope),
+      });
+      void client.invalidateQueries({
+        queryKey: queryKeys.inventoryOverview(scope),
+      });
+    },
+  });
+}
+
 export function useInventoryItemsQuery(
   context: StaffContext,
   search = "",
@@ -969,6 +1006,30 @@ export function useExpenseMutation(context: StaffContext) {
   return useMutation({
     mutationFn: createExpense,
     onSuccess: (expense: Expense) => {
+      if (expense.related_job_id) {
+        client.setQueryData<Job>(
+          queryKeys.job(scope, expense.related_job_id),
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  direct_expenses: [
+                    ...(current.direct_expenses ?? []),
+                    {
+                      id: expense.id,
+                      expense_date: expense.expense_date,
+                      description: expense.description,
+                      amount_minor: expense.amount_minor,
+                      currency_code: expense.currency_code,
+                    },
+                  ],
+                  direct_expenses_total_minor:
+                    (current.direct_expenses_total_minor ?? 0) +
+                    expense.amount_minor,
+                }
+              : current,
+        );
+      }
       void client.invalidateQueries({ queryKey: ["expenses", scope] });
       void client.invalidateQueries({ queryKey: ["finance", scope] });
       void client.invalidateQueries({ queryKey: ["reports", scope] });
@@ -983,10 +1044,15 @@ export function useVoidExpenseMutation(context: StaffContext) {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       voidExpense(id, reason),
-    onSuccess: () => {
+    onSuccess: (expense) => {
       void client.invalidateQueries({ queryKey: ["expenses", scope] });
       void client.invalidateQueries({ queryKey: ["finance", scope] });
       void client.invalidateQueries({ queryKey: ["reports", scope] });
+      if (expense.related_job_id) {
+        void client.invalidateQueries({
+          queryKey: queryKeys.job(scope, expense.related_job_id),
+        });
+      }
     },
   });
 }
@@ -1137,8 +1203,27 @@ export function useJobActionMutation(context: StaffContext) {
     onSuccess: (job, variables) => {
       updateJobCaches(client, scope, job);
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
-      if (variables.action === "complete")
+      const inventoryChanged =
+        variables.action === "complete" &&
+        job.consumption !== null &&
+        (job.consumption.has_attention ||
+          job.consumption.lines.some(
+            (line) => Number(line.automatic_applied_quantity) > 0,
+          ));
+      if (inventoryChanged) {
         void client.invalidateQueries({ queryKey: ["reports", scope] });
+        void client.invalidateQueries({
+          queryKey: queryKeys.inventoryOverview(scope),
+        });
+        void client.invalidateQueries({
+          queryKey: queryKeys.inventoryAttention(scope),
+        });
+        void client.invalidateQueries({ queryKey: ["inventory-stock", scope] });
+        void client.invalidateQueries({
+          queryKey: ["inventory-movements", scope],
+        });
+        void client.invalidateQueries({ queryKey: ["team-stock", scope] });
+      }
     },
   });
 }

@@ -26,6 +26,7 @@ import { ElapsedTimer } from "../components/ElapsedTimer";
 import { JobQualityControls } from "../components/JobQualityControls";
 import { CashTenderModal } from "../components/CashTenderModal";
 import { domainErrorMessage } from "../errors/domainErrors";
+import { expenseAmountMinor } from "../finance/financeState";
 import { successHaptic } from "../haptics";
 import { tripLocationFailureMessage } from "../location/startTripLocation";
 import { expoTripLocationSource } from "../location/expoTripLocation";
@@ -50,6 +51,7 @@ import {
   useAvailabilityQuery,
   useAssignmentOptionsQuery,
   useCashPaymentMutation,
+  useExpenseMutation,
   useJobActionMutation,
   useJobQualityQuery,
   useJobQuery,
@@ -354,6 +356,7 @@ function JobDetail({
   const job = query.data ?? initial;
   const actionMutation = useJobActionMutation(context);
   const cashMutation = useCashPaymentMutation(context);
+  const expenseMutation = useExpenseMutation(context);
   const actionEventIds = useRef(new ClientEventIdStore()).current;
   const qualityEnabled = ["arrived", "in_progress", "completed"].includes(
     job.status,
@@ -362,6 +365,7 @@ function JobDetail({
   const [assignment, setAssignment] = useState(false);
   const [reschedule, setReschedule] = useState(false);
   const [cashTender, setCashTender] = useState(false);
+  const [directExpense, setDirectExpense] = useState(false);
   const [tripStage, setTripStage] = useState<
     "idle" | "getting_location" | "starting_trip"
   >("idle");
@@ -433,13 +437,19 @@ function JobDetail({
   }
   async function action(name: Exclude<JobAction, "start-trip">) {
     try {
-      await submitJobAction(
+      const updated = await submitJobAction(
         actionMutation.mutateAsync,
         actionEventIds,
         job.id,
         name,
       );
       await successHaptic();
+      if (name === "complete" && updated.consumption?.has_attention) {
+        Alert.alert(
+          "Job completed",
+          "Inventory needs manager review. The customer workflow is complete.",
+        );
+      }
     } catch (error) {
       Alert.alert(
         "Action not completed",
@@ -674,6 +684,18 @@ function JobDetail({
         onClose={() => setCashTender(false)}
         onComplete={completeCashPayment}
       />
+      <DirectExpenseModal
+        visible={directExpense}
+        job={job}
+        pending={expenseMutation.isPending}
+        eventIds={actionEventIds}
+        onClose={() => setDirectExpense(false)}
+        onSave={async (body) => {
+          await expenseMutation.mutateAsync(body);
+          setDirectExpense(false);
+          Alert.alert("Direct expense saved", "The expense is linked to this job.");
+        }}
+      />
       {capabilities(context.role).canAssignJobs ? (
         <Card>
           <View style={uiStyles.row}>
@@ -727,6 +749,69 @@ function JobDetail({
           </View>
         ))}
       </Card>
+      {job.consumption ? (
+        <Card>
+          <View style={uiStyles.row}>
+            <Text style={styles.sectionTitle}>CONSUMABLES</Text>
+            {job.consumption.has_attention ? (
+              <StatusChip value={job.consumption.reviewed_at ? "reviewed" : "needs review"} />
+            ) : null}
+          </View>
+          {job.consumption.status === "no_template" ? (
+            <Text style={uiStyles.muted}>No automatic expected usage was configured.</Text>
+          ) : (
+            job.consumption.lines.map((line) => (
+              <View key={line.id} style={styles.consumptionLine}>
+                <Text style={styles.vehicle}>{line.item_name}</Text>
+                <Text style={uiStyles.muted}>{line.service_name}</Text>
+                <Text style={uiStyles.body}>
+                  Expected {line.expected_quantity} {line.unit} · Recorded {Number(line.automatic_applied_quantity) + Number(line.preexisting_manual_quantity)} {line.unit}
+                </Text>
+                {Number(line.additional_manual_quantity) > 0 ? (
+                  <Text style={uiStyles.muted}>
+                    Additional manual usage {line.additional_manual_quantity} {line.unit}
+                  </Text>
+                ) : null}
+                {Number(line.shortfall_quantity) > 0 ? (
+                  <Text style={uiStyles.error}>
+                    Needs review: {line.shortfall_quantity} {line.unit} difference
+                  </Text>
+                ) : null}
+              </View>
+            ))
+          )}
+          {job.consumption.source_location_name ? (
+            <Text style={uiStyles.muted}>Stock source: {job.consumption.source_location_name}</Text>
+          ) : null}
+        </Card>
+      ) : null}
+      {capabilities(context.role).canViewReports ? (
+        <Card>
+          <View style={uiStyles.row}>
+            <View>
+              <Text style={styles.sectionTitle}>DIRECT EXPENSES</Text>
+              <Text style={styles.vehicle}>
+                {job.currency_code} {((job.direct_expenses_total_minor ?? 0) / 100).toFixed(2)}
+              </Text>
+            </View>
+            <Pressable accessibilityRole="button" onPress={() => setDirectExpense(true)}>
+              <Text style={uiStyles.link}>Add expense</Text>
+            </Pressable>
+          </View>
+          {job.direct_expenses?.length ? (
+            job.direct_expenses.map((expense) => (
+              <View key={expense.id} style={styles.consumptionLine}>
+                <Text style={uiStyles.body}>{expense.description}</Text>
+                <Text style={uiStyles.muted}>
+                  {expense.currency_code} {(expense.amount_minor / 100).toFixed(2)} · {expense.expense_date}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={uiStyles.muted}>No direct expenses recorded.</Text>
+          )}
+        </Card>
+      ) : null}
       <Card>
         <Text style={styles.sectionTitle}>PAYMENT</Text>
         <View style={uiStyles.row}>
@@ -778,6 +863,103 @@ function JobDetail({
         </>
       ) : null}
     </ScrollView>
+  );
+}
+
+function DirectExpenseModal({
+  visible,
+  job,
+  pending,
+  eventIds,
+  onClose,
+  onSave,
+}: {
+  visible: boolean;
+  job: Job;
+  pending: boolean;
+  eventIds: ClientEventIdStore;
+  onClose: () => void;
+  onSave: (body: object) => Promise<void>;
+}) {
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("cash");
+  const minor = expenseAmountMinor(amount);
+  const key = `${job.id}:direct-expense:${description.trim()}:${minor}:${method}`;
+  async function submit() {
+    if (minor === null || !description.trim()) return;
+    try {
+      await onSave({
+        expense_date: today(),
+        category: "miscellaneous",
+        description: description.trim(),
+        amount_minor: minor,
+        payment_method: method,
+        paid_by_staff_id: null,
+        team_id: job.assigned_team_id,
+        related_job_id: job.id,
+        supplier_name: null,
+        reference_number: null,
+        notes: null,
+        client_event_id: eventIds.get(key),
+      });
+      eventIds.succeeded(key);
+      setDescription("");
+      setAmount("");
+    } catch (error) {
+      eventIds.failed(key, error);
+      Alert.alert(
+        "Expense not saved",
+        domainErrorMessage(error, "The server did not confirm this expense."),
+      );
+    }
+  }
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={styles.sheet}>
+          <Text style={styles.vehicle}>Add direct job expense</Text>
+          <Text style={uiStyles.muted}>Job {job.booking_reference}</Text>
+          <TextInput
+            accessibilityLabel="Direct expense description"
+            placeholder="Special material or parking"
+            placeholderTextColor={colors.textSecondary}
+            value={description}
+            onChangeText={setDescription}
+            style={uiStyles.field}
+          />
+          <TextInput
+            accessibilityLabel="Direct expense amount"
+            placeholder="0.00"
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="decimal-pad"
+            value={amount}
+            onChangeText={setAmount}
+            style={uiStyles.field}
+          />
+          <View style={styles.paymentMethods}>
+            {["cash", "card", "company_card", "bank_transfer", "other"].map((value) => (
+              <Pressable
+                key={value}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: method === value }}
+                onPress={() => setMethod(value)}
+                style={[styles.choice, method === value ? styles.choiceSelected : undefined]}
+              >
+                <Text style={uiStyles.body}>{value.replaceAll("_", " ")}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <AppButton
+            title="Save expense"
+            loading={pending}
+            disabled={pending || minor === null || !description.trim()}
+            onPress={() => void submit()}
+          />
+          <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -1323,6 +1505,13 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: spacing.md,
   },
+  consumptionLine: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  paymentMethods: { gap: spacing.xs },
   timelineTime: {
     width: 66,
     color: colors.textSecondary,

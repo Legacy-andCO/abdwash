@@ -91,6 +91,11 @@ export function OperationsShell({ context }: { context: StaffContext }) {
           <InventoryScreen
             context={context}
             onBack={() => setInventoryOpen(false)}
+            onOpenJob={(jobId) => {
+              setInventoryOpen(false);
+              setTab("jobs");
+              setJobDrillId(jobId);
+            }}
           />
         ) : customersOpen ? (
           <CustomersScreen

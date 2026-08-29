@@ -1,6 +1,6 @@
 # Service catalogue and Phase 1 business configuration
 
-This phase implements the immediate owner/manager controls described in `STARTUP_PRODUCT_DIRECTION.md` without introducing smart scheduling, procurement, or automatic inventory behavior.
+Phase 1 implemented the immediate owner/manager controls described in `STARTUP_PRODUCT_DIRECTION.md`. Phase 2 now consumes duration/capacity settings, and Phase 3 consumes the existing service-level expected-consumables templates without adding procurement or inventory accounting.
 
 ## Implemented now
 
@@ -25,13 +25,13 @@ Public catalogue serialization uses two bounded database round trips: one busine
 - `default_team_turnaround_minutes` defaults to 60.
 - Existing `service_inventory_templates` can be edited from the manager mobile surface.
 
-These values are durable inputs for later phases. They do not change assignment, capacity, or inventory balances in Phase 1.
+These values were durable inputs in Phase 1. Current behavior uses duration snapshots for scheduling and reads the current expected-consumables template at first successful completion, then stores an immutable job snapshot and updates recorded team stock safely.
 
 ## Explicitly deferred
 
-- Duration/travel-aware team assignment or automatic dispatch.
-- Automatic stock deduction when a job completes.
-- Variance reconciliation between expected and actual chemical usage.
+- Traffic/GPS-aware scheduling or continuous route optimization.
+- Vehicle-specific or add-on consumable recipe matrices.
+- Advanced expected-versus-physical analytics and automatic calibration.
 - Pickup/drop-off or shop-mode customer workflows; the current customer booking product is mobile-service only, so no dead pickup configuration was added.
 - Supplier management, purchase orders, inventory valuation/COGS, route optimization, commissions, subscriptions, corporate contracts, AI recommendations, or multi-branch policy inheritance.
 

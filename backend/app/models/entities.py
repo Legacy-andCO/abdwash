@@ -1185,6 +1185,112 @@ class ServiceInventoryTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class JobInventoryConsumptionRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "job_inventory_consumption_runs"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False, unique=True
+    )
+    source_location_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("inventory_locations.id", ondelete="SET NULL")
+    )
+    inventory_operation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("inventory_operations.id", ondelete="SET NULL"), unique=True
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    source_resolution: Mapped[str] = mapped_column(String(32), nullable=False)
+    issue_code: Mapped[str | None] = mapped_column(String(64))
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    has_attention: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("staff_profiles.id", ondelete="SET NULL")
+    )
+    review_note: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('no_template','applied','needs_review')",
+            name="job_inventory_consumption_status",
+        ),
+        CheckConstraint(
+            "source_resolution IN ('explicit_usage','van','mobile_team','shop_main',"
+            "'not_required','unresolved','ambiguous')",
+            name="job_inventory_source_resolution",
+        ),
+        CheckConstraint(
+            "(reviewed_at IS NULL AND reviewed_by_staff_id IS NULL) OR "
+            "(reviewed_at IS NOT NULL AND reviewed_by_staff_id IS NOT NULL)",
+            name="job_inventory_review_state",
+        ),
+        Index(
+            "ix_job_inventory_runs_business_attention_reviewed",
+            "business_id",
+            "has_attention",
+            "reviewed_at",
+            "processed_at",
+        ),
+        Index("ix_job_inventory_runs_source_location", "source_location_id"),
+        Index("ix_job_inventory_runs_reviewed_by", "reviewed_by_staff_id"),
+    )
+
+
+class JobInventoryConsumptionLine(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "job_inventory_consumption_lines"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("job_inventory_consumption_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    booking_service_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("booking_services.id", ondelete="RESTRICT"), nullable=False
+    )
+    service_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("services.id", ondelete="SET NULL")
+    )
+    service_name_snapshot: Mapped[str] = mapped_column(String(160), nullable=False)
+    inventory_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("inventory_items.id", ondelete="SET NULL")
+    )
+    item_name_snapshot: Mapped[str] = mapped_column(String(160), nullable=False)
+    unit_snapshot: Mapped[str] = mapped_column(String(24), nullable=False)
+    expected_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    automatic_applied_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    preexisting_manual_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    shortfall_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    issue_code: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    __table_args__ = (
+        CheckConstraint(
+            "expected_quantity > 0", name="job_inventory_line_positive_expected"
+        ),
+        CheckConstraint(
+            "automatic_applied_quantity >= 0 AND preexisting_manual_quantity >= 0 "
+            "AND shortfall_quantity >= 0",
+            name="job_inventory_line_nonnegative_quantities",
+        ),
+        UniqueConstraint(
+            "run_id",
+            "booking_service_id",
+            "inventory_item_id",
+            name="uq_job_inventory_line_service_item",
+        ),
+        Index("ix_job_inventory_lines_business_run", "business_id", "run_id"),
+        Index("ix_job_inventory_lines_item", "inventory_item_id"),
+        Index("ix_job_inventory_lines_booking_service", "booking_service_id"),
+    )
+
+
 class Expense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "expenses"
 

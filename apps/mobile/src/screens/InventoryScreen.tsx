@@ -22,11 +22,13 @@ import {
 } from "../inventory/inventoryState";
 import type { InventoryItem, InventoryLocation, StaffContext } from "../lib";
 import {
+  useInventoryAttentionQuery,
   useInventoryItemsQuery,
   useInventoryLocationsQuery,
   useInventoryMovementsQuery,
   useInventoryMutation,
   useInventoryOverviewQuery,
+  useInventoryReviewMutation,
   useInventoryStockQuery,
   useTeamsQuery,
 } from "../queries/operations";
@@ -38,9 +40,11 @@ type DraftQuantityLine = { item_id: string; quantity: string };
 export function InventoryScreen({
   context,
   onBack,
+  onOpenJob,
 }: {
   context: StaffContext;
   onBack: () => void;
+  onOpenJob: (jobId: string) => void;
 }) {
   const management = context.role === "manager" || context.role === "admin";
   const [tab, setTab] = useState<InventoryTab>(management ? "overview" : "stock");
@@ -50,6 +54,8 @@ export function InventoryScreen({
   const [locationId, setLocationId] = useState("");
   const [status, setStatus] = useState("");
   const overview = useInventoryOverviewQuery(context, management);
+  const attention = useInventoryAttentionQuery(context, management);
+  const review = useInventoryReviewMutation(context);
   const items = useInventoryItemsQuery(context, search);
   const locations = useInventoryLocationsQuery(context);
   const stock = useInventoryStockQuery(
@@ -71,7 +77,9 @@ export function InventoryScreen({
     ];
     if (tab === "stock") requests.push(stock.refetch());
     if (tab === "movements") requests.push(movements.refetch());
-    if (tab === "overview" && management) requests.push(overview.refetch());
+    if (tab === "overview" && management) {
+      requests.push(overview.refetch(), attention.refetch());
+    }
     await Promise.all(requests);
   };
   if (action) {
@@ -91,9 +99,9 @@ export function InventoryScreen({
   }
   const pending =
     locations.isPending ||
-    (tab === "overview" ? overview.isPending : tab === "catalogue" ? items.isPending : tab === "stock" ? stock.isPending : movements.isPending);
-  const error = locations.error ?? (tab === "overview" ? overview.error : tab === "catalogue" ? items.error : tab === "stock" ? stock.error : movements.error);
-  const refreshing = items.isRefetching || locations.isRefetching || stock.isRefetching || movements.isRefetching || overview.isRefetching;
+    (tab === "overview" ? overview.isPending || attention.isPending : tab === "catalogue" ? items.isPending : tab === "stock" ? stock.isPending : movements.isPending);
+  const error = locations.error ?? (tab === "overview" ? overview.error ?? attention.error : tab === "catalogue" ? items.error : tab === "stock" ? stock.error : movements.error);
+  const refreshing = items.isRefetching || locations.isRefetching || stock.isRefetching || movements.isRefetching || overview.isRefetching || attention.isRefetching;
   return (
     <ScrollView
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />}
@@ -149,7 +157,24 @@ export function InventoryScreen({
       ) : null}
       {error ? <Text style={uiStyles.error}>{domainErrorMessage(error, "Inventory could not load.")}</Text> : null}
       {pending ? <Skeleton rows={4} /> : tab === "overview" ? (
-        <InventoryOverviewContent value={overview.data ?? null} />
+        <InventoryOverviewContent
+          value={overview.data ?? null}
+          attention={attention.data?.items ?? []}
+          reviewing={review.isPending}
+          onOpenJob={onOpenJob}
+          onStockCount={() => setAction("stock_count")}
+          onReview={(runId, jobId) =>
+            void review
+              .mutateAsync({ runId, jobId })
+              .then(() => Alert.alert("Inventory reviewed", "The historical quantities were left unchanged."))
+              .catch((reviewError) =>
+                Alert.alert(
+                  "Review not saved",
+                  domainErrorMessage(reviewError, "The server did not confirm this review."),
+                ),
+              )
+          }
+        />
       ) : tab === "catalogue" ? (
         <CatalogueContent
           items={items.data?.items ?? []}
@@ -167,7 +192,14 @@ export function InventoryScreen({
   );
 }
 
-function InventoryOverviewContent({ value }: { value: ReturnType<typeof useInventoryOverviewQuery>["data"] | null }) {
+function InventoryOverviewContent({ value, attention, reviewing, onOpenJob, onStockCount, onReview }: {
+  value: ReturnType<typeof useInventoryOverviewQuery>["data"] | null;
+  attention: NonNullable<ReturnType<typeof useInventoryAttentionQuery>["data"]>["items"];
+  reviewing: boolean;
+  onOpenJob: (jobId: string) => void;
+  onStockCount: () => void;
+  onReview: (runId: string, jobId: string) => void;
+}) {
   if (!value) return <EmptyState title="No inventory overview" body="Pull down to try again." />;
   return (
     <>
@@ -175,7 +207,42 @@ function InventoryOverviewContent({ value }: { value: ReturnType<typeof useInven
         <MetricCard label="Active items" value={String(value.active_item_count)} />
         <MetricCard label="Low stock" value={String(value.low_stock_count)} />
         <MetricCard label="Out of stock" value={String(value.out_of_stock_count)} />
+        <MetricCard label="Needs review" value={String(value.needs_review_count)} />
       </View>
+      {attention.length ? (
+        <>
+          <Text style={styles.sectionHeading}>NEEDS REVIEW</Text>
+          {attention.map((item) => (
+            <Card key={item.id}>
+              <Text style={styles.title}>Job {item.booking_reference}</Text>
+              <Text style={uiStyles.muted}>{item.customer_name}</Text>
+              <Text style={uiStyles.body}>
+                {item.attention_lines} consumable line{item.attention_lines === 1 ? "" : "s"} need review
+              </Text>
+              <Text style={uiStyles.muted}>
+                {(item.issue_code ?? "Inventory mismatch").replaceAll("_", " ")}
+              </Text>
+              <AppButton
+                title="Open job"
+                tone="secondary"
+                onPress={() => onOpenJob(item.job_id)}
+              />
+              <AppButton
+                title="Stock count"
+                tone="secondary"
+                onPress={onStockCount}
+              />
+              <AppButton
+                title="Mark reviewed"
+                tone="secondary"
+                loading={reviewing}
+                disabled={reviewing}
+                onPress={() => onReview(item.id, item.job_id)}
+              />
+            </Card>
+          ))}
+        </>
+      ) : null}
       {value.locations.map((location) => (
         <Card key={location.location_id}>
           <Text style={styles.title}>{location.location_name}</Text>
@@ -490,4 +557,5 @@ const styles = StyleSheet.create({
   selectedLocationText: { color: colors.primary, fontWeight: "900" },
   validationReason: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.xs },
   flex: { flex: 1 },
+  sectionHeading: { color: colors.text, fontSize: 13, fontWeight: "900", marginTop: spacing.sm },
 });
