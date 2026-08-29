@@ -111,7 +111,7 @@ is the single foreground invalidation authority.
 | 21 | authenticated web booking-status/account list | 1 shared bookings request | 0 for 20 s | polling refresh preserves cached content |
 
 Availability is intentionally excluded from long-lived persistence: its key includes date,
-vehicle count, booking context, and it stays fresh only 20 seconds on mobile. Booking holds,
+vehicle count, authoritative service/add-on selections or booking context, and it stays fresh only 20 seconds on mobile. Booking holds,
 job actions, inventory movements, cash actions, and other writes are never served from cache.
 
 ## Cache ownership and lifecycle
@@ -200,6 +200,11 @@ Reports V2 9, Finance 3, inventory overview 2, inventory items 1, and customer l
 Public catalogue/availability/hold/booking ceilings remain in place. Staff HTTP endpoints add
 one staff-context query. The integration suite refuses remote/destructive database targets and
 runs only when `TEST_DATABASE_URL` names a local PostgreSQL database containing `test`.
+
+Smart availability loads eligible teams, active membership/leave signals, relevant blocking jobs,
+active holds, and grid-slot occupancy in bounded date-scoped queries. It does not query once per
+slot or once per team. A business/day advisory transaction lock serializes hold, confirmation,
+reschedule, and manager-assignment capacity writes before deterministic per-slot row locking.
 
 ## Web resource reuse
 

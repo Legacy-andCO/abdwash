@@ -7,6 +7,21 @@ export type Service = {
   price_minor: number;
   currency_code: string;
   estimated_duration_minutes: number;
+  mobile_available?: boolean;
+  shop_available?: boolean;
+  prices?: { vehicle_type: string; price_minor: number }[];
+  addons?: ServiceAddon[];
+};
+
+export type ServiceAddon = {
+  id: string;
+  name: string;
+  description: string | null;
+  price_minor: number;
+  currency_code: string;
+  default_duration_minutes: number;
+  mobile_available: boolean;
+  shop_available: boolean;
 };
 
 export type BusinessSettings = {
@@ -19,6 +34,8 @@ export type BusinessSettings = {
   multi_vehicle_required_slots: number;
   hold_duration_minutes: number;
   cancellation_cutoff_hours: number;
+  mobile_minimum_enabled?: boolean;
+  mobile_minimum_minor?: number;
 };
 
 export type Catalogue = {
@@ -27,18 +44,12 @@ export type Catalogue = {
   services: Service[];
 };
 
-export type AvailabilityResource = {
-  resource_id: string;
-  resource_name: string;
-};
-
 export type AvailabilitySlot = {
   time: string;
   starts_at: string;
   ends_at: string;
   available: boolean;
   required_slot_count: number;
-  resources: AvailabilityResource[];
   unavailable_reason: string | null;
 };
 
@@ -52,7 +63,6 @@ export type Availability = {
 
 export type Hold = {
   hold_token: string;
-  resource_id: string;
   starts_at: string;
   ends_at: string;
   expires_at: string;
@@ -85,6 +95,7 @@ export type Vehicle = {
   plate_number: string;
   notes: string;
   service_id: string;
+  addon_ids?: string[];
   loyalty_reward_id?: string;
 };
 
@@ -163,11 +174,19 @@ export type BookingVehicleSummary = {
   colour: string | null;
   plate_number: string | null;
   service_name: string;
+  service_id?: string | null;
   line_total_minor: number;
   list_price_minor?: number | null;
   discount_minor?: number;
   discount_type?: string | null;
   loyalty_reward_id?: string | null;
+  expected_duration_minutes?: number | null;
+  addons?: {
+    id?: string | null;
+    name: string;
+    price_minor: number;
+    expected_duration_minutes: number;
+  }[];
 };
 
 export type Booking = {
@@ -181,7 +200,6 @@ export type Booking = {
   vehicle_count: number;
   total_amount_minor: number;
   currency_code: string;
-  resource_id: string;
   customer_first_name: string;
   customer_surname: string;
   written_address: string;
@@ -193,7 +211,7 @@ export type Booking = {
 
 export type ManagedBooking = Omit<
   Booking,
-  "id" | "vehicle_count" | "resource_id" | "management_token"
+  "id" | "vehicle_count" | "management_token"
 > & {
   cancellation_eligible: boolean;
   cancellation_cutoff_at: string;

@@ -1349,6 +1349,33 @@
     border-radius: 14px;
     padding: 0.85rem;
   }
+  .booking-addons {
+    background: var(--brand-background);
+    border: 1px solid var(--brand-border);
+    border-radius: 14px;
+    display: grid;
+    gap: 0.65rem;
+    padding: 1rem;
+  }
+  .booking-addons > small,
+  .service-price-note {
+    color: var(--brand-text-secondary);
+  }
+  .booking-addon-option {
+    align-items: center;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: auto 1fr auto;
+    min-height: 44px;
+  }
+  .booking-addon-option span {
+    display: grid;
+    gap: 0.15rem;
+  }
+  .booking-addon-option input {
+    height: 1.1rem;
+    width: 1.1rem;
+  }
   .loyalty-discount {
     color: var(--brand-primary);
     display: block;

@@ -43,12 +43,12 @@ import type {
   JobFilters,
   Profile,
   StaffContext,
-  Team,
 } from "../lib";
 import { customerEmailUrl } from "../jobs/customerContact";
 import {
   useAssignJobMutation,
   useAvailabilityQuery,
+  useAssignmentOptionsQuery,
   useCashPaymentMutation,
   useJobActionMutation,
   useJobQualityQuery,
@@ -56,9 +56,12 @@ import {
   useJobsQuery,
   useRescheduleMutation,
   useStaffQuery,
-  useTeamsQuery,
 } from "../queries/operations";
-import { assignmentLabel, shouldShowPagination } from "../cache/policy";
+import {
+  assignmentLabel,
+  assignmentSourceLabel,
+  shouldShowPagination,
+} from "../cache/policy";
 import { colors, radii, spacing } from "../theme";
 import { normalizeCustomerSearch } from "../search/customerSearch";
 
@@ -681,6 +684,11 @@ function JobDetail({
                   job.assigned_staff_name ??
                   "Unassigned"}
               </Text>
+              {job.assignment_source ? (
+                <Text style={uiStyles.muted}>
+                  {assignmentSourceLabel(job)}
+                </Text>
+              ) : null}
             </View>
             <Pressable onPress={() => setAssignment(true)}>
               <Text style={uiStyles.link}>Change</Text>
@@ -784,24 +792,29 @@ function AssignmentSheet({
   job: Job;
   onClose: () => void;
 }) {
-  const teamsQuery = useTeamsQuery(context);
+  const optionsQuery = useAssignmentOptionsQuery(context, job.id, visible);
   const staffQuery = useStaffQuery(context);
   const mutation = useAssignJobMutation(context);
   const eventIds = useRef(new ClientEventIdStore()).current;
   const [target, setTarget] = useState<{ team_id?: string; staff_id?: string }>(
     {},
   );
-  const teams = (teamsQuery.data ?? []).filter((item: Team) => item.is_active);
+  const options = optionsQuery.data ?? [];
   const staff = (staffQuery.data ?? []).filter(
     (item: Profile) => item.is_active,
   );
-  async function save() {
-    const eventKey = `${job.id}:assignment:${target.team_id ?? ""}:${target.staff_id ?? ""}:${job.status}`;
+  async function save(
+    mode: "auto" | "manual" = "manual",
+    overrideTurnaround = false,
+  ) {
+    const eventKey = `${job.id}:assignment:${mode}:${target.team_id ?? ""}:${target.staff_id ?? ""}:${job.status}:${overrideTurnaround}`;
     try {
       await mutation.mutateAsync({
         jobId: job.id,
         body: {
-          ...target,
+          ...(mode === "manual" ? target : {}),
+          mode,
+          override_turnaround: mode === "manual" && overrideTurnaround,
           confirm_active_reassignment: [
             "en_route",
             "arrived",
@@ -822,6 +835,25 @@ function AssignmentSheet({
       );
     }
   }
+  function confirmManualAssignment() {
+    const selected = options.find((item) => item.team_id === target.team_id);
+    if (selected?.status !== "turnaround_conflict") {
+      void save("manual");
+      return;
+    }
+    Alert.alert(
+      "Short turnaround",
+      selected.reason ?? "This team has less than the recommended turnaround between jobs.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Assign anyway",
+          style: "destructive",
+          onPress: () => void save("manual", true),
+        },
+      ],
+    );
+  }
   return (
     <Modal
       visible={visible}
@@ -840,17 +872,30 @@ function AssignmentSheet({
               <Text style={uiStyles.link}>Close</Text>
             </Pressable>
           </View>
-          {teamsQuery.isPending || staffQuery.isPending ? (
+          {optionsQuery.isPending || staffQuery.isPending ? (
             <Skeleton rows={3} />
           ) : null}
+          <AppButton
+            title={mutation.isPending ? "Assigning…" : "Auto assign"}
+            disabled={mutation.isPending}
+            loading={mutation.isPending}
+            onPress={() => void save("auto")}
+          />
           <Text style={styles.sectionTitle}>TEAMS</Text>
-          {teams.map((item) => (
+          {options.map((item) => (
             <Choice
-              key={item.id}
-              selected={target.team_id === item.id}
-              title={item.name}
-              detail={`${item.member_count} members · ${item.jobs_today} jobs today`}
-              onPress={() => setTarget({ team_id: item.id })}
+              key={item.team_id}
+              selected={target.team_id === item.team_id}
+              title={item.team_name}
+              detail={
+                item.status === "available"
+                  ? `${item.same_day_job_count} jobs · ${item.assigned_minutes} min assigned`
+                  : item.reason ?? item.status.replaceAll("_", " ")
+              }
+              disabled={item.status === "time_conflict" || item.status === "unavailable"}
+              onPress={() => {
+                setTarget({ team_id: item.team_id });
+              }}
             />
           ))}
           <Text style={styles.sectionTitle}>INDIVIDUALS</Text>
@@ -869,7 +914,7 @@ function AssignmentSheet({
               mutation.isPending || (!target.staff_id && !target.team_id)
             }
             loading={mutation.isPending}
-            onPress={() => void save()}
+            onPress={confirmManualAssignment}
           />
         </ScrollView>
       </View>
@@ -890,7 +935,6 @@ function RescheduleSheet({
 }) {
   const [selectedDay, setSelectedDay] = useState(() => toIsoDate(new Date()));
   const [selection, setSelection] = useState<AvailabilitySlot | null>(null);
-  const [resourceId, setResourceId] = useState("");
   const vehicleCount = Math.max(1, job.vehicles.length);
   const availability = useAvailabilityQuery(
     context,
@@ -906,20 +950,17 @@ function RescheduleSheet({
   function changeDay(value: string) {
     setSelectedDay(value);
     setSelection(null);
-    setResourceId("");
   }
   function chooseSlot(slot: AvailabilitySlot) {
-    if (!slot.available || slot.resources.length === 0) return;
+    if (!slot.available) return;
     setSelection(slot);
-    setResourceId(slot.resources[0].resource_id);
   }
   async function submit(confirmActiveReschedule: boolean) {
-    if (!selection || !resourceId) return;
+    if (!selection) return;
     try {
       await mutation.mutateAsync({
         selectedDay,
         startTime: selection.time,
-        resourceId,
         confirmActiveReschedule,
       });
       await successHaptic();
@@ -1088,20 +1129,6 @@ function RescheduleSheet({
                   );
                 })}
               </View>
-              {selection?.resources.length ? (
-                <Card>
-                  <Text style={styles.sectionTitle}>AVAILABLE TEAM</Text>
-                  {selection.resources.map((resource) => (
-                    <Choice
-                      key={resource.resource_id}
-                      selected={resourceId === resource.resource_id}
-                      title={resource.resource_name}
-                      detail="Available for this appointment"
-                      onPress={() => setResourceId(resource.resource_id)}
-                    />
-                  ))}
-                </Card>
-              ) : null}
               {availability.data?.required_slot_count &&
               availability.data.required_slot_count > 1 ? (
                 <Text style={uiStyles.muted}>
@@ -1113,7 +1140,7 @@ function RescheduleSheet({
                 title={
                   mutation.isPending ? "Rescheduling…" : "Confirm reschedule"
                 }
-                disabled={mutation.isPending || !selection || !resourceId}
+                disabled={mutation.isPending || !selection}
                 loading={mutation.isPending}
                 onPress={confirm}
               />
@@ -1130,16 +1157,25 @@ function Choice({
   title,
   detail,
   onPress,
+  disabled = false,
 }: {
   selected: boolean;
   title: string;
   detail: string;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
-      style={[styles.choice, selected ? styles.choiceSelected : undefined]}
       onPress={onPress}
+      disabled={disabled}
+      accessibilityState={{ disabled, selected }}
+      style={({ pressed }) => [
+        styles.choice,
+        selected ? styles.choiceSelected : undefined,
+        disabled ? { opacity: 0.48 } : undefined,
+        pressed && !disabled ? { opacity: 0.82 } : undefined,
+      ]}
     >
       <View
         style={[styles.radio, selected ? styles.radioSelected : undefined]}

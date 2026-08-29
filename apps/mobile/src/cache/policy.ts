@@ -13,6 +13,7 @@ export const cacheTimes = {
   reports: 2 * 60_000,
   finance: 60_000,
   inventory: 60_000,
+  catalogue: 60_000,
   quality: 30_000,
   customers: 60_000,
 } as const;
@@ -30,6 +31,7 @@ export const retentionTimes = {
   reports: 7 * 24 * 60 * 60_000,
   finance: 7 * 24 * 60 * 60_000,
   inventory: 3 * 24 * 60 * 60_000,
+  catalogue: 3 * 24 * 60 * 60_000,
   profile: 3 * 24 * 60 * 60_000,
   cancellations: 24 * 60 * 60_000,
   quality: 24 * 60 * 60_000,
@@ -51,6 +53,8 @@ export const queryKeys = {
   jobs: (scope: string, filters: JobFilters) =>
     ["jobs", scope, filters] as const,
   job: (scope: string, id: string) => ["job", scope, id] as const,
+  assignmentOptions: (scope: string, id: string) =>
+    ["assignment-options", scope, id] as const,
   quality: (scope: string, id: string) => ["quality", scope, id] as const,
   customers: (scope: string, search: string, offset: number) =>
     ["customers", scope, search, offset] as const,
@@ -58,6 +62,10 @@ export const queryKeys = {
     ["customer", scope, id, historyOffset] as const,
   loyaltySettings: (scope: string) => ["loyalty-settings", scope] as const,
   serviceOptions: ["service-options"] as const,
+  managedCatalogue: (scope: string) => ["managed-catalogue", scope] as const,
+  businessSettings: (scope: string) => ["business-settings", scope] as const,
+  serviceTemplate: (scope: string, serviceId: string) =>
+    ["service-template", scope, serviceId] as const,
   teams: (scope: string) => ["teams", scope] as const,
   team: (scope: string, id: string) => ["team", scope, id] as const,
   staff: (scope: string) => ["staff", scope] as const,
@@ -135,4 +143,11 @@ export function assignmentLabel(job: Job) {
   if (job.assigned_staff_name) return job.assigned_staff_name;
   if (job.assigned_team_id || job.assigned_staff_id) return "ASSIGNED";
   return "UNASSIGNED";
+}
+
+export function assignmentSourceLabel(job: Job) {
+  if (job.assignment_source === "auto") return "Auto-assigned";
+  if (job.assignment_source === "manual") return "Manually assigned";
+  if (job.assignment_source === "legacy") return "Existing assignment";
+  return null;
 }

@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from typing import Annotated
 
@@ -45,8 +46,16 @@ async def availability(
     session: SessionDep,
     day: Annotated[date, Query(alias="date")],
     vehicle_count: Annotated[int, Query(ge=1, le=20)],
+    service_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    addon_id: Annotated[list[uuid.UUID] | None, Query()] = None,
 ) -> AvailabilityResponse:
-    return await availability_for_date(session, day=day, vehicle_count=vehicle_count)
+    return await availability_for_date(
+        session,
+        day=day,
+        vehicle_count=vehicle_count,
+        service_ids=service_id,
+        addon_ids=addon_id,
+    )
 
 
 @router.post("/holds", response_model=HoldResponse, status_code=201)

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Job } from "../lib";
 import {
   assignmentLabel,
+  assignmentSourceLabel,
   cacheTimes,
   operationalScope,
   queryKeys,
@@ -97,5 +98,17 @@ describe("operations cache policy", () => {
         assigned_staff_name: null,
       } as Job),
     ).toBe("ASSIGNED");
+  });
+
+  it("explains auto, manual and legacy assignment provenance", () => {
+    expect(assignmentSourceLabel({ assignment_source: "auto" } as Job)).toBe(
+      "Auto-assigned",
+    );
+    expect(assignmentSourceLabel({ assignment_source: "manual" } as Job)).toBe(
+      "Manually assigned",
+    );
+    expect(assignmentSourceLabel({ assignment_source: "legacy" } as Job)).toBe(
+      "Existing assignment",
+    );
   });
 });

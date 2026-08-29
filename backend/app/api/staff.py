@@ -125,6 +125,7 @@ from app.schemas.staff import (
     StaffProfileView,
     StartTripAction,
     SyncState,
+    TeamAssignmentOption,
     TeamCreate,
     TeamDetail,
     TeamMembersUpdate,
@@ -216,6 +217,7 @@ from app.services.staff_accounts import (
 )
 from app.services.staff_operations import (
     assign_job,
+    assignment_options,
     get_job,
     list_cancellations,
     list_jobs,
@@ -1363,6 +1365,13 @@ async def job_assignment(
         result = await assign_job(session, context, job_id, payload)
         await bump_sync_revisions(session, context.business_id, "jobs", "schedule")
         return result
+
+
+@router.get("/jobs/{job_id}/assignment-options", response_model=list[TeamAssignmentOption])
+async def job_assignment_options(
+    job_id: uuid.UUID, session: SessionDep, context: ManagerContext
+) -> list[TeamAssignmentOption]:
+    return await assignment_options(session, context, job_id)
 
 
 @router.get("/team", response_model=list[StaffMember])

@@ -49,11 +49,7 @@ export const sameStringSet = (left: string[], right: string[]) => {
   );
 };
 export const availabilityOptions = (slots: AvailabilitySlot[]) =>
-  slots.flatMap((slot) =>
-    slot.available
-      ? slot.resources.map((resource) => ({ slot, resource }))
-      : [],
-  );
+  slots.filter((slot) => slot.available).map((slot) => ({ slot }));
 export const reschedulePayload = (holdToken: string) => ({
   hold_token: holdToken,
 });

@@ -72,7 +72,18 @@ export function CustomerBookingDetail({ bookingId }: { bookingId: string }) {
     rescheduleKey.current = "";
     rescheduleHoldToken.current = "";
     if (!value) return;
-    try { setAvailability(await getAvailability(value, booking.vehicle_count)); }
+    const serviceIds = booking.vehicles.flatMap((vehicle) =>
+      vehicle.service_id ? [vehicle.service_id] : [],
+    );
+    const addonIds = booking.vehicles.flatMap(
+      (vehicle) =>
+        vehicle.addons?.flatMap((addon) => (addon.id ? [addon.id] : [])) ?? [],
+    );
+    try { setAvailability(await getAvailability(
+      value,
+      booking.vehicle_count,
+      serviceIds.length === booking.vehicle_count ? { serviceIds, addonIds } : undefined,
+    )); }
     catch (reason) { setError(localizedCustomerError(reason, language, t)); }
   }
 
@@ -84,11 +95,20 @@ export function CustomerBookingDetail({ bookingId }: { bookingId: string }) {
     rescheduleKey.current ||= crypto.randomUUID();
     try {
       if (!rescheduleHoldToken.current) {
+        const serviceIds = booking.vehicles.flatMap((vehicle) =>
+          vehicle.service_id ? [vehicle.service_id] : [],
+        );
+        const addonIds = booking.vehicles.flatMap(
+          (vehicle) =>
+            vehicle.addons?.flatMap((addon) => (addon.id ? [addon.id] : [])) ?? [],
+        );
         const hold = await createHold({
           date,
           start_time: slot.time,
           vehicle_count: booking.vehicle_count,
-          resource_id: slot.resources[0]?.resource_id,
+          ...(serviceIds.length === booking.vehicle_count
+            ? { service_ids: serviceIds, addon_ids: addonIds }
+            : {}),
         });
         rescheduleHoldToken.current = hold.hold_token;
       }

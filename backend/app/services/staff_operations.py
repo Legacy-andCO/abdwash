@@ -26,6 +26,7 @@ from app.models.entities import (
     Booking,
     BookingService,
     BookingVehicle,
+    BusinessSettings,
     CancellationRequest,
     Job,
     JobComplaint,
@@ -52,9 +53,15 @@ from app.schemas.staff import (
     StaffMember,
     StaffVehicle,
     StartTripAction,
+    TeamAssignmentOption,
 )
 from app.services.loyalty import evaluate_loyalty_for_job, release_booking_rewards
 from app.services.scheduling import _lock_slot_sequence
+from app.services.smart_scheduling import (
+    choose_team_for_booking,
+    evaluate_teams_for_interval,
+    lock_schedule_day,
+)
 
 logger = structlog.get_logger()
 
@@ -265,6 +272,13 @@ async def _serialize_jobs(
             assigned_staff_name=staff_name,
             assigned_team_id=job.assigned_resource_id,
             assigned_team_name=team_name,
+            assignment_source=getattr(job, "assignment_source", None),
+            assigned_at=getattr(job, "assigned_at", None),
+            assigned_by_staff_id=getattr(job, "assigned_by_staff_id", None),
+            expected_duration_minutes=(
+                getattr(job, "expected_duration_minutes", None)
+                or max(15, int((job.scheduled_end - job.scheduled_start).total_seconds() // 60))
+            ),
             status=job.status,
             scheduled_start=job.scheduled_start,
             scheduled_end=job.scheduled_end,
@@ -587,6 +601,8 @@ async def assign_job(
     job, booking, _payment, _staff_name, _team_name = _job_row_values(
         await _locked_job(session, context, job_id)
     )
+    if await _duplicate_event(session, job.id, request.client_event_id):
+        return await get_job(session, context, job.id)
     if request.expected_version and request.expected_version != job.version:
         raise ConflictError("JOB_VERSION_CONFLICT", "The job was changed by another user.")
     if (
@@ -597,6 +613,13 @@ async def assign_job(
             "ACTIVE_JOB_REASSIGNMENT_CONFIRMATION_REQUIRED",
             "Active work requires explicit confirmation.",
         )
+    settings = await session.scalar(
+        select(BusinessSettings).where(BusinessSettings.business_id == context.business_id)
+    )
+    if settings is None:
+        raise DomainError("SETTINGS_NOT_FOUND", "Business scheduling settings were not found.")
+    day = job.scheduled_start.astimezone(ZoneInfo(context.timezone)).date()
+    await lock_schedule_day(session, business_id=context.business_id, day=day)
     staff = None
     if request.staff_id is not None:
         staff = (
@@ -611,7 +634,20 @@ async def assign_job(
         if staff is None:
             raise DomainError("STAFF_NOT_FOUND", "Active staff member not found.", status_code=404)
     team = None
-    if request.team_id is not None:
+    if request.mode == "auto":
+        decision = await choose_team_for_booking(
+            session,
+            business_id=context.business_id,
+            day=day,
+            timezone=context.timezone,
+            starts_at=job.scheduled_start,
+            ends_at=job.scheduled_end,
+            turnaround_minutes=settings.default_team_turnaround_minutes,
+            source="auto",
+            exclude_job_id=job.id,
+        )
+        team = await session.get(ScheduleResource, decision.team.id)
+    elif request.team_id is not None:
         team = (
             await session.scalars(
                 select(ScheduleResource).where(
@@ -623,7 +659,20 @@ async def assign_job(
             )
         ).one_or_none()
         if team is None:
-            raise DomainError("TEAM_NOT_FOUND", "Active team not found.", status_code=404)
+            raise DomainError("TEAM_NOT_AVAILABLE", "Active team not found.", status_code=404)
+        await choose_team_for_booking(
+            session,
+            business_id=context.business_id,
+            day=day,
+            timezone=context.timezone,
+            starts_at=job.scheduled_start,
+            ends_at=job.scheduled_end,
+            turnaround_minutes=settings.default_team_turnaround_minutes,
+            source="manual",
+            preferred_team_id=team.id,
+            override_turnaround=request.override_turnaround,
+            exclude_job_id=job.id,
+        )
         if team.id != job.assigned_resource_id:
             await _move_booking_capacity(session, context, job, booking, team)
     previous_staff = job.assigned_staff_id
@@ -632,6 +681,10 @@ async def assign_job(
         job.assigned_staff_id = staff.id
     if team is not None:
         job.assigned_resource_id = team.id
+    if team is not None or staff is not None:
+        job.assignment_source = request.mode
+        job.assigned_at = datetime.now(UTC)
+        job.assigned_by_staff_id = context.staff_id if request.mode == "manual" else None
     if job.assigned_resource_id is not None or job.assigned_staff_id is not None:
         job.status = JobStatus.ASSIGNED if job.status == JobStatus.UNASSIGNED else job.status
     job.version += 1
@@ -652,11 +705,51 @@ async def assign_job(
                 "previous_team_id": str(previous_team) if previous_team else None,
                 "staff_id": str(staff.id) if staff else None,
                 "team_id": str(team.id) if team else None,
+                "assignment_source": request.mode,
+                "turnaround_overridden": request.override_turnaround,
             },
         )
     )
     await session.flush()
     return await get_job(session, context, job.id)
+
+
+async def assignment_options(
+    session: AsyncSession, context: StaffContext, job_id: uuid.UUID
+) -> list[TeamAssignmentOption]:
+    rows = await _job_rows(session, context, job_id=job_id, scope="all", limit=1)
+    if not rows:
+        raise DomainError("JOB_NOT_FOUND", "Job not found.", status_code=404)
+    job, _booking, _payment, _staff_name, _team_name = _job_row_values(
+        rows[0]
+    )
+    settings = await session.scalar(
+        select(BusinessSettings).where(BusinessSettings.business_id == context.business_id)
+    )
+    if settings is None:
+        raise DomainError("SETTINGS_NOT_FOUND", "Business scheduling settings were not found.")
+    day = job.scheduled_start.astimezone(ZoneInfo(context.timezone)).date()
+    evaluations = await evaluate_teams_for_interval(
+        session,
+        business_id=context.business_id,
+        day=day,
+        timezone=context.timezone,
+        starts_at=job.scheduled_start,
+        ends_at=job.scheduled_end,
+        turnaround_minutes=settings.default_team_turnaround_minutes,
+        exclude_job_id=job.id,
+    )
+    return [
+        TeamAssignmentOption(
+            team_id=item.team.id,
+            team_name=item.team.name,
+            status=item.status,
+            reason=item.reason,
+            same_day_job_count=item.same_day_job_count,
+            assigned_minutes=item.assigned_minutes,
+        )
+        for item in evaluations
+    ]
 
 
 async def _move_booking_capacity(
@@ -688,7 +781,7 @@ async def _move_booking_capacity(
     )
     if conflict is not None:
         raise ConflictError(
-            "TEAM_ASSIGNMENT_CONFLICT",
+            "TEAM_TIME_CONFLICT",
             f"{team.name} already has another job during this appointment.",
         )
     if source_slots:
@@ -701,7 +794,7 @@ async def _move_booking_capacity(
         )
         if target_slots is None:
             raise ConflictError(
-                "TEAM_ASSIGNMENT_CONFLICT",
+                "TEAM_NOT_AVAILABLE",
                 f"{team.name} has unavailable scheduling capacity for this appointment.",
             )
         for slot in target_slots:

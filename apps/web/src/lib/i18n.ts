@@ -191,6 +191,9 @@ const en = {
   "booking.vehicles.plateRequired": "Plate number (required)",
   "booking.vehicles.service": "Service for this vehicle",
   "booking.vehicles.notes": "Vehicle notes",
+  "booking.vehicles.addons": "Optional extras",
+  "booking.vehicles.addonsCopy": "Add only what this vehicle needs.",
+  "booking.vehicles.vehiclePrice": "Vehicle price",
   "booking.vehicles.type.sedan": "Sedan",
   "booking.vehicles.type.suv": "SUV",
   "booking.vehicles.type.hatchback": "Hatchback",
@@ -208,6 +211,8 @@ const en = {
   "booking.review.locationNotes": "Location notes: {notes}",
   "booking.review.estimated": "Estimated total",
   "booking.review.estimatedCopy": "Calculated from current catalogue prices",
+  "booking.review.mobileMinimum": "Mobile booking minimum",
+  "booking.review.mobileMinimumCopy": "Add services or extras to reach {amount}.",
   "booking.review.chooseTime": "Choose a time",
   "booking.schedule.eyebrow": "Your schedule",
   "booking.schedule.title": "When should we come?",
@@ -469,6 +474,12 @@ const en = {
   "auth.returnLogin": "Return to login",
   "errors.network":
     "We could not reach Trifecta. Check your connection and try again.",
+  "errors.mobileMinimum":
+    "Your booking is below the minimum for mobile service. Review the total and add another service or extra.",
+  "errors.catalogueChanged":
+    "That service, vehicle price, or add-on is no longer available. Review your selections and try again.",
+  "errors.timeUnavailable":
+    "That time is no longer available. Please choose another.",
   "errors.generic": "Something unexpected happened. Please try again.",
 } as const;
 
@@ -655,6 +666,9 @@ const ar: Record<TranslationKey, string> = {
   "booking.vehicles.plateRequired": "رقم اللوحة (مطلوب)",
   "booking.vehicles.service": "خدمة هذه المركبة",
   "booking.vehicles.notes": "ملاحظات المركبة",
+  "booking.vehicles.addons": "إضافات اختيارية",
+  "booking.vehicles.addonsCopy": "اختر فقط ما تحتاجه هذه المركبة.",
+  "booking.vehicles.vehiclePrice": "سعر المركبة",
   "booking.vehicles.type.sedan": "سيدان",
   "booking.vehicles.type.suv": "دفع رباعي",
   "booking.vehicles.type.hatchback": "هاتشباك",
@@ -672,6 +686,8 @@ const ar: Record<TranslationKey, string> = {
   "booking.review.locationNotes": "تفاصيل الموقع: {notes}",
   "booking.review.estimated": "الإجمالي التقديري",
   "booking.review.estimatedCopy": "محسوب وفق أسعار قائمة الخدمات الحالية",
+  "booking.review.mobileMinimum": "الحد الأدنى للحجز المتنقل",
+  "booking.review.mobileMinimumCopy": "أضف خدمات أو إضافات للوصول إلى {amount}.",
   "booking.review.chooseTime": "اختر موعداً",
   "booking.schedule.eyebrow": "موعدك",
   "booking.schedule.title": "متى تود أن نصل؟",
@@ -923,6 +939,11 @@ const ar: Record<TranslationKey, string> = {
     "قد تكون صلاحيته انتهت أو تم استخدامه من قبل. عد إلى تسجيل الدخول واطلب تأكيداً جديداً بإنشاء الحساب مرة أخرى.",
   "auth.returnLogin": "العودة إلى تسجيل الدخول",
   "errors.network": "تعذر الوصول إلى ترايفكتا. تحقق من اتصالك وحاول مرة أخرى.",
+  "errors.mobileMinimum":
+    "قيمة الحجز أقل من الحد الأدنى للخدمة المتنقلة. راجع الإجمالي وأضف خدمة أو إضافة أخرى.",
+  "errors.catalogueChanged":
+    "لم تعد الخدمة أو فئة السعر أو الإضافة المحددة متاحة. راجع اختياراتك وحاول مرة أخرى.",
+  "errors.timeUnavailable": "هذا الموعد لم يعد متاحاً. اختر موعداً آخر.",
   "errors.generic": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
 };
 

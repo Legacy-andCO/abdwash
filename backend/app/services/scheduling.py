@@ -20,17 +20,24 @@ from app.domain.scheduling import (
 from app.models.entities import (
     BusinessOperatingHour,
     BusinessSettings,
-    ScheduleResource,
     ScheduleSlot,
     SlotHoldGroup,
 )
 from app.repositories.business import load_default_business
 from app.schemas.public import (
-    AvailabilityResource,
     AvailabilityResponse,
     AvailabilitySlot,
     HoldCreate,
     HoldResponse,
+)
+from app.services.smart_scheduling import (
+    current_selection_duration_minutes,
+    evaluate_team,
+    evaluate_teams_for_interval,
+    get_eligible_teams,
+    load_capacity_items,
+    lock_schedule_day,
+    rank_evaluations,
 )
 
 
@@ -75,7 +82,12 @@ async def policy_for_day(
 
 
 async def availability_for_date(
-    session: AsyncSession, *, day: date, vehicle_count: int
+    session: AsyncSession,
+    *,
+    day: date,
+    vehicle_count: int,
+    service_ids: list[uuid.UUID] | None = None,
+    addon_ids: list[uuid.UUID] | None = None,
 ) -> AvailabilityResponse:
     configuration = await load_default_business(session)
     policy = await policy_for_day(session, configuration.settings, day)
@@ -95,18 +107,16 @@ async def availability_for_date(
     required = required_slot_count(
         vehicle_count, policy.multi_vehicle_threshold, policy.multi_vehicle_required_slots
     )
-    resources = list(
-        (
-            await session.scalars(
-                select(ScheduleResource)
-                .where(
-                    ScheduleResource.business_id == configuration.business.id,
-                    ScheduleResource.is_active.is_(True),
-                )
-                .order_by(ScheduleResource.sort_order, ScheduleResource.name)
-            )
-        ).all()
+    floor_minutes = required * policy.slot_duration_minutes
+    expected_minutes = await current_selection_duration_minutes(
+        session,
+        business_id=configuration.business.id,
+        service_ids=service_ids or [],
+        addon_ids=addon_ids or [],
+        vehicle_count=vehicle_count,
+        reserved_slot_floor_minutes=floor_minutes,
     )
+    teams = await get_eligible_teams(session, business_id=configuration.business.id, day=day)
     if not windows:
         return AvailabilityResponse(
             date=day,
@@ -120,7 +130,7 @@ async def availability_for_date(
         (
             await session.scalars(
                 select(ScheduleSlot).where(
-                    ScheduleSlot.resource_id.in_([resource.id for resource in resources]),
+                    ScheduleSlot.resource_id.in_([team.id for team in teams]),
                     ScheduleSlot.slot_start.in_(starts),
                 )
             )
@@ -128,33 +138,50 @@ async def availability_for_date(
     )
     now = datetime.now(UTC)
     occupancy = {(slot.resource_id, slot.slot_start): _slot_blocks(slot, now) for slot in existing}
+    capacity_items = await load_capacity_items(
+        session,
+        business_id=configuration.business.id,
+        resource_ids=[team.id for team in teams],
+        day=day,
+        timezone=policy.timezone,
+    )
     output: list[AvailabilitySlot] = []
     zone = ZoneInfo(policy.timezone)
+    closing = datetime.combine(day, policy.closing_time, zone).astimezone(UTC)
     for index, window in enumerate(windows):
-        available_resources: list[AvailabilityResource] = []
         sequence_fits = index + required <= len(windows)
-        if sequence_fits and window.start > now:
+        operational_end = window.start + timedelta(minutes=expected_minutes)
+        available = False
+        if sequence_fits and operational_end <= closing and window.start > now:
             needed = windows[index : index + required]
-            for resource in resources:
-                if all(not occupancy.get((resource.id, item.start), False) for item in needed):
-                    available_resources.append(
-                        AvailabilityResource(resource_id=resource.id, resource_name=resource.name)
+            for team in teams:
+                if all(not occupancy.get((team.id, item.start), False) for item in needed):
+                    evaluation = evaluate_team(
+                        team,
+                        capacity_items,
+                        starts_at=window.start,
+                        ends_at=operational_end,
+                        turnaround_minutes=configuration.settings.default_team_turnaround_minutes,
                     )
+                    if evaluation.feasible:
+                        available = True
+                        break
         reason = None
         if window.start <= now:
             reason = "PAST_SLOT"
         elif not sequence_fits:
             reason = "CONSECUTIVE_SLOT_OUTSIDE_HOURS"
-        elif not available_resources:
-            reason = "CONSECUTIVE_SLOT_UNAVAILABLE" if required > 1 else "SLOT_UNAVAILABLE"
+        elif operational_end > closing:
+            reason = "BOOKING_OUTSIDE_OPERATING_HOURS"
+        elif not available:
+            reason = "NO_TEAM_CAPACITY"
         output.append(
             AvailabilitySlot(
                 time=window.start.astimezone(zone).time().replace(tzinfo=None),
                 starts_at=window.start,
-                ends_at=windows[index + required - 1].end if sequence_fits else window.end,
-                available=bool(available_resources),
+                ends_at=operational_end,
+                available=available,
                 required_slot_count=required,
-                resources=available_resources,
                 unavailable_reason=reason,
             )
         )
@@ -181,21 +208,63 @@ async def create_hold(session: AsyncSession, request: HoldCreate) -> HoldRespons
     windows = resolve_requested_windows(
         request.date, request.start_time, request.vehicle_count, policy
     )
-    resource_statement = select(ScheduleResource).where(
-        ScheduleResource.business_id == configuration.business.id,
-        ScheduleResource.is_active.is_(True),
+    required = len(windows)
+    floor_minutes = required * policy.slot_duration_minutes
+    expected_minutes = await current_selection_duration_minutes(
+        session,
+        business_id=configuration.business.id,
+        service_ids=request.service_ids,
+        addon_ids=request.addon_ids,
+        vehicle_count=request.vehicle_count,
+        reserved_slot_floor_minutes=floor_minutes,
     )
-    if request.resource_id:
-        resource_statement = resource_statement.where(ScheduleResource.id == request.resource_id)
-    resources = list(
-        (await session.scalars(resource_statement.order_by(ScheduleResource.sort_order))).all()
-    )
-    if not resources:
-        raise DomainError(
-            "RESOURCE_NOT_FOUND", "No active scheduling resource was found.", status_code=404
+    operational_end = windows[0].start + timedelta(minutes=expected_minutes)
+    closing = datetime.combine(
+        request.date, policy.closing_time, ZoneInfo(policy.timezone)
+    ).astimezone(UTC)
+    if operational_end > closing:
+        raise ConflictError(
+            "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
         )
-
-    for resource in resources:
+    await lock_schedule_day(session, business_id=configuration.business.id, day=request.date)
+    # A candidate can pass operational capacity while a manually blocked grid
+    # slot still prevents this exact start. Try ranked candidates in order by
+    # excluding each blocked candidate from the local attempt.
+    evaluations = await evaluate_teams_for_interval(
+        session,
+        business_id=configuration.business.id,
+        day=request.date,
+        timezone=policy.timezone,
+        starts_at=windows[0].start,
+        ends_at=operational_end,
+        turnaround_minutes=configuration.settings.default_team_turnaround_minutes,
+    )
+    ranked = rank_evaluations(evaluations)
+    now = datetime.now(UTC)
+    grid_rows = (
+        list(
+            (
+                await session.scalars(
+                    select(ScheduleSlot).where(
+                        ScheduleSlot.resource_id.in_([item.team.id for item in ranked]),
+                        ScheduleSlot.slot_start.in_([window.start for window in windows]),
+                    )
+                )
+            ).all()
+        )
+        if ranked
+        else []
+    )
+    blocked_grid = {
+        (slot.resource_id, slot.slot_start) for slot in grid_rows if _slot_blocks(slot, now)
+    }
+    candidates = [
+        item
+        for item in ranked
+        if all((item.team.id, window.start) not in blocked_grid for window in windows)
+    ]
+    for evaluation in candidates:
+        resource = evaluation.team
         slots = await _lock_slot_sequence(
             session,
             business_id=configuration.business.id,
@@ -213,8 +282,9 @@ async def create_hold(session: AsyncSession, request: HoldCreate) -> HoldRespons
             status=HoldStatus.ACTIVE,
             vehicle_count=request.vehicle_count,
             required_slot_count=len(windows),
+            expected_duration_minutes=expected_minutes,
             slot_start=windows[0].start,
-            slot_end=windows[-1].end,
+            slot_end=operational_end,
             expires_at=expires_at,
         )
         session.add(group)
@@ -227,20 +297,16 @@ async def create_hold(session: AsyncSession, request: HoldCreate) -> HoldRespons
             slot.version += 1
         return HoldResponse(
             hold_token=raw_token,
-            resource_id=resource.id,
             starts_at=windows[0].start,
-            ends_at=windows[-1].end,
+            ends_at=operational_end,
             expires_at=expires_at,
             required_slot_count=len(windows),
         )
 
-    code = "CONSECUTIVE_SLOT_UNAVAILABLE" if len(windows) > 1 else "SLOT_UNAVAILABLE"
-    message = (
-        "This booking requires consecutive slots and the following slot is unavailable."
-        if len(windows) > 1
-        else "The requested slot is unavailable."
+    raise ConflictError(
+        "NO_TEAM_CAPACITY",
+        "This time is no longer available. Please choose another time.",
     )
-    raise ConflictError(code, message)
 
 
 async def _lock_slot_sequence(

@@ -28,7 +28,7 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 - Responsive landing, service catalogue, contact, authentication, booking, account, profile, booking-detail, secure management, and confirmation pages.
 - Guest booking and optional Supabase customer authentication; login is never required to book.
 - Email/password signup, PKCE email confirmation, session restoration, logout, and authenticated API bearer tokens.
-- Real catalogue, timezone-aware availability, atomic temporary holds, idempotent booking submission, and Pay After Service.
+- Real catalogue with server-owned vehicle-type pricing and optional add-ons, timezone-aware availability, atomic temporary holds, idempotent booking submission, and Pay After Service. The booking UI shows the matching vehicle price and add-on total, while the backend independently recalculates every minor-unit amount and enforces any enabled mobile minimum.
 - One- or two-vehicle bookings consume one slot; three or more vehicles require two consecutive slots under the current seeded settings.
 - International phone entry with UAE as the default and independent E.164 normalization/validation in the browser and backend.
 - Google Places search, browser geolocation on explicit user action, reverse geocoding, responsive map preview, map click selection, and a draggable advanced marker.
@@ -57,7 +57,7 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 - CorePOS-style cash tender records the exact amount due, cash handed over, and change in integer minor units; quick tender amounts and uncertain-retry idempotency are supported without inflating collected revenue.
 - Job quality controls on Job Detail: lightweight arrival inspection, categorized private before/after/damage/issue photos, service-specific snapshotted checklists, issue reporting, and a concise completion summary. Required checklist items are enforced by the backend; historical jobs without snapshots remain valid.
 - Manager/admin quality review with staff/timestamp attribution, complaint review, and zero-value linked correction/rewash jobs scheduled through the existing availability and hold engine. The original completed job and revenue remain unchanged.
-- Manager/admin assignment and rescheduling workflows preserve schedule-resource capacity and tenant/branch scope.
+- Deterministic smart scheduling auto-assigns confirmed mobile bookings to eligible teams using immutable duration snapshots, real overlap checks, the configured turnaround buffer, and balanced same-day workload. Manager/admin Auto Assign and manual selection preserve tenant scope; turnaround-only conflicts require explicit override and true overlaps remain forbidden.
 - Team and staff management, role hierarchy, team membership, shifts and shift assignments, attendance clock-in/out and overview, leave requests/review, cancellation review, and operational reports.
 - Authorized staff password reset with manual or temporary-password flows. Temporary resets force a password change before normal app access; passwords are never stored in application tables or logs.
 - Self-service profile editing and password change.
@@ -66,6 +66,7 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 - Online authority for all operational and financial writes. There is intentionally no offline mutation replay queue yet.
 - Manager/admin Finance area with authoritative booked-versus-collected reporting, expense ledger/category summaries, operational profit/margin, direct team contribution, and cash handover reconciliation. Employees see only their own collected/awaiting-handover cash summary.
 - Manager/admin Inventory area with controlled consumable catalogue, main/shop, mobile-team and named-van stock locations, low/out alerts, bounded search, append-only movement history, batch receiving, atomic transfers, usage, wastage, stock counts, and optional receipt-to-expense recording. Every active tenant is backfilled with an idempotent primary Main Shop when no active main location exists; the mobile forms auto-select a sole location, explain disabled actions, and offer role-aware recovery when none exists. Employees can view their active team stock and record assigned-job usage only.
+- Manager/admin Services & Pricing area for catalogue CRUD, mobile/shop channel flags, activate/deactivate, per-vehicle prices, expected duration, optional add-ons, weekday operating hours, controlled 60/90/120-minute slot settings, cancellation cutoff, mobile minimum, loyalty reward-service selection, and expected-consumables templates. Employees may read operational catalogue/settings data but cannot mutate it.
 - Checked-in Android native project with safe-area and edge-to-edge keyboard/IME handling.
 
 ### Backend and platform
@@ -76,7 +77,7 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 - Supabase JWT verification with issuer, audience, expiry, algorithm, subject, and cryptographic signature validation.
 - Resilient JWKS caching retains the last successful key set beyond its freshness TTL. Timeout, network, and provider 5xx refresh failures use a matching stale key; unknown `kid` values force refresh for key rotation; an outage without a usable key returns `503 AUTHENTICATION_SERVICE_UNAVAILABLE` rather than a false `401`. Genuine invalid tokens remain `401`; legacy HS256 verification remains available only when explicitly configured.
 - Authoritative staff role, active state, business, and branch/resource scope are loaded from PostgreSQL rather than user-editable JWT metadata.
-- Atomic scheduling through advisory locks, row locks, unique resource/start invariants, expiring hold groups, and immutable booking/service/vehicle snapshots.
+- Atomic scheduling through advisory locks, row locks, unique resource/start invariants, expiring hold groups, weekday operating hours, and immutable booking/service/vehicle snapshots. Confirmed service and add-on snapshots retain the charged prices and expected durations even after the owner edits the catalogue.
 - Customer profile/address/vehicle ownership enforcement and profile provisioning before a customer's first booking.
 - Server-side job filters, customer-name search, bounded pagination, bulk relationship loading, database aggregation, and N+1 safeguards.
 - Durable notification outbox with `FOR UPDATE SKIP LOCKED`, stale-claim recovery, bounded batches, attempt counts, exponential retry, and provider calls outside database transactions.
@@ -99,7 +100,8 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 - The mobile app is English-only in this phase; English/Arabic localization applies to the customer website.
 - Cached mobile reads are available offline, but operational writes require connectivity and an authoritative server response.
 - Background/live employee tracking, durable offline mutation replay, WhatsApp, subscriptions, corporate credit, commissions, AI assistance, and multi-branch management remain deferred.
-- Supplier catalogues, purchase orders, supplier pricing, inventory valuation/COGS, fleet management, automatic unconfirmed chemical deduction, and fixed-asset/equipment tracking are not implemented. Vans are currently named stock locations rather than fleet records.
+- Supplier catalogues, purchase orders, supplier pricing, inventory valuation/COGS, fleet management, automatic chemical deduction, and fixed-asset/equipment tracking are not implemented. Service-consumption templates are planning data only in Phase 1; job completion does not mutate stock. Vans are currently named stock locations rather than fleet records.
+- Customer availability and atomic holds now reflect real active-team capacity. One booking uses one team; service/add-on minutes are summed across its vehicles with the existing one-slot/two-slot rule retained as a conservative minimum. Team identities remain private in public APIs. GPS, traffic, route scoring, geographic clustering, and continuous schedule optimization remain intentionally deferred.
 - Expense receipt uploads and full accounting functions such as a general ledger, tax filing, payroll, bank feeds, and arbitrary cost allocation remain deferred. Current profit is explicitly operational profit: collected revenue minus active recorded expenses.
 - Google Maps/Places and routing depend on correctly enabled APIs, billing, map ID, and restricted browser/backend keys. Manual address entry remains available when Maps is unavailable.
 
@@ -314,9 +316,9 @@ alembic upgrade head
 python -m app.cli.seed
 ```
 
-The current Alembic head is `f29a61e82c45`. The migration chain includes the foundation schema, en-route/arrived job states, case-insensitive staff usernames, Operations V2 workforce features, query indexes, sync revisions/assignment repair, forced password-change state, tenant-scoped job-quality controls with a private photo bucket, loyalty ledger/reward state, customer sync revision, booking discount snapshots, auditable cash tender fields, the operational finance ledger, and tenant-scoped inventory catalogue/location/balance/operation/movement/service-template tables.
+The current Alembic head is `e7441de34e33`. The migration chain includes the foundation schema, en-route/arrived job states, case-insensitive staff usernames, Operations V2 workforce features, query indexes, sync revisions/assignment repair, forced password-change state, tenant-scoped job-quality controls with a private photo bucket, loyalty ledger/reward state, customer sync revision, booking discount snapshots, auditable cash tender fields, the operational finance ledger, tenant-scoped inventory catalogue/location/balance/operation/movement/service-template tables, Phase 1 normalized service pricing/operating-hour/booking-duration snapshots, and Phase 2 hold/job operational-duration plus assignment-source metadata.
 
-`python -m app.cli.seed` is idempotent and creates the Trifecta business, business settings, Main Shop inventory location, Mobile Team 1, and the initial customer-facing service catalogue.
+`python -m app.cli.seed` is idempotent and creates the Trifecta business, business settings, seven weekday-hour rows, Main Shop inventory location, Mobile Team 1, and the initial customer-facing service catalogue with canonical vehicle prices. Once a service exists, rerunning the seed does not overwrite owner-managed commercial fields.
 
 Demo staff provisioning is a separate idempotent command:
 
@@ -455,5 +457,7 @@ git diff --check
 - [Mobile operations](docs/mobile-operations.md)
 - [Performance and observability](docs/performance.md)
 - [Scheduling](docs/scheduling.md)
+- [Service catalogue and Phase 1 business configuration](docs/service-catalogue.md)
+- [Startup product direction](docs/STARTUP_PRODUCT_DIRECTION.md)
 - [Security](docs/security.md)
 - [State machines](docs/state-machines.md)

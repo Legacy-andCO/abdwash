@@ -1,6 +1,7 @@
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,7 +46,12 @@ from app.schemas.public import (
 )
 from app.services.customer_profiles import provision_customer_profile
 from app.services.management_tokens import create_management_token, management_token_hash
-from app.services.scheduling import hold_token_hash
+from app.services.scheduling import hold_token_hash, policy_for_day
+from app.services.smart_scheduling import (
+    choose_team_for_booking,
+    lock_schedule_day,
+    operational_duration_minutes,
+)
 
 
 async def create_booking(
@@ -72,24 +78,6 @@ async def create_booking(
             "HOLD_VEHICLE_COUNT_MISMATCH",
             "The hold was acquired for a different number of vehicles.",
         )
-
-    slots = list(
-        (
-            await session.scalars(
-                select(ScheduleSlot)
-                .where(ScheduleSlot.hold_group_id == hold.id)
-                .order_by(ScheduleSlot.slot_start)
-                .with_for_update()
-            )
-        ).all()
-    )
-    if len(slots) != hold.required_slot_count or any(
-        slot.status != SlotStatus.HELD
-        or slot.hold_expires_at is None
-        or slot.hold_expires_at <= now
-        for slot in slots
-    ):
-        raise ConflictError("HOLD_EXPIRED", "The booking hold is no longer valid.")
 
     configuration = await load_default_business(session)
     if configuration.business.id != hold.business_id:
@@ -162,6 +150,69 @@ async def create_booking(
             raise DomainError(
                 "SERVICE_ADDON_MISMATCH", "An add-on does not belong to the selected service."
             )
+
+    reserved_floor_minutes = hold.required_slot_count * configuration.settings.slot_duration_minutes
+    expected_duration_minutes = operational_duration_minutes(
+        (
+            services_by_id[vehicle.service_id].estimated_duration_minutes
+            for vehicle in request.vehicles
+        ),
+        (
+            addons_by_id[addon_id].default_duration_minutes
+            for vehicle in request.vehicles
+            for addon_id in vehicle.addon_ids
+        ),
+        reserved_slot_floor_minutes=reserved_floor_minutes,
+    )
+    day = hold.slot_start.astimezone(ZoneInfo(configuration.settings.timezone)).date()
+    await lock_schedule_day(session, business_id=hold.business_id, day=day)
+    operational_end = hold.slot_start + timedelta(minutes=expected_duration_minutes)
+    day_policy = await policy_for_day(session, configuration.settings, day)
+    if day_policy is None:
+        raise ConflictError(
+            "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
+        )
+    closing = datetime.combine(
+        day, day_policy.closing_time, ZoneInfo(day_policy.timezone)
+    ).astimezone(UTC)
+    if expected_duration_minutes > 2880 or operational_end > closing:
+        raise ConflictError(
+            "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
+        )
+    # Hold creation takes the business/day advisory lock before any schedule
+    # slot rows. Keep confirmation in the same order to avoid a day/slot
+    # deadlock under concurrent hold and confirmation requests.
+    slots = list(
+        (
+            await session.scalars(
+                select(ScheduleSlot)
+                .where(ScheduleSlot.hold_group_id == hold.id)
+                .order_by(ScheduleSlot.slot_start)
+                .with_for_update()
+            )
+        ).all()
+    )
+    if len(slots) != hold.required_slot_count or any(
+        slot.status != SlotStatus.HELD
+        or slot.hold_expires_at is None
+        or slot.hold_expires_at <= now
+        for slot in slots
+    ):
+        raise ConflictError("HOLD_EXPIRED", "The booking hold is no longer valid.")
+    await choose_team_for_booking(
+        session,
+        business_id=hold.business_id,
+        day=day,
+        timezone=configuration.settings.timezone,
+        starts_at=hold.slot_start,
+        ends_at=operational_end,
+        turnaround_minutes=configuration.settings.default_team_turnaround_minutes,
+        source="auto",
+        preferred_team_id=hold.resource_id,
+        exclude_hold_id=hold.id,
+    )
+    hold.expected_duration_minutes = expected_duration_minutes
+    hold.slot_end = operational_end
 
     customer_profile_id = await _resolve_customer_profile(
         session,
@@ -357,6 +408,7 @@ async def create_booking(
             )
             addon_summaries.append(
                 BookingAddonSummary(
+                    id=addon.id,
                     name=addon.name,
                     price_minor=addon.price_minor,
                     expected_duration_minutes=addon.default_duration_minutes,
@@ -371,6 +423,7 @@ async def create_booking(
                 colour=requested_vehicle.colour,
                 plate_number=requested_vehicle.plate_number,
                 service_name=service.name,
+                service_id=service.id,
                 line_total_minor=(selected_price - discount_minor)
                 + sum(item.price_minor for item in addon_summaries),
                 list_price_minor=selected_price,
@@ -409,6 +462,9 @@ async def create_booking(
             status=JobStatus.ASSIGNED,
             scheduled_start=booking.scheduled_start,
             scheduled_end=booking.scheduled_end,
+            expected_duration_minutes=expected_duration_minutes,
+            assignment_source="auto",
+            assigned_at=now,
         )
         session.add(job)
         await session.flush()
@@ -420,7 +476,11 @@ async def create_booking(
                 job_id=job.id,
                 booking_id=booking.id,
                 event_type="booking_confirmed",
-                metadata_json={"source": request.source},
+                metadata_json={
+                    "source": request.source,
+                    "assignment_source": "auto",
+                    "expected_duration_minutes": expected_duration_minutes,
+                },
             )
         )
         session.add(
@@ -452,7 +512,6 @@ async def create_booking(
         vehicle_count=booking.vehicle_count,
         total_amount_minor=booking.total_amount_minor,
         currency_code=booking.currency_code,
-        resource_id=booking.resource_id,
         customer_first_name=booking.customer_first_name,
         customer_surname=booking.customer_surname,
         written_address=booking.written_address,

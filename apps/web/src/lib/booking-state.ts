@@ -28,6 +28,7 @@ export const steps = [
   "confirmation",
 ] as const;
 export type BookingStep = (typeof steps)[number];
+export type EditableVehicleField = Exclude<keyof Vehicle, "addon_ids">;
 
 export type BookingState = {
   step: BookingStep;
@@ -56,6 +57,7 @@ export const emptyVehicle = (serviceId = ""): Vehicle => ({
   plate_number: "",
   notes: "",
   service_id: serviceId,
+  addon_ids: [],
 });
 
 export const initialBookingState: BookingState = {
@@ -109,8 +111,9 @@ export type BookingAction =
       value: Coordinates;
       writtenAddress?: string;
     }
-  | { type: "vehicle"; key: string; field: keyof Vehicle; value: string }
+  | { type: "vehicle"; key: string; field: EditableVehicleField; value: string }
   | { type: "loyalty_reward"; key: string; value?: string }
+  | { type: "toggle_addon"; key: string; addonId: string }
   | { type: "add_vehicle" }
   | { type: "remove_vehicle"; key: string }
   | { type: "date"; value: string }
@@ -275,7 +278,7 @@ export function bookingReducer(
                 ...vehicle,
                 [action.field]: action.value,
                 ...(action.field === "service_id"
-                  ? { loyalty_reward_id: undefined }
+                  ? { loyalty_reward_id: undefined, addon_ids: [] }
                   : {}),
               }
             : vehicle,
@@ -290,6 +293,23 @@ export function bookingReducer(
         vehicles: state.vehicles.map((vehicle) =>
           vehicle.key === action.key
             ? { ...vehicle, loyalty_reward_id: action.value }
+            : vehicle,
+        ),
+        availability: null,
+        selectedSlotTime: "",
+        hold: null,
+      };
+    case "toggle_addon":
+      return {
+        ...state,
+        vehicles: state.vehicles.map((vehicle) =>
+          vehicle.key === action.key
+            ? {
+                ...vehicle,
+                addon_ids: (vehicle.addon_ids ?? []).includes(action.addonId)
+                  ? (vehicle.addon_ids ?? []).filter((id) => id !== action.addonId)
+                  : [...(vehicle.addon_ids ?? []), action.addonId],
+              }
             : vehicle,
         ),
         availability: null,
@@ -470,13 +490,21 @@ export function calculateEstimate(
   vehicles: Vehicle[],
   catalogue: Catalogue,
 ): number {
-  const prices = new Map(
-    catalogue.services.map((service) => [service.id, service.price_minor]),
-  );
   return vehicles.reduce(
-    (total, vehicle) =>
-      total +
-      (vehicle.loyalty_reward_id ? 0 : (prices.get(vehicle.service_id) ?? 0)),
+    (total, vehicle) => {
+      const service = catalogue.services.find(
+        (item) => item.id === vehicle.service_id,
+      );
+      const servicePrice =
+        service?.prices?.find(
+          (price) => price.vehicle_type === vehicle.vehicle_type,
+        )?.price_minor ?? service?.price_minor ?? 0;
+      const addonPrice =
+        service?.addons
+          ?.filter((addon) => (vehicle.addon_ids ?? []).includes(addon.id))
+          .reduce((sum, addon) => sum + addon.price_minor, 0) ?? 0;
+      return total + (vehicle.loyalty_reward_id ? 0 : servicePrice) + addonPrice;
+    },
     0,
   );
 }

@@ -68,6 +68,10 @@ export type Job = {
   assigned_staff_name: string | null;
   assigned_team_id: string | null;
   assigned_team_name: string | null;
+  assignment_source: "auto" | "manual" | "legacy" | null;
+  assigned_at: string | null;
+  assigned_by_staff_id: string | null;
+  expected_duration_minutes: number;
   status: string;
   scheduled_start: string;
   scheduled_end: string;
@@ -100,6 +104,14 @@ export type Job = {
     amount_minor: number;
   }[];
   timeline: JobTimelineEvent[];
+};
+export type TeamAssignmentOption = {
+  team_id: string;
+  team_name: string;
+  status: "available" | "turnaround_conflict" | "time_conflict" | "unavailable";
+  reason: string | null;
+  same_day_job_count: number;
+  assigned_minutes: number;
 };
 export type Team = {
   id: string;
@@ -362,7 +374,6 @@ export type AvailabilitySlot = {
   ends_at: string;
   available: boolean;
   required_slot_count: number;
-  resources: { resource_id: string; resource_name: string }[];
   unavailable_reason: string | null;
 };
 export type SyncState = {
@@ -567,6 +578,58 @@ export type ServiceOption = {
   name: string;
   price_minor: number;
   currency_code: string;
+};
+export type CataloguePrice = { vehicle_type: string; price_minor: number };
+export type CatalogueAddon = {
+  id: string;
+  service_id: string;
+  name: string;
+  description: string | null;
+  price_minor: number;
+  default_duration_minutes: number;
+  mobile_available: boolean;
+  shop_available: boolean;
+  is_active: boolean;
+  sort_order: number;
+};
+export type ManagedService = {
+  id: string;
+  name: string;
+  description: string | null;
+  default_duration_minutes: number;
+  mobile_available: boolean;
+  shop_available: boolean;
+  is_active: boolean;
+  sort_order: number;
+  prices: CataloguePrice[];
+  addons: CatalogueAddon[];
+};
+export type ManagedCatalogue = {
+  currency_code: string;
+  vehicle_types: string[];
+  services: ManagedService[];
+};
+export type OperatingHour = {
+  weekday: number;
+  is_open: boolean;
+  opening_time: string | null;
+  closing_time: string | null;
+};
+export type BusinessBookingSettings = {
+  currency_code: string;
+  slot_duration_minutes: number;
+  cancellation_cutoff_hours: number;
+  mobile_minimum_enabled: boolean;
+  mobile_minimum_minor: number;
+  default_team_turnaround_minutes: number;
+  loyalty_reward_service_id: string | null;
+  operating_hours: OperatingHour[];
+};
+export type ServiceConsumptionTemplateLine = {
+  item_id: string;
+  item_name: string;
+  unit: string;
+  expected_quantity: number;
 };
 export type JobInspection = {
   id: string;
@@ -1024,8 +1087,48 @@ export const updateLoyaltySettings = (body: object) =>
 export const getServiceOptions = async () =>
   (await api<{ services: ServiceOption[] }>("/api/v1/public/catalogue"))
     .services;
+export const getManagedCatalogue = () =>
+  api<ManagedCatalogue>("/api/v1/staff/catalogue");
+export const createManagedService = (body: object) =>
+  api<ManagedService>("/api/v1/staff/catalogue/services", json("POST", body));
+export const updateManagedService = (id: string, body: object) =>
+  api<ManagedService>(
+    `/api/v1/staff/catalogue/services/${id}`,
+    json("PATCH", body),
+  );
+export const createManagedAddon = (serviceId: string, body: object) =>
+  api<CatalogueAddon>(
+    `/api/v1/staff/catalogue/services/${serviceId}/addons`,
+    json("POST", body),
+  );
+export const updateManagedAddon = (addonId: string, body: object) =>
+  api<CatalogueAddon>(
+    `/api/v1/staff/catalogue/addons/${addonId}`,
+    json("PATCH", body),
+  );
+export const getBusinessBookingSettings = () =>
+  api<BusinessBookingSettings>("/api/v1/staff/business-settings");
+export const updateBusinessBookingSettings = (body: object) =>
+  api<BusinessBookingSettings>(
+    "/api/v1/staff/business-settings",
+    json("PATCH", body),
+  );
+export const getServiceConsumptionTemplate = (serviceId: string) =>
+  api<ServiceConsumptionTemplateLine[]>(
+    `/api/v1/staff/inventory/services/${serviceId}/template`,
+  );
+export const updateServiceConsumptionTemplate = (
+  serviceId: string,
+  body: object,
+) =>
+  api<ServiceConsumptionTemplateLine[]>(
+    `/api/v1/staff/inventory/services/${serviceId}/template`,
+    json("PUT", body),
+  );
 export const assignJob = (jobId: string, body: object) =>
   api<Job>(`/api/v1/staff/jobs/${jobId}/assignment`, json("PATCH", body));
+export const getJobAssignmentOptions = (jobId: string) =>
+  api<TeamAssignmentOption[]>(`/api/v1/staff/jobs/${jobId}/assignment-options`);
 export const getTeams = () => api<Team[]>("/api/v1/staff/teams");
 export const getTeam = (id: string) =>
   api<TeamDetail>(`/api/v1/staff/teams/${id}`);
@@ -1226,7 +1329,6 @@ export const createHold = (
   date: string,
   startTime: string,
   vehicleCount: number,
-  resourceId?: string,
 ) =>
   api<{ hold_token: string; required_slot_count: number }>(
     "/api/v1/public/holds",
@@ -1234,7 +1336,6 @@ export const createHold = (
       date,
       start_time: startTime,
       vehicle_count: vehicleCount,
-      ...(resourceId ? { resource_id: resourceId } : {}),
     }),
   );
 export const rescheduleJob = (bookingId: string, body: object) =>

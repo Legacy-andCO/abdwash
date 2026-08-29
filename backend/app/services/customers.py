@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.verifier import VerifiedIdentity
 from app.domain.enums import BookingStatus, HoldStatus, JobStatus, SlotStatus
 from app.domain.errors import ConflictError, DomainError
-from app.domain.scheduling import cancellation_allowed
+from app.domain.scheduling import SlotWindow, cancellation_allowed
 from app.models.entities import (
     Booking,
     BookingService,
@@ -34,7 +35,8 @@ from app.schemas.customer import (
 )
 from app.schemas.public import BookingVehicleSummary
 from app.services.booking_snapshots import vehicle_summaries_from_rows
-from app.services.scheduling import hold_token_hash
+from app.services.scheduling import _lock_slot_sequence, hold_token_hash, policy_for_day
+from app.services.smart_scheduling import choose_team_for_booking, lock_schedule_day
 
 
 @dataclass(frozen=True)
@@ -437,6 +439,50 @@ async def _reschedule_booking(
             "HOLD_VEHICLE_COUNT_MISMATCH",
             "The hold was acquired for a different number of vehicles.",
         )
+    settings = (
+        await session.scalars(
+            select(BusinessSettings).where(BusinessSettings.business_id == booking.business_id)
+        )
+    ).one()
+    day = hold.slot_start.astimezone(ZoneInfo(settings.timezone)).date()
+    await lock_schedule_day(session, business_id=booking.business_id, day=day)
+    expected_minutes = job.expected_duration_minutes or max(
+        15, int((job.scheduled_end - job.scheduled_start).total_seconds() // 60)
+    )
+    operational_end = hold.slot_start + timedelta(minutes=expected_minutes)
+    day_policy = await policy_for_day(session, settings, day)
+    if day_policy is None:
+        raise ConflictError(
+            "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
+        )
+    closing = datetime.combine(
+        day, day_policy.closing_time, ZoneInfo(day_policy.timezone)
+    ).astimezone(UTC)
+    if operational_end > closing:
+        raise ConflictError(
+            "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
+        )
+    if job.assignment_source == "manual" and job.assigned_resource_id is None:
+        raise ConflictError(
+            "BOOKING_ASSIGNMENT_CHANGED",
+            "The manual team assignment must be reviewed before rescheduling.",
+        )
+    preferred_team_id = (
+        job.assigned_resource_id if job.assignment_source == "manual" else hold.resource_id
+    )
+    await choose_team_for_booking(
+        session,
+        business_id=booking.business_id,
+        day=day,
+        timezone=settings.timezone,
+        starts_at=hold.slot_start,
+        ends_at=operational_end,
+        turnaround_minutes=settings.default_team_turnaround_minutes,
+        source="manual" if job.assignment_source == "manual" else "auto",
+        preferred_team_id=preferred_team_id,
+        exclude_job_id=job.id,
+        exclude_hold_id=hold.id,
+    )
 
     slots = list(
         (
@@ -454,18 +500,41 @@ async def _reschedule_booking(
         ).all()
     )
     old_slots = [slot for slot in slots if slot.booking_id == booking.id]
-    new_slots = [slot for slot in slots if slot.hold_group_id == hold.id]
-    if len(new_slots) != hold.required_slot_count or any(
+    held_slots = [slot for slot in slots if slot.hold_group_id == hold.id]
+    if len(held_slots) != hold.required_slot_count or any(
         slot.status != SlotStatus.HELD
         or slot.hold_expires_at is None
         or slot.hold_expires_at <= now
-        for slot in new_slots
+        for slot in held_slots
     ):
         raise ConflictError("HOLD_EXPIRED", "The booking hold is no longer valid.")
     if not old_slots or any(slot.status != SlotStatus.RESERVED for slot in old_slots):
         raise ConflictError(
             "BOOKING_SLOT_CONFLICT", "The existing booking schedule could not be changed safely."
         )
+
+    new_slots = held_slots
+    target_resource_id = hold.resource_id
+    if job.assignment_source == "manual" and job.assigned_resource_id != hold.resource_id:
+        manual_team_id = job.assigned_resource_id
+        if manual_team_id is None:
+            raise ConflictError(
+                "BOOKING_ASSIGNMENT_CHANGED",
+                "The manual team assignment must be reviewed before rescheduling.",
+            )
+        manual_slots = await _lock_slot_sequence(
+            session,
+            business_id=booking.business_id,
+            resource_id=manual_team_id,
+            windows=[SlotWindow(start=slot.slot_start, end=slot.slot_end) for slot in held_slots],
+        )
+        if manual_slots is None:
+            raise ConflictError(
+                "BOOKING_ASSIGNMENT_CHANGED",
+                "The manually selected team cannot keep this new time. Choose another time.",
+            )
+        new_slots = manual_slots
+        target_resource_id = manual_team_id
 
     previous_start = booking.scheduled_start
     previous_end = booking.scheduled_end
@@ -475,6 +544,13 @@ async def _reschedule_booking(
         slot.hold_group_id = None
         slot.hold_expires_at = None
         slot.version += 1
+    for slot in held_slots:
+        if slot not in new_slots:
+            slot.status = SlotStatus.FREE
+            slot.booking_id = None
+            slot.hold_group_id = None
+            slot.hold_expires_at = None
+            slot.version += 1
     for slot in new_slots:
         slot.status = SlotStatus.RESERVED
         slot.booking_id = booking.id
@@ -483,13 +559,21 @@ async def _reschedule_booking(
     hold.status = HoldStatus.CONSUMED
     hold.consumed_at = now
     booking.hold_group_id = hold.id
-    booking.resource_id = hold.resource_id
+    hold.resource_id = target_resource_id
+    hold.expected_duration_minutes = expected_minutes
+    hold.slot_end = operational_end
+    booking.resource_id = target_resource_id
     booking.scheduled_start = hold.slot_start
-    booking.scheduled_end = hold.slot_end
+    booking.scheduled_end = operational_end
     booking.version += 1
     job.scheduled_start = hold.slot_start
-    job.scheduled_end = hold.slot_end
-    job.assigned_resource_id = hold.resource_id
+    job.scheduled_end = operational_end
+    job.expected_duration_minutes = expected_minutes
+    job.assigned_resource_id = target_resource_id
+    if job.assignment_source != "manual":
+        job.assignment_source = "auto"
+        job.assigned_at = now
+        job.assigned_by_staff_id = None
     job.status = JobStatus.ASSIGNED
     if reset_active_state:
         job.en_route_at = None
@@ -508,8 +592,9 @@ async def _reschedule_booking(
                 "previous_start": previous_start.isoformat(),
                 "previous_end": previous_end.isoformat(),
                 "scheduled_start": hold.slot_start.isoformat(),
-                "scheduled_end": hold.slot_end.isoformat(),
+                "scheduled_end": operational_end.isoformat(),
                 "source": source,
+                "assignment_source": job.assignment_source,
                 "active_state_reset": reset_active_state,
             },
         )

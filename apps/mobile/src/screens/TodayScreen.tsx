@@ -37,10 +37,12 @@ export function TodayScreen({
   context,
   onOpenCustomers,
   onOpenInventory,
+  onOpenServices,
 }: {
   context: StaffContext;
   onOpenCustomers?: () => void;
   onOpenInventory?: () => void;
+  onOpenServices?: () => void;
 }) {
   const management = capabilities(context.role).canViewAllJobs;
   const dashboard = useDashboardQuery(context, today(), management);
@@ -142,6 +144,13 @@ export function TodayScreen({
         tone="secondary"
         onPress={() => onOpenInventory?.()}
       />
+      {management ? (
+        <AppButton
+          title="Services & pricing"
+          tone="secondary"
+          onPress={() => onOpenServices?.()}
+        />
+      ) : null}
       {personalCash.data ? (
         <Card>
           <Text style={styles.kicker}>MY CASH</Text>

@@ -70,4 +70,16 @@ describe("customer website localization", () => {
     const error = new ApiError("NETWORK_ERROR", "English network message", 0);
     expect(localizedCustomerError(error, "ar", t)).toBe("تعذر الوصول إلى ترايفكتا. تحقق من اتصالك وحاول مرة أخرى.");
   });
+
+  it("localizes real-capacity scheduling conflicts in Arabic", () => {
+    const t = (key: Parameters<typeof translate>[1]) => translate("ar", key);
+    const error = new ApiError(
+      "NO_TEAM_CAPACITY",
+      "This time is no longer available.",
+      409,
+    );
+    expect(localizedCustomerError(error, "ar", t)).toBe(
+      "هذا الموعد لم يعد متاحاً. اختر موعداً آخر.",
+    );
+  });
 });

@@ -43,6 +43,23 @@ def scalar_result(*, one: object | None = None, all_items: list[object] | None =
     return result
 
 
+@pytest.fixture(autouse=True)
+def isolate_smart_scheduler(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These service-unit tests isolate reschedule mutation mechanics.
+
+    Smart-scheduler decisions are covered independently; PostgreSQL integration
+    tests cover the combined transaction.
+    """
+
+    monkeypatch.setattr(customer_service, "lock_schedule_day", AsyncMock())
+    monkeypatch.setattr(customer_service, "choose_team_for_booking", AsyncMock())
+    monkeypatch.setattr(
+        customer_service,
+        "policy_for_day",
+        AsyncMock(return_value=SimpleNamespace(closing_time=time(21), timezone="Asia/Dubai")),
+    )
+
+
 def test_customer_status_mapping_tracks_operational_job_state() -> None:
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.UNASSIGNED).key == "confirmed"
     assert map_customer_status(BookingStatus.CONFIRMED, JobStatus.ASSIGNED).key == "assigned"
@@ -333,11 +350,12 @@ async def test_reschedule_atomically_swaps_slots_and_updates_job() -> None:
     session = MagicMock()
     session.scalars = AsyncMock(
         side_effect=[
-            scalar_result(one=settings),
-            scalar_result(one=job),
-            scalar_result(one=hold),
-            scalar_result(all_items=[old_slot, new_slot]),
-            scalar_result(one=settings),
+                scalar_result(one=settings),
+                scalar_result(one=job),
+                scalar_result(one=hold),
+                scalar_result(one=settings),
+                scalar_result(all_items=[old_slot, new_slot]),
+                scalar_result(one=settings),
             scalar_result(one=None),
         ]
     )
@@ -447,9 +465,10 @@ async def test_confirmed_active_manager_reschedule_resets_operational_state() ->
     session = MagicMock()
     session.scalars = AsyncMock(
         side_effect=[
-            scalar_result(one=job),
-            scalar_result(one=hold),
-            scalar_result(all_items=[old_slot, new_slot]),
+                scalar_result(one=job),
+                scalar_result(one=hold),
+                scalar_result(one=settings),
+                scalar_result(all_items=[old_slot, new_slot]),
             scalar_result(one=settings),
             scalar_result(one=None),
         ]
@@ -498,9 +517,10 @@ async def test_overdue_assigned_job_can_be_rescheduled_by_manager() -> None:
     session = MagicMock()
     session.scalars = AsyncMock(
         side_effect=[
-            scalar_result(one=job),
-            scalar_result(one=hold),
-            scalar_result(all_items=[old_slot, new_slot]),
+                scalar_result(one=job),
+                scalar_result(one=hold),
+                scalar_result(one=settings),
+                scalar_result(all_items=[old_slot, new_slot]),
             scalar_result(one=settings),
             scalar_result(one=None),
         ]

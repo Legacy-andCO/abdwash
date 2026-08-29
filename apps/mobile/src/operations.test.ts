@@ -27,6 +27,10 @@ const job = (id: string, status: string): Job => ({
   assigned_staff_name: null,
   assigned_team_id: null,
   assigned_team_name: null,
+  assignment_source: null,
+  assigned_at: null,
+  assigned_by_staff_id: null,
+  expected_duration_minutes: 120,
   scheduled_start: "2026-08-24T09:00:00Z",
   scheduled_end: "2026-08-24T11:00:00Z",
   en_route_at: null,
@@ -59,11 +63,9 @@ describe("reschedule data flow", () => {
     const slots = [
       {
         available: true,
-        resources: [{ resource_id: "team-1", resource_name: "Mobile Team 1" }],
       },
       {
         available: false,
-        resources: [{ resource_id: "team-2", resource_name: "Mobile Team 2" }],
       },
     ] as never;
     expect(availabilityOptions(slots)).toHaveLength(1);

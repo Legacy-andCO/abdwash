@@ -66,18 +66,27 @@ describe("central API client", () => {
     const headers = new Headers(fetchMock.mock.calls[0][1].headers);
     expect(headers.has("Content-Type")).toBe(false);
   });
-  it("requests availability once with date and vehicle count", async () => {
+  it("requests availability once with authoritative catalogue selections", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ slots: [] }));
     vi.stubGlobal("fetch", fetchMock);
-    await getAvailability("2030-01-02", 3);
+    await getAvailability("2030-01-02", 3, {
+      serviceIds: ["service-a", "service-a", "service-b"],
+      addonIds: ["addon-a", "addon-a"],
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toContain(
       "date=2030-01-02&vehicle_count=3",
     );
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      "service_id=service-a&service_id=service-a&service_id=service-b",
+    );
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      "addon_id=addon-a&addon_id=addon-a",
+    );
     const headers = new Headers(fetchMock.mock.calls[0][1].headers);
     expect(headers.has("Content-Type")).toBe(false);
   });
-  it("submits a hold using the selected server resource", async () => {
+  it("submits a hold without exposing or selecting an internal team", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse({ hold_token: "x" }, 201));
@@ -86,10 +95,12 @@ describe("central API client", () => {
       date: "2030-01-02",
       start_time: "09:00:00",
       vehicle_count: 1,
-      resource_id: "team",
+      service_ids: ["service"],
+      addon_ids: ["addon"],
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      resource_id: "team",
+      service_ids: ["service"],
+      addon_ids: ["addon"],
       vehicle_count: 1,
     });
     const headers = new Headers(fetchMock.mock.calls[0][1].headers);

@@ -724,7 +724,6 @@ function RewashScheduler({
   const [day, setDay] = useState(() => toIsoDate(new Date()));
   const [choice, setChoice] = useState<{
     startTime: string;
-    resourceId: string;
   } | null>(null);
   const availability = useAvailabilityQuery(
     context,
@@ -738,11 +737,10 @@ function RewashScheduler({
     () =>
       (availability.data?.slots ?? []).flatMap((slot) =>
         slot.available
-          ? slot.resources.map((resource) => ({
+          ? [{
               startTime: slot.time,
-              resourceId: resource.resource_id,
-              label: `${new Date(slot.starts_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · ${resource.resource_name}`,
-            }))
+              label: new Date(slot.starts_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+            }]
           : [],
       ),
     [availability.data],
@@ -764,11 +762,10 @@ function RewashScheduler({
       ) : options.length ? (
         options.map((option) => (
           <Pressable
-            key={`${option.startTime}-${option.resourceId}`}
+            key={option.startTime}
             style={[
               styles.choice,
-              choice?.startTime === option.startTime &&
-              choice.resourceId === option.resourceId
+              choice?.startTime === option.startTime
                 ? styles.selected
                 : undefined,
             ]}

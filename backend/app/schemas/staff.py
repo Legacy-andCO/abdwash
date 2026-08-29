@@ -36,6 +36,10 @@ class StaffJob(BaseModel):
     assigned_staff_name: str | None
     assigned_team_id: uuid.UUID | None = None
     assigned_team_name: str | None = None
+    assignment_source: str | None = None
+    assigned_at: datetime | None = None
+    assigned_by_staff_id: uuid.UUID | None = None
+    expected_duration_minutes: int
     status: str
     scheduled_start: datetime
     scheduled_end: datetime
@@ -245,16 +249,29 @@ class StartTripAction(JobAction):
 
 
 class AssignmentAction(JobAction):
+    mode: Literal["auto", "manual"] = "manual"
     staff_id: uuid.UUID | None = None
     team_id: uuid.UUID | None = None
     expected_version: int | None = Field(default=None, ge=1)
     confirm_active_reassignment: bool = False
+    override_turnaround: bool = False
 
     @model_validator(mode="after")
     def require_assignment_target(self) -> "AssignmentAction":
-        if self.staff_id is None and self.team_id is None:
+        if self.mode == "manual" and self.staff_id is None and self.team_id is None:
             raise ValueError("A staff member or team is required.")
+        if self.mode == "auto" and (self.staff_id is not None or self.team_id is not None):
+            raise ValueError("Auto assignment does not accept a staff member or team.")
         return self
+
+
+class TeamAssignmentOption(BaseModel):
+    team_id: uuid.UUID
+    team_name: str
+    status: Literal["available", "turnaround_conflict", "time_conflict", "unavailable"]
+    reason: str | None = None
+    same_day_job_count: int = 0
+    assigned_minutes: int = 0
 
 
 class StaffMember(BaseModel):

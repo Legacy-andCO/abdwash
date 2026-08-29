@@ -45,6 +45,8 @@ export class ApiError extends Error {
       "SLOT_UNAVAILABLE",
       "CONSECUTIVE_SLOT_UNAVAILABLE",
       "HOLD_EXPIRED",
+      "NO_TEAM_CAPACITY",
+      "BOOKING_ASSIGNMENT_CHANGED",
     ].includes(this.code);
   }
 }
@@ -100,11 +102,14 @@ export function getCatalogue(): Promise<Catalogue> {
 export function getAvailability(
   date: string,
   vehicleCount: number,
+  selections?: { serviceIds: string[]; addonIds: string[] },
 ): Promise<Availability> {
   const params = new URLSearchParams({
     date,
     vehicle_count: String(vehicleCount),
   });
+  selections?.serviceIds.forEach((id) => params.append("service_id", id));
+  selections?.addonIds.forEach((id) => params.append("addon_id", id));
   return request<Availability>(`/api/v1/public/availability?${params}`);
 }
 
@@ -112,7 +117,8 @@ export function createHold(input: {
   date: string;
   start_time: string;
   vehicle_count: number;
-  resource_id?: string;
+  service_ids?: string[];
+  addon_ids?: string[];
 }): Promise<Hold> {
   return request<Hold>("/api/v1/public/holds", {
     method: "POST",

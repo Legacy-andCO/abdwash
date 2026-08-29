@@ -18,6 +18,13 @@ const messages: Record<string, string> = {
   STAFF_ACCESS_REQUIRED: "This account does not have staff access.",
   TEAM_ASSIGNMENT_CONFLICT:
     "This team already has another job during this appointment.",
+  TEAM_TIME_CONFLICT: "This team has a conflicting job during this appointment.",
+  TEAM_TURNAROUND_CONFLICT:
+    "This team needs more turnaround time. Confirm the override to continue.",
+  TEAM_NOT_AVAILABLE: "This team is not operationally available.",
+  NO_TEAM_CAPACITY: "No team is available for this appointment.",
+  BOOKING_ASSIGNMENT_CHANGED:
+    "The existing manual assignment cannot keep this time. Review the assignment.",
   SHIFT_ASSIGNMENT_CONFLICT: "This employee already has a shift on this date.",
   SHIFT_NAME_TAKEN: "A shift with this name already exists.",
   STAFF_NOT_ON_TEAM:

@@ -10,6 +10,8 @@ import {
   createExpense,
   createInventoryItem,
   createInventoryLocation,
+  createManagedAddon,
+  createManagedService,
   createManagerCustomerAddress,
   createManagerCustomerVehicle,
   createJobComplaint,
@@ -29,7 +31,10 @@ import {
   getInventoryMovements,
   getInventoryOverview,
   getInventoryStock,
+  getBusinessBookingSettings,
+  getManagedCatalogue,
   getJob,
+  getJobAssignmentOptions,
   getJobQuality,
   getJobs,
   getLeave,
@@ -44,6 +49,7 @@ import {
   getShiftAssignments,
   getShifts,
   getServiceOptions,
+  getServiceConsumptionTemplate,
   getStaff,
   getTeam,
   getTeamStockSummary,
@@ -68,22 +74,31 @@ import {
   updateProfile,
   updateLoyaltySettings,
   updateInventoryItem,
+  updateBusinessBookingSettings,
+  updateManagedAddon,
+  updateManagedService,
   updateManagerCustomer,
   updateManagerCustomerAddress,
   updateManagerCustomerVehicle,
   updateTeam,
   updateTeamMembers,
+  updateServiceConsumptionTemplate,
   transferInventoryStock,
   uploadJobPhoto,
   voidCashReconciliation,
   voidExpense,
   type Attendance,
   type Cancellation,
+  type CatalogueAddon,
   type CashPendingDetail,
+  type BusinessBookingSettings,
   type Dashboard,
   type Expense,
   type ExpenseFilters,
   type InventoryLocation,
+  type ManagedCatalogue,
+  type ManagedService,
+  type ServiceConsumptionTemplateLine,
   type Job,
   type JobPhoto,
   type JobFilters,
@@ -94,6 +109,7 @@ import {
   type StaffContext,
   type Team,
   type TeamDetail,
+  type TeamAssignmentOption,
 } from "../lib";
 import {
   cacheTimes,
@@ -391,7 +407,7 @@ export function useComplaintReviewMutation(context: StaffContext, job: Job) {
       complaintId: string;
       decision: "under_review" | "resolved" | "rejected" | "approve_rewash";
       reviewNote?: string;
-      appointment?: { day: string; startTime: string; resourceId: string };
+      appointment?: { day: string; startTime: string };
     }) => {
       let holdToken: string | undefined;
       if (decision === "approve_rewash") {
@@ -401,7 +417,6 @@ export function useComplaintReviewMutation(context: StaffContext, job: Job) {
           appointment.day,
           appointment.startTime,
           Math.max(1, job.vehicles.length),
-          appointment.resourceId,
         );
         holdToken = hold.hold_token;
       }
@@ -451,6 +466,19 @@ export function useTeamsQuery(context: StaffContext) {
     queryFn: getTeams,
     staleTime: cacheTimes.teams,
     meta: persistedQueryMeta(retentionTimes.teams),
+  });
+}
+
+export function useAssignmentOptionsQuery(
+  context: StaffContext,
+  jobId: string,
+  enabled = true,
+) {
+  return useQuery<TeamAssignmentOption[]>({
+    queryKey: queryKeys.assignmentOptions(operationalScope(context), jobId),
+    queryFn: () => getJobAssignmentOptions(jobId),
+    staleTime: cacheTimes.availability,
+    enabled: enabled && Boolean(jobId),
   });
 }
 
@@ -694,6 +722,99 @@ export function useFinanceOverviewQuery(
   });
 }
 
+export function useManagedCatalogueQuery(
+  context: StaffContext,
+  enabled = true,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.managedCatalogue(scope),
+    queryFn: getManagedCatalogue,
+    enabled,
+    staleTime: cacheTimes.catalogue,
+    meta: persistedQueryMeta(retentionTimes.catalogue),
+  });
+}
+
+export function useBusinessSettingsQuery(
+  context: StaffContext,
+  enabled = true,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.businessSettings(scope),
+    queryFn: getBusinessBookingSettings,
+    enabled,
+    staleTime: cacheTimes.catalogue,
+    meta: persistedQueryMeta(retentionTimes.catalogue),
+  });
+}
+
+export function useServiceTemplateQuery(
+  context: StaffContext,
+  serviceId: string,
+  enabled = true,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.serviceTemplate(scope, serviceId),
+    queryFn: () => getServiceConsumptionTemplate(serviceId),
+    enabled: enabled && Boolean(serviceId),
+    staleTime: cacheTimes.inventory,
+    meta: persistedQueryMeta(retentionTimes.inventory),
+  });
+}
+
+type CatalogueMutationInput =
+  | { action: "create_service"; body: object }
+  | { action: "update_service"; serviceId: string; body: object }
+  | { action: "create_addon"; serviceId: string; body: object }
+  | { action: "update_addon"; addonId: string; body: object }
+  | { action: "update_settings"; body: object }
+  | { action: "update_template"; serviceId: string; body: object };
+
+export function useCatalogueMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation<
+    | ManagedService
+    | CatalogueAddon
+    | BusinessBookingSettings
+    | ServiceConsumptionTemplateLine[],
+    Error,
+    CatalogueMutationInput
+  >({
+    mutationFn: (input: CatalogueMutationInput) => {
+      if (input.action === "create_service")
+        return createManagedService(input.body);
+      if (input.action === "update_service")
+        return updateManagedService(input.serviceId, input.body);
+      if (input.action === "create_addon")
+        return createManagedAddon(input.serviceId, input.body);
+      if (input.action === "update_addon")
+        return updateManagedAddon(input.addonId, input.body);
+      if (input.action === "update_settings")
+        return updateBusinessBookingSettings(input.body);
+      return updateServiceConsumptionTemplate(input.serviceId, input.body);
+    },
+    onSuccess: (result, input) => {
+      if (input.action === "update_settings") {
+        client.setQueryData(queryKeys.businessSettings(scope), result);
+      } else if (input.action === "update_template") {
+        client.setQueryData(
+          queryKeys.serviceTemplate(scope, input.serviceId),
+          result,
+        );
+      } else {
+        void client.invalidateQueries({
+          queryKey: queryKeys.managedCatalogue(scope),
+        });
+        void client.invalidateQueries({ queryKey: queryKeys.serviceOptions });
+      }
+    },
+  });
+}
+
 export function useInventoryOverviewQuery(
   context: StaffContext,
   enabled = true,
@@ -712,11 +833,13 @@ export function useInventoryItemsQuery(
   context: StaffContext,
   search = "",
   offset = 0,
+  enabled = true,
 ) {
   const scope = operationalScope(context);
   return useQuery({
     queryKey: queryKeys.inventoryItems(scope, search, offset),
     queryFn: () => getInventoryItems(search, offset),
+    enabled,
     staleTime: cacheTimes.inventory,
     meta: persistedQueryMeta(retentionTimes.inventory),
   });
@@ -1045,6 +1168,12 @@ export function useAssignJobMutation(context: StaffContext) {
       assignJob(jobId, body),
     onSuccess: (job) => {
       updateJobCaches(client, scope, job);
+      void client.invalidateQueries({
+        queryKey: queryKeys.assignmentOptions(scope, job.id),
+      });
+      void client.invalidateQueries({
+        queryKey: queryKeys.dashboard(scope, new Date().toISOString().slice(0, 10)),
+      });
     },
   });
 }
@@ -1056,19 +1185,16 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
     mutationFn: async ({
       selectedDay,
       startTime,
-      resourceId,
       confirmActiveReschedule,
     }: {
       selectedDay: string;
       startTime: string;
-      resourceId: string;
       confirmActiveReschedule: boolean;
     }) => {
       const hold = await createHold(
         selectedDay,
         startTime,
         Math.max(1, job.vehicles.length),
-        resourceId,
       );
       return rescheduleJob(job.booking_id, {
         ...reschedulePayload(hold.hold_token),

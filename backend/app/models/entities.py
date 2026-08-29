@@ -424,13 +424,27 @@ class SlotHoldGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=HoldStatus.ACTIVE)
     vehicle_count: Mapped[int] = mapped_column(Integer, nullable=False)
     required_slot_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_duration_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=120, server_default=text("120")
+    )
     slot_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     slot_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (
         CheckConstraint("status IN ('active','consumed','expired','released')", name="hold_status"),
+        CheckConstraint(
+            "expected_duration_minutes BETWEEN 15 AND 2880",
+            name="valid_hold_expected_duration",
+        ),
         Index("ix_hold_groups_expiry_status", "status", "expires_at"),
+        Index(
+            "ix_hold_groups_resource_window_active",
+            "resource_id",
+            "slot_start",
+            "slot_end",
+            postgresql_where=text("status = 'active'"),
+        ),
     )
 
 
@@ -698,6 +712,12 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default=JobStatus.UNASSIGNED)
     scheduled_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     scheduled_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expected_duration_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=120, server_default=text("120")
+    )
+    assignment_source: Mapped[str | None] = mapped_column(String(20))
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    assigned_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     en_route_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     estimated_arrival_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -717,6 +737,14 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "(assigned_resource_id IS NULL AND assigned_staff_id IS NULL)",
             name="unassigned_jobs_have_no_assignment",
         ),
+        CheckConstraint(
+            "expected_duration_minutes BETWEEN 15 AND 2880",
+            name="valid_job_expected_duration",
+        ),
+        CheckConstraint(
+            "assignment_source IS NULL OR assignment_source IN ('legacy','auto','manual')",
+            name="job_assignment_source",
+        ),
         Index("ix_jobs_staff_status_schedule", "assigned_staff_id", "status", "scheduled_start"),
         Index("ix_jobs_business_status", "business_id", "status"),
         Index(
@@ -726,6 +754,7 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "status",
         ),
         Index("ix_jobs_resource_schedule", "assigned_resource_id", "scheduled_start"),
+        Index("ix_jobs_assigned_by_staff", "assigned_by_staff_id"),
     )
 
 

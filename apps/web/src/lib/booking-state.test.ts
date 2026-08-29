@@ -351,6 +351,83 @@ describe("booking state", () => {
     const second = { ...emptyVehicle("full") };
     expect(calculateEstimate([first, second], catalogue)).toBe(9000);
   });
+  it("uses the authoritative vehicle-type price and selected add-ons", () => {
+    const pricedCatalogue: Catalogue = {
+      ...catalogue,
+      services: [
+        {
+          ...catalogue.services[0],
+          prices: [
+            { vehicle_type: "sedan", price_minor: 5500 },
+            { vehicle_type: "suv", price_minor: 7500 },
+          ],
+          addons: [
+            {
+              id: "pet-hair",
+              name: "Pet hair removal",
+              description: null,
+              price_minor: 2000,
+              currency_code: "AED",
+              default_duration_minutes: 20,
+              mobile_available: true,
+              shop_available: true,
+            },
+          ],
+        },
+      ],
+    };
+    const vehicle = {
+      ...emptyVehicle("basic"),
+      vehicle_type: "suv",
+      addon_ids: ["pet-hair"],
+    };
+    expect(calculateEstimate([vehicle], pricedCatalogue)).toBe(9500);
+  });
+  it("keeps add-ons chargeable when loyalty discounts the base service", () => {
+    const pricedCatalogue: Catalogue = {
+      ...catalogue,
+      services: [
+        {
+          ...catalogue.services[0],
+          prices: [{ vehicle_type: "sedan", price_minor: 5500 }],
+          addons: [
+            {
+              id: "wax",
+              name: "Wax",
+              description: null,
+              price_minor: 1500,
+              currency_code: "AED",
+              default_duration_minutes: 15,
+              mobile_available: true,
+              shop_available: true,
+            },
+          ],
+        },
+      ],
+    };
+    const vehicle = {
+      ...emptyVehicle("basic"),
+      vehicle_type: "sedan",
+      addon_ids: ["wax"],
+      loyalty_reward_id: "reward-1",
+    };
+    expect(calculateEstimate([vehicle], pricedCatalogue)).toBe(1500);
+  });
+  it("toggles add-ons and clears them when the parent service changes", () => {
+    const vehicle = { ...emptyVehicle("basic"), addon_ids: [] };
+    const selected = bookingReducer(
+      { ...initialBookingState, vehicles: [vehicle] },
+      { type: "toggle_addon", key: vehicle.key, addonId: "wax" },
+    );
+    expect(selected.vehicles[0].addon_ids).toEqual(["wax"]);
+    const changed = bookingReducer(selected, {
+      type: "vehicle",
+      key: vehicle.key,
+      field: "service_id",
+      value: "full",
+    });
+    expect(changed.vehicles[0].addon_ids).toEqual([]);
+  });
   it("clears a reward when its vehicle service changes", () => {
     const vehicle = { ...emptyVehicle("basic"), loyalty_reward_id: "reward-1" };
     const state = bookingReducer(

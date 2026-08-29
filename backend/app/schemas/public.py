@@ -72,18 +72,12 @@ class CatalogueResponse(BaseModel):
     services: list[ServicePublic]
 
 
-class AvailabilityResource(BaseModel):
-    resource_id: uuid.UUID
-    resource_name: str
-
-
 class AvailabilitySlot(BaseModel):
     time: time
     starts_at: datetime
     ends_at: datetime
     available: bool
     required_slot_count: int
-    resources: list[AvailabilityResource]
     unavailable_reason: str | None = None
 
 
@@ -99,12 +93,12 @@ class HoldCreate(StrictRequest):
     date: date
     start_time: time
     vehicle_count: int = Field(ge=1, le=20)
-    resource_id: uuid.UUID | None = None
+    service_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
+    addon_ids: list[uuid.UUID] = Field(default_factory=list, max_length=400)
 
 
 class HoldResponse(BaseModel):
     hold_token: str
-    resource_id: uuid.UUID
     starts_at: datetime
     ends_at: datetime
     expires_at: datetime
@@ -166,6 +160,7 @@ class BookingVehicleCreate(StrictRequest):
 
 
 class BookingAddonSummary(BaseModel):
+    id: uuid.UUID | None = None
     name: str
     price_minor: int
     expected_duration_minutes: int
@@ -188,6 +183,7 @@ class BookingVehicleSummary(BaseModel):
     colour: str | None
     plate_number: str | None
     service_name: str
+    service_id: uuid.UUID | None = None
     line_total_minor: int
     list_price_minor: int | None = None
     discount_minor: int = 0
@@ -209,7 +205,6 @@ class BookingResponse(BaseModel):
     vehicle_count: int
     total_amount_minor: int
     currency_code: str
-    resource_id: uuid.UUID
     customer_first_name: str
     customer_surname: str
     written_address: str

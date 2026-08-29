@@ -28,7 +28,7 @@ from app.core.database import (
     request_database_metrics,
     session_dependency,
 )
-from app.domain.enums import JobStatus, SlotStatus, StaffRole
+from app.domain.enums import JobStatus, LeaveStatus, SlotStatus, StaffRole
 from app.domain.errors import ConflictError, DomainError
 from app.models import Base
 from app.models.entities import (
@@ -48,6 +48,7 @@ from app.models.entities import (
     JobChecklistItem,
     JobComplaint,
     JobInspection,
+    LeaveRequest,
     NotificationOutbox,
     Payment,
     ScheduleResource,
@@ -87,6 +88,7 @@ from app.services.job_quality import (
 )
 from app.services.manager_customers import list_manager_customers, manager_customer_detail
 from app.services.scheduling import create_hold, hold_token_hash
+from app.services.smart_scheduling import get_eligible_teams
 from app.services.staff_operations import list_jobs, transition_job
 from app.services.sync_state import get_sync_state
 from app.services.workforce import (
@@ -180,14 +182,22 @@ async def database() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
                 hold_duration_minutes=10,
             )
         )
-        session.add(
-            ScheduleResource(
-                business_id=business.id,
-                name="Mobile Team 1",
-                resource_type="mobile_team",
-                sort_order=1,
-            )
+        resource = ScheduleResource(
+            business_id=business.id,
+            name="Mobile Team 1",
+            resource_type="mobile_team",
+            sort_order=1,
         )
+        staff = StaffProfile(
+            business_id=business.id,
+            auth_user_id=uuid.uuid4(),
+            username="integration.scheduler",
+            display_name="Integration Scheduler",
+            role=StaffRole.EMPLOYEE,
+        )
+        session.add_all([resource, staff])
+        await session.flush()
+        session.add(TeamMembership(resource_id=resource.id, staff_profile_id=staff.id))
         session.add(
             Service(
                 business_id=business.id,
@@ -212,6 +222,13 @@ async def _attempt_hold(
 ) -> HoldResponse:
     async with factory() as session, session.begin():
         return await create_hold(session, request)
+
+
+async def _attempt_booking(
+    factory: async_sessionmaker[AsyncSession], request: BookingCreate
+) -> object:
+    async with factory() as session, session.begin():
+        return await create_booking(session, request, None)
 
 
 async def _inventory_fixture(
@@ -309,6 +326,162 @@ async def test_concurrent_slot_acquisition_allows_one_winner(
 
 
 @pytest.mark.asyncio
+async def test_team_eligibility_enforces_tenant_active_membership_and_leave(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    requested_day = date(2036, 2, 1)
+    async with database() as session:
+        business = (await session.scalars(select(Business).where(Business.slug == "abdwash"))).one()
+        other_business = Business(name="Other tenant", slug=f"other-{uuid.uuid4().hex[:8]}")
+        session.add(other_business)
+        await session.flush()
+
+        eligible_team = ScheduleResource(
+            business_id=business.id,
+            name="Eligible test team",
+            resource_type="mobile_team",
+            sort_order=10,
+        )
+        empty_team = ScheduleResource(
+            business_id=business.id,
+            name="Empty test team",
+            resource_type="mobile_team",
+            sort_order=11,
+        )
+        inactive_team = ScheduleResource(
+            business_id=business.id,
+            name="Inactive test team",
+            resource_type="mobile_team",
+            sort_order=12,
+            is_active=False,
+        )
+        leave_team = ScheduleResource(
+            business_id=business.id,
+            name="Leave test team",
+            resource_type="mobile_team",
+            sort_order=13,
+        )
+        foreign_team = ScheduleResource(
+            business_id=other_business.id,
+            name="Foreign test team",
+            resource_type="mobile_team",
+            sort_order=1,
+        )
+        session.add_all([eligible_team, empty_team, inactive_team, leave_team, foreign_team])
+        eligible_staff = StaffProfile(
+            business_id=business.id,
+            auth_user_id=uuid.uuid4(),
+            username=f"eligible.{uuid.uuid4().hex[:8]}",
+            display_name="Eligible worker",
+            role=StaffRole.EMPLOYEE,
+        )
+        inactive_team_staff = StaffProfile(
+            business_id=business.id,
+            auth_user_id=uuid.uuid4(),
+            username=f"inactive.{uuid.uuid4().hex[:8]}",
+            display_name="Inactive-team worker",
+            role=StaffRole.EMPLOYEE,
+        )
+        leave_staff = StaffProfile(
+            business_id=business.id,
+            auth_user_id=uuid.uuid4(),
+            username=f"leave.{uuid.uuid4().hex[:8]}",
+            display_name="Worker on leave",
+            role=StaffRole.EMPLOYEE,
+        )
+        foreign_staff = StaffProfile(
+            business_id=other_business.id,
+            auth_user_id=uuid.uuid4(),
+            username=f"foreign.{uuid.uuid4().hex[:8]}",
+            display_name="Foreign worker",
+            role=StaffRole.EMPLOYEE,
+        )
+        session.add_all([eligible_staff, inactive_team_staff, leave_staff, foreign_staff])
+        await session.flush()
+        session.add_all(
+            [
+                TeamMembership(resource_id=eligible_team.id, staff_profile_id=eligible_staff.id),
+                TeamMembership(
+                    resource_id=inactive_team.id,
+                    staff_profile_id=inactive_team_staff.id,
+                ),
+                TeamMembership(resource_id=leave_team.id, staff_profile_id=leave_staff.id),
+                TeamMembership(resource_id=foreign_team.id, staff_profile_id=foreign_staff.id),
+                LeaveRequest(
+                    business_id=business.id,
+                    staff_profile_id=leave_staff.id,
+                    start_date=requested_day,
+                    end_date=requested_day,
+                    reason="Eligibility test",
+                    status=LeaveStatus.APPROVED,
+                ),
+            ]
+        )
+        await session.flush()
+
+        candidates = await get_eligible_teams(
+            session, business_id=business.id, day=requested_day
+        )
+        candidate_ids = {candidate.id for candidate in candidates}
+        assert eligible_team.id in candidate_ids
+        assert empty_team.id not in candidate_ids
+        assert inactive_team.id not in candidate_ids
+        assert leave_team.id not in candidate_ids
+        assert foreign_team.id not in candidate_ids
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_confirmation_consumes_one_held_team_capacity(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    async with database() as session:
+        service_id = (await session.scalars(select(Service.id))).one()
+    hold = await _attempt_hold(
+        database,
+        HoldCreate(
+            date=date(2035, 7, 1),
+            start_time=time(9),
+            vehicle_count=1,
+            service_ids=[service_id],
+        ),
+    )
+    request = BookingCreate.model_validate(
+        {
+            "hold_token": hold.hold_token,
+            "contact": {
+                "first_name": "Concurrent",
+                "surname": "Customer",
+                "email": "concurrent@example.com",
+                "phone": "+971500000111",
+            },
+            "location": {
+                "written_address": "Abu Dhabi",
+                "location_url": "https://maps.google.com/?q=Abu+Dhabi",
+                "instructions": "Gate 1",
+            },
+            "vehicles": [
+                {
+                    "make": "Toyota",
+                    "model": "Camry",
+                    "vehicle_type": "sedan",
+                    "plate_number": "A 11111",
+                    "service_id": service_id,
+                }
+            ],
+            "payment_choice": "pay_after_service",
+        }
+    )
+    results = await asyncio.gather(
+        _attempt_booking(database, request),
+        _attempt_booking(database, request),
+        return_exceptions=True,
+    )
+    assert sum(not isinstance(result, Exception) for result in results) == 1
+    assert sum(isinstance(result, ConflictError) for result in results) == 1
+
+
+@pytest.mark.asyncio
 async def test_concurrent_inventory_transfer_allows_one_winner_without_negative_stock(
     database: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -339,7 +512,7 @@ async def test_multi_slot_failure_leaves_no_partial_hold(
 ) -> None:
     day = date(2035, 1, 3)
     await _attempt_hold(database, HoldCreate(date=day, start_time=time(15), vehicle_count=1))
-    with pytest.raises(ConflictError, match="consecutive"):
+    with pytest.raises(ConflictError, match="no longer available"):
         await _attempt_hold(database, HoldCreate(date=day, start_time=time(13), vehicle_count=3))
     async with database() as session:
         slots = list(
@@ -1365,10 +1538,15 @@ async def test_public_api_guest_booking_and_query_count_guard(
         service_id = catalogue.json()["services"][0]["id"]
         query_count.set(0)
         availability = await client.get(
-            "/api/v1/public/availability", params={"date": "2035-01-05", "vehicle_count": 1}
+            "/api/v1/public/availability",
+            params={
+                "date": "2035-01-05",
+                "vehicle_count": 1,
+                "service_id": service_id,
+            },
         )
         assert availability.status_code == 200
-        assert query_count.get() <= 3
+        assert query_count.get() <= 10
         assert [slot["time"] for slot in availability.json()["slots"]] == [
             "09:00:00",
             "11:00:00",
@@ -1377,13 +1555,20 @@ async def test_public_api_guest_booking_and_query_count_guard(
             "17:00:00",
             "19:00:00",
         ]
+        assert all("resources" not in slot for slot in availability.json()["slots"])
         query_count.set(0)
         hold = await client.post(
             "/api/v1/public/holds",
-            json={"date": "2035-01-05", "start_time": "09:00:00", "vehicle_count": 1},
+            json={
+                "date": "2035-01-05",
+                "start_time": "09:00:00",
+                "vehicle_count": 1,
+                "service_ids": [service_id],
+            },
         )
         assert hold.status_code == 201
-        assert query_count.get() <= 8
+        assert "resource_id" not in hold.json()
+        assert query_count.get() <= 16
         payload = {
             "hold_token": hold.json()["hold_token"],
             "contact": {
@@ -1415,7 +1600,7 @@ async def test_public_api_guest_booking_and_query_count_guard(
             headers={"Idempotency-Key": "api-integration-booking-1"},
         )
         assert booking.status_code == 201
-        assert query_count.get() <= 15
+        assert query_count.get() <= 22
         assert booking.json()["status"] == "pending_payment"
         assert booking.json()["payment_status"] == "pending"
         retried = await client.post(

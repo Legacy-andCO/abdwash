@@ -194,6 +194,10 @@ select cron.unschedule('abdwash-notification-dispatch');
 
 The Expo app is independently built and distributed. Only public Supabase/Auth and API base URL configuration may be embedded. Backend/service-role/database credentials must never enter an Expo variable or bundle.
 
+For the Phase 1 catalogue release, apply Alembic revision `9d5f551c26e5` before deploying the matching API. It backfills canonical vehicle prices from each existing service's legacy base price, copies legacy business hours into seven weekday rows, and snapshots existing booking-service durations without changing booking history. Then deploy the customer web and publish the updated Expo JavaScript bundle/native release through the normal mobile channel. No new environment variable is required, and this phase adds no native dependency.
+
+For the Phase 2 smart-scheduling release, apply Alembic revision `e7441de34e33` after `9d5f551c26e5` and before deploying the matching API. It backfills hold/job operational minutes conservatively from existing scheduled intervals and immutable booking-service/add-on snapshots, labels existing assigned jobs as `legacy`, and does not reassign historical or future work. Deploy the web client with the API so availability sends trusted catalogue selections and no longer consumes public team IDs. Publish the mobile JavaScript update through the proven Expo release channel; if OTA delivery is not configured for the installed app, issue a new APK/app bundle. No new environment variable or native dependency is introduced.
+
 For Operations V2 hardening, upgrade the API database through Alembic revision `a41f3b7820d6`, deploy the API, then create a new Android binary. The checked-in Android project must be regenerated with `npx expo prebuild --platform android --no-install --no-clean` so `withAndroidImeInsets.js` stays synchronized with `MainActivity.kt`. Build with JDK 17 and perform the real-device keyboard matrix in `docs/mobile-operations.md`; an OTA JavaScript update cannot deliver the native IME listener.
 
 For Operations V2, apply Alembic revision `96493956784a`, deploy the API, then run `python -m app.cli.seed_demo_staff` with backend-only `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, and `DEMO_STAFF_PASSWORD`. The demo usernames are `manager` and `employee`; the shared password value is never printed. Rebuild the native app because V2 adds the Expo Haptics module.
@@ -201,7 +205,7 @@ For Operations V2, apply Alembic revision `96493956784a`, deploy the API, then r
 ## Release order
 
 1. Back up and verify the intended environment.
-2. Apply Alembic revision `7d3f2a9c8e41` before deploying this release. It performs no historical loyalty-credit backfill.
+2. Apply Alembic through revision `e7441de34e33` before deploying this release. It performs no historical loyalty-credit backfill or team reassignment and preserves existing booking snapshots.
 3. Run the explicit seed only for initial bootstrap when appropriate.
 4. Deploy the API and either its persistent worker or the secured one-shot scheduler near the database.
 5. Configure explicit web/mobile API origins and URLs.

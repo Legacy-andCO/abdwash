@@ -808,6 +808,7 @@ async def _create_correction_job(
                 discount_minor=0,
                 quantity=1,
                 line_total_minor=0,
+                expected_duration_minutes=old_service.expected_duration_minutes or 120,
             )
         )
     session.add(
@@ -827,6 +828,13 @@ async def _create_correction_job(
         status=JobStatus.ASSIGNED,
         scheduled_start=hold.slot_start,
         scheduled_end=hold.slot_end,
+        expected_duration_minutes=getattr(
+            hold,
+            "expected_duration_minutes",
+            max(15, int((hold.slot_end - hold.slot_start).total_seconds() // 60)),
+        ),
+        assignment_source="auto",
+        assigned_at=now,
     )
     session.add(correction)
     await session.flush()

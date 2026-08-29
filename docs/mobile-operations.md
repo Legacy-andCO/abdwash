@@ -29,6 +29,7 @@ Apply Alembic through revision `7d3f2a9c8e41` before deploying this operations r
 - Job navigation uses server-side Today, Upcoming, History, Unassigned and All views with bounded filter/pagination parameters. Job details load a bulk event timeline without per-row queries.
 - Attendance overview categorizes scheduled, working, late, clocked-out, not-clocked-in, off-today and approved-leave staff using bulk queries and business-local dates.
 - Reports include booked/collected/job trends, service/payment mix, and staff/team performance aggregates.
+- Services & Pricing is a nested manager/admin workflow reached from Today. It owns service names/descriptions, active state, mobile/shop availability, canonical vehicle prices, expected duration, add-ons, booking-grid settings, weekday hours, mobile minimum, reward service, and expected-consumables templates. The latter are planning-only and never deduct stock on job completion.
 
 ## Android keyboard and native rebuilds
 
@@ -51,15 +52,18 @@ Use JDK 17 (Android Studio's bundled JBR is suitable). Verify Login, Add/Edit St
 - Teams/staff: 3 minutes.
 - Profile and shift definitions: 5 minutes.
 - Reports: 2 minutes.
+- Managed catalogue and booking settings: 1 minute, persisted for three days inside the authenticated business/staff/role scope.
 - Manager customer list/detail and loyalty: 1 minute, persisted for two days in the authenticated business/staff/role scope.
 
 Assignments, lifecycle actions, clock events, shifts, leave and rescheduling update the returned entity and invalidate only related keys. App foreground uses React Query focus handling; pull-to-refresh calls the same query observers. The app has no offline mutation queue.
+
+Manager/admin Job Detail shows automatic, manual, or legacy assignment provenance. Its compact assignment sheet can request a fresh automatic choice or select an eligible team. True overlaps are disabled; a turnaround-only warning requires an explicit **Assign anyway** confirmation. Employees can see their assigned work but cannot open reassignment or override controls. The authoritative assignment response immediately patches Job Detail, matching Jobs lists, and Today data; the existing `jobs`/`schedule` sync revisions reconcile related team views without invalidating Finance, Inventory, or Customers.
 
 Completed unpaid Job Detail uses a dedicated cash tender modal. The mobile app calculates display change in integer minor units and submits tender/change with one retained client event ID; FastAPI independently validates the figures, records only the amount due as collected revenue, and returns the authoritative receipt/job.
 
 Managers/admins open Customers from Today. Search is server-side and paginated across normalized name, phone, email, and active vehicle plate within the authenticated tenant. Customer detail uses bounded bulk reads for saved data and booking/job/complaint history. Profile, address, vehicle, and loyalty writes invalidate only scoped customer query families; the `customers` sync revision reconciles changes from job completion, payment, customer web edits, and other devices.
 
-The V2 primary tabs are `Today`, `Jobs`, and `Profile` for employees and add `Team` and `Reports` for managers/admins. Staff, shifts, attendance, leave approvals, and cancellation review are nested workflows rather than extra tabs.
+The V2 primary tabs are `Today`, `Jobs`, and `Profile` for employees and add `Team` and `Reports` for managers/admins. Staff, shifts, attendance, leave approvals, cancellation review, Inventory, and Services & Pricing are nested workflows rather than extra tabs.
 
 ## Job quality controls
 
@@ -85,4 +89,4 @@ The report uses bounded SQL aggregation. History/job lists use offset/limit pagi
 
 ## Deferred domains
 
-Inventory, van stock, subscriptions, corporate credit, expenses/profitability, commissions, WhatsApp, card/NFC/Tap-to-Pay, background/live GPS, AI assistance, multi-branch management, historical loyalty backfill, and a durable offline mutation replay queue remain out of scope.
+Supplier/procurement workflows, inventory valuation/COGS, automatic service-consumption deduction, fleet records beyond named stock locations, subscriptions, corporate credit, commissions, WhatsApp, card/NFC/Tap-to-Pay, background/live GPS, AI assistance, multi-branch management, historical loyalty backfill, and a durable offline mutation replay queue remain out of scope.

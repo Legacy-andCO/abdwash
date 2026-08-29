@@ -32,6 +32,7 @@ import {
   steps,
   vehicleErrors,
   type BookingStep,
+  type EditableVehicleField,
 } from "@/lib/booking-state";
 import {
   calendarCells,
@@ -361,7 +362,7 @@ function ServiceStep({ state, dispatch }: StepProps) {
               </em>
             </span>
             <b>
-              {formatMoney(service.price_minor, service.currency_code, locale)}
+              {t("services.from")} {formatMoney(service.price_minor, service.currency_code, locale)}
             </b>
           </label>
         ))}
@@ -626,9 +627,20 @@ function VehicleCard({
   dispatch: StepProps["dispatch"];
 }) {
   const { language, locale, t } = useI18n();
-  const update = (field: keyof Vehicle, value: string) =>
+  const selectedService = services.find(
+    (service) => service.id === vehicle.service_id,
+  );
+  const selectedPrice =
+    selectedService?.prices?.find(
+      (price) => price.vehicle_type === vehicle.vehicle_type,
+    )?.price_minor ?? selectedService?.price_minor ?? 0;
+  const update = (field: EditableVehicleField, value: string) =>
     dispatch({ type: "vehicle", key: vehicle.key, field, value });
-  const input = (field: keyof Vehicle, label: string, placeholder = "") => (
+  const input = (
+    field: EditableVehicleField,
+    label: string,
+    placeholder = "",
+  ) => (
     <label>
       <span>{label}</span>
       <input
@@ -768,7 +780,13 @@ function VehicleCard({
           {services.map((service) => (
             <option key={service.id} value={service.id}>
               {localizeServiceName(language, service.name)} —{" "}
-              {formatMoney(service.price_minor, service.currency_code, locale)}
+              {formatMoney(
+                service.prices?.find(
+                  (price) => price.vehicle_type === vehicle.vehicle_type,
+                )?.price_minor ?? service.price_minor,
+                service.currency_code,
+                locale,
+              )}
             </option>
           ))}
         </select>
@@ -776,6 +794,37 @@ function VehicleCard({
           {errors[`${vehicle.key}.service_id`]}
         </FieldError>
       </label>
+      {selectedService?.addons?.length ? (
+        <div className="booking-addons">
+          <strong>{t("booking.vehicles.addons")}</strong>
+          <small>{t("booking.vehicles.addonsCopy")}</small>
+          {selectedService.addons.map((addon) => (
+            <label className="booking-addon-option" key={addon.id}>
+              <input
+                type="checkbox"
+                checked={(vehicle.addon_ids ?? []).includes(addon.id)}
+                onChange={() =>
+                  dispatch({
+                    type: "toggle_addon",
+                    key: vehicle.key,
+                    addonId: addon.id,
+                  })
+                }
+              />
+              <span>
+                <strong>{addon.name}</strong>
+                {addon.description ? <small>{addon.description}</small> : null}
+              </span>
+              <b>{formatMoney(addon.price_minor, addon.currency_code, locale)}</b>
+            </label>
+          ))}
+        </div>
+      ) : null}
+      {vehicle.vehicle_type && selectedService ? (
+        <small className="service-price-note">
+          {t("booking.vehicles.vehiclePrice")}: {formatMoney(selectedPrice, selectedService.currency_code, locale)}
+        </small>
+      ) : null}
       {rewards.length ? (
         <label className="loyalty-reward-choice">
           <span>{t("booking.vehicles.reward")}</span>
@@ -819,6 +868,9 @@ function ReviewStep({ state, dispatch }: StepProps) {
     state.catalogue!.services.map((service) => [service.id, service]),
   );
   const estimate = calculateEstimate(state.vehicles, state.catalogue!);
+  const mobileMinimum = state.catalogue!.settings.mobile_minimum_enabled
+    ? (state.catalogue!.settings.mobile_minimum_minor ?? 0)
+    : 0;
   return (
     <>
       <StepIntro
@@ -826,6 +878,20 @@ function ReviewStep({ state, dispatch }: StepProps) {
         title={t("booking.review.title")}
         copy={t("booking.review.copy")}
       />
+      {mobileMinimum > 0 && estimate < mobileMinimum ? (
+        <div className="inline-notice" role="alert">
+          <strong>{t("booking.review.mobileMinimum")}</strong>
+          <span>
+            {t("booking.review.mobileMinimumCopy", {
+              amount: formatMoney(
+                mobileMinimum,
+                state.catalogue!.settings.currency_code,
+                locale,
+              ),
+            })}
+          </span>
+        </div>
+      ) : null}
       <div className="review-sections">
         <ReviewBlock
           title={t("booking.review.contact")}
@@ -883,6 +949,12 @@ function ReviewStep({ state, dispatch }: StepProps) {
                   {t("booking.review.loyaltyReward")}
                 </em>
               ) : null}
+              {(vehicle.addon_ids ?? []).map((addonId) => {
+                const addon = services
+                  .get(vehicle.service_id)
+                  ?.addons?.find((item) => item.id === addonId);
+                return addon ? <small key={addon.id}>+ {addon.name}</small> : null;
+              })}
             </div>
           ))}
         </ReviewBlock>
@@ -904,6 +976,7 @@ function ReviewStep({ state, dispatch }: StepProps) {
         back={() => dispatch({ type: "step", value: "vehicles" })}
         next={() => dispatch({ type: "step", value: "schedule" })}
         nextLabel={t("booking.review.chooseTime")}
+        disabled={mobileMinimum > 0 && estimate < mobileMinimum}
       />
     </>
   );
@@ -950,7 +1023,10 @@ function ScheduleStep({ state, dispatch }: StepProps) {
     try {
       dispatch({
         type: "availability",
-        value: await getAvailability(selectedDate, state.vehicles.length),
+        value: await getAvailability(selectedDate, state.vehicles.length, {
+          serviceIds: state.vehicles.map((vehicle) => vehicle.service_id),
+          addonIds: state.vehicles.flatMap((vehicle) => vehicle.addon_ids ?? []),
+        }),
       });
     } catch (reason) {
       setError(localizedCustomerError(reason, language, t));
@@ -974,7 +1050,8 @@ function ScheduleStep({ state, dispatch }: StepProps) {
         date: state.selectedDate,
         start_time: slot.time,
         vehicle_count: state.vehicles.length,
-        resource_id: slot.resources[0]?.resource_id,
+        service_ids: state.vehicles.map((vehicle) => vehicle.service_id),
+        addon_ids: state.vehicles.flatMap((vehicle) => vehicle.addon_ids ?? []),
       });
       dispatch({ type: "hold", value: hold });
       dispatch({ type: "step", value: "payment" });
@@ -1456,12 +1533,15 @@ function Confirmation({ state }: { state: typeof initialBookingState }) {
                 </small>
               </span>
               <b>{localizeServiceName(language, vehicle.service_name)}</b>
-              {vehicle.discount_type === "loyalty_reward" ? (
-                <em className="loyalty-discount">
-                  {t("booking.review.loyaltyReward")}
-                </em>
-              ) : null}
-            </div>
+               {vehicle.discount_type === "loyalty_reward" ? (
+                 <em className="loyalty-discount">
+                   {t("booking.review.loyaltyReward")}
+                 </em>
+               ) : null}
+               {vehicle.addons?.map((addon) => (
+                 <small key={addon.name}>+ {addon.name}</small>
+               ))}
+             </div>
           ))}
         </div>
         <div className="confirmation-actions">

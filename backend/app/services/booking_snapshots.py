@@ -19,6 +19,7 @@ def vehicle_summaries_from_rows(
         if addon is not None:
             current[2].append(
                 BookingAddonSummary(
+                    id=addon.service_addon_id,
                     name=addon.addon_name,
                     price_minor=addon.unit_price_minor,
                     expected_duration_minutes=addon.expected_duration_minutes,
@@ -35,6 +36,7 @@ def vehicle_summaries_from_rows(
                 colour=vehicle.colour,
                 plate_number=vehicle.plate_number,
                 service_name=service.service_name,
+                service_id=service.service_id,
                 line_total_minor=service.line_total_minor
                 + sum(addon.price_minor for addon in addons),
                 list_price_minor=service.list_price_minor or service.unit_price_minor,
