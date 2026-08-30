@@ -34,6 +34,7 @@ from app.domain.enums import (
     SlotStatus,
     StaffRole,
 )
+from app.domain.timezones import TRIFECTA_TIMEZONE
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
@@ -51,7 +52,9 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     business_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("businesses.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Asia/Dubai")
+    timezone: Mapped[str] = mapped_column(
+        String(64), nullable=False, default=TRIFECTA_TIMEZONE
+    )
     currency_code: Mapped[str] = mapped_column(String(3), nullable=False, default="AED")
     opening_time: Mapped[time] = mapped_column(Time, nullable=False)
     closing_time: Mapped[time] = mapped_column(Time, nullable=False)

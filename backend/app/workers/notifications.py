@@ -14,8 +14,10 @@ from app.core.config import get_settings
 from app.core.database import create_engine, create_session_factory
 from app.core.logging import configure_logging
 from app.domain.enums import OutboxStatus
+from app.domain.timezones import TRIFECTA_TIMEZONE
 from app.integrations.notifications.base import NotificationProvider
 from app.integrations.notifications.factory import create_notification_provider
+from app.integrations.notifications.resend import ResendDeliveryError
 from app.models.entities import (
     Booking,
     BookingService,
@@ -174,6 +176,12 @@ async def process_record(
                 payload,
             )
             await session.rollback()
+        if notification[2] == "appointment_reminder":
+            await ensure_reminder_current(
+                factory,
+                record_id,
+                worker_id=worker_id,
+            )
         await provider.send(
             channel=notification[0],
             recipient=notification[1],
@@ -189,17 +197,64 @@ async def process_record(
         logger.info("notification_stale_skipped", notification_id=str(record_id))
         return "skipped"
     except Exception as exc:  # provider boundary intentionally catches and retries
+        notification_type: str | None = None
+        attempt_count: int | None = None
         async with factory() as session, session.begin():
             record = await session.get(NotificationOutbox, record_id, with_for_update=True)
             if record is not None and record.locked_by == worker_id:
+                notification_type = record.notification_type
                 mark_delivery_failed(record, exc, now=datetime.now(UTC))
-        logger.warning("notification_retry", notification_id=str(record_id))
+                attempt_count = record.attempt_count
+        diagnostic = {
+            "notification_id": str(record_id),
+            "notification_type": notification_type,
+            "attempt_count": attempt_count,
+        }
+        if isinstance(exc, ResendDeliveryError):
+            diagnostic.update(
+                {
+                    "provider": "resend",
+                    "provider_http_status": exc.status_code,
+                    "provider_error_code": exc.provider_code,
+                    "provider_error": exc.safe_message,
+                }
+            )
+        logger.warning("notification_retry", **diagnostic)
         return "retry"
     async with factory() as session, session.begin():
         record = await session.get(NotificationOutbox, record_id, with_for_update=True)
         if record is not None and record.locked_by == worker_id:
             mark_delivery_succeeded(record, now=datetime.now(UTC))
     return "sent"
+
+
+async def ensure_reminder_current(
+    factory: async_sessionmaker[AsyncSession],
+    record_id: uuid.UUID,
+    *,
+    worker_id: str,
+) -> None:
+    """Recheck reminder authority immediately before the provider boundary."""
+
+    async with factory() as session:
+        record = await session.get(NotificationOutbox, record_id)
+        if (
+            record is None
+            or record.status != OutboxStatus.PROCESSING
+            or record.locked_by != worker_id
+        ):
+            raise StaleNotification("Appointment reminder was withdrawn")
+        if record.notification_type != "appointment_reminder":
+            return
+        booking = await session.get(Booking, record.booking_id)
+        queued_start = datetime.fromisoformat(str(record.payload.get("scheduled_start")))
+        if (
+            booking is None
+            or booking.status != "confirmed"
+            or booking.scheduled_start != queued_start
+            or booking.scheduled_start <= datetime.now(UTC)
+        ):
+            raise StaleNotification("Appointment reminder is no longer current")
 
 
 async def delivery_payload(
@@ -253,7 +308,7 @@ async def delivery_payload(
             "customer_first_name": booking.customer_first_name,
             "scheduled_start": booking.scheduled_start.isoformat(),
             "scheduled_end": booking.scheduled_end.isoformat(),
-            "timezone": settings.timezone,
+            "timezone": TRIFECTA_TIMEZONE,
             "vehicle_count": booking.vehicle_count,
             "vehicles": [
                 {"make": make, "model": model, "service_name": service_name}

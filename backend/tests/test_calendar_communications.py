@@ -11,7 +11,11 @@ from app.domain.errors import DomainError
 from app.models.entities import NotificationOutbox
 from app.services.customer_communications import discard_unsent_appointment_reminders
 from app.services.staff_operations import list_job_calendar
-from app.workers.notifications import StaleNotification, delivery_payload
+from app.workers.notifications import (
+    StaleNotification,
+    delivery_payload,
+    ensure_reminder_current,
+)
 
 
 def context(role: StaffRole = StaffRole.MANAGER) -> StaffContext:
@@ -124,3 +128,34 @@ async def test_stale_reminder_is_not_rendered_or_sent() -> None:
         await delivery_payload(
             session, record, public_web_url="https://trifecta.example"
         )
+
+
+@pytest.mark.asyncio
+async def test_final_reminder_check_rejects_reschedule_after_payload_render() -> None:
+    booking_id = uuid.uuid4()
+    queued_start = datetime(2026, 9, 1, 6, tzinfo=UTC)
+    record = NotificationOutbox(
+        id=uuid.uuid4(),
+        business_id=uuid.uuid4(),
+        booking_id=booking_id,
+        channel="email",
+        notification_type="appointment_reminder",
+        recipient="customer@example.com",
+        payload={"scheduled_start": queued_start.isoformat()},
+        status=OutboxStatus.PROCESSING,
+        next_attempt_at=datetime.now(UTC),
+        locked_by="worker-a",
+    )
+    booking = SimpleNamespace(
+        status=BookingStatus.CONFIRMED,
+        scheduled_start=queued_start + timedelta(hours=1),
+    )
+    session = MagicMock()
+    session.get = AsyncMock(side_effect=[record, booking])
+    context_manager = MagicMock()
+    context_manager.__aenter__ = AsyncMock(return_value=session)
+    context_manager.__aexit__ = AsyncMock(return_value=False)
+    factory = MagicMock(return_value=context_manager)
+
+    with pytest.raises(StaleNotification, match="no longer current"):
+        await ensure_reminder_current(factory, record.id, worker_id="worker-a")

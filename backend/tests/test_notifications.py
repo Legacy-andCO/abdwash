@@ -15,7 +15,11 @@ import app.workers.notifications as notification_worker
 from app.core.config import Settings
 from app.domain.enums import OutboxStatus
 from app.integrations.notifications.log import LogNotificationProvider
-from app.integrations.notifications.resend import ResendNotificationProvider, render_email
+from app.integrations.notifications.resend import (
+    ResendDeliveryError,
+    ResendNotificationProvider,
+    render_email,
+)
 from app.main import app
 from app.models.entities import NotificationOutbox
 
@@ -91,6 +95,31 @@ def test_reschedule_email_contains_new_time_and_management_link() -> None:
     assert "28 August 2026" in html
     assert "13:00–15:00" in html
     assert payload["management_url"] in html
+
+
+@pytest.mark.parametrize(
+    "notification_type",
+    [
+        "booking_confirmed",
+        "appointment_reminder",
+        "booking_rescheduled",
+        "job_completed",
+        "driver_en_route",
+        "team_delayed",
+    ],
+)
+def test_appointment_emails_render_utc_storage_as_uae_time(
+    notification_type: str,
+) -> None:
+    payload = confirmation_payload() | {
+        "scheduled_start": "2026-08-31T06:00:00Z",
+        "scheduled_end": "2026-08-31T08:00:00Z",
+        "delay_minutes": 30,
+    }
+    _subject, html = render_email(notification_type, payload)
+    assert "10:00" in html
+    if notification_type != "job_completed":
+        assert "12:00" in html
 
 
 def test_completion_email_uses_actual_duration_and_authoritative_paid_amount() -> None:
@@ -174,6 +203,53 @@ async def test_completion_dispatch_payload_uses_reserved_time_actual_elapsed_and
     assert payload["actual_service_duration_seconds"] == 5_700
     assert payload["amount_paid_minor"] == 12_500
     assert payload["payment_status"] == "paid"
+
+
+@pytest.mark.asyncio
+async def test_delay_dispatch_enriches_current_schedule_without_rescheduling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    booking_id = uuid.uuid4()
+    scheduled_start = datetime(2026, 8, 31, 6, tzinfo=UTC)
+    booking = SimpleNamespace(
+        id=booking_id,
+        business_id=uuid.uuid4(),
+        customer_first_name="Ahmad",
+        scheduled_start=scheduled_start,
+        scheduled_end=scheduled_start + timedelta(hours=2),
+        vehicle_count=1,
+        written_address="Yas Island",
+        total_amount_minor=12_500,
+        currency_code="AED",
+        payment_choice="pay_after_service",
+        payment_status="unpaid",
+    )
+    settings = SimpleNamespace(timezone="Asia/Dubai", cancellation_cutoff_hours=24)
+    record = outbox_record()
+    record.notification_type = "team_delayed"
+    record.booking_id = booking_id
+    record.payload = {"booking_reference": "AW-ABC123", "delay_minutes": 30}
+    session = MagicMock()
+    session.get = AsyncMock(return_value=booking)
+    settings_result = MagicMock()
+    settings_result.one.return_value = settings
+    session.scalars = AsyncMock(return_value=settings_result)
+    vehicle_result = MagicMock()
+    vehicle_result.all.return_value = [("Toyota", "Camry", "Standard Wash")]
+    session.execute = AsyncMock(return_value=vehicle_result)
+    monkeypatch.setattr(notification_worker, "create_management_token", lambda _id: "token")
+
+    payload = await notification_worker.delivery_payload(
+        session,
+        record,
+        public_web_url="https://trifecta.example",
+    )
+
+    assert payload["delay_minutes"] == 30
+    assert payload["scheduled_start"] == "2026-08-31T06:00:00+00:00"
+    assert payload["scheduled_end"] == "2026-08-31T08:00:00+00:00"
+    assert payload["timezone"] == "Asia/Dubai"
+    assert booking.scheduled_start == scheduled_start
 
 
 def test_cancellation_email_uses_only_current_brand() -> None:
@@ -286,7 +362,7 @@ async def test_resend_failure_moves_notification_to_retry() -> None:
             api_key="test-resend-key",
             email_from="Trifecta <bookings@example.com>",
         )
-        with pytest.raises(httpx.HTTPStatusError) as caught:
+        with pytest.raises(ResendDeliveryError) as caught:
             await provider.send(
                 channel="email",
                 recipient="ahmad@example.com",
@@ -300,6 +376,46 @@ async def test_resend_failure_moves_notification_to_retry() -> None:
     assert record.status == OutboxStatus.RETRY
     assert record.attempt_count == 1
     assert record.next_attempt_at > datetime.now(UTC)
+
+
+@pytest.mark.asyncio
+async def test_resend_403_retains_only_bounded_sanitized_provider_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            403,
+            request=request,
+            json={
+                "name": "validation_error",
+                "message": "Testing may only send to private.customer@example.com",
+                "statusCode": 403,
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = ResendNotificationProvider(
+            client,
+            api_key="test-resend-key",
+            email_from="Trifecta <bookings@example.com>",
+        )
+        with pytest.raises(ResendDeliveryError) as caught:
+            await provider.send(
+                channel="email",
+                recipient="customer@example.com",
+                notification_type="team_delayed",
+                payload=confirmation_payload() | {"delay_minutes": 30},
+                idempotency_key="notification-delay-403",
+            )
+
+    assert caught.value.status_code == 403
+    assert caught.value.provider_code == "validation_error"
+    assert "[email redacted]" in str(caught.value)
+    assert "private.customer@example.com" not in str(caught.value)
+    record = outbox_record()
+    notification_worker.mark_delivery_failed(record, caught.value, now=datetime.now(UTC))
+    assert record.status == OutboxStatus.RETRY
+    assert record.last_error is not None
+    assert "Resend 403: validation_error" in record.last_error
+    assert "private.customer@example.com" not in record.last_error
 
 
 @pytest.mark.asyncio

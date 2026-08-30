@@ -631,7 +631,11 @@ async def test_manager_exact_minute_reschedule_updates_only_requested_booking_an
         confirm_active_reschedule=False,
     )
 
-    assert booking.scheduled_start.minute == 37
+    assert booking.scheduled_start == datetime.combine(
+        selected_date,
+        time(6, 37),
+        tzinfo=UTC,
+    )
     assert job.scheduled_start == booking.scheduled_start
     assert job.assigned_resource_id == team.id
     assert old_slot.status == "free"

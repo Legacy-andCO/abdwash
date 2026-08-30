@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from app.core.config import get_settings
 from app.core.database import create_engine, create_session_factory
 from app.domain.catalogue import VEHICLE_TYPES
+from app.domain.timezones import TRIFECTA_TIMEZONE
 from app.models.entities import (
     Business,
     BusinessOperatingHour,
@@ -65,7 +66,7 @@ async def seed() -> None:
             if business_settings is None:
                 business_settings = BusinessSettings(
                     business_id=business.id,
-                    timezone="Asia/Dubai",
+                    timezone=TRIFECTA_TIMEZONE,
                     currency_code="AED",
                     opening_time=time(9),
                     closing_time=time(21),

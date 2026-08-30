@@ -1,11 +1,44 @@
+import re
 from datetime import datetime
 from html import escape
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import httpx
 
 from app.core.providers import observe_provider_call
+from app.domain.timezones import TRIFECTA_ZONE
+
+_EMAIL_PATTERN = re.compile(r"\b[^\s@]+@[^\s@]+\.[^\s@]+\b")
+
+
+class ResendDeliveryError(RuntimeError):
+    def __init__(self, *, status_code: int, provider_code: str, message: str) -> None:
+        self.status_code = status_code
+        self.provider_code = provider_code
+        self.safe_message = message
+        super().__init__(f"Resend {status_code}: {provider_code}: {message}")
+
+
+def _safe_provider_value(value: object, *, fallback: str) -> str:
+    if not isinstance(value, str):
+        return fallback
+    text = " ".join(value.split())
+    text = _EMAIL_PATTERN.sub("[email redacted]", text)
+    return text[:240] or fallback
+
+
+def _delivery_error(response: httpx.Response) -> ResendDeliveryError:
+    try:
+        body = response.json()
+    except ValueError:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    return ResendDeliveryError(
+        status_code=response.status_code,
+        provider_code=_safe_provider_value(body.get("name"), fallback="provider_error"),
+        message=_safe_provider_value(body.get("message"), fallback="Request rejected"),
+    )
 
 
 class ResendNotificationProvider:
@@ -43,7 +76,8 @@ class ResendNotificationProvider:
                 },
             ),
         )
-        response.raise_for_status()
+        if response.is_error:
+            raise _delivery_error(response)
 
 
 def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, str]:
@@ -77,12 +111,7 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
         )
     if notification_type == "team_delayed":
         minutes = int(payload["delay_minutes"])
-        return render_simple_booking_update(
-            payload,
-            title="A quick update about your appointment",
-            message=f"Your Trifecta team is running approximately {minutes} minutes late.",
-            subject_prefix="An update about your Trifecta appointment",
-        )
+        return render_team_delayed(payload, minutes)
     if notification_type == "payment_pending":
         return render_simple_booking_update(
             payload,
@@ -106,9 +135,7 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
 def render_appointment_reminder(payload: dict[str, Any]) -> tuple[str, str]:
     reference = escape(str(payload["booking_reference"]))
     first_name = escape(str(payload["customer_first_name"]))
-    timezone = ZoneInfo(str(payload["timezone"]))
-    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
-    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(timezone)
+    start, end = _scheduled_times(payload)
     manage_url = escape(str(payload["management_url"]), quote=True)
     content = f"""
       <p style="margin:0 0 24px">Hi {first_name},</p>
@@ -142,12 +169,30 @@ def render_simple_booking_update(
     return f"{subject_prefix} — {reference}", _email_shell(title, content)
 
 
+def render_team_delayed(payload: dict[str, Any], minutes: int) -> tuple[str, str]:
+    reference = escape(str(payload["booking_reference"]))
+    first_name = escape(str(payload["customer_first_name"]))
+    start, end = _scheduled_times(payload)
+    manage_url = escape(str(payload["management_url"]), quote=True)
+    content = f"""
+      <p style="margin:0 0 24px">Hi {first_name},</p>
+      <p style="margin:0 0 24px">Your Trifecta team is running approximately
+        {minutes} minutes late.</p>
+      {_detail("Booking", reference)}
+      {_detail("Scheduled appointment", f"{start:%H:%M}–{end:%H:%M} UAE time")}
+      <p style="margin:30px 0"><a href="{manage_url}"
+        style="background:#D65A1F;color:#fff;text-decoration:none;padding:13px 22px;
+        border-radius:8px;display:inline-block;font-weight:700">View booking</a></p>
+    """
+    return f"Update about your Trifecta appointment — {reference}", _email_shell(
+        "A quick update about your appointment", content
+    )
+
+
 def render_booking_rescheduled(payload: dict[str, Any]) -> tuple[str, str]:
     reference = escape(str(payload["booking_reference"]))
     first_name = escape(str(payload["customer_first_name"]))
-    timezone = ZoneInfo(str(payload["timezone"]))
-    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
-    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(timezone)
+    start, end = _scheduled_times(payload)
     manage_url = escape(str(payload["management_url"]), quote=True)
     content = f"""
       <p style="margin:0 0 24px">Hi {first_name},</p>
@@ -179,8 +224,7 @@ def _human_duration(seconds: int | None) -> str | None:
 def render_job_completed(payload: dict[str, Any]) -> tuple[str, str]:
     reference = escape(str(payload["booking_reference"]))
     first_name = escape(str(payload["customer_first_name"]))
-    timezone = ZoneInfo(str(payload["timezone"]))
-    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
+    start, _end = _scheduled_times(payload)
     duration = _human_duration(
         int(payload["actual_service_duration_seconds"])
         if payload.get("actual_service_duration_seconds") is not None
@@ -221,11 +265,9 @@ def render_job_completed(payload: dict[str, Any]) -> tuple[str, str]:
 def render_driver_en_route(payload: dict[str, Any]) -> tuple[str, str]:
     reference = escape(str(payload["booking_reference"]))
     first_name = escape(str(payload["customer_first_name"]))
-    timezone = ZoneInfo(str(payload["timezone"]))
-    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
-    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(timezone)
+    start, end = _scheduled_times(payload)
     eta_value = payload.get("estimated_arrival_at")
-    eta = datetime.fromisoformat(str(eta_value)).astimezone(timezone) if eta_value else None
+    eta = datetime.fromisoformat(str(eta_value)).astimezone(TRIFECTA_ZONE) if eta_value else None
     manage_url = escape(str(payload["management_url"]), quote=True)
     vehicles = payload.get("vehicles", [])
     vehicle = vehicles[0] if isinstance(vehicles, list) and vehicles else None
@@ -258,9 +300,7 @@ def render_driver_en_route(payload: dict[str, Any]) -> tuple[str, str]:
 def render_booking_confirmation(payload: dict[str, Any]) -> tuple[str, str]:
     reference = escape(str(payload["booking_reference"]))
     first_name = escape(str(payload["customer_first_name"]))
-    timezone = ZoneInfo(str(payload["timezone"]))
-    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
-    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(timezone)
+    start, end = _scheduled_times(payload)
     total_minor = int(payload["total_amount_minor"])
     currency = escape(str(payload["currency_code"]))
     payment_choice = str(payload["payment_choice"])
@@ -310,6 +350,16 @@ def _detail(label: str, value: str) -> str:
         f"<div style='color:#241C1A;font-size:16px;font-weight:700;margin-top:3px'>{value}</div>"
         "</div>"
     )
+
+
+def _scheduled_times(payload: dict[str, Any]) -> tuple[datetime, datetime]:
+    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(
+        TRIFECTA_ZONE
+    )
+    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(
+        TRIFECTA_ZONE
+    )
+    return start, end
 
 
 def _email_shell(title: str, content: str) -> str:
