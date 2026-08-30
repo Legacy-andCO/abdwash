@@ -97,10 +97,12 @@ from app.schemas.staff import (
     CancellationReview,
     CashPaymentResult,
     CashTenderAction,
+    CommunicationHistoryItem,
     JobAction,
     JobChecklistUpdate,
     JobComplaintCreate,
     JobComplaintReview,
+    JobDelayNotification,
     JobInspectionInput,
     JobPhotoCreate,
     JobPhotoUploadGrant,
@@ -120,6 +122,7 @@ from app.schemas.staff import (
     ShiftView,
     StaffAccountCreate,
     StaffAccountUpdate,
+    StaffCalendar,
     StaffJob,
     StaffJobList,
     StaffMember,
@@ -224,8 +227,11 @@ from app.services.staff_operations import (
     assignment_options,
     get_job,
     list_cancellations,
+    list_job_calendar,
+    list_job_communications,
     list_jobs,
     list_team,
+    notify_customer_delay,
     record_cash,
     report_summary,
     review_cancellation,
@@ -1125,11 +1131,47 @@ async def jobs(
     )
 
 
+@router.get("/jobs/calendar", response_model=StaffCalendar)
+async def jobs_calendar(
+    start_date: date,
+    end_date: date,
+    session: SessionDep,
+    context: StaffDep,
+) -> StaffCalendar:
+    return await list_job_calendar(
+        session, context, start_date=start_date, end_date=end_date
+    )
+
+
 @router.get("/jobs/{job_id}", response_model=StaffJob)
 async def job_detail(
     job_id: uuid.UUID, session: SessionDep, context: Annotated[StaffContext, Depends(staff_context)]
 ) -> StaffJob:
     return await get_job(session, context, job_id)
+
+
+@router.get(
+    "/jobs/{job_id}/communications", response_model=list[CommunicationHistoryItem]
+)
+async def job_communications(
+    job_id: uuid.UUID, session: SessionDep, context: ManagerContext
+) -> list[CommunicationHistoryItem]:
+    return await list_job_communications(session, context, job_id)
+
+
+@router.post(
+    "/jobs/{job_id}/notifications/delay",
+    response_model=CommunicationHistoryItem,
+    status_code=201,
+)
+async def job_delay_notification(
+    job_id: uuid.UUID,
+    payload: JobDelayNotification,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CommunicationHistoryItem:
+    async with session.begin():
+        return await notify_customer_delay(session, context, job_id, payload)
 
 
 @router.get("/jobs/{job_id}/quality", response_model=JobQualityView)

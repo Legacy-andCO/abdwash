@@ -1457,6 +1457,30 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
                 )
             ).all()
         assert len(trip_notifications) == 1
+        delay_event_id = str(uuid.uuid4())
+        delay_response = await client.post(
+            f"/api/v1/staff/jobs/{job_id}/notifications/delay",
+            headers=manager_headers,
+            json={"delay_minutes": 30, "client_event_id": delay_event_id},
+        )
+        assert delay_response.status_code == 201, delay_response.text
+        assert delay_response.json()["state"] == "queued"
+        duplicate_delay = await client.post(
+            f"/api/v1/staff/jobs/{job_id}/notifications/delay",
+            headers=manager_headers,
+            json={"delay_minutes": 30, "client_event_id": delay_event_id},
+        )
+        assert duplicate_delay.status_code == 201, duplicate_delay.text
+        assert duplicate_delay.json()["id"] == delay_response.json()["id"]
+        calendar_response = await client.get(
+            "/api/v1/staff/jobs/calendar",
+            headers=employee_headers,
+            params={"start_date": "2035-02-01", "end_date": "2035-02-28"},
+        )
+        assert calendar_response.status_code == 200, calendar_response.text
+        assert job_id in {
+            uuid.UUID(item["job_id"]) for item in calendar_response.json()["jobs"]
+        }
         arrive_response = await client.post(
             f"/api/v1/staff/jobs/{job_id}/arrive",
             headers=employee_headers,
@@ -1478,6 +1502,19 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
             json={"client_event_id": str(uuid.uuid4())},
         )
         assert complete_response.status_code == 200, complete_response.text
+        communications_response = await client.get(
+            f"/api/v1/staff/jobs/{job_id}/communications",
+            headers=manager_headers,
+        )
+        assert communications_response.status_code == 200, communications_response.text
+        events = {item["event"] for item in communications_response.json()}
+        assert {
+            "Team en route",
+            "Delay update",
+            "Team arrived",
+            "Service completed",
+            "Payment pending",
+        } <= events
         assert complete_response.json()["status"] == "completed"
         cash_response = await client.post(
             f"/api/v1/staff/jobs/{job_id}/cash-payment",

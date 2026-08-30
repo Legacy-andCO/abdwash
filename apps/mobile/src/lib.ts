@@ -145,6 +145,25 @@ export type Job = {
   direct_expenses: JobDirectExpense[] | null;
   direct_expenses_total_minor: number | null;
 };
+export type CalendarJob = {
+  job_id: string;
+  scheduled_start: string;
+  scheduled_end: string;
+  local_date: string;
+  status: string;
+  team_id: string | null;
+  team_short_name: string | null;
+  vehicle_label: string;
+  service_label: string;
+};
+export type CommunicationHistoryItem = {
+  id: string;
+  event: string;
+  state: "queued" | "sent" | "failed";
+  created_at: string;
+  sent_at: string | null;
+  detail: string | null;
+};
 export type TeamAssignmentOption = {
   team_id: string;
   team_name: string;
@@ -673,6 +692,8 @@ export type BusinessBookingSettings = {
   mobile_minimum_enabled: boolean;
   mobile_minimum_minor: number;
   default_team_turnaround_minutes: number;
+  appointment_reminder_enabled: boolean;
+  appointment_reminder_hours_before: number;
   default_inventory_location_id: string | null;
   loyalty_reward_service_id: string | null;
   operating_hours: OperatingHour[];
@@ -945,6 +966,28 @@ export async function getJobs(
 }
 export const getJob = (jobId: string, signal?: AbortSignal) =>
   api<Job>(`/api/v1/staff/jobs/${jobId}`, { signal });
+export const getJobCalendar = (
+  startDate: string,
+  endDate: string,
+  signal?: AbortSignal,
+) =>
+  api<{ jobs: CalendarJob[] }>(
+    `/api/v1/staff/jobs/calendar?start_date=${startDate}&end_date=${endDate}`,
+    { signal },
+  );
+export const getJobCommunications = (jobId: string, signal?: AbortSignal) =>
+  api<CommunicationHistoryItem[]>(
+    `/api/v1/staff/jobs/${jobId}/communications`,
+    { signal },
+  );
+export const notifyCustomerDelay = (
+  jobId: string,
+  body: { delay_minutes: number; client_event_id: string; client_timestamp: string },
+) =>
+  api<CommunicationHistoryItem>(
+    `/api/v1/staff/jobs/${jobId}/notifications/delay`,
+    json("POST", body),
+  );
 export const getJobQuality = (jobId: string, signal?: AbortSignal) =>
   api<JobQuality>(`/api/v1/staff/jobs/${jobId}/quality`, { signal });
 export const saveJobInspection = (jobId: string, body: object) =>

@@ -16,7 +16,7 @@ Deploy FastAPI from the existing backend artifact. A persistent host may also ru
 
 Set a stable, randomly generated `BOOKING_MANAGEMENT_SIGNING_KEY` of at least 32 characters. Rotating it invalidates existing customer management links, so rotate only with an intentional transition plan.
 
-For Phase 3.1, apply Alembic revision `61343828bd05` before the matching API. It adds `business_settings.default_inventory_location_id`, backfills a sole active location or sole active Main Shop where unambiguous, expands the consumption source-resolution constraint, and adds the partial unique notification-outbox dedupe index. No new environment variable is required.
+For Phase 3.2/4, apply Alembic revision `8a72c1d4e6f0` before the matching API. It adds `business_settings.appointment_reminder_enabled` (default `true`) and `appointment_reminder_hours_before` (default `24`, constrained to 1–168). The prior Phase 3.1 migration still supplies the startup default stock pool and durable notification-outbox dedupe index. No new environment variable is required.
 
 For real booking email, configure backend-only `RESEND_API_KEY`, `EMAIL_FROM`, and `PUBLIC_WEB_URL`. Verify the sender domain in Resend before using a custom sender. The dispatcher derives `/manage#<signed-token>` from `PUBLIC_WEB_URL` at send time. Configure a strong random `OUTBOX_DISPATCH_SECRET`; it is accepted only in `X-Outbox-Dispatch-Secret` on `POST /api/v1/internal/notifications/dispatch`. Missing Resend configuration in production records retries/failure rather than pretending delivery succeeded.
 
@@ -146,7 +146,7 @@ order by created desc
 limit 20;
 ```
 
-A healthy minute has a succeeded cron run and an HTTP `200` response. A minute with no pending notifications is also successful; the endpoint returns a zero-claimed result.
+A healthy minute has a succeeded cron run and an HTTP `200` response. Each bounded invocation first queues due appointment reminders and then claims the normal outbox batch. A minute with no due or pending notifications is also successful; the endpoint returns zero scheduled/claimed work.
 
 ### Manual and end-to-end verification
 

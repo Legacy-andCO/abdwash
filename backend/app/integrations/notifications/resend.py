@@ -66,7 +66,80 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
                 "Your booking remains active until the Trifecta team reviews it.</p>",
             ),
         )
+    if notification_type == "appointment_reminder":
+        return render_appointment_reminder(payload)
+    if notification_type == "team_arrived":
+        return render_simple_booking_update(
+            payload,
+            title="Your Trifecta team has arrived",
+            message="Your Trifecta team has arrived at the service location.",
+            subject_prefix="Your Trifecta team has arrived",
+        )
+    if notification_type == "team_delayed":
+        minutes = int(payload["delay_minutes"])
+        return render_simple_booking_update(
+            payload,
+            title="A quick update about your appointment",
+            message=f"Your Trifecta team is running approximately {minutes} minutes late.",
+            subject_prefix="An update about your Trifecta appointment",
+        )
+    if notification_type == "payment_pending":
+        return render_simple_booking_update(
+            payload,
+            title="Payment remains pending",
+            message=(
+                "Your service is complete and payment remains pending. "
+                "Please contact Trifecta if you need assistance."
+            ),
+            subject_prefix="Payment pending for your Trifecta booking",
+        )
+    if notification_type == "booking_cancelled":
+        return render_simple_booking_update(
+            payload,
+            title="Your booking has been cancelled",
+            message="Your cancellation request has been approved and the booking is cancelled.",
+            subject_prefix="Your Trifecta booking was cancelled",
+        )
     raise ValueError(f"Unsupported notification type {notification_type!r}")
+
+
+def render_appointment_reminder(payload: dict[str, Any]) -> tuple[str, str]:
+    reference = escape(str(payload["booking_reference"]))
+    first_name = escape(str(payload["customer_first_name"]))
+    timezone = ZoneInfo(str(payload["timezone"]))
+    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(timezone)
+    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(timezone)
+    manage_url = escape(str(payload["management_url"]), quote=True)
+    content = f"""
+      <p style="margin:0 0 24px">Hi {first_name},</p>
+      <p style="margin:0 0 24px">This is a reminder about your upcoming Trifecta appointment.</p>
+      {_detail("Booking", reference)}
+      {_detail("Date", start.strftime("%d %B %Y"))}
+      {_detail("Time", f"{start:%H:%M}–{end:%H:%M}")}
+      <p style="margin:30px 0"><a href="{manage_url}"
+        style="background:#D65A1F;color:#fff;text-decoration:none;padding:13px 22px;
+        border-radius:8px;display:inline-block;font-weight:700">View booking</a></p>
+    """
+    return f"Reminder: your Trifecta appointment — {reference}", _email_shell(
+        "Your appointment is coming up", content
+    )
+
+
+def render_simple_booking_update(
+    payload: dict[str, Any], *, title: str, message: str, subject_prefix: str
+) -> tuple[str, str]:
+    reference = escape(str(payload["booking_reference"]))
+    first_name = escape(str(payload["customer_first_name"]))
+    manage_url = escape(str(payload["management_url"]), quote=True)
+    content = f"""
+      <p style="margin:0 0 24px">Hi {first_name},</p>
+      <p style="margin:0 0 24px">{escape(message)}</p>
+      {_detail("Booking", reference)}
+      <p style="margin:30px 0"><a href="{manage_url}"
+        style="background:#D65A1F;color:#fff;text-decoration:none;padding:13px 22px;
+        border-radius:8px;display:inline-block;font-weight:700">View booking</a></p>
+    """
+    return f"{subject_prefix} — {reference}", _email_shell(title, content)
 
 
 def render_booking_rescheduled(payload: dict[str, Any]) -> tuple[str, str]:

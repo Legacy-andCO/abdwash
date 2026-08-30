@@ -157,6 +157,7 @@ async def request_booking_cancellation(
             booking_id=booking.id,
             channel="email",
             notification_type="cancellation_requested",
+            dedupe_key=f"cancellation-requested:{cancellation.id}",
             recipient=booking.customer_email,
             payload={
                 "booking_reference": booking.reference,

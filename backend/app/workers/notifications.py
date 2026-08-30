@@ -7,6 +7,7 @@ from typing import Literal
 import httpx
 import structlog
 from sqlalchemy import func, or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
@@ -28,6 +29,85 @@ from app.models.entities import (
 from app.services.management_tokens import create_management_token
 
 logger = structlog.get_logger()
+
+
+class StaleNotification(RuntimeError):
+    """The queued message no longer represents authoritative booking state."""
+
+
+async def enqueue_due_appointment_reminders(
+    factory: async_sessionmaker[AsyncSession], *, batch_size: int
+) -> int:
+    now = datetime.now(UTC)
+    async with factory() as session, session.begin():
+        rows = (
+            await session.execute(
+                select(
+                    Booking.id,
+                    Booking.business_id,
+                    Booking.reference,
+                    Booking.customer_email,
+                    Booking.scheduled_start,
+                )
+                .join(
+                    BusinessSettings,
+                    BusinessSettings.business_id == Booking.business_id,
+                )
+                .where(
+                    BusinessSettings.appointment_reminder_enabled.is_(True),
+                    Booking.status == "confirmed",
+                    Booking.scheduled_start > now,
+                    Booking.scheduled_start
+                    <= now
+                    + func.make_interval(
+                        0,
+                        0,
+                        0,
+                        0,
+                        BusinessSettings.appointment_reminder_hours_before,
+                    ),
+                )
+                .order_by(Booking.scheduled_start)
+                .limit(batch_size)
+                .with_for_update(of=Booking, skip_locked=True)
+            )
+        ).all()
+        if not rows:
+            return 0
+        values = [
+            {
+                "id": uuid.uuid4(),
+                "business_id": business_id,
+                "booking_id": booking_id,
+                "channel": "email",
+                "notification_type": "appointment_reminder",
+                "dedupe_key": (
+                    f"appointment-reminder:{booking_id}:"
+                    f"{int(scheduled_start.timestamp())}"
+                ),
+                "recipient": customer_email,
+                "payload": {
+                    "booking_reference": reference,
+                    "scheduled_start": scheduled_start.isoformat(),
+                },
+                "status": OutboxStatus.PENDING,
+                "attempt_count": 0,
+                "next_attempt_at": now,
+            }
+            for booking_id, business_id, reference, customer_email, scheduled_start in rows
+        ]
+        result = await session.execute(
+            insert(NotificationOutbox)
+            .values(values)
+            .on_conflict_do_nothing(
+                index_elements=[
+                    NotificationOutbox.business_id,
+                    NotificationOutbox.dedupe_key,
+                ],
+                index_where=NotificationOutbox.dedupe_key.is_not(None),
+            )
+        )
+        return int(getattr(result, "rowcount", 0) or 0)
 
 
 async def claim_batch(
@@ -101,6 +181,13 @@ async def process_record(
             payload=notification[3],
             idempotency_key=f"notification-{record_id}",
         )
+    except StaleNotification:
+        async with factory() as session, session.begin():
+            record = await session.get(NotificationOutbox, record_id, with_for_update=True)
+            if record is not None and record.locked_by == worker_id:
+                await session.delete(record)
+        logger.info("notification_stale_skipped", notification_id=str(record_id))
+        return "skipped"
     except Exception as exc:  # provider boundary intentionally catches and retries
         async with factory() as session, session.begin():
             record = await session.get(NotificationOutbox, record_id, with_for_update=True)
@@ -127,6 +214,11 @@ async def delivery_payload(
         "driver_en_route",
         "booking_rescheduled",
         "job_completed",
+        "appointment_reminder",
+        "team_arrived",
+        "team_delayed",
+        "payment_pending",
+        "booking_cancelled",
     }:
         return payload
     if record.booking_id is None or not public_web_url:
@@ -134,6 +226,14 @@ async def delivery_payload(
     booking = await session.get(Booking, record.booking_id)
     if booking is None:
         raise RuntimeError("Booking notification has no booking")
+    if record.notification_type == "appointment_reminder":
+        queued_start = datetime.fromisoformat(str(payload.get("scheduled_start")))
+        if (
+            booking.status != "confirmed"
+            or booking.scheduled_start != queued_start
+            or booking.scheduled_start <= datetime.now(UTC)
+        ):
+            raise StaleNotification("Appointment reminder is no longer current")
     settings = (
         await session.scalars(
             select(BusinessSettings).where(BusinessSettings.business_id == booking.business_id)
@@ -237,6 +337,12 @@ async def dispatch_once(
     batch_size: int,
     public_web_url: str | None,
 ) -> dict[str, int]:
+    try:
+        scheduled = await enqueue_due_appointment_reminders(factory, batch_size=batch_size)
+    except Exception:
+        # Reminder materialization must not block delivery of already-durable outbox work.
+        logger.exception("appointment_reminder_enqueue_failed")
+        scheduled = 0
     record_ids = await claim_batch(factory, worker_id=worker_id, batch_size=batch_size)
     results = await asyncio.gather(
         *(
@@ -251,6 +357,7 @@ async def dispatch_once(
         )
     )
     return {
+        "scheduled": scheduled,
         "claimed": len(record_ids),
         "sent": results.count("sent"),
         "retry": results.count("retry"),

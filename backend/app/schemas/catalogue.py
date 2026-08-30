@@ -168,6 +168,8 @@ class BusinessBookingSettingsPatch(StrictRequest):
     mobile_minimum_enabled: bool | None = None
     mobile_minimum_minor: int | None = Field(default=None, ge=0)
     default_team_turnaround_minutes: int | None = Field(default=None, ge=0, le=480)
+    appointment_reminder_enabled: bool | None = None
+    appointment_reminder_hours_before: int | None = Field(default=None, ge=1, le=168)
     default_inventory_location_id: uuid.UUID | None = None
     loyalty_reward_service_id: uuid.UUID | None = None
     operating_hours: list[OperatingHourInput] | None = Field(
@@ -198,6 +200,8 @@ class BusinessBookingSettingsView(BaseModel):
     mobile_minimum_enabled: bool
     mobile_minimum_minor: int
     default_team_turnaround_minutes: int
+    appointment_reminder_enabled: bool
+    appointment_reminder_hours_before: int
     default_inventory_location_id: uuid.UUID | None
     loyalty_reward_service_id: uuid.UUID | None
     operating_hours: list[OperatingHourView]

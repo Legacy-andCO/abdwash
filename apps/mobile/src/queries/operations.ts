@@ -35,6 +35,8 @@ import {
   getBusinessBookingSettings,
   getManagedCatalogue,
   getJob,
+  getJobCalendar,
+  getJobCommunications,
   getJobAssignmentOptions,
   getJobQuality,
   getJobs,
@@ -56,6 +58,7 @@ import {
   getTeamStockSummary,
   getTeams,
   mutateJob,
+  notifyCustomerDelay,
   receiveInventoryStock,
   recordCashPayment,
   recordInventoryStockCount,
@@ -92,7 +95,9 @@ import {
   type Attendance,
   type Cancellation,
   type CatalogueAddon,
+  type CalendarJob,
   type CashPendingDetail,
+  type CommunicationHistoryItem,
   type BusinessBookingSettings,
   type Dashboard,
   type Expense,
@@ -138,6 +143,35 @@ export function useJobsQuery(
     staleTime: cacheTimes.jobs,
     enabled,
     meta: persistedQueryMeta(retentionTimes.jobs),
+  });
+}
+
+export function useJobCalendarQuery(
+  context: StaffContext,
+  startDate: string,
+  endDate: string,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.calendar(scope, startDate, endDate),
+    queryFn: ({ signal }) => getJobCalendar(startDate, endDate, signal),
+    staleTime: cacheTimes.calendar,
+    meta: persistedQueryMeta(retentionTimes.calendar),
+  });
+}
+
+export function useJobCommunicationsQuery(
+  context: StaffContext,
+  jobId: string,
+  enabled: boolean,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.communications(scope, jobId),
+    queryFn: ({ signal }) => getJobCommunications(jobId, signal),
+    staleTime: cacheTimes.jobs,
+    enabled,
+    meta: persistedQueryMeta(retentionTimes.job),
   });
 }
 
@@ -1169,10 +1203,50 @@ export function useAvailabilityQuery(
   });
 }
 
+function localBusinessDate(timestamp: string, timezone: string) {
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    dateParts.find((part) => part.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function invalidateCalendarDate(
+  client: ReturnType<typeof useQueryClient>,
+  scope: string,
+  localDate: string,
+  jobId?: string,
+) {
+  for (const query of client
+    .getQueryCache()
+    .findAll({ queryKey: ["calendar", scope] })) {
+    const start = query.queryKey[2];
+    const end = query.queryKey[3];
+    const data = query.state.data as { jobs?: CalendarJob[] } | undefined;
+    const containsJob = jobId
+      ? data?.jobs?.some((item) => item.job_id === jobId)
+      : false;
+    if (
+      containsJob ||
+      (typeof start === "string" &&
+        typeof end === "string" &&
+        localDate >= start &&
+        localDate <= end)
+    ) {
+      void client.invalidateQueries({ queryKey: query.queryKey, exact: true });
+    }
+  }
+}
+
 function updateJobCaches(
   client: ReturnType<typeof useQueryClient>,
   scope: string,
   job: Job,
+  timezone: string,
 ) {
   client.setQueryData(queryKeys.job(scope, job.id), job);
   client.setQueriesData<{ jobs: Job[]; next_offset: number | null }>(
@@ -1196,6 +1270,12 @@ function updateJobCaches(
           }
         : current,
   );
+  invalidateCalendarDate(
+    client,
+    scope,
+    localBusinessDate(job.scheduled_start, timezone),
+    job.id,
+  );
 }
 
 export function useJobActionMutation(context: StaffContext) {
@@ -1212,7 +1292,7 @@ export function useJobActionMutation(context: StaffContext) {
       body: object;
     }) => mutateJob(jobId, action, body),
     onSuccess: (job, variables) => {
-      updateJobCaches(client, scope, job);
+      updateJobCaches(client, scope, job, context.timezone);
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
       if (variables.action === "complete") {
         void client.invalidateQueries({ queryKey: ["jobs", scope] });
@@ -1242,6 +1322,41 @@ export function useJobActionMutation(context: StaffContext) {
   });
 }
 
+export function useNotifyCustomerDelayMutation(
+  context: StaffContext,
+  jobId: string,
+) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  const eventIds = useRef(new ClientEventIdStore()).current;
+  return useMutation({
+    mutationFn: async (delayMinutes: number) => {
+      const key = `${jobId}:customer-delay:${delayMinutes}`;
+      try {
+        const result = await notifyCustomerDelay(jobId, {
+          delay_minutes: delayMinutes,
+          client_event_id: eventIds.get(key),
+          client_timestamp: new Date().toISOString(),
+        });
+        eventIds.succeeded(key);
+        return result;
+      } catch (error) {
+        eventIds.failed(key, error);
+        throw error;
+      }
+    },
+    onSuccess: (item: CommunicationHistoryItem) => {
+      client.setQueryData<CommunicationHistoryItem[]>(
+        queryKeys.communications(scope, jobId),
+        (current) => [
+          ...(current?.filter((existing) => existing.id !== item.id) ?? []),
+          item,
+        ].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+      );
+    },
+  });
+}
+
 export function useCashPaymentMutation(context: StaffContext) {
   const client = useQueryClient();
   const scope = operationalScope(context);
@@ -1249,7 +1364,7 @@ export function useCashPaymentMutation(context: StaffContext) {
     mutationFn: ({ jobId, body }: { jobId: string; body: object }) =>
       recordCashPayment(jobId, body),
     onSuccess: (receipt) => {
-      updateJobCaches(client, scope, receipt.job);
+      updateJobCaches(client, scope, receipt.job, context.timezone);
       void client.invalidateQueries({ queryKey: ["reports", scope] });
       void client.invalidateQueries({ queryKey: ["finance", scope] });
       void client.invalidateQueries({ queryKey: ["cash-pending", scope] });
@@ -1266,7 +1381,7 @@ export function useAssignJobMutation(context: StaffContext) {
     mutationFn: ({ jobId, body }: { jobId: string; body: object }) =>
       assignJob(jobId, body),
     onSuccess: (job) => {
-      updateJobCaches(client, scope, job);
+      updateJobCaches(client, scope, job, context.timezone);
       void client.invalidateQueries({
         queryKey: queryKeys.assignmentOptions(scope, job.id),
       });
@@ -1310,7 +1425,7 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
       }
     },
     onSuccess: (next) => {
-      updateJobCaches(client, scope, next);
+      updateJobCaches(client, scope, next, context.timezone);
       void client.invalidateQueries({ queryKey: ["jobs", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
       void client.invalidateQueries({
@@ -1471,6 +1586,11 @@ export function useReviewCancellationMutation(context: StaffContext) {
       );
       void client.invalidateQueries({ queryKey: ["jobs", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+      invalidateCalendarDate(
+        client,
+        scope,
+        localBusinessDate(updated.scheduled_start, context.timezone),
+      );
     },
   });
 }

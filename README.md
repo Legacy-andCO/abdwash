@@ -48,7 +48,7 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 - Role-aware navigation:
   - Employees: Today, Jobs, Profile.
   - Managers/admins: Today, Jobs, Team, Reports, Profile.
-- Today and paginated Jobs views for today, upcoming, history, unassigned, and all work.
+- Today and paginated Jobs views for today, upcoming, history, unassigned, and all work, plus a persisted monthly Operations Calendar with compact daily jobs and a chronological day agenda.
 - Server-side, case-insensitive partial customer-name search on Jobs → All with scoped query-cache keys.
 - Job detail with customer, vehicle, service, location, payment, assignment, and append-only event timeline information.
 - Operational lifecycle: `assigned → en_route → arrived → in_progress → completed`, with explicit cancellation/unassignment paths where permitted.
@@ -86,7 +86,8 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 - Tenant-scoped job-quality records and private Supabase Storage photo evidence. FastAPI chooses every object path, grants retry-safe signed uploads, verifies uploaded metadata, and issues short-lived signed reads without persisting signed URLs.
 - Flexible manager rescheduling with business-hour hourly shortcuts and native exact minute selection. The backend evaluates the exact immutable-duration interval, reruns automatic assignment, preserves feasible manual teams, never moves unrelated bookings, and queues one durable reschedule email.
 - Durable completion email queued with the first successful Job Complete. Dispatch renders the reserved service time, actual start-to-complete duration, and authoritative amount paid or a clear pending state without delaying the operational transaction.
-- Resend transactional booking-confirmation and driver-en-route email through the existing notification-provider abstraction; development can use the log provider.
+- Resend transactional booking confirmation, appointment reminder, en-route, arrival, manager delay, reschedule, completion, payment-pending, cancellation-request, and cancellation-approved email through the existing notification-provider abstraction; development can use the log provider.
+- Manager Job Detail exposes safe communication history as Queued, Sent, or Failed without exposing provider payloads, recipients, secrets, or raw management tokens.
 - Persistent notification worker for long-lived hosts and an authenticated bounded one-shot dispatcher for serverless deployments.
 - Supabase Cron + `pg_net` schedule support for one-minute dispatcher invocation, with URL and secret stored in Supabase Vault.
 - Payment abstraction and safe provider-reference schema. Pay Now and real card capture are not implemented; PAN, CVV/CVC, PIN, track data, and other raw card credentials must never enter Trifecta.
@@ -322,7 +323,7 @@ alembic upgrade head
 python -m app.cli.seed
 ```
 
-The current Alembic head is `61343828bd05`. The migration chain includes the foundation schema, en-route/arrived job states, case-insensitive staff usernames, Operations V2 workforce features, query indexes, sync revisions/assignment repair, forced password-change state, tenant-scoped job-quality controls with a private photo bucket, loyalty ledger/reward state, customer sync revision, booking discount snapshots, auditable cash tender fields, the operational finance ledger, tenant-scoped inventory catalogue/location/balance/operation/movement/service-template tables, Phase 1 normalized service pricing/operating-hour/booking-duration snapshots, Phase 2 hold/job operational-duration plus assignment-source metadata, immutable job-consumption runs/lines with manager review state, the startup default automatic-consumption location, and durable outbox deduplication.
+The current Alembic head is `8a72c1d4e6f0`. The migration chain includes the foundation schema, en-route/arrived job states, case-insensitive staff usernames, Operations V2 workforce features, query indexes, sync revisions/assignment repair, forced password-change state, tenant-scoped job-quality controls with a private photo bucket, loyalty ledger/reward state, customer sync revision, booking discount snapshots, auditable cash tender fields, the operational finance ledger, tenant-scoped inventory catalogue/location/balance/operation/movement/service-template tables, Phase 1 normalized service pricing/operating-hour/booking-duration snapshots, Phase 2 hold/job operational-duration plus assignment-source metadata, immutable job-consumption runs/lines with manager review state, the startup default automatic-consumption location, durable outbox deduplication, and configurable appointment-reminder timing.
 
 `python -m app.cli.seed` is idempotent and creates the Trifecta business, business settings, seven weekday-hour rows, Main Shop inventory location (and selects it as the automatic consumables stock pool when unset), Mobile Team 1, and the initial customer-facing service catalogue with canonical vehicle prices. Once a service exists, rerunning the seed does not overwrite owner-managed commercial fields.
 

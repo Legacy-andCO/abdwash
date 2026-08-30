@@ -426,6 +426,8 @@ def _settings_view(
         mobile_minimum_enabled=settings.mobile_minimum_enabled,
         mobile_minimum_minor=settings.mobile_minimum_minor,
         default_team_turnaround_minutes=settings.default_team_turnaround_minutes,
+        appointment_reminder_enabled=settings.appointment_reminder_enabled,
+        appointment_reminder_hours_before=settings.appointment_reminder_hours_before,
         default_inventory_location_id=settings.default_inventory_location_id,
         loyalty_reward_service_id=settings.loyalty_reward_service_id,
         operating_hours=[

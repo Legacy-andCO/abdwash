@@ -193,17 +193,45 @@ def test_cancellation_email_uses_only_current_brand() -> None:
         "booking_rescheduled",
         "job_completed",
         "cancellation_requested",
+        "appointment_reminder",
+        "team_arrived",
+        "team_delayed",
+        "payment_pending",
+        "booking_cancelled",
     ],
 )
 def test_every_transactional_email_uses_only_trifecta_brand(
     notification_type: str,
 ) -> None:
-    subject, html = render_email(notification_type, confirmation_payload())
+    subject, html = render_email(
+        notification_type, confirmation_payload() | {"delay_minutes": 30}
+    )
     rendered = subject + html
     assert "trifecta" in rendered.casefold()
     assert "AbdWash" not in rendered
     assert "ABD Wash" not in rendered
     assert "ADB Wash" not in rendered
+
+
+@pytest.mark.parametrize(
+    ("notification_type", "expected"),
+    [
+        ("appointment_reminder", "coming up"),
+        ("team_arrived", "has arrived"),
+        ("team_delayed", "30 minutes late"),
+        ("payment_pending", "payment remains pending"),
+        ("booking_cancelled", "booking is cancelled"),
+    ],
+)
+def test_operations_emails_are_customer_safe_and_keep_management_link(
+    notification_type: str, expected: str
+) -> None:
+    payload = confirmation_payload() | {"delay_minutes": 30}
+    subject, html = render_email(notification_type, payload)
+    rendered = f"{subject} {html}".casefold()
+    assert expected in rendered
+    assert payload["management_url"] in html
+    assert "pay now" not in rendered
 
 
 def test_email_from_requires_trifecta_display_name() -> None:

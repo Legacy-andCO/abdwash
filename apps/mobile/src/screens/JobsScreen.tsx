@@ -25,6 +25,7 @@ import { DatePickerField, TimePickerField, toIsoDate } from "../components/picke
 import { ElapsedTimer } from "../components/ElapsedTimer";
 import { JobQualityControls } from "../components/JobQualityControls";
 import { CashTenderModal } from "../components/CashTenderModal";
+import { OperationsCalendar } from "../components/OperationsCalendar";
 import { ApiError, domainErrorMessage } from "../errors/domainErrors";
 import { expenseAmountMinor } from "../finance/financeState";
 import { successHaptic } from "../haptics";
@@ -52,9 +53,11 @@ import {
   useCashPaymentMutation,
   useExpenseMutation,
   useJobActionMutation,
+  useJobCommunicationsQuery,
   useJobQualityQuery,
   useJobQuery,
   useJobsQuery,
+  useNotifyCustomerDelayMutation,
   useRescheduleMutation,
   useStaffQuery,
 } from "../queries/operations";
@@ -67,7 +70,13 @@ import { colors, radii, spacing } from "../theme";
 import { normalizeCustomerSearch } from "../search/customerSearch";
 import { hourlyQuickTimes } from "../scheduling/exactTime";
 
-export type JobView = "today" | "upcoming" | "history" | "unassigned" | "all";
+export type JobView =
+  | "today"
+  | "upcoming"
+  | "history"
+  | "unassigned"
+  | "all"
+  | "calendar";
 export type JobsNavigationState = { view: JobView; offset: number };
 const today = () => new Date().toISOString().slice(0, 10);
 const formatTime = (value: string) =>
@@ -97,11 +106,12 @@ export function JobsScreen({
 }) {
   const canManage = capabilities(context.role).canViewAllJobs;
   const views: JobView[] = canManage
-    ? ["today", "upcoming", "unassigned", "history", "all"]
-    : ["today", "upcoming", "history"];
+    ? ["today", "upcoming", "unassigned", "history", "all", "calendar"]
+    : ["today", "upcoming", "history", "calendar"];
   const [view, setView] = useState<JobView>(navigationState.view);
   const [offset, setOffset] = useState(navigationState.offset);
   const [selected, setSelected] = useState<Job | null>(null);
+  const [selectedCalendarJobId, setSelectedCalendarJobId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
   function updateNavigation(value: JobsNavigationState) {
@@ -124,7 +134,7 @@ export function JobsScreen({
   }, [onNavigationStateChange, searchText, view]);
   const filters = useMemo<JobFilters>(
     () => ({
-      view,
+      view: view === "calendar" ? "all" : view,
       scope: canManage ? "all" : "my",
       ...(view === "today" ? { date: today() } : {}),
       ...(view === "all" && search ? { search } : {}),
@@ -133,7 +143,7 @@ export function JobsScreen({
     }),
     [canManage, offset, search, view],
   );
-  const query = useJobsQuery(context, filters);
+  const query = useJobsQuery(context, filters, view !== "calendar");
   const jobs = query.data?.jobs ?? [];
   const searchPending =
     view === "all" &&
@@ -147,6 +157,14 @@ export function JobsScreen({
         onBack={onInitialJobClosed ?? (() => undefined)}
       />
     );
+  if (selectedCalendarJobId)
+    return (
+      <JobDetailById
+        context={context}
+        jobId={selectedCalendarJobId}
+        onBack={() => setSelectedCalendarJobId(null)}
+      />
+    );
   if (selected)
     return (
       <JobDetail
@@ -154,6 +172,39 @@ export function JobsScreen({
         initial={selected}
         onBack={() => setSelected(null)}
       />
+    );
+  const tabs = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.segment}
+    >
+      {views.map((item) => (
+        <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: view === item }}
+          key={item}
+          style={[
+            styles.segmentItem,
+            view === item ? styles.segmentActive : undefined,
+          ]}
+          onPress={() => updateNavigation({ view: item, offset: 0 })}
+        >
+          <Text style={styles.segmentText}>{label(item)}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+  if (view === "calendar")
+    return (
+      <ScrollView contentContainerStyle={uiStyles.content}>
+        <ScreenTitle title="Jobs" subtitle="Monthly operations calendar" />
+        {tabs}
+        <OperationsCalendar
+          context={context}
+          onOpenJob={setSelectedCalendarJobId}
+        />
+      </ScrollView>
     );
   return (
     <ScrollView
@@ -166,28 +217,7 @@ export function JobsScreen({
       contentContainerStyle={uiStyles.content}
     >
       <ScreenTitle title="Jobs" subtitle="Server-filtered operational work" />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.segment}
-      >
-        {views.map((item) => (
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: view === item }}
-            key={item}
-            style={[
-              styles.segmentItem,
-              view === item ? styles.segmentActive : undefined,
-            ]}
-            onPress={() => {
-              updateNavigation({ view: item, offset: 0 });
-            }}
-          >
-            <Text style={styles.segmentText}>{label(item)}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {tabs}
       {view === "all" ? (
         <View style={styles.searchRow}>
           <TextInput
@@ -363,6 +393,13 @@ function JobDetail({
   const actionMutation = useJobActionMutation(context);
   const cashMutation = useCashPaymentMutation(context);
   const expenseMutation = useExpenseMutation(context);
+  const canManageJob = capabilities(context.role).canAssignJobs;
+  const communications = useJobCommunicationsQuery(
+    context,
+    job.id,
+    canManageJob,
+  );
+  const delayMutation = useNotifyCustomerDelayMutation(context, job.id);
   const actionEventIds = useRef(new ClientEventIdStore()).current;
   const qualityEnabled = ["arrived", "in_progress", "completed"].includes(
     job.status,
@@ -372,6 +409,7 @@ function JobDetail({
   const [reschedule, setReschedule] = useState(false);
   const [cashTender, setCashTender] = useState(false);
   const [directExpense, setDirectExpense] = useState(false);
+  const [delayNotice, setDelayNotice] = useState(false);
   const [tripStage, setTripStage] = useState<
     "idle" | "getting_location" | "starting_trip"
   >("idle");
@@ -702,7 +740,7 @@ function JobDetail({
           Alert.alert("Direct expense saved", "The expense is linked to this job.");
         }}
       />
-      {capabilities(context.role).canAssignJobs ? (
+      {canManageJob ? (
         <Card>
           <View style={uiStyles.row}>
             <View>
@@ -727,6 +765,13 @@ function JobDetail({
             tone="secondary"
             onPress={() => setReschedule(true)}
           />
+          {job.status === "assigned" || job.status === "en_route" ? (
+            <AppButton
+              title="Notify customer of delay"
+              tone="secondary"
+              onPress={() => setDelayNotice(true)}
+            />
+          ) : null}
         </Card>
       ) : null}
       <Card>
@@ -735,6 +780,47 @@ function JobDetail({
         <Text style={uiStyles.body}>{job.customer_phone}</Text>
         <Text style={uiStyles.body}>{job.customer_email}</Text>
       </Card>
+      {canManageJob ? (
+        <Card>
+          <View style={uiStyles.row}>
+            <Text style={styles.sectionTitle}>CUSTOMER COMMUNICATIONS</Text>
+            {communications.isFetching && communications.data?.length ? (
+              <Text style={uiStyles.muted}>Refreshing…</Text>
+            ) : null}
+          </View>
+          {communications.isPending ? (
+            <Skeleton rows={3} />
+          ) : communications.isError && !communications.data?.length ? (
+            <View>
+              <Text style={uiStyles.error}>Communication history unavailable.</Text>
+              <Pressable onPress={() => void communications.refetch()}>
+                <Text style={uiStyles.link}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : communications.data?.length ? (
+            communications.data.map((item) => (
+              <View key={item.id} style={styles.timelineRow}>
+                <Text style={styles.timelineTime}>
+                  {formatTime(item.created_at)}
+                </Text>
+                <View style={styles.timelineBody}>
+                  <Text style={styles.vehicle}>{item.event}</Text>
+                  <Text style={uiStyles.muted}>
+                    {item.state === "sent"
+                      ? "Sent"
+                      : item.state === "failed"
+                        ? "Failed"
+                        : "Queued"}
+                    {item.detail ? ` · ${item.detail}` : ""}
+                  </Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={uiStyles.muted}>No customer messages recorded yet.</Text>
+          )}
+        </Card>
+      ) : null}
       <Card>
         <Text style={styles.sectionTitle}>LOCATION</Text>
         <Text style={uiStyles.body}>{job.written_address}</Text>
@@ -852,7 +938,7 @@ function JobDetail({
           <Text style={uiStyles.muted}>No recorded events yet.</Text>
         )}
       </Card>
-      {capabilities(context.role).canAssignJobs ? (
+      {canManageJob ? (
         <>
           <AssignmentSheet
             context={context}
@@ -866,9 +952,78 @@ function JobDetail({
             job={job}
             onClose={() => setReschedule(false)}
           />
+          <DelayNotificationSheet
+            visible={delayNotice}
+            pending={delayMutation.isPending}
+            onClose={() => setDelayNotice(false)}
+            onNotify={(minutes) => {
+              Alert.alert(
+                "Notify customer?",
+                `Email the customer that the team is approximately ${minutes} minutes late? The appointment time will not change.`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Queue email",
+                    onPress: () => {
+                      void delayMutation
+                        .mutateAsync(minutes)
+                        .then(() => {
+                          setDelayNotice(false);
+                          Alert.alert("Update queued", "The customer email is queued for sending.");
+                        })
+                        .catch((error) =>
+                          Alert.alert(
+                            "Update not queued",
+                            domainErrorMessage(error, "Please try again."),
+                          ),
+                        );
+                    },
+                  },
+                ],
+              );
+            }}
+          />
         </>
       ) : null}
     </ScrollView>
+  );
+}
+
+function DelayNotificationSheet({
+  visible,
+  pending,
+  onClose,
+  onNotify,
+}: {
+  visible: boolean;
+  pending: boolean;
+  onClose: () => void;
+  onNotify: (minutes: number) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={styles.sheet}>
+          <Text style={styles.vehicle}>Notify customer of a delay</Text>
+          <Text style={uiStyles.muted}>
+            This sends an email update only. It does not change the appointment time.
+          </Text>
+          <View style={styles.actions}>
+            {[15, 30, 45, 60].map((minutes) => (
+              <View key={minutes} style={styles.action}>
+                <AppButton
+                  title={`${minutes} min`}
+                  tone="secondary"
+                  disabled={pending}
+                  onPress={() => onNotify(minutes)}
+                />
+              </View>
+            ))}
+          </View>
+          <AppButton title="Cancel" tone="secondary" disabled={pending} onPress={onClose} />
+        </View>
+      </View>
+    </Modal>
   );
 }
 

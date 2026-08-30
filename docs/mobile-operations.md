@@ -14,7 +14,7 @@ Never put service-role, database, Resend, dispatch, payment, or Google Routes se
 
 Set `GOOGLE_ROUTES_API_KEY` only on the API deployment. Enable Google Routes API, restrict the key to that API and the backend deployment's appropriate application/IP controls. Start-trip still enters `en_route` if routing is unavailable.
 
-Apply Alembic through revision `61343828bd05` before deploying this operations release. It retains the bounded V2 reporting/filtering indexes and immutable job-consumption snapshots, then adds the startup default stock pool plus durable notification deduplication. All operational/customer tables remain backend-owned with RLS enabled and no direct mobile policies.
+Apply Alembic through revision `8a72c1d4e6f0` before deploying this operations release. It retains the bounded V2 reporting/filtering indexes and immutable job-consumption snapshots, adds the startup default stock pool plus durable notification deduplication, and adds the two business reminder settings. All operational/customer tables remain backend-owned with RLS enabled and no direct mobile policies.
 
 ## Operations V2
 
@@ -64,6 +64,10 @@ Completed unpaid Job Detail uses a dedicated cash tender modal. The mobile app c
 Managers/admins open Customers from Today. Search is server-side and paginated across normalized name, phone, email, and active vehicle plate within the authenticated tenant. Customer detail uses bounded bulk reads for saved data and booking/job/complaint history. Profile, address, vehicle, and loyalty writes invalidate only scoped customer query families; the `customers` sync revision reconciles changes from job completion, payment, customer web edits, and other devices.
 
 The V2 primary tabs are `Today`, `Jobs`, and `Profile` for employees and add `Team` and `Reports` for managers/admins. Staff, shifts, attendance, leave approvals, cancellation review, Inventory, and Services & Pricing are nested workflows rather than extra tabs.
+
+Inside Jobs, both employees and managers have a `Calendar` view. It is a traditional month grid with at most three compact entries per day and `+N more`; tapping a date opens the chronological agenda and tapping an agenda row opens the existing Job Detail. Managers see all tenant-scoped jobs, while employees retain their existing direct/team assignment scope. Cancelled jobs are hidden and unassigned work is called out visually.
+
+Manager Job Detail can queue a 15, 30, 45, or 60 minute customer delay email without changing the scheduled time. It also shows safe communication history from the existing outbox. `Sent` means the email provider accepted the request, not proof that the recipient opened or received it. Services & Pricing → Settings contains the single appointment-reminder enable switch and lead-time field.
 
 ## Job quality controls
 

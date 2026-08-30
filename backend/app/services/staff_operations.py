@@ -14,6 +14,7 @@ from app.domain.enums import (
     CancellationStatus,
     ComplaintStatus,
     JobStatus,
+    OutboxStatus,
     PaymentStatus,
     SlotStatus,
     StaffRole,
@@ -42,14 +43,18 @@ from app.models.entities import (
 )
 from app.schemas.staff import (
     AssignmentAction,
+    CalendarJob,
     CancellationItem,
     CancellationReview,
     CashPaymentResult,
     CashTenderAction,
+    CommunicationHistoryItem,
     JobAction,
+    JobDelayNotification,
     JobDirectExpense,
     JobTimelineEvent,
     ReportSummary,
+    StaffCalendar,
     StaffJob,
     StaffJobList,
     StaffMember,
@@ -57,6 +62,7 @@ from app.schemas.staff import (
     StartTripAction,
     TeamAssignmentOption,
 )
+from app.services.customer_communications import discard_unsent_appointment_reminders
 from app.services.job_consumption import consumption_summaries, process_job_consumption
 from app.services.loyalty import evaluate_loyalty_for_job, release_booking_rewards
 from app.services.scheduling import _lock_slot_sequence
@@ -190,6 +196,7 @@ _EVENT_LABELS = {
     "job_completed": "Wash completed",
     "cash_payment_recorded": "Cash payment recorded",
     "booking_rescheduled_by_staff": "Appointment rescheduled",
+    "customer_delay_notified": "Customer delay update queued",
     "inspection_completed": "Vehicle inspection completed",
     "checklist_updated": "Service checklist updated",
     "checklist_completed": "Service checklist completed",
@@ -260,7 +267,14 @@ async def _serialize_jobs(
         ).all()
         for event, actor in event_rows:
             amount = event.metadata_json.get("amount_minor")
-            detail = f"Amount recorded: {int(amount) / 100:.2f}" if amount is not None else None
+            delay = event.metadata_json.get("delay_minutes")
+            detail = (
+                f"Amount recorded: {int(amount) / 100:.2f}"
+                if amount is not None
+                else f"Delay: {int(delay)} minutes"
+                if delay is not None
+                else None
+            )
             timeline_by_job.setdefault(event.job_id, []).append(
                 JobTimelineEvent(
                     id=event.id,
@@ -380,6 +394,222 @@ async def list_jobs(session: AsyncSession, context: StaffContext, **filters: Any
     )
 
 
+async def list_job_calendar(
+    session: AsyncSession,
+    context: StaffContext,
+    *,
+    start_date: date,
+    end_date: date,
+) -> StaffCalendar:
+    day_count = (end_date - start_date).days + 1
+    if day_count < 1 or day_count > 42:
+        raise DomainError(
+            "CALENDAR_RANGE_INVALID",
+            "Calendar requests must cover between 1 and 42 days.",
+            status_code=400,
+        )
+    zone = ZoneInfo(context.timezone)
+    starts_at = datetime.combine(start_date, time.min, zone).astimezone(UTC)
+    ends_at = datetime.combine(end_date + timedelta(days=1), time.min, zone).astimezone(UTC)
+    vehicle_label = (
+        select(func.concat_ws(" ", BookingVehicle.make, BookingVehicle.model))
+        .where(BookingVehicle.booking_id == Job.booking_id)
+        .order_by(BookingVehicle.position)
+        .limit(1)
+        .scalar_subquery()
+    )
+    service_label = (
+        select(BookingService.service_name)
+        .join(BookingVehicle, BookingVehicle.id == BookingService.booking_vehicle_id)
+        .where(BookingVehicle.booking_id == Job.booking_id)
+        .order_by(BookingVehicle.position)
+        .limit(1)
+        .scalar_subquery()
+    )
+    statement = (
+        select(
+            Job.id.label("job_id"),
+            Job.scheduled_start,
+            Job.scheduled_end,
+            Job.status,
+            Job.assigned_resource_id.label("team_id"),
+            ScheduleResource.name.label("team_short_name"),
+            vehicle_label.label("vehicle_label"),
+            service_label.label("service_label"),
+        )
+        .select_from(Job)
+        .outerjoin(ScheduleResource, ScheduleResource.id == Job.assigned_resource_id)
+        .where(
+            Job.business_id == context.business_id,
+            Job.scheduled_start >= starts_at,
+            Job.scheduled_start < ends_at,
+            Job.status != JobStatus.CANCELLED,
+        )
+        .order_by(Job.scheduled_start, Job.id)
+    )
+    if not _can_manage(context):
+        team_job = exists(
+            select(TeamMembership.id).where(
+                TeamMembership.resource_id == Job.assigned_resource_id,
+                TeamMembership.staff_profile_id == context.staff_id,
+                TeamMembership.is_active.is_(True),
+            )
+        )
+        statement = statement.where(
+            or_(Job.assigned_staff_id == context.staff_id, team_job)
+        )
+    rows = (await session.execute(statement)).mappings().all()
+    return StaffCalendar(
+        jobs=[
+            CalendarJob(
+                job_id=row["job_id"],
+                scheduled_start=row["scheduled_start"],
+                scheduled_end=row["scheduled_end"],
+                local_date=row["scheduled_start"].astimezone(zone).date(),
+                status=row["status"],
+                team_id=row["team_id"],
+                team_short_name=row["team_short_name"],
+                vehicle_label=row["vehicle_label"] or "Vehicle",
+                service_label=row["service_label"] or "Service",
+            )
+            for row in rows
+        ]
+    )
+
+
+_COMMUNICATION_LABELS = {
+    "booking_confirmed": "Booking confirmation",
+    "appointment_reminder": "Appointment reminder",
+    "driver_en_route": "Team en route",
+    "team_arrived": "Team arrived",
+    "team_delayed": "Delay update",
+    "booking_rescheduled": "Appointment rescheduled",
+    "cancellation_requested": "Cancellation request received",
+    "booking_cancelled": "Cancellation confirmed",
+    "job_completed": "Service completed",
+    "payment_pending": "Payment pending",
+}
+
+
+async def list_job_communications(
+    session: AsyncSession, context: StaffContext, job_id: uuid.UUID
+) -> list[CommunicationHistoryItem]:
+    if not _can_manage(context):
+        raise DomainError("FORBIDDEN", "Manager access is required.", status_code=403)
+    rows = (
+        await session.execute(
+            select(NotificationOutbox)
+            .select_from(NotificationOutbox)
+            .join(Job, Job.booking_id == NotificationOutbox.booking_id)
+            .where(
+                Job.id == job_id,
+                Job.business_id == context.business_id,
+                NotificationOutbox.notification_type.in_(_COMMUNICATION_LABELS),
+            )
+            .order_by(NotificationOutbox.created_at, NotificationOutbox.id)
+            .limit(100)
+        )
+    ).scalars()
+    result = []
+    for row in rows:
+        detail = None
+        if row.notification_type == "team_delayed":
+            minutes = row.payload.get("delay_minutes")
+            detail = f"{minutes} minutes" if isinstance(minutes, int) else None
+        result.append(
+            CommunicationHistoryItem(
+                id=row.id,
+                event=_COMMUNICATION_LABELS[row.notification_type],
+                state=(
+                    "sent"
+                    if row.status == OutboxStatus.SENT
+                    else "failed"
+                    if row.status == OutboxStatus.FAILED
+                    else "queued"
+                ),
+                created_at=row.created_at,
+                sent_at=row.sent_at,
+                detail=detail,
+            )
+        )
+    return result
+
+
+async def notify_customer_delay(
+    session: AsyncSession,
+    context: StaffContext,
+    job_id: uuid.UUID,
+    request: JobDelayNotification,
+) -> CommunicationHistoryItem:
+    if not _can_manage(context):
+        raise DomainError("FORBIDDEN", "Manager access is required.", status_code=403)
+    job, booking, _payment, _staff, _team = _job_row_values(
+        await _locked_job(session, context, job_id)
+    )
+    existing = await session.scalar(
+        select(NotificationOutbox).where(
+            NotificationOutbox.business_id == context.business_id,
+            NotificationOutbox.dedupe_key == f"job-delay:{job.id}:{request.client_event_id}",
+        )
+    )
+    if existing is not None:
+        return CommunicationHistoryItem(
+            id=existing.id,
+            event=_COMMUNICATION_LABELS["team_delayed"],
+            state=(
+                "sent"
+                if existing.status == OutboxStatus.SENT
+                else "failed"
+                if existing.status == OutboxStatus.FAILED
+                else "queued"
+            ),
+            created_at=existing.created_at,
+            sent_at=existing.sent_at,
+            detail=f"{request.delay_minutes} minutes",
+        )
+    if job.status not in {JobStatus.ASSIGNED, JobStatus.EN_ROUTE}:
+        raise ConflictError(
+            "DELAY_NOTIFICATION_NOT_AVAILABLE",
+            "Delay updates are available before the team arrives.",
+        )
+    now = datetime.now(UTC)
+    record = NotificationOutbox(
+        business_id=context.business_id,
+        booking_id=booking.id,
+        channel="email",
+        notification_type="team_delayed",
+        dedupe_key=f"job-delay:{job.id}:{request.client_event_id}",
+        recipient=booking.customer_email,
+        payload={
+            "booking_reference": booking.reference,
+            "delay_minutes": request.delay_minutes,
+        },
+        status=OutboxStatus.PENDING,
+        next_attempt_at=now,
+    )
+    session.add(record)
+    session.add(
+        JobEvent(
+            job_id=job.id,
+            booking_id=booking.id,
+            actor_staff_id=context.staff_id,
+            event_type="customer_delay_notified",
+            client_event_id=request.client_event_id,
+            client_timestamp=request.client_timestamp,
+            metadata_json={"delay_minutes": request.delay_minutes},
+        )
+    )
+    await session.flush()
+    return CommunicationHistoryItem(
+        id=record.id,
+        event=_COMMUNICATION_LABELS["team_delayed"],
+        state="queued",
+        created_at=record.created_at,
+        sent_at=None,
+        detail=f"{request.delay_minutes} minutes",
+    )
+
+
 async def get_job(session: AsyncSession, context: StaffContext, job_id: uuid.UUID) -> StaffJob:
     rows = await _job_rows(
         session, context, job_id=job_id, scope="all" if _can_manage(context) else "my", limit=1
@@ -450,6 +680,7 @@ async def start_trip(
             booking_id=booking.id,
             channel="email",
             notification_type="driver_en_route",
+            dedupe_key=f"job-en-route:{job.id}",
             recipient=booking.customer_email,
             payload={
                 "booking_reference": booking.reference,
@@ -472,7 +703,7 @@ async def transition_job(
     request: JobAction,
     target: JobStatus,
 ) -> StaffJob:
-    job, booking, _payment, _staff_name, _team_name = _job_row_values(
+    job, booking, payment, _staff_name, _team_name = _job_row_values(
         await _locked_job(session, context, job_id)
     )
     if await _duplicate_event(session, job.id, request.client_event_id):
@@ -492,9 +723,23 @@ async def transition_job(
     }[target]
     if target == JobStatus.ARRIVED:
         job.arrived_at = now
+        session.add(
+            NotificationOutbox(
+                business_id=context.business_id,
+                booking_id=booking.id,
+                channel="email",
+                notification_type="team_arrived",
+                dedupe_key=f"job-arrived:{job.id}",
+                recipient=booking.customer_email,
+                payload={"booking_reference": booking.reference},
+                status=OutboxStatus.PENDING,
+                next_attempt_at=now,
+            )
+        )
     if target == JobStatus.IN_PROGRESS:
         job.started_at = now
     if target == JobStatus.COMPLETED:
+        await discard_unsent_appointment_reminders(session, booking.id)
         job.completed_at = now
         booking.status = BookingStatus.COMPLETED
         booking.version += 1
@@ -511,6 +756,20 @@ async def transition_job(
                 next_attempt_at=now,
             )
         )
+        if payment.status != PaymentStatus.PAID:
+            session.add(
+                NotificationOutbox(
+                    business_id=context.business_id,
+                    booking_id=booking.id,
+                    channel="email",
+                    notification_type="payment_pending",
+                    dedupe_key=f"job-payment-pending:{job.id}",
+                    recipient=booking.customer_email,
+                    payload={"booking_reference": booking.reference},
+                    status=OutboxStatus.PENDING,
+                    next_attempt_at=now,
+                )
+            )
         complaint_row = (
             await session.execute(
                 select(JobComplaint, Job.booking_id)
@@ -1048,6 +1307,7 @@ async def review_cancellation(
     item.review_note = request.review_note
     event_type = "cancellation_rejected"
     if request.decision == CancellationStatus.APPROVED:
+        await discard_unsent_appointment_reminders(session, booking.id)
         booking.status = BookingStatus.CANCELLED
         job.status = JobStatus.CANCELLED
         booking.version += 1
@@ -1065,6 +1325,19 @@ async def review_cancellation(
             )
         )
         await release_booking_rewards(session, business_id=context.business_id, booking=booking)
+        session.add(
+            NotificationOutbox(
+                business_id=context.business_id,
+                booking_id=booking.id,
+                channel="email",
+                notification_type="booking_cancelled",
+                dedupe_key=f"booking-cancelled:{booking.id}",
+                recipient=booking.customer_email,
+                payload={"booking_reference": booking.reference},
+                status=OutboxStatus.PENDING,
+                next_attempt_at=now,
+            )
+        )
     else:
         booking.status = BookingStatus.CONFIRMED
         booking.version += 1

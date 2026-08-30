@@ -16,6 +16,12 @@ Feasible teams are ranked deterministically by: zero same-day jobs, lower job co
 
 An exact manager reschedule locks only the requested booking and business day. Automatic assignments are reranked for the new interval; manual teams remain selected when feasible. Other bookings are capacity inputs and are never moved or rebalanced. Successful manager reschedules commit one deduplicated `booking_rescheduled` outbox row with the schedule mutation; failed attempts commit neither schedule nor email.
 
+## Operations Calendar
+
+`GET /api/v1/staff/jobs/calendar?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` is the narrow calendar read model. It accepts at most 42 inclusive business-calendar days, uses half-open UTC boundaries derived from the business timezone, excludes cancelled jobs, and preserves employee assignment/team-membership scope. The response contains only job ID, scheduled interval, local date, status, team label, first vehicle label, and first service label. It is one SQL projection backed by `ix_jobs_business_schedule_status`; opening a day or job reuses the existing Job Detail endpoint.
+
+Mobile calendar query keys include operational identity plus the exact start/end range. Cached month data persists and remains visible while it refreshes. Authoritative job mutations invalidate only calendar ranges containing the job or its new business date; sync revisions also reconcile new bookings and changes made by another device.
+
 ## Atomic acquisition
 
 Before the final capacity decision or any schedule-slot row lock, capacity-changing operations take a PostgreSQL transaction advisory lock for the business/date (confirmation/reschedule may first lock the specific hold/booking being mutated). Candidate teams and the day's jobs/active holds are then loaded in bounded queries. The selected team's canonical slot rows are acquired in sorted order with the existing per-resource/start advisory locks and `FOR UPDATE`. This startup-scale lock order serializes the final-capacity decision without Redis and prevents two concurrent holds from consuming the same last team.

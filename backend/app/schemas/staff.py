@@ -81,6 +81,37 @@ class StaffJobList(BaseModel):
     next_offset: int | None
 
 
+class CalendarJob(BaseModel):
+    job_id: uuid.UUID
+    scheduled_start: datetime
+    scheduled_end: datetime
+    local_date: date
+    status: str
+    team_id: uuid.UUID | None
+    team_short_name: str | None
+    vehicle_label: str
+    service_label: str
+
+
+class StaffCalendar(BaseModel):
+    jobs: list[CalendarJob]
+
+
+class JobDelayNotification(StrictRequest):
+    delay_minutes: int = Field(ge=1, le=480)
+    client_event_id: str = Field(min_length=8, max_length=160)
+    client_timestamp: datetime | None = None
+
+
+class CommunicationHistoryItem(BaseModel):
+    id: uuid.UUID
+    event: str
+    state: Literal["queued", "sent", "failed"]
+    created_at: datetime
+    sent_at: datetime | None
+    detail: str | None = None
+
+
 class JobInspectionInput(StrictRequest):
     condition_notes: str | None = Field(default=None, max_length=4000)
     damage_category: (

@@ -23,6 +23,8 @@ Clients do not write business tables through the Supabase Data API. RLS is enabl
 
 Authoritative state and its outbox message are committed together. Provider calls occur after commit and never while a booking transaction is open. The shared async HTTP client has bounded connections and timeouts and is reused for application lifetime. Persistent hosts run the polling worker; serverless hosts invoke the same claim/process functions through one bounded authenticated request. Both paths preserve `FOR UPDATE SKIP LOCKED`, stale-claim recovery, exponential retry, and provider calls outside database transactions.
 
+The bounded dispatcher first materializes due appointment reminders from the authoritative booking schedule, then claims the normal outbox batch. A partial unique outbox key makes each reminder/job event durable and retry-safe. Reschedule, cancellation, and completion remove unsent reminder work, and dispatch revalidates reminder schedule/status immediately before provider delivery. Arrival, manager delay, payment-pending, and approved-cancellation messages use the same queue and provider abstraction; there is no parallel automation engine.
+
 ## Future local-first mobile
 
 The mobile app is not offline-capable yet. The server foundation supports a future local operational cache and sync outbox through idempotency keys, client event IDs, append-only job events, authoritative timestamps, version columns, and `409` conflicts. A future sync endpoint should return a bounded operational snapshot rather than require many fine-grained calls.

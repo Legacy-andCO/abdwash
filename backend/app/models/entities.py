@@ -81,6 +81,12 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     default_team_turnaround_minutes: Mapped[int] = mapped_column(
         Integer, nullable=False, default=60, server_default=text("60")
     )
+    appointment_reminder_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    appointment_reminder_hours_before: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=24, server_default=text("24")
+    )
     default_inventory_location_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("inventory_locations.id", ondelete="SET NULL")
     )
@@ -95,6 +101,10 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint(
             "default_team_turnaround_minutes BETWEEN 0 AND 480",
             name="valid_default_team_turnaround",
+        ),
+        CheckConstraint(
+            "appointment_reminder_hours_before BETWEEN 1 AND 168",
+            name="valid_appointment_reminder_hours",
         ),
     )
 

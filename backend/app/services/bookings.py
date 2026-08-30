@@ -489,6 +489,7 @@ async def create_booking(
                 booking_id=booking.id,
                 channel="email",
                 notification_type="booking_confirmed",
+                dedupe_key=f"booking-confirmed:{booking.id}",
                 recipient=booking.customer_email,
                 payload={"booking_reference": booking.reference},
                 status="pending",

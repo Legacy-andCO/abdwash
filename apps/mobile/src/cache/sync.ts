@@ -7,7 +7,16 @@ export type SyncDomain = keyof SyncState;
 export const SYNC_REVISION_PREFIX = "abdwash:sync-revisions:v1:";
 
 const domainPrefixes: Record<SyncDomain, string[]> = {
-  jobs: ["jobs", "job", "quality", "dashboard", "teams", "team"],
+  jobs: [
+    "jobs",
+    "job",
+    "calendar",
+    "communications",
+    "quality",
+    "dashboard",
+    "teams",
+    "team",
+  ],
   workforce: [
     "staff",
     "teams",
@@ -25,6 +34,7 @@ const domainPrefixes: Record<SyncDomain, string[]> = {
     "availability",
     "jobs",
     "job",
+    "calendar",
     "dashboard",
     "teams",
     "team",

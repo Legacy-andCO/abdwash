@@ -38,7 +38,9 @@ describe("smart scheduling assignment UI", () => {
 
   it("patches targeted job caches after an authoritative assignment response", () => {
     const operations = source("./queries/operations.ts");
-    expect(operations).toContain("updateJobCaches(client, scope, job)");
+    expect(operations).toContain(
+      "updateJobCaches(client, scope, job, context.timezone)",
+    );
     expect(operations).toContain("queryKeys.assignmentOptions(scope, job.id)");
   });
 

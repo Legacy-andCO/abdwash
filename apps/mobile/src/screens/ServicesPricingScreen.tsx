@@ -410,11 +410,12 @@ function SettingsEditor({
   if (!draft) return <EmptyState title="Settings unavailable" body="Pull down to try again." />;
   async function save() {
     if (!draft) return;
+    const { currency_code: _currencyCode, ...editable } = draft;
     try {
       await mutation.mutateAsync({
         action: "update_settings",
         body: {
-          ...draft,
+          ...editable,
           operating_hours: draft.operating_hours.map((item) => ({
             ...item,
             opening_time: item.is_open ? item.opening_time : null,
@@ -467,6 +468,30 @@ function SettingsEditor({
         keyboard="number-pad"
       />
       <Text style={uiStyles.muted}>Automatic assignment uses this buffer between a team's mobile jobs.</Text>
+      <Text style={styles.section}>CUSTOMER UPDATES</Text>
+      <Toggle
+        label="Appointment reminder email"
+        value={draft.appointment_reminder_enabled}
+        onChange={(selected) =>
+          setDraft({ ...draft, appointment_reminder_enabled: selected })
+        }
+      />
+      {draft.appointment_reminder_enabled ? (
+        <Field
+          label="Send reminder before appointment (hours)"
+          value={String(draft.appointment_reminder_hours_before)}
+          onChange={(selected) =>
+            setDraft({
+              ...draft,
+              appointment_reminder_hours_before: Number(selected),
+            })
+          }
+          keyboard="number-pad"
+        />
+      ) : null}
+      <Text style={uiStyles.muted}>
+        Reminder emails are queued from the current appointment schedule.
+      </Text>
       <Text style={styles.section}>LOYALTY REWARD SERVICE</Text>
       <ChoiceRow
         values={[{ id: "", label: "None" }, ...(catalogue?.services.filter((item) => item.is_active).map((item) => ({ id: item.id, label: item.name })) ?? [])]}

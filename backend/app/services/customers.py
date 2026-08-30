@@ -37,6 +37,7 @@ from app.schemas.customer import (
 )
 from app.schemas.public import BookingVehicleSummary
 from app.services.booking_snapshots import vehicle_summaries_from_rows
+from app.services.customer_communications import discard_unsent_appointment_reminders
 from app.services.scheduling import _lock_slot_sequence, hold_token_hash, policy_for_day
 from app.services.smart_scheduling import choose_team_for_booking, lock_schedule_day
 
@@ -558,6 +559,7 @@ async def _reschedule_managed_exact(
 
     previous_start = booking.scheduled_start
     previous_end = booking.scheduled_end
+    await discard_unsent_appointment_reminders(session, booking.id)
     booking.resource_id = decision.team.id
     booking.scheduled_start = scheduled_start
     booking.scheduled_end = scheduled_end
@@ -738,6 +740,7 @@ async def _reschedule_booking(
 
     previous_start = booking.scheduled_start
     previous_end = booking.scheduled_end
+    await discard_unsent_appointment_reminders(session, booking.id)
     for slot in old_slots:
         slot.status = SlotStatus.FREE
         slot.booking_id = None

@@ -5,6 +5,7 @@ export const cacheTimes = {
   availability: 20_000,
   dashboard: 30_000,
   jobs: 30_000,
+  calendar: 60_000,
   teams: 3 * 60_000,
   staff: 3 * 60_000,
   attendance: 30_000,
@@ -21,6 +22,7 @@ export const cacheTimes = {
 export const retentionTimes = {
   dashboard: 24 * 60 * 60_000,
   jobs: 24 * 60 * 60_000,
+  calendar: 3 * 24 * 60 * 60_000,
   job: 24 * 60 * 60_000,
   teams: 2 * 24 * 60 * 60_000,
   team: 2 * 24 * 60 * 60_000,
@@ -53,6 +55,10 @@ export const queryKeys = {
   jobs: (scope: string, filters: JobFilters) =>
     ["jobs", scope, filters] as const,
   job: (scope: string, id: string) => ["job", scope, id] as const,
+  calendar: (scope: string, start: string, end: string) =>
+    ["calendar", scope, start, end] as const,
+  communications: (scope: string, id: string) =>
+    ["communications", scope, id] as const,
   assignmentOptions: (scope: string, id: string) =>
     ["assignment-options", scope, id] as const,
   quality: (scope: string, id: string) => ["quality", scope, id] as const,
