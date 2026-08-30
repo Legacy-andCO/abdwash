@@ -140,11 +140,24 @@ async def claim_batch(
                 )
             ).all()
         )
+        claimed: list[uuid.UUID] = []
         for record in records:
+            if _stored_permanent_resend_failure(record.last_error):
+                record.status = OutboxStatus.FAILED
+                record.locked_at = None
+                record.locked_by = None
+                continue
             record.status = OutboxStatus.PROCESSING
             record.locked_at = now
             record.locked_by = worker_id
-        return [record.id for record in records]
+            claimed.append(record.id)
+        return claimed
+
+
+def _stored_permanent_resend_failure(last_error: str | None) -> bool:
+    if not last_error or "ResendDeliveryError: Resend " not in last_error:
+        return False
+    return any(f"Resend {status}:" in last_error for status in (400, 401, 403))
 
 
 async def process_record(
@@ -154,7 +167,7 @@ async def process_record(
     *,
     worker_id: str,
     public_web_url: str | None,
-) -> Literal["sent", "retry", "skipped"]:
+) -> Literal["sent", "retry", "failed", "skipped"]:
     try:
         async with factory() as session:
             record = await session.get(NotificationOutbox, record_id)
@@ -199,12 +212,14 @@ async def process_record(
     except Exception as exc:  # provider boundary intentionally catches and retries
         notification_type: str | None = None
         attempt_count: int | None = None
+        final_status: str | None = None
         async with factory() as session, session.begin():
             record = await session.get(NotificationOutbox, record_id, with_for_update=True)
             if record is not None and record.locked_by == worker_id:
                 notification_type = record.notification_type
                 mark_delivery_failed(record, exc, now=datetime.now(UTC))
                 attempt_count = record.attempt_count
+                final_status = record.status
         diagnostic = {
             "notification_id": str(record_id),
             "notification_type": notification_type,
@@ -219,6 +234,9 @@ async def process_record(
                     "provider_error": exc.safe_message,
                 }
             )
+        if final_status == OutboxStatus.FAILED:
+            logger.warning("notification_failed", **diagnostic)
+            return "failed"
         logger.warning("notification_retry", **diagnostic)
         return "retry"
     async with factory() as session, session.begin():
@@ -376,6 +394,12 @@ def mark_delivery_failed(record: NotificationOutbox, exc: Exception, *, now: dat
     record.last_error = f"{type(exc).__name__}: {str(exc)[:300]}"
     record.locked_at = None
     record.locked_by = None
+    if isinstance(exc, ResendDeliveryError) and not exc.retryable:
+        record.status = OutboxStatus.FAILED
+        # The column is intentionally non-null in the existing schema. Failed rows
+        # are excluded from claims by status, so no future retry is scheduled.
+        record.next_attempt_at = now
+        return
     if record.attempt_count >= 8:
         record.status = OutboxStatus.FAILED
         return
@@ -416,6 +440,7 @@ async def dispatch_once(
         "claimed": len(record_ids),
         "sent": results.count("sent"),
         "retry": results.count("retry"),
+        "failed": results.count("failed"),
         "skipped": results.count("skipped"),
     }
 

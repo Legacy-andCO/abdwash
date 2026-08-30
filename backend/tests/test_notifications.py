@@ -412,10 +412,83 @@ async def test_resend_403_retains_only_bounded_sanitized_provider_error() -> Non
     assert "private.customer@example.com" not in str(caught.value)
     record = outbox_record()
     notification_worker.mark_delivery_failed(record, caught.value, now=datetime.now(UTC))
-    assert record.status == OutboxStatus.RETRY
+    assert record.status == OutboxStatus.FAILED
+    assert record.attempt_count == 1
     assert record.last_error is not None
     assert "Resend 403: validation_error" in record.last_error
     assert "private.customer@example.com" not in record.last_error
+
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
+def test_transient_resend_failures_remain_retryable(status: int) -> None:
+    record = outbox_record()
+    error = ResendDeliveryError(
+        status_code=status,
+        provider_code="provider_error",
+        message="Temporary provider failure",
+    )
+
+    notification_worker.mark_delivery_failed(record, error, now=datetime.now(UTC))
+
+    assert record.status == OutboxStatus.RETRY
+    assert record.attempt_count == 1
+
+
+def test_network_timeout_remains_retryable() -> None:
+    record = outbox_record()
+    notification_worker.mark_delivery_failed(
+        record, httpx.ReadTimeout("provider timeout"), now=datetime.now(UTC)
+    )
+    assert record.status == OutboxStatus.RETRY
+
+
+def test_historical_permanent_403_is_not_replayed() -> None:
+    assert notification_worker._stored_permanent_resend_failure(
+        "ResendDeliveryError: Resend 403: validation_error: Request rejected"
+    )
+    assert not notification_worker._stored_permanent_resend_failure(
+        "ResendDeliveryError: Resend 503: provider_error: Unavailable"
+    )
+
+
+@pytest.mark.asyncio
+async def test_delay_and_reminder_use_same_sender_and_recipient_path() -> None:
+    captured: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(json.loads(request.content))
+        return httpx.Response(200, request=request, json={"id": "email"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = ResendNotificationProvider(
+            client,
+            api_key="test-resend-key",
+            email_from="Trifecta <bookings@example.com>",
+        )
+        payload = confirmation_payload()
+        await provider.send(
+            channel="email",
+            recipient="same.customer@example.com",
+            notification_type="appointment_reminder",
+            payload=payload,
+            idempotency_key="reminder-1",
+        )
+        await provider.send(
+            channel="email",
+            recipient="same.customer@example.com",
+            notification_type="team_delayed",
+            payload=payload | {"delay_minutes": 30},
+            idempotency_key="delay-1",
+        )
+
+    assert [item["to"] for item in captured] == [
+        ["same.customer@example.com"],
+        ["same.customer@example.com"],
+    ]
+    assert [item["from"] for item in captured] == [
+        "Trifecta <bookings@example.com>",
+        "Trifecta <bookings@example.com>",
+    ]
 
 
 @pytest.mark.asyncio

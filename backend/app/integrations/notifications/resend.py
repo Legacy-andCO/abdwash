@@ -18,6 +18,10 @@ class ResendDeliveryError(RuntimeError):
         self.safe_message = message
         super().__init__(f"Resend {status_code}: {provider_code}: {message}")
 
+    @property
+    def retryable(self) -> bool:
+        return self.status_code in {408, 429} or 500 <= self.status_code < 600
+
 
 def _safe_provider_value(value: object, *, fallback: str) -> str:
     if not isinstance(value, str):

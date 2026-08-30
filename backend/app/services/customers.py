@@ -1,8 +1,10 @@
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import structlog
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,6 +42,39 @@ from app.services.booking_snapshots import vehicle_summaries_from_rows
 from app.services.customer_communications import discard_unsent_appointment_reminders
 from app.services.scheduling import _lock_slot_sequence, hold_token_hash, policy_for_day
 from app.services.smart_scheduling import choose_team_for_booking, lock_schedule_day
+
+logger = structlog.get_logger()
+
+
+@dataclass
+class _RescheduleTrace:
+    request_id: str | None
+    booking_id: uuid.UUID
+    job_id: uuid.UUID
+    started: float
+    previous: float
+
+    @classmethod
+    def start(
+        cls, *, request_id: str | None, booking_id: uuid.UUID, job_id: uuid.UUID
+    ) -> "_RescheduleTrace":
+        now = time.perf_counter()
+        trace = cls(request_id, booking_id, job_id, now, now)
+        trace.mark("reschedule_started")
+        return trace
+
+    def mark(self, stage: str) -> None:
+        now = time.perf_counter()
+        logger.info(
+            "manager_reschedule_stage",
+            request_id=self.request_id,
+            booking_id=str(self.booking_id),
+            job_id=str(self.job_id),
+            stage=stage,
+            stage_duration_ms=round((now - self.previous) * 1000, 2),
+            elapsed_ms=round((now - self.started) * 1000, 2),
+        )
+        self.previous = now
 
 
 @dataclass(frozen=True)
@@ -384,10 +419,15 @@ async def reschedule_managed_booking(
     *,
     actor_staff_id: uuid.UUID,
     confirm_active_reschedule: bool,
+    request_id: str | None = None,
 ) -> CustomerBookingDetail:
     job = (
         await session.scalars(select(Job).where(Job.booking_id == booking.id).with_for_update())
     ).one()
+    trace = _RescheduleTrace.start(
+        request_id=request_id, booking_id=booking.id, job_id=job.id
+    )
+    trace.mark("job_locked")
     if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED} or booking.status in {
         BookingStatus.COMPLETED,
         BookingStatus.CANCELLED,
@@ -410,6 +450,7 @@ async def reschedule_managed_booking(
             request,
             actor_staff_id=actor_staff_id,
             reset_active_state=active,
+            trace=trace,
         )
     legacy_request = (
         CustomerRescheduleCreate(hold_token=request.hold_token)
@@ -463,6 +504,7 @@ async def _reschedule_managed_exact(
     *,
     actor_staff_id: uuid.UUID,
     reset_active_state: bool,
+    trace: _RescheduleTrace,
 ) -> CustomerBookingDetail:
     if request.date is None or request.time is None or request.client_event_id is None:
         raise DomainError("INVALID_RESCHEDULE_TIME", "Select a date and time.")
@@ -480,8 +522,10 @@ async def _reschedule_managed_exact(
             select(BusinessSettings).where(BusinessSettings.business_id == booking.business_id)
         )
     ).one()
+    trace.mark("settings_loaded")
     zone = ZoneInfo(settings.timezone)
     scheduled_start = datetime.combine(request.date, request.time, zone).astimezone(UTC)
+    trace.mark("uae_wall_time_converted")
     now = datetime.now(UTC)
     if scheduled_start <= now:
         raise ConflictError("RESCHEDULE_TIME_PASSED", "Choose a future appointment time.")
@@ -501,12 +545,14 @@ async def _reschedule_managed_exact(
         )
 
     await lock_schedule_day(session, business_id=booking.business_id, day=request.date)
+    trace.mark("schedule_day_lock_acquired")
     manual = job.assignment_source == "manual"
     if manual and job.assigned_resource_id is None:
         raise ConflictError(
             "BOOKING_ASSIGNMENT_CHANGED",
             "The manual team assignment must be reviewed before rescheduling.",
         )
+    trace.mark("scheduler_started")
     decision = await choose_team_for_booking(
         session,
         business_id=booking.business_id,
@@ -520,6 +566,8 @@ async def _reschedule_managed_exact(
         override_turnaround=request.override_turnaround if manual else False,
         exclude_job_id=job.id,
     )
+    trace.mark("scheduler_completed")
+    trace.mark("old_slots_started")
     old_slots = list(
         (
             await session.scalars(
@@ -541,12 +589,15 @@ async def _reschedule_managed_exact(
         slot.hold_group_id = None
         slot.hold_expires_at = None
         slot.version += 1
+    trace.mark("old_slots_released")
+    trace.mark("new_slot_lock_started")
     new_slots = await _lock_slot_sequence(
         session,
         business_id=booking.business_id,
         resource_id=decision.team.id,
         windows=[SlotWindow(start=scheduled_start, end=scheduled_end)],
     )
+    trace.mark("new_slot_lock_completed")
     if new_slots is None:
         raise ConflictError("BOOKING_SLOT_CONFLICT", "That exact time is no longer available.")
     for slot in new_slots:
@@ -559,11 +610,14 @@ async def _reschedule_managed_exact(
 
     previous_start = booking.scheduled_start
     previous_end = booking.scheduled_end
+    trace.mark("stale_reminders_started")
     await discard_unsent_appointment_reminders(session, booking.id)
+    trace.mark("stale_reminders_completed")
     booking.resource_id = decision.team.id
     booking.scheduled_start = scheduled_start
     booking.scheduled_end = scheduled_end
     booking.version += 1
+    trace.mark("booking_updated")
     job.scheduled_start = scheduled_start
     job.scheduled_end = scheduled_end
     job.expected_duration_minutes = expected_minutes
@@ -580,6 +634,7 @@ async def _reschedule_managed_exact(
         job.started_at = None
         job.completed_at = None
     job.version += 1
+    trace.mark("job_updated")
     event_id = uuid.uuid4()
     session.add(
         JobEvent(
@@ -608,8 +663,12 @@ async def _reschedule_managed_exact(
         scheduled_start=scheduled_start,
         now=now,
     )
+    trace.mark("reschedule_outbox_queued")
     await session.flush()
-    return await customer_booking_detail_for_record(session, booking)
+    trace.mark("job_projection_started")
+    result = await customer_booking_detail_for_record(session, booking)
+    trace.mark("job_projection_completed")
+    return result
 
 
 async def _reschedule_booking(

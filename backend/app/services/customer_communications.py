@@ -22,9 +22,13 @@ async def discard_unsent_appointment_reminders(
                     [OutboxStatus.PENDING, OutboxStatus.RETRY, OutboxStatus.PROCESSING]
                 ),
             )
+            .order_by(NotificationOutbox.id)
             .limit(1)
             .with_for_update(skip_locked=True)
         )
         if record is None:
             return
         await session.delete(record)
+        # Request sessions intentionally disable autoflush. Flush now so the deleted
+        # reminders cannot be selected repeatedly by later work in this transaction.
+        await session.flush()

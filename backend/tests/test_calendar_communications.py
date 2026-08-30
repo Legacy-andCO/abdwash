@@ -92,10 +92,13 @@ async def test_reschedule_discards_only_unsent_current_reminder() -> None:
     session = MagicMock()
     session.scalar = AsyncMock(side_effect=[record, None])
     session.delete = AsyncMock()
+    session.flush = AsyncMock()
 
     await discard_unsent_appointment_reminders(session, record.booking_id)
 
+    assert session.scalar.await_count == 2
     session.delete.assert_awaited_once_with(record)
+    session.flush.assert_awaited_once()
 
 
 @pytest.mark.asyncio

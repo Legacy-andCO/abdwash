@@ -1,4 +1,5 @@
 import asyncio
+import time
 import uuid
 from datetime import date, datetime
 from typing import Annotated, cast
@@ -1667,9 +1668,12 @@ async def loyalty_settings_update(
 async def manager_reschedule(
     booking_id: uuid.UUID,
     payload: ManagerRescheduleCreate,
+    request: Request,
     session: SessionDep,
     context: ManagerContext,
 ) -> StaffJob:
+    started = time.perf_counter()
+    request_id = getattr(request.state, "request_id", None)
     async with session.begin():
         booking = (
             await session.scalars(
@@ -1680,15 +1684,71 @@ async def manager_reschedule(
         ).one_or_none()
         if booking is None:
             raise DomainError("BOOKING_NOT_FOUND", "Booking not found.", status_code=404)
+        logger.info(
+            "manager_reschedule_stage",
+            request_id=request_id,
+            booking_id=str(booking.id),
+            stage="booking_locked",
+            elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+        )
         await reschedule_managed_booking(
             session,
             booking,
             payload,
             actor_staff_id=context.staff_id,
             confirm_active_reschedule=payload.confirm_active_reschedule,
+            request_id=request_id,
         )
         job = (await session.scalars(select(Job).where(Job.booking_id == booking.id))).one()
         await session.flush()
         result = await get_job(session, context, job.id)
+        logger.info(
+            "manager_reschedule_stage",
+            request_id=request_id,
+            booking_id=str(booking.id),
+            job_id=str(job.id),
+            stage="job_projection_completed",
+            elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+        )
+        logger.info(
+            "manager_reschedule_stage",
+            request_id=request_id,
+            booking_id=str(booking.id),
+            job_id=str(job.id),
+            stage="sync_revision_started",
+            elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+        )
         await bump_sync_revisions(session, context.business_id, "jobs", "schedule", "customers")
-        return result
+        logger.info(
+            "manager_reschedule_stage",
+            request_id=request_id,
+            booking_id=str(booking.id),
+            job_id=str(job.id),
+            stage="sync_revision_completed",
+            elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+        )
+        logger.info(
+            "manager_reschedule_stage",
+            request_id=request_id,
+            booking_id=str(booking.id),
+            job_id=str(job.id),
+            stage="transaction_commit_started",
+            elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+        )
+    logger.info(
+        "manager_reschedule_stage",
+        request_id=request_id,
+        booking_id=str(booking.id),
+        job_id=str(job.id),
+        stage="transaction_committed",
+        elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+    )
+    logger.info(
+        "manager_reschedule_stage",
+        request_id=request_id,
+        booking_id=str(booking.id),
+        job_id=str(job.id),
+        stage="response_ready",
+        elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+    )
+    return result
