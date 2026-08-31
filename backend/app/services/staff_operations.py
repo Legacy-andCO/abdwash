@@ -62,7 +62,10 @@ from app.schemas.staff import (
     StartTripAction,
     TeamAssignmentOption,
 )
-from app.services.customer_communications import discard_unsent_appointment_reminders
+from app.services.customer_communications import (
+    discard_unsent_appointment_reminders,
+    queue_customer_email_if_available,
+)
 from app.services.invoices import issue_revenue_invoice
 from app.services.job_consumption import consumption_summaries, process_job_consumption
 from app.services.loyalty import evaluate_loyalty_for_job, release_booking_rewards
@@ -573,10 +576,10 @@ async def notify_customer_delay(
             "Delay updates are available before the team arrives.",
         )
     now = datetime.now(UTC)
-    record = NotificationOutbox(
+    record = queue_customer_email_if_available(
+        session,
         business_id=context.business_id,
         booking_id=booking.id,
-        channel="email",
         notification_type="team_delayed",
         dedupe_key=f"job-delay:{job.id}:{request.client_event_id}",
         recipient=booking.customer_email,
@@ -584,27 +587,24 @@ async def notify_customer_delay(
             "booking_reference": booking.reference,
             "delay_minutes": request.delay_minutes,
         },
-        status=OutboxStatus.PENDING,
         next_attempt_at=now,
     )
-    session.add(record)
-    session.add(
-        JobEvent(
-            job_id=job.id,
-            booking_id=booking.id,
-            actor_staff_id=context.staff_id,
-            event_type="customer_delay_notified",
-            client_event_id=request.client_event_id,
-            client_timestamp=request.client_timestamp,
-            metadata_json={"delay_minutes": request.delay_minutes},
-        )
+    event = JobEvent(
+        job_id=job.id,
+        booking_id=booking.id,
+        actor_staff_id=context.staff_id,
+        event_type="customer_delay_notified",
+        client_event_id=request.client_event_id,
+        client_timestamp=request.client_timestamp,
+        metadata_json={"delay_minutes": request.delay_minutes},
     )
+    session.add(event)
     await session.flush()
     return CommunicationHistoryItem(
-        id=record.id,
+        id=record.id if record is not None else event.id,
         event=_COMMUNICATION_LABELS["team_delayed"],
-        state="queued",
-        created_at=record.created_at,
+        state="queued" if record is not None else "skipped",
+        created_at=record.created_at if record is not None else now,
         sent_at=None,
         detail=f"{request.delay_minutes} minutes",
     )
@@ -672,23 +672,20 @@ async def start_trip(
             metadata_json={"eta_available": eta is not None},
         )
     )
-    session.add(
-        NotificationOutbox(
-            business_id=context.business_id,
-            booking_id=booking.id,
-            channel="email",
-            notification_type="driver_en_route",
-            dedupe_key=f"job-en-route:{job.id}",
-            recipient=booking.customer_email,
-            payload={
-                "booking_reference": booking.reference,
-                "estimated_arrival_at": job.estimated_arrival_at.isoformat()
-                if job.estimated_arrival_at
-                else None,
-            },
-            status="pending",
-            next_attempt_at=now,
-        )
+    queue_customer_email_if_available(
+        session,
+        business_id=context.business_id,
+        booking_id=booking.id,
+        notification_type="driver_en_route",
+        dedupe_key=f"job-en-route:{job.id}",
+        recipient=booking.customer_email,
+        payload={
+            "booking_reference": booking.reference,
+            "estimated_arrival_at": job.estimated_arrival_at.isoformat()
+            if job.estimated_arrival_at
+            else None,
+        },
+        next_attempt_at=now,
     )
     await session.flush()
     return await get_job(session, context, job.id)
@@ -721,18 +718,15 @@ async def transition_job(
     }[target]
     if target == JobStatus.ARRIVED:
         job.arrived_at = now
-        session.add(
-            NotificationOutbox(
-                business_id=context.business_id,
-                booking_id=booking.id,
-                channel="email",
-                notification_type="team_arrived",
-                dedupe_key=f"job-arrived:{job.id}",
-                recipient=booking.customer_email,
-                payload={"booking_reference": booking.reference},
-                status=OutboxStatus.PENDING,
-                next_attempt_at=now,
-            )
+        queue_customer_email_if_available(
+            session,
+            business_id=context.business_id,
+            booking_id=booking.id,
+            notification_type="team_arrived",
+            dedupe_key=f"job-arrived:{job.id}",
+            recipient=booking.customer_email,
+            payload={"booking_reference": booking.reference},
+            next_attempt_at=now,
         )
     if target == JobStatus.IN_PROGRESS:
         job.started_at = now
@@ -741,18 +735,15 @@ async def transition_job(
         job.completed_at = now
         booking.status = BookingStatus.COMPLETED
         booking.version += 1
-        session.add(
-            NotificationOutbox(
-                business_id=context.business_id,
-                booking_id=booking.id,
-                channel="email",
-                notification_type="job_completed",
-                dedupe_key=f"job-completed:{job.id}",
-                recipient=booking.customer_email,
-                payload={"booking_reference": booking.reference},
-                status="pending",
-                next_attempt_at=now,
-            )
+        queue_customer_email_if_available(
+            session,
+            business_id=context.business_id,
+            booking_id=booking.id,
+            notification_type="job_completed",
+            dedupe_key=f"job-completed:{job.id}",
+            recipient=booking.customer_email,
+            payload={"booking_reference": booking.reference},
+            next_attempt_at=now,
         )
         complaint_row = (
             await session.execute(
@@ -896,21 +887,18 @@ async def record_cash(
         payment=payment,
         transaction=transaction,
     )
-    session.add(
-        NotificationOutbox(
-            business_id=context.business_id,
-            booking_id=booking.id,
-            channel="email",
-            notification_type="payment_received",
-            dedupe_key=f"payment-received:{invoice.id}",
-            recipient=booking.customer_email,
-            payload={
-                "booking_reference": booking.reference,
-                "invoice_id": str(invoice.id),
-            },
-            status=OutboxStatus.PENDING,
-            next_attempt_at=now,
-        )
+    queue_customer_email_if_available(
+        session,
+        business_id=context.business_id,
+        booking_id=booking.id,
+        notification_type="payment_received",
+        dedupe_key=f"payment-received:{invoice.id}",
+        recipient=booking.customer_email,
+        payload={
+            "booking_reference": booking.reference,
+            "invoice_id": str(invoice.id),
+        },
+        next_attempt_at=now,
     )
     await evaluate_loyalty_for_job(session, business_id=context.business_id, job_id=job.id)
     return CashPaymentResult(
@@ -1328,18 +1316,15 @@ async def review_cancellation(
             )
         )
         await release_booking_rewards(session, business_id=context.business_id, booking=booking)
-        session.add(
-            NotificationOutbox(
-                business_id=context.business_id,
-                booking_id=booking.id,
-                channel="email",
-                notification_type="booking_cancelled",
-                dedupe_key=f"booking-cancelled:{booking.id}",
-                recipient=booking.customer_email,
-                payload={"booking_reference": booking.reference},
-                status=OutboxStatus.PENDING,
-                next_attempt_at=now,
-            )
+        queue_customer_email_if_available(
+            session,
+            business_id=context.business_id,
+            booking_id=booking.id,
+            notification_type="booking_cancelled",
+            dedupe_key=f"booking-cancelled:{booking.id}",
+            recipient=booking.customer_email,
+            payload={"booking_reference": booking.reference},
+            next_attempt_at=now,
         )
     else:
         booking.status = BookingStatus.CONFIRMED

@@ -195,7 +195,7 @@ async def test_authenticated_booking_atomically_provisions_or_updates_profile() 
     contact = CustomerContact(
         first_name="Noor",
         surname="Ali",
-        email="noor@example.com",
+        email=None,
         phone="050 123 4567",
     )
 
@@ -210,6 +210,7 @@ async def test_authenticated_booking_atomically_provisions_or_updates_profile() 
     statement = session.scalars.await_args.args[0]
     sql = str(statement.compile(dialect=postgresql.dialect()))
     assert "ON CONFLICT (auth_user_id) DO UPDATE" in sql
+    assert "noor@example.com" in statement.compile(dialect=postgresql.dialect()).params.values()
     assert contact.phone == "+971501234567"
 
 

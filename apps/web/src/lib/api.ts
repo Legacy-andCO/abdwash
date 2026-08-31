@@ -142,7 +142,7 @@ export function createBooking(input: {
     contact: {
       first_name: input.contact.first_name,
       surname: input.contact.surname,
-      email: input.contact.email,
+      email: input.contact.email.trim() || null,
       phone:
         normalizePhone(input.contact.phone, input.contact.phone_country) ??
         input.contact.phone,

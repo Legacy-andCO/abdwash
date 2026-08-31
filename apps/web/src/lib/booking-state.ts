@@ -402,7 +402,10 @@ export function contactErrors(
       "booking.validation.surname",
       "Enter your surname.",
     );
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email))
+  if (
+    contact.email.trim() &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim())
+  )
     errors.email = errorMessage(
       t,
       "booking.validation.email",

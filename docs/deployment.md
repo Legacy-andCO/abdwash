@@ -1,5 +1,13 @@
 # Deployment notes
 
+## Optional booking email migration (2026-08-31)
+
+Apply Alembic revision `c6c7c3026e63` before deploying the matching API. It changes only
+`bookings.customer_email` from required to nullable; authenticated `customer_profiles.email`
+remains required and unchanged. Revenue invoices already keep customer contact data in an
+immutable JSON snapshot, so no invoice-column migration is needed. No new environment variable
+is introduced.
+
 ## Catalogue and invoicing migration (2026-08-31)
 
 Before deploying this API phase, apply Alembic revision `c18f4a7b2d91`. It adds catalogue
@@ -30,9 +38,18 @@ http://localhost:3000/auth/confirm
 http://localhost:3000/auth/reset-password
 ```
 
-Add the equivalent `www.trifecta-wash.com` callbacks only if that hostname is intentionally served. Do not use a production wildcard. Signup passes `/auth/confirm` through `emailRedirectTo`; password recovery passes `/auth/reset-password` through `redirectTo`. The browser Supabase client detects the returned session and the reset page accepts only a `PASSWORD_RECOVERY` session.
+Add the equivalent `www.trifecta-wash.com` callbacks only if that hostname is intentionally served. Do not use a production wildcard. Passwordless customer access calls `signInWithOtp` with `/auth/confirm` through `emailRedirectTo`; password recovery passes `/auth/reset-password` through `redirectTo`. The browser client retains the existing implicit Supabase flow (`detectSessionInUrl`, persisted sessions, and token refresh). The callback accepts only a local `returnTo` path. A `PASSWORD_RECOVERY` event always replaces the current route with `/auth/reset-password`; ordinary magic-link `SIGNED_IN` events never enter recovery mode.
 
-Supabase Auth emails are separate from booking emails sent by the FastAPI/Resend notification provider. Supabase's default SMTP is for development only: it sends only to authorized project-team addresses, has restrictive rate limits, and has no delivery SLA. Before production customer recovery, open **Supabase Dashboard → Authentication → SMTP Settings**, enable custom SMTP, and configure a verified sender name/address plus the provider's SMTP host, port, username, and password. For Resend SMTP, obtain the current SMTP credentials from Resend and enter them only in the Supabase Dashboard; never add them to Vercel web variables or Git. Then review the Supabase recovery email template, rate limits, SPF/DKIM/DMARC, and send a real reset to a non-team test inbox before launch.
+Keep the **Magic Link** email template as a clickable-link template. For the current implicit browser flow, a minimal safe body is:
+
+```html
+<h2>Sign in to Trifecta</h2>
+<p><a href="{{ .ConfirmationURL }}">Sign in securely</a></p>
+```
+
+Do not replace `{{ .ConfirmationURL }}` with a six-digit OTP-only template or a custom `token_hash` callback unless the application is deliberately migrated to that flow. Keep the recovery template as a recovery link using its Supabase confirmation URL. For security-sensitive Supabase Auth mail sent through Resend, disable click and open tracking on the auth sending domain so link rewriting cannot alter single-use Auth URLs. Prefer a dedicated auth sending subdomain if ordinary transactional booking-email tracking must remain independently configurable.
+
+Supabase Auth emails are separate from booking emails sent by the FastAPI/Resend notification provider. Custom SMTP is already expected for production; keep its credentials only in Supabase Dashboard, never in Vercel web variables or Git. After deployment, send both a real Magic Link and a password recovery link to a non-team test inbox and confirm that each lands on its distinct route.
 
 Enable only the Google APIs used by this flow: Maps JavaScript API, Places API (New), and Geocoding API. Apply both Website application restrictions and API restrictions to the browser key. If the key is absent, the form intentionally falls back to written address plus a validated Google Maps share link.
 

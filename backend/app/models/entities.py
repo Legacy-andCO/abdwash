@@ -554,7 +554,7 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     source: Mapped[str] = mapped_column(String(30), nullable=False, default="web")
     customer_first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     customer_surname: Mapped[str] = mapped_column(String(100), nullable=False)
-    customer_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    customer_email: Mapped[str | None] = mapped_column(String(320))
     customer_phone: Mapped[str] = mapped_column(String(40), nullable=False)
     written_address: Mapped[str] = mapped_column(Text, nullable=False)
     location_url: Mapped[str] = mapped_column(Text, nullable=False)

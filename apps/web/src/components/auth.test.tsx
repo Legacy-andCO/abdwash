@@ -30,6 +30,7 @@ function authClient(initialSession: Session | null = null) {
   const auth = {
     getSession: vi.fn().mockResolvedValue({ data: { session: initialSession }, error: null }),
     onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+    signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
     signInWithPassword: vi.fn().mockResolvedValue({ data: { session: session(), user: session().user }, error: null }),
     signUp: vi.fn().mockResolvedValue({ data: { session: null, user: session().user }, error: null }),
     signOut: vi.fn().mockResolvedValue({ error: null }),
@@ -57,6 +58,7 @@ describe("customer authentication", () => {
     const { client, auth } = authClient();
     render(<AuthProvider client={client}><LoginForm /></AuthProvider>);
     const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Use password instead" }));
     await user.type(screen.getByLabelText("Email address"), "ahmad@example.com");
     await user.type(screen.getByLabelText("Password"), "correct-password");
     await user.click(screen.getByRole("button", { name: "Log in" }));
@@ -69,6 +71,7 @@ describe("customer authentication", () => {
     auth.signInWithPassword.mockResolvedValue({ data: { session: null, user: null }, error: { message: "Invalid login credentials" } });
     render(<AuthProvider client={client}><LoginForm /></AuthProvider>);
     const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Use password instead" }));
     await user.type(screen.getByLabelText("Email address"), "bad@example.com");
     await user.type(screen.getByLabelText("Password"), "wrong-password");
     await user.click(screen.getByRole("button", { name: "Log in" }));
@@ -84,25 +87,29 @@ describe("customer authentication", () => {
     expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
-  it("sends safe name metadata and handles email-confirmation sign-up", async () => {
+  it("uses one passwordless flow for new and returning email addresses", async () => {
     const { client, auth } = authClient();
     render(<AuthProvider client={client}><LoginForm /></AuthProvider>);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /create account/i }));
-    await user.type(screen.getByLabelText("First name"), "Noor");
-    await user.type(screen.getByLabelText("Surname"), "Ali");
     await user.type(screen.getByLabelText("Email address"), "noor@example.com");
-    await user.type(screen.getByLabelText("Password"), "strong-password");
-    await user.type(screen.getByLabelText("Confirm password"), "strong-password");
-    await user.click(screen.getByRole("button", { name: "Create account" }));
-    await waitFor(() => expect(auth.signUp).toHaveBeenCalledWith({
+    expect(screen.queryByLabelText("Password")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Email me a sign-in link" }));
+    await waitFor(() => expect(auth.signInWithOtp).toHaveBeenCalledWith({
       email: "noor@example.com",
-      password: "strong-password",
       options: {
-        data: { first_name: "Noor", surname: "Ali" },
-        emailRedirectTo: "http://localhost:3000/auth/confirm",
+        emailRedirectTo: "http://localhost:3000/auth/confirm?returnTo=%2Fbook",
       },
     }));
-    expect(await screen.findByText(/check your email/i)).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Check your email" })).toBeTruthy();
+    expect(screen.queryByText(/account exists/i)).toBeNull();
+  });
+
+  it("rejects an unsafe external return path", async () => {
+    const { client, auth } = authClient();
+    render(<AuthProvider client={client}><LoginForm /></AuthProvider>);
+    await userEvent.type(screen.getByLabelText("Email address"), "safe@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Email me a sign-in link" }));
+    await waitFor(() => expect(auth.signInWithOtp).toHaveBeenCalled());
+    expect(auth.signInWithOtp.mock.calls[0][0].options.emailRedirectTo).not.toContain("http%3A");
   });
 });

@@ -1662,6 +1662,34 @@ async def test_public_api_guest_booking_and_query_count_guard(
         assert managed.json()["reference"] == booking.json()["reference"]
         assert managed.json()["cancellation_eligible"] is False
 
+        no_email_hold = await client.post(
+            "/api/v1/public/holds",
+            json={
+                "date": "2035-01-05",
+                "start_time": "11:00:00",
+                "vehicle_count": 1,
+                "service_ids": [service_id],
+            },
+        )
+        assert no_email_hold.status_code == 201
+        no_email_payload = {
+            **payload,
+            "hold_token": no_email_hold.json()["hold_token"],
+            "contact": {
+                "first_name": "Phone",
+                "surname": "Customer",
+                "phone": "+971500000002",
+            },
+            "payment_choice": "pay_after_service",
+        }
+        no_email_booking = await client.post(
+            "/api/v1/public/bookings",
+            json=no_email_payload,
+            headers={"Idempotency-Key": "api-integration-booking-no-email"},
+        )
+        assert no_email_booking.status_code == 201, no_email_booking.text
+        no_email_booking_id = uuid.UUID(no_email_booking.json()["id"])
+
     async with database() as session:
         idempotency_record = (
             await session.scalars(
@@ -1683,9 +1711,25 @@ async def test_public_api_guest_booking_and_query_count_guard(
                 )
             )
         ).one()
-        assert revision.jobs_revision == 1
-        assert revision.schedule_revision == 1
-        assert revision.finance_revision == 1
+        assert revision.jobs_revision == 2
+        assert revision.schedule_revision == 2
+        assert revision.finance_revision == 2
+        stored_no_email_booking = await session.get(Booking, no_email_booking_id)
+        assert stored_no_email_booking is not None
+        assert stored_no_email_booking.customer_email is None
+        assert await session.scalar(
+            select(func.count()).select_from(Job).where(Job.booking_id == no_email_booking_id)
+        ) == 1
+        assert await session.scalar(
+            select(func.count()).select_from(Payment).where(
+                Payment.booking_id == no_email_booking_id
+            )
+        ) == 1
+        assert await session.scalar(
+            select(func.count()).select_from(NotificationOutbox).where(
+                NotificationOutbox.booking_id == no_email_booking_id
+            )
+        ) == 0
 
 
 @pytest.fixture(scope="module")

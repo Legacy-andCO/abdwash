@@ -1,32 +1,48 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { AuthConfirmation } from "./auth-confirmation";
+import { I18nProvider } from "./i18n-provider";
 
-vi.mock("@/lib/supabase-client", () => ({ getSupabaseBrowserClient: vi.fn() }));
+const replace = vi.fn();
+const getSession = vi.fn();
+const exchangeCodeForSession = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+vi.mock("@/lib/supabase-client", () => ({
+  getSupabaseBrowserClient: () => ({
+    auth: { getSession, exchangeCodeForSession },
+  }),
+}));
 
 afterEach(() => {
   cleanup();
-  window.history.replaceState({}, "", "/auth/confirm");
   vi.clearAllMocks();
+  window.history.replaceState({}, "", "/");
 });
 
-describe("AuthConfirmation", () => {
-  it("exchanges the Supabase confirmation code and shows success", async () => {
-    const exchangeCodeForSession = vi.fn().mockResolvedValue({ error: null });
-    vi.mocked(getSupabaseBrowserClient).mockReturnValue({ auth: { exchangeCodeForSession } } as never);
-    window.history.replaceState({}, "", "/auth/confirm?code=confirmation-code");
-    render(<AuthConfirmation />);
-    expect(await screen.findByText("Email confirmed.")).toBeTruthy();
-    expect(exchangeCodeForSession).toHaveBeenCalledWith("confirmation-code");
+describe("magic-link confirmation", () => {
+  it("accepts the existing implicit session and returns to a safe requested route", async () => {
+    window.history.replaceState({}, "", "/auth/confirm?returnTo=%2Fbook%3Fservice%3D123#access_token=redacted");
+    getSession.mockResolvedValue({ data: { session: { user: { id: "customer" } } }, error: null });
+    render(<I18nProvider><AuthConfirmation /></I18nProvider>);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/book?service=123"));
+    expect(await screen.findByRole("heading", { name: "Email confirmed." })).toBeTruthy();
+    expect(document.body.textContent).not.toContain("redacted");
   });
 
-  it("shows a stable failure state for an expired confirmation link", async () => {
-    vi.mocked(getSupabaseBrowserClient).mockReturnValue({ auth: {} } as never);
+  it("rejects an external return path and falls back to account", async () => {
+    window.history.replaceState({}, "", "/auth/confirm?returnTo=https%3A%2F%2Fevil.example");
+    getSession.mockResolvedValue({ data: { session: { user: { id: "customer" } } }, error: null });
+    render(<I18nProvider><AuthConfirmation /></I18nProvider>);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/account"));
+  });
+
+  it("fails safely for an expired provider link", async () => {
     window.history.replaceState({}, "", "/auth/confirm?error=access_denied");
-    render(<AuthConfirmation />);
-    expect(await screen.findByText("We couldn’t confirm that link.")).toBeTruthy();
+    render(<I18nProvider><AuthConfirmation /></I18nProvider>);
+    expect(await screen.findByRole("heading", { name: "We couldn’t confirm that link." })).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
   });
 });

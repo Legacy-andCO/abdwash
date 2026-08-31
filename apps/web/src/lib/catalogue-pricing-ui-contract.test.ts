@@ -14,13 +14,21 @@ describe("catalogue pricing booking UI", () => {
     expect(wizard).toContain("service.customer_bookable !== false");
   });
 
-  it("renders one comparison table with car and SUV prices from the catalogue", () => {
+  it("keeps the desktop matrix and uses catalogue-driven cards on phones", () => {
     const preview = source("../components/services-preview.tsx");
     expect(preview).toContain('type PricingClass = "car" | "suv"');
     expect(preview).toContain('pricingClass === "car" ? "sedan" : "suv"');
     expect(preview).toContain('<table className="service-comparison">');
     expect(preview).toContain("service.included_features");
     expect(preview).toContain("localizeServiceFeature");
+    expect(preview).toContain('className="service-comparison-mobile"');
+    expect(preview).toContain("serviceFeatureAdditions(service, previous)");
+    expect(preview).toContain("service.included_features ?? []");
+    expect(preview).not.toContain('overflowX: "auto"');
+    const styles = source("../app/globals.css");
+    expect(styles).toContain(".service-comparison-desktop");
+    expect(styles).toContain(".service-comparison-mobile");
+    expect(styles).toContain("@media (max-width: 700px)");
   });
 
   it("keeps the monthly package visible without booking it as one ordinary wash", () => {

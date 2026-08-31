@@ -12,3 +12,13 @@ export function getPublicSiteUrl(): string {
   if (typeof window !== "undefined") return window.location.origin;
   return "http://localhost:3000";
 }
+
+export function safeReturnPath(value: string | null, fallback = "/account"): string {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : fallback;
+}
+
+export function getAuthConfirmUrl(returnTo: string | null): string {
+  const url = new URL("/auth/confirm", getPublicSiteUrl());
+  url.searchParams.set("returnTo", safeReturnPath(returnTo));
+  return url.toString();
+}

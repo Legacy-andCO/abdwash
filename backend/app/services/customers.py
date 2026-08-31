@@ -22,7 +22,6 @@ from app.models.entities import (
     CustomerProfile,
     Job,
     JobEvent,
-    NotificationOutbox,
     ScheduleSlot,
     SlotHoldGroup,
 )
@@ -39,7 +38,10 @@ from app.schemas.customer import (
 )
 from app.schemas.public import BookingVehicleSummary
 from app.services.booking_snapshots import vehicle_summaries_from_rows
-from app.services.customer_communications import discard_unsent_appointment_reminders
+from app.services.customer_communications import (
+    discard_unsent_appointment_reminders,
+    queue_customer_email_if_available,
+)
 from app.services.scheduling import _lock_slot_sequence, hold_token_hash, policy_for_day
 from app.services.smart_scheduling import choose_team_for_booking, lock_schedule_day
 
@@ -475,22 +477,19 @@ def _queue_reschedule_notification(
     scheduled_start: datetime,
     now: datetime,
 ) -> None:
-    session.add(
-        NotificationOutbox(
-            business_id=booking.business_id,
-            booking_id=booking.id,
-            channel="email",
-            notification_type="booking_rescheduled",
-            dedupe_key=f"booking-rescheduled:{event_id}",
-            recipient=booking.customer_email,
-            payload={
-                "booking_reference": booking.reference,
-                "previous_start": previous_start.isoformat(),
-                "scheduled_start": scheduled_start.isoformat(),
-            },
-            status="pending",
-            next_attempt_at=now,
-        )
+    queue_customer_email_if_available(
+        session,
+        business_id=booking.business_id,
+        booking_id=booking.id,
+        notification_type="booking_rescheduled",
+        dedupe_key=f"booking-rescheduled:{event_id}",
+        recipient=booking.customer_email,
+        payload={
+            "booking_reference": booking.reference,
+            "previous_start": previous_start.isoformat(),
+            "scheduled_start": scheduled_start.isoformat(),
+        },
+        next_attempt_at=now,
     )
 
 

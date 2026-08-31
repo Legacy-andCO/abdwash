@@ -288,6 +288,9 @@ describe("booking state", () => {
       contactErrors({ ...contact, email: "wrong" }, location).email,
     ).toBeTruthy();
   });
+  it("accepts a blank booking communication email", () => {
+    expect(contactErrors({ ...contact, email: "   " }, location).email).toBeUndefined();
+  });
   it("rejects a non-secure map link", () => {
     expect(
       contactErrors(contact, {

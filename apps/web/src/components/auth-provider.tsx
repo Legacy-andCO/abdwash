@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
+import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
-import { getPublicSiteUrl } from "@/lib/site-url";
+import { getAuthConfirmUrl, getPublicSiteUrl } from "@/lib/site-url";
 
 type SignUpInput = { firstName: string; surname: string; email: string; password: string };
 type AuthContextValue = {
@@ -11,6 +12,7 @@ type AuthContextValue = {
   loading: boolean;
   available: boolean;
   recoveryMode: boolean;
+  requestMagicLink: (email: string, returnTo?: string | null) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ confirmationRequired: boolean }>;
   requestPasswordReset: (email: string) => Promise<void>;
@@ -33,6 +35,8 @@ function hasRecoveryIntent(): boolean {
 }
 
 export function AuthProvider({ children, client: clientOverride }: { children: ReactNode; client?: SupabaseClient | null }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const client = clientOverride === undefined ? getSupabaseBrowserClient() : clientOverride;
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(client !== null);
@@ -61,11 +65,25 @@ export function AuthProvider({ children, client: clientOverride }: { children: R
     return () => { active = false; subscription.unsubscribe(); };
   }, [client]);
 
+  useEffect(() => {
+    if (recoveryMode && pathname !== "/auth/reset-password") {
+      router.replace("/auth/reset-password");
+    }
+  }, [pathname, recoveryMode, router]);
+
   const value = useMemo<AuthContextValue>(() => ({
     user: session?.user ?? null,
     loading,
     available: client !== null,
     recoveryMode,
+    requestMagicLink: async (email, returnTo) => {
+      if (!client) throw new Error("Customer login is not configured.");
+      const { error } = await client.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: getAuthConfirmUrl(returnTo ?? null) },
+      });
+      if (error) throw new Error(error.message);
+    },
     login: async (email, password) => {
       if (!client) throw new Error("Customer login is not configured.");
       const { data, error } = await client.auth.signInWithPassword({ email, password });

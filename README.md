@@ -46,8 +46,11 @@ See [Revenue invoicing and expense evidence](docs/invoicing-and-expense-evidence
 - Trifecta visual system with centralized warm-cream, dark-brown, and orange brand tokens.
 - Complete English and Arabic customer UI with a persistent language selector, `en-AE`/`ar-AE` presentation, and real LTR/RTL document direction.
 - Responsive landing, service catalogue, contact, authentication, booking, account, profile, booking-detail, secure management, and confirmation pages.
-- Guest booking and optional Supabase customer authentication; login is never required to book.
-- Email/password signup, PKCE email confirmation, session restoration, logout, and authenticated API bearer tokens.
+- Guest booking and optional Supabase customer authentication; login is never required to book, and the per-booking communication email may be left blank.
+- Passwordless-first customer access through one Supabase email Magic Link flow for new and returning customers, with persisted sessions, safe callback return paths, logout, and authenticated API bearer tokens. Existing email/password login remains a secondary compatibility path.
+- Server-backed first-login profile onboarding provisions required name/phone details through the existing customer profile API and optionally saves a first vehicle. Completed profiles are not prompted again; normal Profile Settings remain authoritative for later edits and saved locations.
+- Password recovery is isolated from ordinary Magic Link login: `PASSWORD_RECOVERY` always reaches the new-password form, updates through Supabase Auth, and signs out the temporary recovery session.
+- Desktop service comparison retains its full feature matrix, while phones use stacked catalogue-driven Standard/Gold/Premium cards with authoritative incremental features and no wide table as the primary UI.
 - Real catalogue with server-owned vehicle-type pricing and optional add-ons, timezone-aware availability, atomic temporary holds, idempotent booking submission, and Pay After Service. The booking UI shows the matching vehicle price and add-on total, while the backend independently recalculates every minor-unit amount and enforces any enabled mobile minimum.
 - One- or two-vehicle bookings consume one slot; three or more vehicles require two consecutive slots under the current seeded settings.
 - International phone entry with UAE as the default and independent E.164 normalization/validation in the browser and backend.
@@ -103,7 +106,7 @@ See [Revenue invoicing and expense evidence](docs/invoicing-and-expense-evidence
 - Atomic scheduling through advisory locks, row locks, unique resource/start invariants, expiring hold groups, weekday operating hours, and immutable booking/service/vehicle snapshots. Confirmed service and add-on snapshots retain the charged prices and expected durations even after the owner edits the catalogue.
 - Customer profile/address/vehicle ownership enforcement and profile provisioning before a customer's first booking.
 - Server-side job filters, customer-name search, bounded pagination, bulk relationship loading, database aggregation, and N+1 safeguards.
-- Durable notification outbox with `FOR UPDATE SKIP LOCKED`, stale-claim recovery, bounded batches, attempt counts, exponential retry, and provider calls outside database transactions.
+- Durable notification outbox with `FOR UPDATE SKIP LOCKED`, stale-claim recovery, bounded batches, attempt counts, exponential retry, and provider calls outside database transactions. Customer email enqueueing has one nullable-recipient boundary: bookings without communication email create no customer outbox rows, reminder work, provider calls, or retry noise while jobs, payment, and invoicing continue normally.
 - Tenant-scoped job-quality records and private Supabase Storage photo evidence. FastAPI chooses every object path, grants retry-safe signed uploads, verifies uploaded metadata, and issues short-lived signed reads without persisting signed URLs.
 - Flexible manager rescheduling with business-hour hourly shortcuts and native exact minute selection. The backend evaluates the exact immutable-duration interval, reruns automatic assignment, preserves feasible manual teams, never moves unrelated bookings, and queues one durable reschedule email.
 - Durable completion email queued with the first successful Job Complete. Dispatch renders the reserved service time, actual start-to-complete duration, and authoritative amount paid or a clear pending state without delaying the operational transaction.

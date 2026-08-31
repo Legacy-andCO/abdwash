@@ -35,6 +35,7 @@ function authClient(initialSession: Session | null = null) {
       listener = callback;
       return { data: { subscription: { unsubscribe: vi.fn() } } };
     }),
+    signInWithOtp: vi.fn(),
     signInWithPassword: vi.fn(),
     signUp: vi.fn(),
     resetPasswordForEmail: vi.fn().mockResolvedValue({ data: {}, error: null }),
@@ -59,12 +60,14 @@ afterEach(() => {
 });
 
 describe("customer password recovery", () => {
-  it("shows the Forgot password link only in login mode", async () => {
+  it("shows Forgot password only in the password fallback", async () => {
     const { client } = authClient();
     render(<AuthProvider client={client}><LoginForm /></AuthProvider>);
+    expect(screen.queryByRole("link", { name: "Forgot password?" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Use password instead" }));
     const link = screen.getByRole("link", { name: "Forgot password?" });
     expect(link.getAttribute("href")).toBe("/forgot-password");
-    await userEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Back to passwordless login" }));
     expect(screen.queryByRole("link", { name: "Forgot password?" })).toBeNull();
   });
 
@@ -113,6 +116,7 @@ describe("customer password recovery", () => {
     await waitFor(() => expect(auth.getSession).toHaveBeenCalledOnce());
     emit("PASSWORD_RECOVERY", recoverySession());
     expect(await screen.findByRole("heading", { name: "Create a new password" })).toBeTruthy();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/auth/reset-password"));
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("New password"), "new-secure-password");
     await user.type(screen.getByLabelText("Confirm new password"), "new-secure-password");

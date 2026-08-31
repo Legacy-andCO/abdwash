@@ -1,21 +1,16 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { getPublicSiteUrl } from "./site-url";
+import { describe, expect, it } from "vitest";
+import { getAuthConfirmUrl, safeReturnPath } from "./site-url";
 
-const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-
-afterEach(() => {
-  if (originalSiteUrl === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
-  else process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl;
-});
-
-describe("public site URL", () => {
-  it("uses the canonical Trifecta production origin for trusted auth redirects", () => {
-    process.env.NEXT_PUBLIC_SITE_URL = "https://trifecta-wash.com/";
-    expect(getPublicSiteUrl()).toBe("https://trifecta-wash.com");
+describe("trusted authentication redirects", () => {
+  it("preserves a local return path and rejects external or protocol-relative paths", () => {
+    expect(safeReturnPath("/book?service=123")).toBe("/book?service=123");
+    expect(safeReturnPath("https://attacker.example/path")).toBe("/account");
+    expect(safeReturnPath("//attacker.example/path")).toBe("/account");
   });
 
-  it("rejects an insecure non-local configured origin", () => {
-    process.env.NEXT_PUBLIC_SITE_URL = "http://trifecta-wash.com";
-    expect(getPublicSiteUrl()).toBe("http://localhost:3000");
+  it("constructs the magic-link callback on the trusted site origin", () => {
+    expect(getAuthConfirmUrl("https://attacker.example/path")).toBe(
+      "http://localhost:3000/auth/confirm?returnTo=%2Faccount",
+    );
   });
 });

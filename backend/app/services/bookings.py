@@ -27,7 +27,6 @@ from app.models.entities import (
     JobEvent,
     LoyaltyEvent,
     LoyaltyReward,
-    NotificationOutbox,
     Payment,
     ScheduleSlot,
     Service,
@@ -44,6 +43,7 @@ from app.schemas.public import (
     BookingVehicleSummary,
     CustomerContact,
 )
+from app.services.customer_communications import queue_customer_email_if_available
 from app.services.customer_profiles import provision_customer_profile
 from app.services.management_tokens import create_management_token, management_token_hash
 from app.services.scheduling import hold_token_hash, policy_for_day
@@ -330,7 +330,7 @@ async def create_booking(
         source=request.source,
         customer_first_name=request.contact.first_name,
         customer_surname=request.contact.surname,
-        customer_email=str(request.contact.email),
+        customer_email=str(request.contact.email) if request.contact.email is not None else None,
         customer_phone=request.contact.phone,
         written_address=request.location.written_address,
         location_url=str(request.location.location_url),
@@ -494,18 +494,15 @@ async def create_booking(
                 },
             )
         )
-        session.add(
-            NotificationOutbox(
-                business_id=booking.business_id,
-                booking_id=booking.id,
-                channel="email",
-                notification_type="booking_confirmed",
-                dedupe_key=f"booking-confirmed:{booking.id}",
-                recipient=booking.customer_email,
-                payload={"booking_reference": booking.reference},
-                status="pending",
-                next_attempt_at=now,
-            )
+        queue_customer_email_if_available(
+            session,
+            business_id=booking.business_id,
+            booking_id=booking.id,
+            notification_type="booking_confirmed",
+            dedupe_key=f"booking-confirmed:{booking.id}",
+            recipient=booking.customer_email,
+            payload={"booking_reference": booking.reference},
+            next_attempt_at=now,
         )
     else:
         for slot in slots:

@@ -111,8 +111,15 @@ class HoldResponse(BaseModel):
 class CustomerContact(StrictRequest):
     first_name: NonBlank = Field(max_length=100)
     surname: NonBlank = Field(max_length=100)
-    email: EmailStr
+    email: EmailStr | None = None
     phone: NonBlank = Field(max_length=40)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_optional_email(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator("phone", mode="before")
     @classmethod

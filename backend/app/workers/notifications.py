@@ -59,6 +59,8 @@ async def enqueue_due_appointment_reminders(
                 .where(
                     BusinessSettings.appointment_reminder_enabled.is_(True),
                     Booking.status == "confirmed",
+                    Booking.customer_email.is_not(None),
+                    Booking.customer_email != "",
                     Booking.scheduled_start > now,
                     Booking.scheduled_start
                     <= now
@@ -177,6 +179,8 @@ async def process_record(
                 or record.locked_by != worker_id
             ):
                 return "skipped"
+            if not record.recipient.strip():
+                raise StaleNotification("Notification has no deliverable recipient")
             payload = await delivery_payload(
                 session,
                 record,

@@ -23,6 +23,16 @@ function priceFor(service: Service, pricingClass: PricingClass): number {
   );
 }
 
+export function serviceFeatureAdditions(
+  service: Service,
+  previous?: Service,
+): string[] {
+  const previousFeatures = new Set(previous?.included_features ?? []);
+  return (service.included_features ?? []).filter(
+    (feature) => !previousFeatures.has(feature),
+  );
+}
+
 export function ServicesPreview() {
   const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -84,7 +94,7 @@ export function ServicesPreview() {
           </button>
         ))}
       </div>
-      <div className="service-comparison-scroll">
+      <div className="service-comparison-scroll service-comparison-desktop">
         <table className="service-comparison">
           <caption>{t("services.comparison")}</caption>
           <thead>
@@ -126,6 +136,49 @@ export function ServicesPreview() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="service-comparison-mobile">
+        {core.map((service, index) => {
+          const previous = core[index - 1];
+          const additions = serviceFeatureAdditions(service, previous);
+          return (
+            <article className="mobile-comparison-card" key={service.id}>
+              <header>
+                <h3>{localizeServiceName(language, service.name)}</h3>
+                <strong>
+                  {formatMoney(
+                    priceFor(service, pricingClass),
+                    service.currency_code,
+                    locale,
+                  )}
+                </strong>
+              </header>
+              <p>
+                {previous
+                  ? t("services.everythingPrevious", {
+                      service: localizeServiceName(language, previous.name),
+                    })
+                  : t("services.regularCare")}
+              </p>
+              <ul className="service-feature-list">
+                {additions.map((feature) => (
+                  <li key={feature}>✓ {localizeServiceFeature(language, feature)}</li>
+                ))}
+              </ul>
+              <details>
+                <summary>{t("services.viewAllFeatures")}</summary>
+                <ul className="service-feature-list">
+                  {(service.included_features ?? []).map((feature) => (
+                    <li key={feature}>✓ {localizeServiceFeature(language, feature)}</li>
+                  ))}
+                </ul>
+              </details>
+              <Link className="button" href={`/book?service=${service.id}`}>
+                {t("services.choose")}
+              </Link>
+            </article>
+          );
+        })}
       </div>
       <h3 className="secondary-services-title">{t("services.otherCare")}</h3>
       <div className="service-grid secondary-services">

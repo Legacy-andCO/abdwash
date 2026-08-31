@@ -62,8 +62,14 @@ def test_cash_change_uses_integer_minor_units_and_rejects_underpayment() -> None
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("customer_email", "expected_notifications"),
+    [("customer@example.com", ["payment_received"]), (None, [])],
+)
 async def test_cash_payment_records_due_tender_and_change_without_inflating_revenue(
     monkeypatch: pytest.MonkeyPatch,
+    customer_email: str | None,
+    expected_notifications: list[str],
 ) -> None:
     context = staff_context()
     job = Job(
@@ -79,6 +85,7 @@ async def test_cash_payment_records_due_tender_and_change_without_inflating_reve
         business_id=context.business_id,
         status="completed",
         payment_status=PaymentStatus.UNPAID,
+        customer_email=customer_email,
         version=1,
     )
     payment = Payment(
@@ -140,7 +147,7 @@ async def test_cash_payment_records_due_tender_and_change_without_inflating_reve
         for call in session.add.call_args_list
         if isinstance(call.args[0], NotificationOutbox)
     ]
-    assert [item.notification_type for item in payment_notifications] == ["payment_received"]
+    assert [item.notification_type for item in payment_notifications] == expected_notifications
 
 
 @pytest.mark.asyncio

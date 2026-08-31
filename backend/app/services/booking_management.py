@@ -16,7 +16,6 @@ from app.models.entities import (
     CancellationRequest,
     Job,
     JobEvent,
-    NotificationOutbox,
 )
 from app.schemas.public import (
     BookingManagementResponse,
@@ -24,6 +23,7 @@ from app.schemas.public import (
     CancellationRequestResponse,
 )
 from app.services.booking_snapshots import vehicle_summaries_from_rows
+from app.services.customer_communications import queue_customer_email_if_available
 from app.services.management_tokens import (
     booking_id_from_management_token,
     management_token_hash,
@@ -151,22 +151,19 @@ async def request_booking_cancellation(
             metadata_json={"requester_type": "customer"},
         )
     )
-    session.add(
-        NotificationOutbox(
-            business_id=booking.business_id,
-            booking_id=booking.id,
-            channel="email",
-            notification_type="cancellation_requested",
-            dedupe_key=f"cancellation-requested:{cancellation.id}",
-            recipient=booking.customer_email,
-            payload={
-                "booking_reference": booking.reference,
-                "scheduled_start": booking.scheduled_start.isoformat(),
-                "status": "requested",
-            },
-            status="pending",
-            next_attempt_at=now,
-        )
+    queue_customer_email_if_available(
+        session,
+        business_id=booking.business_id,
+        booking_id=booking.id,
+        notification_type="cancellation_requested",
+        dedupe_key=f"cancellation-requested:{cancellation.id}",
+        recipient=booking.customer_email,
+        payload={
+            "booking_reference": booking.reference,
+            "scheduled_start": booking.scheduled_start.isoformat(),
+            "status": "requested",
+        },
+        next_attempt_at=now,
     )
     await session.flush()
     return CancellationRequestResponse(

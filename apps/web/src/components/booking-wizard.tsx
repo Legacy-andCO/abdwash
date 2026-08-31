@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   FormEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -452,7 +453,7 @@ function DetailsStep({ state, dispatch }: StepProps) {
   };
   const contactField = (
     field: "first_name" | "surname" | "email",
-    label: string,
+    label: ReactNode,
     type = "text",
     autocomplete?: string,
   ) => (
@@ -543,7 +544,12 @@ function DetailsStep({ state, dispatch }: StepProps) {
             "text",
             "family-name",
           )}
-          {contactField("email", t("booking.details.email"), "email", "email")}
+          {contactField(
+            "email",
+            <>{t("booking.details.email")} <em>{t("common.optional")}</em></>,
+            "email",
+            "email",
+          )}
           <PhoneInput
             value={state.contact.phone}
             country={state.contact.phone_country}
@@ -880,7 +886,7 @@ function ReviewStep({ state, dispatch }: StepProps) {
           <strong>
             {state.contact.first_name} {state.contact.surname}
           </strong>
-          <span>{state.contact.email}</span>
+          {state.contact.email.trim() && <span>{state.contact.email}</span>}
           <span>{state.contact.phone}</span>
         </ReviewBlock>
         <ReviewBlock
@@ -1536,9 +1542,11 @@ function Confirmation({ state }: { state: typeof initialBookingState }) {
           </Link>
         </div>
         <p className="confirmation-note">
-          {t("booking.confirmation.notification", {
-            email: state.contact.email,
-          })}
+          {state.contact.email.trim()
+            ? t("booking.confirmation.notification", {
+                email: state.contact.email,
+              })
+            : t("booking.confirmation.notificationNoEmail")}
         </p>
       </section>
     </main>

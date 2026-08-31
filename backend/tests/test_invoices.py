@@ -20,8 +20,10 @@ from app.models.entities import (
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("customer_email", ["customer@example.com", None])
 async def test_successful_payment_creates_immutable_non_vat_invoice_snapshot(
     monkeypatch: pytest.MonkeyPatch,
+    customer_email: str | None,
 ) -> None:
     business_id = uuid.uuid4()
     booking_id = uuid.uuid4()
@@ -46,7 +48,7 @@ async def test_successful_payment_creates_immutable_non_vat_invoice_snapshot(
         reference="AW-TEST",
         customer_first_name="Aisha",
         customer_surname="Ali",
-        customer_email="customer@example.com",
+        customer_email=customer_email,
         customer_phone="+971501234567",
     )
     vehicle = BookingVehicle(
@@ -100,7 +102,7 @@ async def test_successful_payment_creates_immutable_non_vat_invoice_snapshot(
     assert invoice.discount_minor == 1_000
     assert invoice.vat_amount_minor == 0
     assert invoice.line_items[0]["description"] == "Standard Wash"
-    assert invoice.customer_snapshot["email"] == "customer@example.com"
+    assert invoice.customer_snapshot["email"] == customer_email
     assert invoice.payment_transaction_id == transaction.id
 
 

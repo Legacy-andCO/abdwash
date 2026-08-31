@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { safeReturnPath } from "@/lib/site-url";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 import { useI18n } from "./i18n-provider";
 
@@ -9,6 +11,7 @@ type ConfirmationState = "loading" | "success" | "failed";
 
 export function AuthConfirmation() {
   const { t } = useI18n();
+  const router = useRouter();
   const [state, setState] = useState<ConfirmationState>("loading");
 
   useEffect(() => {
@@ -34,14 +37,17 @@ export function AuthConfirmation() {
           const { data, error } = await client.auth.getSession();
           if (error || !data.session) throw error ?? new Error("No confirmed session");
         }
-        if (active) setState("success");
+        if (active) {
+          setState("success");
+          router.replace(safeReturnPath(url.searchParams.get("returnTo")));
+        }
       } catch {
         if (active) setState("failed");
       }
     }
     void confirm();
     return () => { active = false; };
-  }, []);
+  }, [router]);
 
   return <section className="auth-card auth-confirmation" aria-live="polite">
     {state === "loading" && <><span className="spinner dark" /><h1>{t("auth.confirming")}</h1><p>{t("auth.confirmingCopy")}</p></>}

@@ -8,7 +8,10 @@ import { AboutPage } from "./about-page";
 import { AuthProvider } from "./auth-provider";
 import { I18nProvider } from "./i18n-provider";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/about" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/about",
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 
 beforeEach(() => {
   window.localStorage.clear();
