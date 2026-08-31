@@ -23,8 +23,23 @@ describe("calendar and customer communications integration", () => {
   it("keeps cached calendar and communication data visible while refreshing", () => {
     const calendar = source("./components/OperationsCalendar.tsx");
     const jobs = source("./screens/JobsScreen.tsx");
+    const queries = source("./queries/operations.ts");
     expect(calendar).toContain("query.isError && jobs.length");
     expect(jobs).toContain("communications.isFetching && communications.data?.length");
+    expect(queries).toContain('item.state === "queued"');
+    expect(queries).toContain("15_000");
+  });
+
+  it("renders appointments and reschedule defaults through shared UAE time", () => {
+    const jobs = source("./screens/JobsScreen.tsx");
+    const today = source("./screens/TodayScreen.tsx");
+    const calendar = source("./components/OperationsCalendar.tsx");
+    expect(jobs).toContain("uaeAppointmentParts(job.scheduled_start)");
+    expect(jobs).toContain("formatUaeDateTime(job.scheduled_start)");
+    expect(today).toContain("formatUaeTime(next.scheduled_start)");
+    expect(calendar).toContain("formatUaeTime(job.scheduled_start)");
+    expect(jobs).not.toContain("currentAppointment.getHours()");
+    expect(calendar).not.toContain("new Date(value).toLocaleTimeString");
   });
 
   it("offers manager delay choices without changing the schedule", () => {

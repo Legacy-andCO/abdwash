@@ -1,5 +1,6 @@
 import uuid
 from datetime import time
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -50,9 +51,7 @@ class AddonPatch(StrictRequest):
     def nonnullable_updates(self) -> "AddonPatch":
         nullable = {"description"}
         invalid = {
-            field
-            for field in self.model_fields_set - nullable
-            if getattr(self, field) is None
+            field for field in self.model_fields_set - nullable if getattr(self, field) is None
         }
         if invalid:
             raise ValueError("Catalogue fields cannot be null; omit unchanged fields.")
@@ -81,6 +80,9 @@ class ServiceInput(StrictRequest):
     is_active: bool = True
     sort_order: int = Field(default=0, ge=0, le=10_000)
     prices: list[VehiclePriceInput] = Field(min_length=1, max_length=20)
+    included_features: list[str] = Field(default_factory=list, max_length=40)
+    product_kind: Literal["single_service", "monthly_package"] = "single_service"
+    customer_bookable: bool = True
 
     @model_validator(mode="after")
     def valid_configuration(self) -> "ServiceInput":
@@ -101,14 +103,15 @@ class ServicePatch(StrictRequest):
     is_active: bool | None = None
     sort_order: int | None = Field(default=None, ge=0, le=10_000)
     prices: list[VehiclePriceInput] | None = Field(default=None, min_length=1, max_length=20)
+    included_features: list[str] | None = Field(default=None, max_length=40)
+    product_kind: Literal["single_service", "monthly_package"] | None = None
+    customer_bookable: bool | None = None
 
     @model_validator(mode="after")
     def unique_prices(self) -> "ServicePatch":
         nullable = {"description"}
         invalid = {
-            field
-            for field in self.model_fields_set - nullable
-            if getattr(self, field) is None
+            field for field in self.model_fields_set - nullable if getattr(self, field) is None
         }
         if invalid:
             raise ValueError("Catalogue fields cannot be null; omit unchanged fields.")
@@ -128,6 +131,9 @@ class ServiceManagementView(BaseModel):
     shop_available: bool
     is_active: bool
     sort_order: int
+    included_features: list[str]
+    product_kind: str
+    customer_bookable: bool
     prices: list[VehiclePriceView]
     addons: list[AddonView]
 
@@ -172,17 +178,36 @@ class BusinessBookingSettingsPatch(StrictRequest):
     appointment_reminder_hours_before: int | None = Field(default=None, ge=1, le=168)
     default_inventory_location_id: uuid.UUID | None = None
     loyalty_reward_service_id: uuid.UUID | None = None
+    legal_name: str | None = Field(default=None, min_length=1, max_length=200)
+    trading_name: str | None = Field(default=None, min_length=1, max_length=200)
+    billing_address: str | None = Field(default=None, min_length=1, max_length=2000)
+    billing_emirate: str | None = Field(default=None, min_length=1, max_length=80)
+    billing_country: str | None = Field(default=None, min_length=1, max_length=80)
+    tax_registration_number: str | None = Field(default=None, min_length=1, max_length=40)
+    vat_registered: bool | None = None
+    vat_rate: Decimal | None = Field(default=None, ge=0, le=100)
+    prices_include_vat: bool | None = None
+    billing_email: str | None = Field(default=None, max_length=320)
+    billing_phone: str | None = Field(default=None, max_length=40)
     operating_hours: list[OperatingHourInput] | None = Field(
         default=None, min_length=7, max_length=7
     )
 
     @model_validator(mode="after")
     def weekdays_unique(self) -> "BusinessBookingSettingsPatch":
-        nullable = {"loyalty_reward_service_id", "default_inventory_location_id"}
+        nullable = {
+            "loyalty_reward_service_id",
+            "default_inventory_location_id",
+            "legal_name",
+            "trading_name",
+            "billing_address",
+            "billing_emirate",
+            "tax_registration_number",
+            "billing_email",
+            "billing_phone",
+        }
         invalid = {
-            field
-            for field in self.model_fields_set - nullable
-            if getattr(self, field) is None
+            field for field in self.model_fields_set - nullable if getattr(self, field) is None
         }
         if invalid:
             raise ValueError("Business settings cannot be null; omit unchanged fields.")
@@ -204,4 +229,15 @@ class BusinessBookingSettingsView(BaseModel):
     appointment_reminder_hours_before: int
     default_inventory_location_id: uuid.UUID | None
     loyalty_reward_service_id: uuid.UUID | None
+    legal_name: str | None
+    trading_name: str | None
+    billing_address: str | None
+    billing_emirate: str | None
+    billing_country: str
+    tax_registration_number: str | None
+    vat_registered: bool
+    vat_rate: Decimal
+    prices_include_vat: bool
+    billing_email: str | None
+    billing_phone: str | None
     operating_hours: list[OperatingHourView]

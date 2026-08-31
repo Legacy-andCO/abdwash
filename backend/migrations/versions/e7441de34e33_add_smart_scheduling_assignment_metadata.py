@@ -19,9 +19,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column(
         "slot_hold_groups",
-        sa.Column(
-            "expected_duration_minutes", sa.Integer(), server_default="120", nullable=True
-        ),
+        sa.Column("expected_duration_minutes", sa.Integer(), server_default="120", nullable=True),
     )
     op.execute(
         """
@@ -110,9 +108,7 @@ def downgrade() -> None:
     op.drop_constraint("job_assignment_source", "jobs", type_="check")
     op.drop_constraint("valid_job_expected_duration", "jobs", type_="check")
     op.drop_index("ix_jobs_assigned_by_staff", table_name="jobs")
-    op.drop_constraint(
-        "fk_jobs_assigned_by_staff_id_staff_profiles", "jobs", type_="foreignkey"
-    )
+    op.drop_constraint("fk_jobs_assigned_by_staff_id_staff_profiles", "jobs", type_="foreignkey")
     op.drop_column("jobs", "assigned_by_staff_id")
     op.drop_column("jobs", "assigned_at")
     op.drop_column("jobs", "assignment_source")

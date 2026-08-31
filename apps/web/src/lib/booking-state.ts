@@ -1,6 +1,7 @@
 import type {
   Availability,
   Booking,
+  BillingDetails,
   Catalogue,
   Contact,
   CustomerProfileBootstrap,
@@ -19,11 +20,11 @@ import { normalizePhone } from "./phone";
 import type { TranslationKey } from "./i18n";
 
 export const steps = [
+  "vehicles",
   "service",
   "details",
-  "vehicles",
-  "review",
   "schedule",
+  "review",
   "payment",
   "confirmation",
 ] as const;
@@ -35,6 +36,7 @@ export type BookingState = {
   catalogue: Catalogue | null;
   defaultServiceId: string;
   contact: Contact;
+  billing: BillingDetails;
   location: Location;
   vehicles: Vehicle[];
   selectedDate: string;
@@ -61,7 +63,7 @@ export const emptyVehicle = (serviceId = ""): Vehicle => ({
 });
 
 export const initialBookingState: BookingState = {
-  step: "service",
+  step: "vehicles",
   catalogue: null,
   defaultServiceId: "",
   contact: {
@@ -70,6 +72,11 @@ export const initialBookingState: BookingState = {
     email: "",
     phone: "",
     phone_country: "AE",
+  },
+  billing: {
+    company_name: "",
+    billing_address: "",
+    tax_registration_number: "",
   },
   location: {
     written_address: "",
@@ -100,6 +107,7 @@ export type BookingAction =
   | { type: "step"; value: BookingStep }
   | { type: "service"; value: string }
   | { type: "contact"; field: keyof Contact; value: string }
+  | { type: "billing"; field: keyof BillingDetails; value: string }
   | {
       type: "location";
       field: "written_address" | "location_url" | "instructions";
@@ -128,7 +136,9 @@ export function bookingReducer(
 ): BookingState {
   switch (action.type) {
     case "catalogue": {
-      const first = action.value.services[0]?.id ?? "";
+      const first =
+        action.value.services.find((service) => service.customer_bookable !== false)
+          ?.id ?? "";
       return {
         ...state,
         catalogue: action.value,
@@ -233,6 +243,7 @@ export function bookingReducer(
                 ...vehicle,
                 service_id: action.value,
                 loyalty_reward_id: undefined,
+                addon_ids: [],
               }
             : vehicle,
         ),
@@ -241,6 +252,11 @@ export function bookingReducer(
       return {
         ...state,
         contact: { ...state.contact, [action.field]: action.value },
+      };
+    case "billing":
+      return {
+        ...state,
+        billing: { ...state.billing, [action.field]: action.value },
       };
     case "location":
       return {

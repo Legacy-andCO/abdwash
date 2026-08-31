@@ -14,9 +14,15 @@ from app.domain.errors import ConflictError, DomainError
 from app.models.entities import (
     CashReconciliation,
     Expense,
+    ExpenseEvidence,
     PaymentTransaction,
 )
-from app.schemas.finance import CashReconciliationCreate, ExpenseCreate
+from app.schemas.finance import (
+    CashReconciliationCreate,
+    ExpenseCreate,
+    ExpenseEvidenceCreate,
+    ExpenseView,
+)
 
 
 def manager_context() -> StaffContext:
@@ -50,6 +56,68 @@ def test_expense_schema_rejects_zero_and_unknown_categories() -> None:
         expense_request(category="invented")
 
 
+def test_expense_schema_preserves_net_vat_gross_and_evidence_state() -> None:
+    request = expense_request(
+        amount_minor=10_500,
+        vat_amount_minor=500,
+        supplier_tax_registration_number="100000000000001",
+        supplier_document_number="SUP-42",
+        evidence_status="missing_evidence",
+    )
+    assert request.net_amount_minor == 10_000
+    assert request.vat_amount_minor == 500
+    with pytest.raises(ValidationError):
+        expense_request(amount_minor=10_500, net_amount_minor=10_000, vat_amount_minor=400)
+
+
+@pytest.mark.asyncio
+async def test_internal_expense_voucher_never_masquerades_as_supplier_tax_invoice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = manager_context()
+    view = ExpenseView(
+        id=uuid.uuid4(),
+        expense_date=date(2026, 8, 27),
+        category="fuel",
+        description="Van fuel",
+        amount_minor=10_500,
+        currency_code="AED",
+        payment_method="company_card",
+        paid_by_staff_id=None,
+        paid_by_staff_name=None,
+        team_id=None,
+        team_name=None,
+        related_job_id=None,
+        related_booking_reference=None,
+        supplier_name="Fuel supplier",
+        reference_number=None,
+        supplier_tax_registration_number="100000000000001",
+        supplier_document_number="SUP-42",
+        net_amount_minor=10_000,
+        vat_amount_minor=500,
+        evidence_status="complete",
+        notes=None,
+        receipt_available=True,
+        status="active",
+        created_by_staff_id=context.staff_id,
+        created_at=datetime.now(UTC),
+        voided_at=None,
+        void_reason=None,
+    )
+    monkeypatch.setattr(finance, "get_expense", AsyncMock(return_value=view))
+    evidence_result = MagicMock()
+    evidence_result.all.return_value = ["supplier-receipt.pdf"]
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value="Demo Manager")
+    session.scalars = AsyncMock(return_value=evidence_result)
+    html = await finance.expense_voucher_html(session, context, view.id)
+    assert "Internal Expense Voucher" in html
+    assert "Not a Tax Invoice" in html
+    assert "does not establish VAT recoverability" in html
+    assert "supplier-receipt.pdf" in html
+    assert "Demo Manager" in html
+
+
 def test_finance_models_keep_immutable_void_and_idempotency_constraints() -> None:
     expense_constraints = {item.name for item in Expense.__table__.constraints}
     reconciliation_constraints = {item.name for item in CashReconciliation.__table__.constraints}
@@ -64,6 +132,115 @@ def test_finance_models_keep_immutable_void_and_idempotency_constraints() -> Non
         name and name.endswith("cash_reconciliation_discrepancy_note")
         for name in reconciliation_constraints
     )
+    evidence_constraints = {item.name for item in ExpenseEvidence.__table__.constraints}
+    assert "uq_expense_evidence_request" in evidence_constraints
+    assert any(
+        name and name.endswith("expense_evidence_upload_status") for name in evidence_constraints
+    )
+
+
+@pytest.mark.asyncio
+async def test_expense_evidence_uses_private_server_selected_path() -> None:
+    context = manager_context()
+    expense = Expense(
+        id=uuid.uuid4(),
+        business_id=context.business_id,
+        status="active",
+    )
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[expense, None])
+    session.add = MagicMock()
+    session.flush = AsyncMock()
+
+    evidence = await finance.prepare_expense_evidence_upload(
+        session,
+        context,
+        expense.id,
+        ExpenseEvidenceCreate(
+            file_name="supplier invoice.pdf",
+            content_type="application/pdf",
+            client_request_id="evidence-request-123",
+        ),
+    )
+
+    assert evidence.object_path.startswith(f"business/{context.business_id}/expenses/{expense.id}/")
+    assert evidence.object_path.endswith(".pdf")
+    assert "supplier invoice" not in evidence.object_path
+    assert evidence.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_expense_evidence_confirmation_marks_expense_complete() -> None:
+    context = manager_context()
+    expense = Expense(
+        id=uuid.uuid4(),
+        business_id=context.business_id,
+        evidence_status="missing_evidence",
+        receipt_object_path=None,
+    )
+    evidence = ExpenseEvidence(
+        id=uuid.uuid4(),
+        expense_id=expense.id,
+        object_path="business/example/expenses/example/evidence.pdf",
+        file_name="evidence.pdf",
+        content_type="application/pdf",
+        status="pending",
+        client_request_id="evidence-request-123",
+        uploaded_by_staff_id=context.staff_id,
+    )
+    result = MagicMock()
+    result.one_or_none.return_value = (evidence, expense)
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=result)
+    session.add = MagicMock()
+    session.flush = AsyncMock()
+
+    view = await finance.confirm_expense_evidence(
+        session,
+        context,
+        expense.id,
+        evidence.id,
+        object_info={"size": 2_048, "mimetype": "application/pdf"},
+        max_bytes=10_485_760,
+    )
+
+    assert view.status == "ready"
+    assert evidence.size_bytes == 2_048
+    assert expense.evidence_status == "complete"
+    assert expense.receipt_object_path == evidence.object_path
+
+
+@pytest.mark.asyncio
+async def test_expense_evidence_rejects_invalid_uploaded_object() -> None:
+    context = manager_context()
+    expense = Expense(id=uuid.uuid4(), business_id=context.business_id)
+    evidence = ExpenseEvidence(
+        id=uuid.uuid4(),
+        expense_id=expense.id,
+        object_path="business/example/expenses/example/evidence.pdf",
+        file_name="evidence.pdf",
+        content_type="application/pdf",
+        status="pending",
+        client_request_id="evidence-request-123",
+        uploaded_by_staff_id=context.staff_id,
+    )
+    result = MagicMock()
+    result.one_or_none.return_value = (evidence, expense)
+    session = MagicMock()
+    session.execute = AsyncMock(return_value=result)
+
+    with pytest.raises(DomainError) as raised:
+        await finance.confirm_expense_evidence(
+            session,
+            context,
+            expense.id,
+            evidence.id,
+            object_info={"size": 2_048, "mimetype": "image/png"},
+            max_bytes=10_485_760,
+        )
+
+    assert raised.value.code == "INVALID_EXPENSE_EVIDENCE"
+    assert evidence.status == "pending"
 
 
 @pytest.mark.asyncio

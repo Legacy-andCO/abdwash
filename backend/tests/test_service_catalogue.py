@@ -101,6 +101,41 @@ def test_typed_patch_schemas_reject_null_for_required_database_fields() -> None:
         BusinessBookingSettingsPatch(slot_duration_minutes=None)
 
 
+def test_vat_settings_patch_can_reuse_an_existing_trn() -> None:
+    patch = BusinessBookingSettingsPatch(vat_registered=True)
+    assert patch.vat_registered is True
+    assert "tax_registration_number" not in patch.model_fields_set
+
+
+@pytest.mark.asyncio
+async def test_vat_settings_cannot_clear_trn_while_registration_is_enabled() -> None:
+    context = StaffContext(
+        auth_user_id=uuid.uuid4(),
+        staff_id=uuid.uuid4(),
+        business_id=uuid.uuid4(),
+        business_name="Trifecta",
+        role=StaffRole.MANAGER,
+        timezone="Asia/Dubai",
+    )
+    settings = BusinessSettings(
+        id=uuid.uuid4(),
+        business_id=context.business_id,
+        vat_registered=True,
+        tax_registration_number="100000000000001",
+    )
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=settings)
+
+    with pytest.raises(DomainError) as caught:
+        await update_business_booking_settings(
+            session,
+            context,
+            BusinessBookingSettingsPatch(tax_registration_number=None),
+        )
+
+    assert caught.value.code == "VAT_REGISTRATION_REQUIRES_TRN"
+
+
 def test_business_settings_require_each_weekday_exactly_once() -> None:
     repeated = [
         OperatingHourInput(
@@ -192,9 +227,7 @@ async def test_public_catalogue_loads_prices_and_addons_in_two_bounded_queries()
     assert result.services[0].prices[0].price_minor == 8500
     assert [item.name for item in result.services[0].addons] == ["Pet hair removal"]
     catalogue_sql = str(
-        session.execute.await_args_list[1].args[0].compile(
-            compile_kwargs={"literal_binds": True}
-        )
+        session.execute.await_args_list[1].args[0].compile(compile_kwargs={"literal_binds": True})
     )
     assert "services.mobile_available IS true" in catalogue_sql
     assert "service_addons.mobile_available IS true" in catalogue_sql
@@ -280,9 +313,7 @@ async def test_default_inventory_location_must_be_active_and_same_tenant() -> No
         await update_business_booking_settings(
             session,
             context,
-            BusinessBookingSettingsPatch(
-                default_inventory_location_id=uuid.uuid4()
-            ),
+            BusinessBookingSettingsPatch(default_inventory_location_id=uuid.uuid4()),
         )
 
     assert caught.value.code == "INVENTORY_LOCATION_NOT_FOUND"
@@ -340,9 +371,9 @@ def test_historical_service_and_addon_snapshots_render_without_live_catalogue_re
 
 
 def test_seed_backfills_missing_prices_without_overwriting_owner_catalogue() -> None:
-    seed = (
-        __import__("pathlib").Path(__file__).parents[1] / "app/cli/seed.py"
-    ).read_text(encoding="utf-8")
+    seed = (__import__("pathlib").Path(__file__).parents[1] / "app/cli/seed.py").read_text(
+        encoding="utf-8"
+    )
     assert "if service is None:" in seed
     assert "if not price_count:" in seed
     assert "service.name =" not in seed

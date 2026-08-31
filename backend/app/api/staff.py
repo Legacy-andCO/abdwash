@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import httpx
 import structlog
 from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 
 from app.auth.dependencies import ManagerContext, SessionDep, StaffContext, staff_context
@@ -44,6 +45,9 @@ from app.schemas.finance import (
     CashReconciliationView,
     CashReconciliationVoid,
     ExpenseCreate,
+    ExpenseEvidenceCreate,
+    ExpenseEvidenceUploadGrant,
+    ExpenseEvidenceView,
     ExpenseList,
     ExpenseView,
     ExpenseVoid,
@@ -142,16 +146,21 @@ from app.schemas.staff import (
 )
 from app.services.customers import reschedule_managed_booking
 from app.services.finance import (
+    confirm_expense_evidence,
     create_expense,
     create_reconciliation,
+    expense_evidence_view,
+    expense_voucher_html,
     finance_overview,
     get_expense,
     get_reconciliation,
     list_expenses,
     list_reconciliations,
+    load_pending_expense_evidence,
     pending_cash,
     pending_cash_detail,
     personal_cash_summary,
+    prepare_expense_evidence_upload,
     void_expense,
     void_reconciliation,
 )
@@ -346,6 +355,16 @@ def _photo_storage(request: Request) -> SupabaseStorageAdminClient:
         supabase_url=settings.supabase_url,
         service_role_key=settings.supabase_service_role_key,
         bucket=settings.job_photo_bucket,
+    )
+
+
+def _expense_evidence_storage(request: Request) -> SupabaseStorageAdminClient:
+    settings = get_settings()
+    return SupabaseStorageAdminClient(
+        cast(httpx.AsyncClient, request.app.state.http_client),
+        supabase_url=settings.supabase_url,
+        service_role_key=settings.supabase_service_role_key,
+        bucket=settings.expense_evidence_bucket,
     )
 
 
@@ -704,6 +723,73 @@ async def finance_expense_detail(
     context: ManagerContext,
 ) -> ExpenseView:
     return await get_expense(session, context, expense_id)
+
+
+@router.get(
+    "/finance/expenses/{expense_id}/voucher",
+    response_class=HTMLResponse,
+)
+async def finance_expense_voucher(
+    expense_id: uuid.UUID,
+    session: SessionDep,
+    context: ManagerContext,
+) -> HTMLResponse:
+    return HTMLResponse(await expense_voucher_html(session, context, expense_id))
+
+
+@router.post(
+    "/finance/expenses/{expense_id}/evidence/upload",
+    response_model=ExpenseEvidenceUploadGrant,
+    status_code=201,
+)
+async def finance_expense_evidence_upload(
+    expense_id: uuid.UUID,
+    payload: ExpenseEvidenceCreate,
+    request: Request,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ExpenseEvidenceUploadGrant:
+    async with session.begin():
+        evidence = await prepare_expense_evidence_upload(session, context, expense_id, payload)
+    settings = get_settings()
+    token = await _expense_evidence_storage(request).create_signed_upload(
+        evidence.object_path, upsert=False
+    )
+    return ExpenseEvidenceUploadGrant(
+        evidence=expense_evidence_view(evidence),
+        bucket=settings.expense_evidence_bucket,
+        path=evidence.object_path,
+        upload_token=token,
+        max_bytes=settings.expense_evidence_max_bytes,
+    )
+
+
+@router.post(
+    "/finance/expenses/{expense_id}/evidence/{evidence_id}/complete",
+    response_model=ExpenseEvidenceView,
+)
+async def finance_expense_evidence_complete(
+    expense_id: uuid.UUID,
+    evidence_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ExpenseEvidenceView:
+    evidence = await load_pending_expense_evidence(session, context, expense_id, evidence_id)
+    object_path = evidence.object_path
+    await session.rollback()
+    object_info = await _expense_evidence_storage(request).object_info(object_path)
+    async with session.begin():
+        result = await confirm_expense_evidence(
+            session,
+            context,
+            expense_id,
+            evidence_id,
+            object_info=object_info,
+            max_bytes=get_settings().expense_evidence_max_bytes,
+        )
+        await bump_sync_revisions(session, context.business_id, "finance")
+        return result
 
 
 @router.post("/finance/expenses/{expense_id}/void", response_model=ExpenseView)
@@ -1139,9 +1225,7 @@ async def jobs_calendar(
     session: SessionDep,
     context: StaffDep,
 ) -> StaffCalendar:
-    return await list_job_calendar(
-        session, context, start_date=start_date, end_date=end_date
-    )
+    return await list_job_calendar(session, context, start_date=start_date, end_date=end_date)
 
 
 @router.get("/jobs/{job_id}", response_model=StaffJob)
@@ -1151,9 +1235,7 @@ async def job_detail(
     return await get_job(session, context, job_id)
 
 
-@router.get(
-    "/jobs/{job_id}/communications", response_model=list[CommunicationHistoryItem]
-)
+@router.get("/jobs/{job_id}/communications", response_model=list[CommunicationHistoryItem])
 async def job_communications(
     job_id: uuid.UUID, session: SessionDep, context: ManagerContext
 ) -> list[CommunicationHistoryItem]:
@@ -1421,10 +1503,7 @@ async def job_complete(
         result = await transition_job(session, context, job_id, payload, JobStatus.COMPLETED)
         inventory_changed = result.consumption is not None and (
             result.consumption.has_attention
-            or any(
-                line.automatic_applied_quantity > 0
-                for line in result.consumption.lines
-            )
+            or any(line.automatic_applied_quantity > 0 for line in result.consumption.lines)
         )
         if inventory_changed:
             await bump_sync_revisions(

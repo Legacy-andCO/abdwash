@@ -154,6 +154,9 @@ sync revision marks only affected scoped families stale and refetches active obs
   aggregates are authoritative; unrelated workforce/job caches remain intact.
 - Uncertain idempotent writes retain their client event ID. There is no offline mutation
   replay queue.
+- Manager exact rescheduling performs one bounded authoritative Job reconciliation after a
+  timeout. Matching UAE wall-clock date/time is treated as confirmed success; an unconfirmed
+  retry reuses the original client event ID and never opens parallel writes from double taps.
 
 ## Database and query design
 

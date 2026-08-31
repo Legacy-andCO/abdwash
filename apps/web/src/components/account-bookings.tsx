@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-provider";
 import { CustomerStatus } from "./customer-status";
 import { useCustomerBookings } from "@/lib/use-customer-bookings";
-import { formatMoney, formatSchedule } from "@/lib/dates";
+import { formatMoney, formatSchedule, TRIFECTA_TIME_ZONE } from "@/lib/dates";
 import type { CustomerBookingSummary } from "@/lib/types";
 import { useI18n } from "./i18n-provider";
 import { localizePaymentStatus, localizeServiceName } from "@/lib/i18n";
@@ -15,7 +15,7 @@ function BookingCard({ booking, featured = false }: { booking: CustomerBookingSu
   const { language, locale, t } = useI18n();
   const vehicle = booking.vehicles[0];
   return <article className={featured ? "account-booking-card featured" : "account-booking-card"}>
-    <div><CustomerStatus status={booking.status} compact /><h2>{booking.reference}</h2><p>{formatSchedule(booking.scheduled_start, booking.scheduled_end, "Asia/Dubai", locale)}</p><small>{booking.written_address}</small>{vehicle && <span className="booking-service-summary">{vehicle.make} {vehicle.model} · {localizeServiceName(language, vehicle.service_name)}</span>}<span className="booking-payment-summary">{t("account.paymentSummary", { status: localizePaymentStatus(language, booking.payment_status) })}</span></div>
+    <div><CustomerStatus status={booking.status} compact /><h2>{booking.reference}</h2><p>{formatSchedule(booking.scheduled_start, booking.scheduled_end, TRIFECTA_TIME_ZONE, locale)}</p><small>{booking.written_address}</small>{vehicle && <span className="booking-service-summary">{vehicle.make} {vehicle.model} · {localizeServiceName(language, vehicle.service_name)}</span>}<span className="booking-payment-summary">{t("account.paymentSummary", { status: localizePaymentStatus(language, booking.payment_status) })}</span></div>
     <div className="account-card-meta"><span>{booking.vehicle_count} {booking.vehicle_count === 1 ? t("common.vehicle") : t("common.vehicles")}</span><strong>{formatMoney(booking.total_amount_minor, booking.currency_code, locale)}</strong><Link className="text-link" href={`/account/bookings/${booking.id}`}>{t("account.view")} <span className="directional-icon" aria-hidden="true">→</span></Link></div>
   </article>;
 }

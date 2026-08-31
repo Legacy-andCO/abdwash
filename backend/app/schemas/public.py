@@ -62,6 +62,9 @@ class ServicePublic(BaseModel):
     estimated_duration_minutes: int
     mobile_available: bool = True
     shop_available: bool = True
+    included_features: list[str] = Field(default_factory=list)
+    product_kind: str = "single_service"
+    customer_bookable: bool = True
     prices: list[ServicePricePublic] = Field(default_factory=list)
     addons: list[ServiceAddonPublic] = Field(default_factory=list)
 
@@ -159,6 +162,12 @@ class BookingVehicleCreate(StrictRequest):
         return value
 
 
+class BookingBillingDetails(StrictRequest):
+    company_name: NonBlank = Field(max_length=200)
+    billing_address: NonBlank = Field(max_length=2000)
+    tax_registration_number: str | None = Field(default=None, max_length=40)
+
+
 class BookingAddonSummary(BaseModel):
     id: uuid.UUID | None = None
     name: str
@@ -172,6 +181,7 @@ class BookingCreate(StrictRequest):
     location: BookingLocation
     vehicles: list[BookingVehicleCreate] = Field(min_length=1, max_length=20)
     payment_choice: Literal["pay_now", "pay_after_service"]
+    billing: BookingBillingDetails | None = None
     source: Literal["web", "mobile", "admin"] = "web"
 
 

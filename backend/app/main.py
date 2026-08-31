@@ -98,9 +98,7 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
         staff_context_ms = float(getattr(request.state, "staff_context_ms", 0.0))
         application_ms = max(
             0.0,
-            response_start_ms
-            - auth_ms
-            - staff_context_ms,
+            response_start_ms - auth_ms - staff_context_ms,
         )
         timing_parts = [
             f"auth;dur={auth_ms:.2f}",
@@ -115,9 +113,7 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
         response.headers["Server-Timing"] = ", ".join(timing_parts)
         if not settings.is_production:
             response.headers["X-SQL-Query-Count"] = str(database_metrics.query_count)
-            response.headers["X-SQL-Duration-Ms"] = (
-                f"{database_metrics.query_duration_ms:.2f}"
-            )
+            response.headers["X-SQL-Duration-Ms"] = f"{database_metrics.query_duration_ms:.2f}"
         return response
     finally:
         route = request.scope.get("route")
@@ -143,9 +139,7 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
                 else None
             ),
             auth_ms=round(float(getattr(request.state, "auth_ms", 0.0)), 2),
-            staff_context_ms=round(
-                float(getattr(request.state, "staff_context_ms", 0.0)), 2
-            ),
+            staff_context_ms=round(float(getattr(request.state, "staff_context_ms", 0.0)), 2),
             provider_attempt_count=database_metrics.provider_attempt_count,
             provider_duration_ms=round(database_metrics.provider_duration_ms, 2),
             provider_outcomes=database_metrics.provider_outcomes,

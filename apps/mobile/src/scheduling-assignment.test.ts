@@ -63,7 +63,16 @@ describe("smart scheduling assignment UI", () => {
     expect(reschedule).toContain("time: startTime");
     expect(reschedule).toContain("client_event_id: eventIds.get(key)");
     expect(reschedule).toContain("eventIds.failed(key, error)");
+    expect(reschedule).toContain("isUncertainMutationFailure(error)");
+    expect(reschedule).toContain("await getJob(job.id)");
+    expect(reschedule).toContain('"RESCHEDULE_UNCONFIRMED"');
     expect(reschedule).toContain('queryKey: ["jobs", scope]');
     expect(reschedule).toContain('queryKey: ["dashboard", scope]');
+  });
+
+  it("prevents parallel reschedule submissions while confirmation is pending", () => {
+    const jobsScreen = source("./screens/JobsScreen.tsx");
+    expect(jobsScreen).toContain("if (!selectedTime || mutation.isPending) return;");
+    expect(jobsScreen).toContain("disabled={mutation.isPending || !selectedTime}");
   });
 });

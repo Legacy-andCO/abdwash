@@ -22,6 +22,7 @@ import type { MixRow, ReportV2, StaffContext } from "../lib";
 import { useReportQuery } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
 import { FinanceScreen } from "./FinanceScreen";
+import { addUaeDays, uaeDateKey, wallDate } from "../time/uaeTime";
 
 export type Period = "today" | "week" | "month" | "custom";
 export type ReportsNavigationState = {
@@ -29,8 +30,6 @@ export type ReportsNavigationState = {
   customStart: string;
   customEnd: string;
 };
-const iso = (value: Date) => value.toISOString().slice(0, 10);
-
 export function ReportsScreen({
   context,
   navigationState,
@@ -44,8 +43,8 @@ export function ReportsScreen({
 }) {
   const initial = navigationState ?? {
     period: "week" as const,
-    customStart: iso(new Date()),
-    customEnd: iso(new Date()),
+    customStart: uaeDateKey(),
+    customEnd: uaeDateKey(),
   };
   const [period, setPeriod] = useState<Period>(initial.period);
   const [customStart, setCustomStart] = useState(initial.customStart);
@@ -59,13 +58,14 @@ export function ReportsScreen({
     onNavigationStateChange?.(next);
   }
   const range = useMemo(() => {
-    const end = new Date();
-    const start = new Date(end);
-    if (period === "week") start.setDate(end.getDate() - 6);
-    if (period === "month") start.setDate(end.getDate() - 29);
+    const end = uaeDateKey();
+    const start = addUaeDays(
+      end,
+      period === "week" ? -6 : period === "month" ? -29 : 0,
+    );
     return period === "custom"
       ? { start: customStart, end: customEnd }
-      : { start: iso(start), end: iso(end) };
+      : { start, end };
   }, [customEnd, customStart, period]);
   const query = useReportQuery(context, range.start, range.end);
   const report = query.data;
@@ -118,7 +118,7 @@ export function ReportsScreen({
             label="To"
             value={customEnd}
             minimumDate={fromIsoDate(customStart)}
-            maximumDate={new Date()}
+            maximumDate={wallDate(uaeDateKey())}
             onChange={(value) => updateNavigation({ customEnd: value })}
           />
         </View>

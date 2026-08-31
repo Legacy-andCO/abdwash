@@ -27,6 +27,7 @@ from app.models.entities import (
     NotificationOutbox,
     Payment,
     PaymentTransaction,
+    RevenueInvoice,
 )
 from app.services.management_tokens import create_management_token
 
@@ -84,8 +85,7 @@ async def enqueue_due_appointment_reminders(
                 "channel": "email",
                 "notification_type": "appointment_reminder",
                 "dedupe_key": (
-                    f"appointment-reminder:{booking_id}:"
-                    f"{int(scheduled_start.timestamp())}"
+                    f"appointment-reminder:{booking_id}:{int(scheduled_start.timestamp())}"
                 ),
                 "recipient": customer_email,
                 "payload": {
@@ -291,6 +291,7 @@ async def delivery_payload(
         "team_arrived",
         "team_delayed",
         "payment_pending",
+        "payment_received",
         "booking_cancelled",
     }:
         return payload
@@ -341,6 +342,27 @@ async def delivery_payload(
             "cancellation_cutoff_hours": settings.cancellation_cutoff_hours,
         }
     )
+    if record.notification_type == "payment_received":
+        invoice_id = uuid.UUID(str(payload.get("invoice_id")))
+        invoice = await session.scalar(
+            select(RevenueInvoice).where(
+                RevenueInvoice.id == invoice_id,
+                RevenueInvoice.booking_id == booking.id,
+            )
+        )
+        if invoice is None:
+            raise RuntimeError("Payment notification has no invoice")
+        payload.update(
+            {
+                "invoice_number": invoice.invoice_number,
+                "invoice_document_type": invoice.document_type,
+                "payment_method": invoice.payment_method,
+                "amount_paid_minor": invoice.total_minor,
+                "invoice_url": (
+                    f"{public_web_url.rstrip('/')}/invoice?invoice={invoice.id}#{token}"
+                ),
+            }
+        )
     if record.notification_type == "job_completed":
         job_payment = (
             await session.execute(

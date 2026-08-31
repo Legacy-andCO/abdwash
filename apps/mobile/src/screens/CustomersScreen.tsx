@@ -26,6 +26,7 @@ import {
 import { domainErrorMessage } from "../errors/domainErrors";
 import { successHaptic } from "../haptics";
 import { ClientEventIdStore } from "../idempotency/clientEventId";
+import { formatUaeDateTime } from "../time/uaeTime";
 import type {
   CustomerAddress,
   CustomerVehicle,
@@ -526,7 +527,7 @@ function BookingRow({
         </Text>
       ))}
       <Text style={uiStyles.muted}>
-        {new Date(item.scheduled_start).toLocaleString()} · {item.currency_code}{" "}
+        {formatUaeDateTime(item.scheduled_start)} · {item.currency_code}{" "}
         {(item.total_amount_minor / 100).toFixed(2)} · {item.payment_status}
       </Text>
       {item.complaint_count ? (

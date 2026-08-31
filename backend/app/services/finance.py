@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
+from html import escape
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -16,6 +17,7 @@ from app.models.entities import (
     CashReconciliation,
     CashReconciliationPayment,
     Expense,
+    ExpenseEvidence,
     Job,
     Payment,
     PaymentTransaction,
@@ -32,6 +34,8 @@ from app.schemas.finance import (
     CashReconciliationView,
     ExpenseCategoryTotal,
     ExpenseCreate,
+    ExpenseEvidenceCreate,
+    ExpenseEvidenceView,
     ExpenseList,
     ExpenseView,
     FinanceOverview,
@@ -39,6 +43,15 @@ from app.schemas.finance import (
     PersonalCashSummary,
     TeamContribution,
 )
+
+
+def expense_evidence_view(evidence: ExpenseEvidence) -> ExpenseEvidenceView:
+    return ExpenseEvidenceView(
+        id=evidence.id,
+        file_name=evidence.file_name,
+        content_type=evidence.content_type,
+        status=evidence.status,
+    )
 
 
 def _bounds(start_date: date, end_date: date, timezone: str) -> tuple[datetime, datetime]:
@@ -120,6 +133,11 @@ def _expense_view(row: Any) -> ExpenseView:
         related_booking_reference=booking_reference,
         supplier_name=expense.supplier_name,
         reference_number=expense.reference_number,
+        supplier_tax_registration_number=expense.supplier_tax_registration_number,
+        supplier_document_number=expense.supplier_document_number,
+        net_amount_minor=expense.net_amount_minor,
+        vat_amount_minor=expense.vat_amount_minor,
+        evidence_status=expense.evidence_status,
         notes=expense.notes,
         receipt_available=expense.receipt_object_path is not None,
         status=expense.status,
@@ -174,6 +192,11 @@ async def create_expense(
         related_job_id=request.related_job_id,
         supplier_name=request.supplier_name,
         reference_number=request.reference_number,
+        supplier_tax_registration_number=request.supplier_tax_registration_number,
+        supplier_document_number=request.supplier_document_number,
+        net_amount_minor=request.net_amount_minor,
+        vat_amount_minor=request.vat_amount_minor,
+        evidence_status=request.evidence_status,
         notes=request.notes,
         status="active",
         client_event_id=request.client_event_id,
@@ -194,6 +217,191 @@ async def get_expense(
     if row is None:
         raise DomainError("EXPENSE_NOT_FOUND", "Expense not found.", status_code=404)
     return _expense_view(row)
+
+
+async def expense_voucher_html(
+    session: AsyncSession, context: StaffContext, expense_id: uuid.UUID
+) -> str:
+    expense = await get_expense(session, context, expense_id)
+    recorded_by = await session.scalar(
+        select(StaffProfile.display_name)
+        .join(Expense, Expense.created_by_staff_id == StaffProfile.id)
+        .where(
+            Expense.id == expense_id,
+            Expense.business_id == context.business_id,
+        )
+    )
+    evidence_names = (
+        await session.scalars(
+            select(ExpenseEvidence.file_name)
+            .join(Expense, Expense.id == ExpenseEvidence.expense_id)
+            .where(
+                ExpenseEvidence.expense_id == expense_id,
+                ExpenseEvidence.status == "ready",
+                Expense.business_id == context.business_id,
+            )
+            .order_by(ExpenseEvidence.created_at, ExpenseEvidence.id)
+        )
+    ).all()
+    supplier = escape(expense.supplier_name or "Not recorded")
+    supplier_document = escape(expense.supplier_document_number or "Not recorded")
+    evidence = ", ".join(escape(name) for name in evidence_names) or "None attached"
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Internal Expense Voucher</title>
+<style>body{{font-family:Arial,sans-serif;color:#241c1a;margin:40px;line-height:1.5}}
+.warning{{padding:12px;background:#f4ede4;border-left:4px solid #d65a1f}}
+dl{{display:grid;grid-template-columns:180px 1fr;gap:8px}}dt{{font-weight:700}}
+@media print{{button{{display:none}}}}</style></head><body>
+<h1>Trifecta Internal Expense Voucher</h1>
+<p class="warning"><strong>Not a Tax Invoice.</strong> This internal voucher does not replace
+the supplier's original invoice or receipt and does not establish VAT recoverability.</p>
+<dl><dt>Reference</dt><dd>{escape(expense.reference_number or str(expense.id))}</dd>
+<dt>Date</dt><dd>{expense.expense_date.isoformat()}</dd>
+<dt>Description</dt><dd>{escape(expense.description)}</dd>
+<dt>Supplier</dt><dd>{supplier}</dd>
+<dt>Supplier document</dt><dd>{supplier_document}</dd>
+<dt>Net</dt><dd>{expense.currency_code} {expense.net_amount_minor / 100:,.2f}</dd>
+<dt>VAT recorded</dt><dd>{expense.currency_code} {expense.vat_amount_minor / 100:,.2f}</dd>
+<dt>Gross</dt><dd>{expense.currency_code} {expense.amount_minor / 100:,.2f}</dd>
+<dt>Payment method</dt><dd>{escape(expense.payment_method.replace("_", " ").title())}</dd>
+<dt>Recorded by</dt><dd>{escape(recorded_by or "Not recorded")}</dd>
+<dt>Evidence status</dt><dd>{escape(expense.evidence_status.replace("_", " ").title())}</dd>
+<dt>Attached evidence</dt><dd>{evidence}</dd></dl>
+<button onclick="window.print()">Print / Save PDF</button></body></html>"""
+
+
+async def prepare_expense_evidence_upload(
+    session: AsyncSession,
+    context: StaffContext,
+    expense_id: uuid.UUID,
+    payload: ExpenseEvidenceCreate,
+) -> ExpenseEvidence:
+    expense = await session.scalar(
+        select(Expense).where(
+            Expense.id == expense_id,
+            Expense.business_id == context.business_id,
+        )
+    )
+    if expense is None:
+        raise DomainError("EXPENSE_NOT_FOUND", "Expense not found.", status_code=404)
+    if expense.status != "active":
+        raise ConflictError(
+            "EXPENSE_EVIDENCE_NOT_AVAILABLE",
+            "Evidence cannot be added to a voided expense.",
+        )
+    existing = await session.scalar(
+        select(ExpenseEvidence).where(
+            ExpenseEvidence.expense_id == expense.id,
+            ExpenseEvidence.client_request_id == payload.client_request_id,
+        )
+    )
+    if existing is not None:
+        if existing.content_type != payload.content_type:
+            raise ConflictError(
+                "EXPENSE_EVIDENCE_REQUEST_REUSED",
+                "That evidence upload request was already used.",
+            )
+        return existing
+    evidence_id = uuid.uuid4()
+    extension = {
+        "application/pdf": "pdf",
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }[payload.content_type]
+    object_path = f"business/{context.business_id}/expenses/{expense.id}/{evidence_id}.{extension}"
+    evidence = ExpenseEvidence(
+        id=evidence_id,
+        expense_id=expense.id,
+        object_path=object_path,
+        file_name=payload.file_name.strip(),
+        content_type=payload.content_type,
+        status="pending",
+        client_request_id=payload.client_request_id,
+        uploaded_by_staff_id=context.staff_id,
+    )
+    session.add(evidence)
+    await session.flush()
+    return evidence
+
+
+async def load_pending_expense_evidence(
+    session: AsyncSession,
+    context: StaffContext,
+    expense_id: uuid.UUID,
+    evidence_id: uuid.UUID,
+) -> ExpenseEvidence:
+    evidence = await session.scalar(
+        select(ExpenseEvidence)
+        .join(Expense, Expense.id == ExpenseEvidence.expense_id)
+        .where(
+            ExpenseEvidence.id == evidence_id,
+            ExpenseEvidence.expense_id == expense_id,
+            Expense.business_id == context.business_id,
+        )
+    )
+    if evidence is None:
+        raise DomainError(
+            "EXPENSE_EVIDENCE_NOT_FOUND", "Expense evidence not found.", status_code=404
+        )
+    return evidence
+
+
+async def confirm_expense_evidence(
+    session: AsyncSession,
+    context: StaffContext,
+    expense_id: uuid.UUID,
+    evidence_id: uuid.UUID,
+    *,
+    object_info: dict[str, Any],
+    max_bytes: int,
+) -> ExpenseEvidenceView:
+    row = (
+        await session.execute(
+            select(ExpenseEvidence, Expense)
+            .join(Expense, Expense.id == ExpenseEvidence.expense_id)
+            .where(
+                ExpenseEvidence.id == evidence_id,
+                ExpenseEvidence.expense_id == expense_id,
+                Expense.business_id == context.business_id,
+            )
+            .with_for_update(of=ExpenseEvidence)
+        )
+    ).one_or_none()
+    if row is None:
+        raise DomainError(
+            "EXPENSE_EVIDENCE_NOT_FOUND", "Expense evidence not found.", status_code=404
+        )
+    evidence, expense = row
+    if evidence.status == "ready":
+        return expense_evidence_view(evidence)
+    size = int(object_info.get("size") or object_info.get("metadata", {}).get("size") or 0)
+    mimetype = str(
+        object_info.get("mimetype")
+        or object_info.get("metadata", {}).get("mimetype")
+        or evidence.content_type
+    )
+    if size <= 0 or size > max_bytes or mimetype != evidence.content_type:
+        raise DomainError(
+            "INVALID_EXPENSE_EVIDENCE",
+            "Uploaded expense evidence is invalid.",
+            status_code=422,
+        )
+    evidence.status = "ready"
+    evidence.size_bytes = size
+    expense.evidence_status = "complete"
+    if expense.receipt_object_path is None:
+        expense.receipt_object_path = evidence.object_path
+    _audit(
+        session,
+        context,
+        "expense_evidence_added",
+        "expense",
+        expense.id,
+        {"evidence_id": str(evidence.id)},
+    )
+    await session.flush()
+    return expense_evidence_view(evidence)
 
 
 async def list_expenses(
@@ -557,9 +765,7 @@ async def create_reconciliation(
         )
     active_links = await session.scalar(
         select(func.count(CashReconciliationPayment.id)).where(
-            CashReconciliationPayment.payment_transaction_id.in_(
-                request.payment_transaction_ids
-            ),
+            CashReconciliationPayment.payment_transaction_id.in_(request.payment_transaction_ids),
             CashReconciliationPayment.active.is_(True),
         )
     )
@@ -750,9 +956,11 @@ async def finance_overview(
 ) -> FinanceOverview:
     start, end = _bounds(start_date, end_date, context.timezone)
     pending_transactions = _pending_base(context).subquery()
-    cash_pending_query = select(
-        func.coalesce(func.sum(pending_transactions.c.amount_minor), 0)
-    ).correlate(None).scalar_subquery()
+    cash_pending_query = (
+        select(func.coalesce(func.sum(pending_transactions.c.amount_minor), 0))
+        .correlate(None)
+        .scalar_subquery()
+    )
     discrepancy_query = (
         select(func.coalesce(func.sum(CashReconciliation.difference_minor), 0))
         .where(

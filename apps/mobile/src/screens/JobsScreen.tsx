@@ -69,6 +69,15 @@ import {
 import { colors, radii, spacing } from "../theme";
 import { normalizeCustomerSearch } from "../search/customerSearch";
 import { hourlyQuickTimes } from "../scheduling/exactTime";
+import {
+  addUaeDays,
+  formatUaeDateTime,
+  formatUaeTime,
+  formatWallClockTime,
+  uaeAppointmentParts,
+  uaeDateKey,
+  wallDate,
+} from "../time/uaeTime";
 
 export type JobView =
   | "today"
@@ -78,18 +87,9 @@ export type JobView =
   | "all"
   | "calendar";
 export type JobsNavigationState = { view: JobView; offset: number };
-const today = () => new Date().toISOString().slice(0, 10);
-const formatTime = (value: string) =>
-  new Date(value).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
-function formatClockTime(value: string): string {
-  const [hours, minutes] = value.split(":").map(Number);
-  const date = new Date(2000, 0, 1, hours, minutes);
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
+const today = uaeDateKey;
+const formatTime = formatUaeTime;
+const formatClockTime = formatWallClockTime;
 
 export function JobsScreen({
   context,
@@ -1276,13 +1276,9 @@ function RescheduleSheet({
   job: Job;
   onClose: () => void;
 }) {
-  const currentAppointment = new Date(job.scheduled_start);
-  const [selectedDay, setSelectedDay] = useState(() =>
-    toIsoDate(currentAppointment),
-  );
-  const [selectedTime, setSelectedTime] = useState(() =>
-    `${String(currentAppointment.getHours()).padStart(2, "0")}:${String(currentAppointment.getMinutes()).padStart(2, "0")}`,
-  );
+  const currentAppointment = uaeAppointmentParts(job.scheduled_start);
+  const [selectedDay, setSelectedDay] = useState(currentAppointment.date);
+  const [selectedTime, setSelectedTime] = useState(currentAppointment.time);
   const [showCustomTime, setShowCustomTime] = useState(false);
   const settings = useBusinessSettingsQuery(context, visible);
   const mutation = useRescheduleMutation(context, job);
@@ -1313,7 +1309,7 @@ function RescheduleSheet({
     confirmActiveReschedule: boolean,
     overrideTurnaround = false,
   ) {
-    if (!selectedTime) return;
+    if (!selectedTime || mutation.isPending) return;
     try {
       await mutation.mutateAsync({
         selectedDay,
@@ -1393,7 +1389,7 @@ function RescheduleSheet({
             </Pressable>
           </View>
           <Text style={uiStyles.muted}>
-            Current · {new Date(job.scheduled_start).toLocaleString()}
+            Current · {formatUaeDateTime(job.scheduled_start)}
           </Text>
           <Text style={styles.sectionTitle}>CHOOSE DATE</Text>
           <ScrollView
@@ -1438,7 +1434,7 @@ function RescheduleSheet({
           <DatePickerField
             label="Another date"
             value={selectedDay}
-            minimumDate={new Date()}
+            minimumDate={wallDate(today())}
             onChange={changeDay}
           />
           {settings.isPending ? (
@@ -1561,13 +1557,10 @@ function Choice({
   );
 }
 function upcomingDates(count: number): Date[] {
-  const start = new Date();
-  start.setHours(12, 0, 0, 0);
-  return Array.from({ length: count }, (_, index) => {
-    const value = new Date(start);
-    value.setDate(start.getDate() + index);
-    return value;
-  });
+  const start = today();
+  return Array.from({ length: count }, (_, index) =>
+    wallDate(addUaeDays(start, index)),
+  );
 }
 const label = (value: JobView) => value[0].toUpperCase() + value.slice(1);
 const styles = StyleSheet.create({

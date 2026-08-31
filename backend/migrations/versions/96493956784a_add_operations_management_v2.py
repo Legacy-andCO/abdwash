@@ -51,12 +51,8 @@ def upgrade() -> None:
             server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["resource_id"], ["schedule_resources.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["staff_profile_id"], ["staff_profiles.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["resource_id"], ["schedule_resources.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["staff_profile_id"], ["staff_profiles.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "resource_id",
@@ -96,9 +92,7 @@ def upgrade() -> None:
             name="attendance_chronological",
         ),
         sa.ForeignKeyConstraint(["business_id"], ["businesses.id"]),
-        sa.ForeignKeyConstraint(
-            ["staff_profile_id"], ["staff_profiles.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["staff_profile_id"], ["staff_profiles.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -163,13 +157,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["business_id"], ["businesses.id"]),
         sa.ForeignKeyConstraint(["resource_id"], ["schedule_resources.id"]),
         sa.ForeignKeyConstraint(["shift_id"], ["shifts.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["staff_profile_id"], ["staff_profiles.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["staff_profile_id"], ["staff_profiles.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "staff_profile_id", "work_date", name="uq_staff_shift_work_date"
-        ),
+        sa.UniqueConstraint("staff_profile_id", "work_date", name="uq_staff_shift_work_date"),
     )
     op.create_index(
         "ix_shift_assignments_business_date",
@@ -208,9 +198,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["business_id"], ["businesses.id"]),
         sa.ForeignKeyConstraint(["reviewed_by_staff_id"], ["staff_profiles.id"]),
-        sa.ForeignKeyConstraint(
-            ["staff_profile_id"], ["staff_profiles.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["staff_profile_id"], ["staff_profiles.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -254,16 +242,12 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index("ix_jobs_resource_schedule", table_name="jobs")
-    op.drop_constraint(
-        "jobs_assigned_resource_id_schedule_resources", "jobs", type_="foreignkey"
-    )
+    op.drop_constraint("jobs_assigned_resource_id_schedule_resources", "jobs", type_="foreignkey")
     op.drop_column("jobs", "assigned_resource_id")
     op.drop_index("ix_leave_staff_dates", table_name="leave_requests")
     op.drop_index("ix_leave_business_status_dates", table_name="leave_requests")
     op.drop_table("leave_requests")
-    op.drop_index(
-        "ix_shift_assignments_business_date", table_name="staff_shift_assignments"
-    )
+    op.drop_index("ix_shift_assignments_business_date", table_name="staff_shift_assignments")
     op.drop_table("staff_shift_assignments")
     op.drop_table("shifts")
     op.drop_index("uq_attendance_open_staff", table_name="attendance_sessions")
@@ -272,7 +256,5 @@ def downgrade() -> None:
     op.drop_index("ix_team_memberships_staff_active", table_name="team_memberships")
     op.drop_table("team_memberships")
     op.drop_column("staff_profiles", "phone")
-    op.drop_constraint(
-        "nonnegative_attendance_grace", "business_settings", type_="check"
-    )
+    op.drop_constraint("nonnegative_attendance_grace", "business_settings", type_="check")
     op.drop_column("business_settings", "attendance_grace_minutes")

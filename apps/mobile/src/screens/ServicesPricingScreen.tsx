@@ -492,6 +492,69 @@ function SettingsEditor({
       <Text style={uiStyles.muted}>
         Reminder emails are queued from the current appointment schedule.
       </Text>
+      <Text style={styles.section}>INVOICE IDENTITY</Text>
+      <Field
+        label="Legal name"
+        value={draft.legal_name ?? ""}
+        onChange={(selected) => setDraft({ ...draft, legal_name: selected || null })}
+      />
+      <Field
+        label="Trading name"
+        value={draft.trading_name ?? ""}
+        onChange={(selected) => setDraft({ ...draft, trading_name: selected || null })}
+      />
+      <Field
+        label="Business address"
+        value={draft.billing_address ?? ""}
+        onChange={(selected) => setDraft({ ...draft, billing_address: selected || null })}
+      />
+      <Field
+        label="Emirate"
+        value={draft.billing_emirate ?? ""}
+        onChange={(selected) => setDraft({ ...draft, billing_emirate: selected || null })}
+      />
+      <Field
+        label="Country"
+        value={draft.billing_country}
+        onChange={(selected) => setDraft({ ...draft, billing_country: selected })}
+      />
+      <Toggle
+        label="VAT registered"
+        value={draft.vat_registered}
+        onChange={(selected) => setDraft({ ...draft, vat_registered: selected })}
+      />
+      {draft.vat_registered ? (
+        <>
+          <Field
+            label="Tax registration number (TRN)"
+            value={draft.tax_registration_number ?? ""}
+            onChange={(selected) => setDraft({ ...draft, tax_registration_number: selected || null })}
+          />
+          <Field
+            label="VAT rate (%)"
+            value={String(draft.vat_rate)}
+            onChange={(selected) => setDraft({ ...draft, vat_rate: Number(selected) })}
+            keyboard="decimal-pad"
+          />
+          <Toggle
+            label="Catalogue prices include VAT"
+            value={draft.prices_include_vat}
+            onChange={(selected) => setDraft({ ...draft, prices_include_vat: selected })}
+          />
+        </>
+      ) : null}
+      <Field
+        label="Invoice email"
+        value={draft.billing_email ?? ""}
+        onChange={(selected) => setDraft({ ...draft, billing_email: selected || null })}
+        keyboard="email-address"
+      />
+      <Field
+        label="Invoice phone"
+        value={draft.billing_phone ?? ""}
+        onChange={(selected) => setDraft({ ...draft, billing_phone: selected || null })}
+        keyboard="phone-pad"
+      />
       <Text style={styles.section}>LOYALTY REWARD SERVICE</Text>
       <ChoiceRow
         values={[{ id: "", label: "None" }, ...(catalogue?.services.filter((item) => item.is_active).map((item) => ({ id: item.id, label: item.name })) ?? [])]}
@@ -628,7 +691,12 @@ function Field({
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  keyboard?: "default" | "decimal-pad" | "number-pad";
+  keyboard?:
+    | "default"
+    | "decimal-pad"
+    | "number-pad"
+    | "email-address"
+    | "phone-pad";
   multiline?: boolean;
 }) {
   return (

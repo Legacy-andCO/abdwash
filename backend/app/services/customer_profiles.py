@@ -186,9 +186,7 @@ async def load_saved_customer_details(
                     written_address=row["value_2"],
                     location_url=row["value_3"],
                     latitude=float(row["latitude"]) if row["latitude"] is not None else None,
-                    longitude=(
-                        float(row["longitude"]) if row["longitude"] is not None else None
-                    ),
+                    longitude=(float(row["longitude"]) if row["longitude"] is not None else None),
                     location_instructions=row["value_4"],
                     is_default=bool(row["is_default"]),
                 )

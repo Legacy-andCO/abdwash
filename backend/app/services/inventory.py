@@ -1058,8 +1058,7 @@ async def apply_available_job_usage(
         "job_id": str(job_id),
         "location_id": str(location_id),
         "lines": [
-            {"item_id": str(item_id), "quantity": str(quantity)}
-            for item_id, quantity in ordered
+            {"item_id": str(item_id), "quantity": str(quantity)} for item_id, quantity in ordered
         ],
     }
     request_hash = hashlib.sha256(

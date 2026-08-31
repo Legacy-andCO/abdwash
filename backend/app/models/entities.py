@@ -52,9 +52,7 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     business_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("businesses.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    timezone: Mapped[str] = mapped_column(
-        String(64), nullable=False, default=TRIFECTA_TIMEZONE
-    )
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False, default=TRIFECTA_TIMEZONE)
     currency_code: Mapped[str] = mapped_column(String(3), nullable=False, default="AED")
     opening_time: Mapped[time] = mapped_column(Time, nullable=False)
     closing_time: Mapped[time] = mapped_column(Time, nullable=False)
@@ -93,6 +91,28 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     default_inventory_location_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("inventory_locations.id", ondelete="SET NULL")
     )
+    legal_name: Mapped[str | None] = mapped_column(String(200))
+    trading_name: Mapped[str | None] = mapped_column(String(200))
+    billing_address: Mapped[str | None] = mapped_column(Text)
+    billing_emirate: Mapped[str | None] = mapped_column(String(80))
+    billing_country: Mapped[str] = mapped_column(
+        String(80),
+        nullable=False,
+        default="United Arab Emirates",
+        server_default="United Arab Emirates",
+    )
+    tax_registration_number: Mapped[str | None] = mapped_column(String(40))
+    vat_registered: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    vat_rate: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), nullable=False, default=Decimal("5.00"), server_default=text("5.00")
+    )
+    prices_include_vat: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    billing_email: Mapped[str | None] = mapped_column(String(320))
+    billing_phone: Mapped[str | None] = mapped_column(String(40))
     __table_args__ = (
         CheckConstraint("slot_duration_minutes > 0", name="positive_slot_duration"),
         CheckConstraint("multi_vehicle_threshold > 0", name="positive_vehicle_threshold"),
@@ -108,6 +128,11 @@ class BusinessSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint(
             "appointment_reminder_hours_before BETWEEN 1 AND 168",
             name="valid_appointment_reminder_hours",
+        ),
+        CheckConstraint("vat_rate BETWEEN 0 AND 100", name="valid_business_vat_rate"),
+        CheckConstraint(
+            "vat_registered IS FALSE OR tax_registration_number IS NOT NULL",
+            name="vat_registration_requires_trn",
         ),
     )
 
@@ -243,6 +268,15 @@ class Service(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     estimated_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=120)
     vehicle_applicability: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     checklist_template: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    included_features: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list, server_default=text("'[]'::json")
+    )
+    product_kind: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="single_service", server_default="single_service"
+    )
+    customer_bookable: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     mobile_available: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
@@ -257,6 +291,10 @@ class Service(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint(
             "estimated_duration_minutes BETWEEN 15 AND 1440",
             name="valid_service_duration",
+        ),
+        CheckConstraint(
+            "product_kind IN ('single_service','monthly_package')",
+            name="service_product_kind",
         ),
     )
 
@@ -523,6 +561,9 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     latitude: Mapped[float | None] = mapped_column(Numeric(10, 7))
     longitude: Mapped[float | None] = mapped_column(Numeric(10, 7))
     location_instructions: Mapped[str | None] = mapped_column(Text)
+    billing_company_name: Mapped[str | None] = mapped_column(String(200))
+    billing_address: Mapped[str | None] = mapped_column(Text)
+    billing_tax_registration_number: Mapped[str | None] = mapped_column(String(40))
     management_token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default=text("1")
@@ -971,6 +1012,73 @@ class PaymentTransaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class InvoiceSequence(Base):
+    __tablename__ = "invoice_sequences"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), primary_key=True
+    )
+    issue_year: Mapped[int] = mapped_column(Integer, primary_key=True)
+    next_number: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=text("1")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    __table_args__ = (
+        CheckConstraint("issue_year >= 2020", name="valid_invoice_sequence_year"),
+        CheckConstraint("next_number > 0", name="positive_invoice_sequence"),
+    )
+
+
+class RevenueInvoice(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "revenue_invoices"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="RESTRICT"), nullable=False
+    )
+    booking_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bookings.id", ondelete="RESTRICT"), nullable=False
+    )
+    payment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("payments.id", ondelete="RESTRICT"), nullable=False
+    )
+    payment_transaction_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("payment_transactions.id", ondelete="RESTRICT"), unique=True, nullable=False
+    )
+    invoice_number: Mapped[str] = mapped_column(String(40), nullable=False)
+    document_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    supply_date: Mapped[date] = mapped_column(nullable=False)
+    currency_code: Mapped[str] = mapped_column(String(3), nullable=False)
+    supplier_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    customer_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    line_items: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    subtotal_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    discount_minor: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    vat_amount_minor: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(40), nullable=False)
+    payment_reference: Mapped[str | None] = mapped_column(String(255))
+    __table_args__ = (
+        UniqueConstraint("business_id", "invoice_number", name="uq_revenue_invoice_number"),
+        CheckConstraint(
+            "document_type IN ('tax_invoice','invoice')", name="revenue_invoice_document_type"
+        ),
+        CheckConstraint(
+            "subtotal_minor >= 0 AND discount_minor >= 0 AND vat_amount_minor >= 0 "
+            "AND total_minor >= 0",
+            name="nonnegative_revenue_invoice_totals",
+        ),
+        CheckConstraint(
+            "total_minor = subtotal_minor - discount_minor + vat_amount_minor",
+            name="revenue_invoice_total_consistent",
+        ),
+        Index("ix_revenue_invoices_booking", "booking_id", "issued_at"),
+        Index("ix_revenue_invoices_business_issued", "business_id", "issued_at"),
+    )
+
+
 class InventoryItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "inventory_items"
 
@@ -1288,9 +1396,7 @@ class JobInventoryConsumptionLine(UUIDPrimaryKeyMixin, Base):
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False
     )
     __table_args__ = (
-        CheckConstraint(
-            "expected_quantity > 0", name="job_inventory_line_positive_expected"
-        ),
+        CheckConstraint("expected_quantity > 0", name="job_inventory_line_positive_expected"),
         CheckConstraint(
             "automatic_applied_quantity >= 0 AND preexisting_manual_quantity >= 0 "
             "AND shortfall_quantity >= 0",
@@ -1331,6 +1437,15 @@ class Expense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     supplier_name: Mapped[str | None] = mapped_column(String(200))
     reference_number: Mapped[str | None] = mapped_column(String(160))
+    supplier_tax_registration_number: Mapped[str | None] = mapped_column(String(40))
+    supplier_document_number: Mapped[str | None] = mapped_column(String(160))
+    net_amount_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    vat_amount_minor: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    evidence_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="missing_evidence", server_default="missing_evidence"
+    )
     notes: Mapped[str | None] = mapped_column(Text)
     receipt_object_path: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(
@@ -1345,6 +1460,15 @@ class Expense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     void_reason: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (
         CheckConstraint("amount_minor > 0", name="positive_expense_amount"),
+        CheckConstraint(
+            "net_amount_minor >= 0 AND vat_amount_minor >= 0 "
+            "AND amount_minor = net_amount_minor + vat_amount_minor",
+            name="expense_amount_breakdown",
+        ),
+        CheckConstraint(
+            "evidence_status IN ('complete','missing_evidence','not_required')",
+            name="expense_evidence_status",
+        ),
         CheckConstraint("status IN ('active','voided')", name="expense_status"),
         CheckConstraint(
             "category IN ('chemicals_supplies','fuel','vehicle_transport','equipment',"
@@ -1369,6 +1493,31 @@ class Expense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_expenses_related_job", "related_job_id"),
         Index("ix_expenses_created_by_staff", "created_by_staff_id"),
         Index("ix_expenses_voided_by_staff", "voided_by_staff_id"),
+    )
+
+
+class ExpenseEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "expense_evidence"
+
+    expense_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("expenses.id", ondelete="CASCADE"), nullable=False
+    )
+    object_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pending", server_default="pending"
+    )
+    size_bytes: Mapped[int | None] = mapped_column(Integer)
+    client_request_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    uploaded_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id", ondelete="RESTRICT"), nullable=False
+    )
+    __table_args__ = (
+        UniqueConstraint("expense_id", "object_path", name="uq_expense_evidence_object"),
+        UniqueConstraint("expense_id", "client_request_id", name="uq_expense_evidence_request"),
+        CheckConstraint("status IN ('pending','ready')", name="expense_evidence_upload_status"),
+        Index("ix_expense_evidence_expense", "expense_id", "created_at"),
     )
 
 

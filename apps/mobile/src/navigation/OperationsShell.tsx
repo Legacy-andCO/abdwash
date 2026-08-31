@@ -20,6 +20,7 @@ import { CustomersScreen } from "../screens/CustomersScreen";
 import { InventoryScreen } from "../screens/InventoryScreen";
 import { ServicesPricingScreen } from "../screens/ServicesPricingScreen";
 import { colors, spacing } from "../theme";
+import { uaeDateKey } from "../time/uaeTime";
 
 export function OperationsShell({ context }: { context: StaffContext }) {
   const tabs = navigationTabs(context.role);
@@ -35,7 +36,7 @@ export function OperationsShell({ context }: { context: StaffContext }) {
   const [teamSection, setTeamSection] = useState<TeamSection>("teams");
   const [reportsNavigation, setReportsNavigation] =
     useState<ReportsNavigationState>(() => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = uaeDateKey();
       return { period: "week", customStart: today, customEnd: today };
     });
   const inFlight = useRef<Promise<unknown> | null>(null);

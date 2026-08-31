@@ -8,6 +8,7 @@ import { apiDurationMs, apiRouteTemplate } from "./network/apiPerformance";
 import { RequestTimedOut, withRequestTimeout } from "./network/requestTimeout";
 import { beginTrackedWrite } from "./network/writeRegistry";
 import { reportTripDiagnostic } from "./location/tripDiagnostics";
+import { uaeDateKey } from "./time/uaeTime";
 
 const apiUrl = (
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
@@ -310,6 +311,11 @@ export type Expense = {
   related_booking_reference: string | null;
   supplier_name: string | null;
   reference_number: string | null;
+  supplier_tax_registration_number: string | null;
+  supplier_document_number: string | null;
+  net_amount_minor: number;
+  vat_amount_minor: number;
+  evidence_status: "complete" | "missing_evidence" | "not_required";
   notes: string | null;
   receipt_available: boolean;
   status: "active" | "voided";
@@ -671,6 +677,9 @@ export type ManagedService = {
   shop_available: boolean;
   is_active: boolean;
   sort_order: number;
+  included_features: string[];
+  product_kind: "single_service" | "monthly_package";
+  customer_bookable: boolean;
   prices: CataloguePrice[];
   addons: CatalogueAddon[];
 };
@@ -696,6 +705,17 @@ export type BusinessBookingSettings = {
   appointment_reminder_hours_before: number;
   default_inventory_location_id: string | null;
   loyalty_reward_service_id: string | null;
+  legal_name: string | null;
+  trading_name: string | null;
+  billing_address: string | null;
+  billing_emirate: string | null;
+  billing_country: string;
+  tax_registration_number: string | null;
+  vat_registered: boolean;
+  vat_rate: number;
+  prices_include_vat: boolean;
+  billing_email: string | null;
+  billing_phone: string | null;
   operating_hours: OperatingHour[];
 };
 export type ServiceConsumptionTemplateLine = {
@@ -770,6 +790,18 @@ export type JobQuality = {
 };
 export type JobPhotoUploadGrant = {
   photo: JobPhoto;
+  bucket: string;
+  path: string;
+  upload_token: string;
+  max_bytes: number;
+};
+export type ExpenseEvidenceUploadGrant = {
+  evidence: {
+    id: string;
+    file_name: string;
+    content_type: string;
+    status: "pending" | "ready";
+  };
   bucket: string;
   path: string;
   upload_token: string;
@@ -908,7 +940,7 @@ const json = (method: string, body: object): RequestInit => ({
   method,
   body: JSON.stringify(body),
 });
-const today = () => new Date().toISOString().slice(0, 10);
+const today = uaeDateKey;
 
 export const getContext = (session?: Session | null) =>
   api<StaffContext>("/api/v1/staff/context", undefined, session);
@@ -1293,6 +1325,45 @@ export const getExpenses = (
 };
 export const createExpense = (body: object) =>
   api<Expense>("/api/v1/staff/finance/expenses", json("POST", body));
+export async function uploadExpenseEvidence(
+  expenseId: string,
+  uri: string,
+  fileName: string,
+  clientRequestId: string,
+) {
+  const grant = await api<ExpenseEvidenceUploadGrant>(
+    `/api/v1/staff/finance/expenses/${expenseId}/evidence/upload`,
+    json("POST", {
+      file_name: fileName,
+      content_type: "image/jpeg",
+      client_request_id: clientRequestId,
+    }),
+  );
+  const response = await fetch(uri);
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength > grant.max_bytes)
+    throw new ApiError(
+      "EXPENSE_EVIDENCE_TOO_LARGE",
+      400,
+      "The prepared receipt image is too large to upload.",
+    );
+  const { error } = await supabase.storage
+    .from(grant.bucket)
+    .uploadToSignedUrl(grant.path, grant.upload_token, bytes, {
+      contentType: "image/jpeg",
+      cacheControl: "3600",
+    });
+  if (error)
+    throw new ApiError(
+      "EXPENSE_EVIDENCE_UPLOAD_FAILED",
+      502,
+      "The receipt upload failed. Please try again.",
+    );
+  return api(
+    `/api/v1/staff/finance/expenses/${expenseId}/evidence/${grant.evidence.id}/complete`,
+    json("POST", {}),
+  );
+}
 export const voidExpense = (expenseId: string, reason: string) =>
   api<Expense>(
     `/api/v1/staff/finance/expenses/${expenseId}/void`,

@@ -67,8 +67,7 @@ class SupabaseAdminClient:
             ),
         )
         if response.status_code in {400, 409, 422} and any(
-            marker in response.text.lower()
-            for marker in ("already", "registered", "exists")
+            marker in response.text.lower() for marker in ("already", "registered", "exists")
         ):
             raise ConflictError("USERNAME_TAKEN", "That username is already in use.")
         self._raise(response, "STAFF_AUTH_CREATE_FAILED")

@@ -15,8 +15,10 @@ from app.models.entities import (
     CustomerProfile,
     Job,
     LoyaltyEvent,
+    NotificationOutbox,
     Payment,
     PaymentTransaction,
+    RevenueInvoice,
 )
 from app.schemas.staff import CashTenderAction, StaffJob
 from app.services.loyalty import is_qualifying_service_line, loyalty_progress_from_ledger
@@ -103,6 +105,9 @@ async def test_cash_payment_records_due_tender_and_change_without_inflating_reve
     )
     evaluate = AsyncMock()
     monkeypatch.setattr(staff_operations, "evaluate_loyalty_for_job", evaluate)
+    invoice = RevenueInvoice(id=uuid.uuid4(), business_id=context.business_id)
+    issue_invoice = AsyncMock(return_value=invoice)
+    monkeypatch.setattr(staff_operations, "issue_revenue_invoice", issue_invoice)
 
     receipt = await staff_operations.record_cash(
         session,
@@ -129,6 +134,13 @@ async def test_cash_payment_records_due_tender_and_change_without_inflating_reve
     assert receipt.amount_applied_minor == 8_600
     assert receipt.change_minor == 1_400
     evaluate.assert_awaited_once()
+    issue_invoice.assert_awaited_once()
+    payment_notifications = [
+        call.args[0]
+        for call in session.add.call_args_list
+        if isinstance(call.args[0], NotificationOutbox)
+    ]
+    assert [item.notification_type for item in payment_notifications] == ["payment_received"]
 
 
 @pytest.mark.asyncio

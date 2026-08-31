@@ -118,9 +118,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.CheckConstraint(
-            "expected_quantity > 0", name="job_inventory_line_positive_expected"
-        ),
+        sa.CheckConstraint("expected_quantity > 0", name="job_inventory_line_positive_expected"),
         sa.CheckConstraint(
             "automatic_applied_quantity >= 0 AND preexisting_manual_quantity >= 0 "
             "AND shortfall_quantity >= 0",
@@ -134,9 +132,7 @@ def upgrade() -> None:
             ["booking_service_id"], ["booking_services.id"], ondelete="RESTRICT"
         ),
         sa.ForeignKeyConstraint(["service_id"], ["services.id"], ondelete="SET NULL"),
-        sa.ForeignKeyConstraint(
-            ["inventory_item_id"], ["inventory_items.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["inventory_item_id"], ["inventory_items.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "run_id",

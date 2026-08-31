@@ -424,9 +424,7 @@ async def reschedule_managed_booking(
     job = (
         await session.scalars(select(Job).where(Job.booking_id == booking.id).with_for_update())
     ).one()
-    trace = _RescheduleTrace.start(
-        request_id=request_id, booking_id=booking.id, job_id=job.id
-    )
+    trace = _RescheduleTrace.start(request_id=request_id, booking_id=booking.id, job_id=job.id)
     trace.mark("job_locked")
     if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED} or booking.status in {
         BookingStatus.COMPLETED,

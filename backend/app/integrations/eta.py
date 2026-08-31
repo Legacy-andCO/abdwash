@@ -37,9 +37,7 @@ class GoogleRoutesEtaProvider:
                 },
                 json={
                     "origin": {
-                        "location": {
-                            "latLng": {"latitude": origin[0], "longitude": origin[1]}
-                        }
+                        "location": {"latLng": {"latitude": origin[0], "longitude": origin[1]}}
                     },
                     "destination": {
                         "location": {

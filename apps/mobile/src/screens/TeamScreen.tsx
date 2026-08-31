@@ -11,7 +11,6 @@ import {
 import {
   DatePickerField,
   TimePickerField,
-  toIsoDate,
 } from "../components/pickers";
 import {
   AppButton,
@@ -39,6 +38,12 @@ import {
   type TeamDetail,
   type TeamStockSummary,
 } from "../lib";
+import {
+  addUaeDays,
+  formatUaeDateTime,
+  uaeDateKey,
+  wallDate,
+} from "../time/uaeTime";
 import { ApiError, domainErrorMessage } from "../errors/domainErrors";
 import {
   eligibleTeamsForStaff,
@@ -269,19 +274,17 @@ function StaffPane({ context }: { context: StaffContext }) {
   const createStaffMutation = useCreateStaffMutation(context);
   const updateStaffMutation = useUpdateStaffMutation(context);
   const attendance = useAttendanceOverviewQuery(context);
+  const today = uaeDateKey();
   const jobs = useJobsQuery(context, {
     view: "today",
     scope: "all",
-    date: new Date().toISOString().slice(0, 10),
+    date: today,
     limit: 100,
   });
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(end.getDate() - 29);
   const report = useReportQuery(
     context,
-    start.toISOString().slice(0, 10),
-    end.toISOString().slice(0, 10),
+    addUaeDays(today, -29),
+    today,
   );
   const items = staffQuery.data ?? [];
   const [add, setAdd] = useState(false);
@@ -699,7 +702,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
             <Text style={styles.cardTitle}>{item.customer_name}</Text>
             <Text style={uiStyles.body}>
               {item.booking_reference} ·{" "}
-              {new Date(item.scheduled_start).toLocaleString()}
+              {formatUaeDateTime(item.scheduled_start)}
             </Text>
             <Text style={uiStyles.muted}>
               {item.reason ?? "No reason provided"}
@@ -1473,7 +1476,7 @@ function ShiftAssignmentSheet({
   const [staffId, setStaffId] = useState("");
   const [shiftId, setShiftId] = useState("");
   const [teamId, setTeamId] = useState("");
-  const [workDate, setWorkDate] = useState(() => toIsoDate(new Date()));
+  const [workDate, setWorkDate] = useState(() => uaeDateKey());
   const [assignmentError, setAssignmentError] = useState("");
   const eligibleTeams = useMemo(
     () => eligibleTeamsForStaff(staffId, staff, teams),
@@ -1530,7 +1533,7 @@ function ShiftAssignmentSheet({
       <DatePickerField
         label="Date"
         value={workDate}
-        minimumDate={new Date()}
+        minimumDate={wallDate(uaeDateKey())}
         onChange={setWorkDate}
       />
       <Text style={uiStyles.label}>STAFF</Text>

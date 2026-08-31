@@ -63,6 +63,7 @@ from app.schemas.staff import (
     TeamAssignmentOption,
 )
 from app.services.customer_communications import discard_unsent_appointment_reminders
+from app.services.invoices import issue_revenue_invoice
 from app.services.job_consumption import consumption_summaries, process_job_consumption
 from app.services.loyalty import evaluate_loyalty_for_job, release_booking_rewards
 from app.services.scheduling import _lock_slot_sequence
@@ -455,9 +456,7 @@ async def list_job_calendar(
                 TeamMembership.is_active.is_(True),
             )
         )
-        statement = statement.where(
-            or_(Job.assigned_staff_id == context.staff_id, team_job)
-        )
+        statement = statement.where(or_(Job.assigned_staff_id == context.staff_id, team_job))
     rows = (await session.execute(statement)).mappings().all()
     return StaffCalendar(
         jobs=[
@@ -488,6 +487,7 @@ _COMMUNICATION_LABELS = {
     "booking_cancelled": "Cancellation confirmed",
     "job_completed": "Service completed",
     "payment_pending": "Payment pending",
+    "payment_received": "Payment received",
 }
 
 
@@ -616,9 +616,7 @@ async def get_job(session: AsyncSession, context: StaffContext, job_id: uuid.UUI
     )
     if not rows:
         raise DomainError("JOB_NOT_FOUND", "Job not found.", status_code=404)
-    return (
-        await _serialize_jobs(session, rows, include_timeline=True, context=context)
-    )[0]
+    return (await _serialize_jobs(session, rows, include_timeline=True, context=context))[0]
 
 
 async def _locked_job(session: AsyncSession, context: StaffContext, job_id: uuid.UUID) -> Any:
@@ -756,20 +754,6 @@ async def transition_job(
                 next_attempt_at=now,
             )
         )
-        if payment.status != PaymentStatus.PAID:
-            session.add(
-                NotificationOutbox(
-                    business_id=context.business_id,
-                    booking_id=booking.id,
-                    channel="email",
-                    notification_type="payment_pending",
-                    dedupe_key=f"job-payment-pending:{job.id}",
-                    recipient=booking.customer_email,
-                    payload={"booking_reference": booking.reference},
-                    status=OutboxStatus.PENDING,
-                    next_attempt_at=now,
-                )
-            )
         complaint_row = (
             await session.execute(
                 select(JobComplaint, Job.booking_id)
@@ -878,19 +862,18 @@ async def record_cash(
     payment.version += 1
     booking.payment_status = PaymentStatus.PAID
     booking.version += 1
-    session.add(
-        PaymentTransaction(
-            payment_id=payment.id,
-            transaction_type="cash_payment",
-            status="succeeded",
-            amount_minor=payment.amount_minor,
-            actor_staff_id=context.staff_id,
-            client_event_id=request.client_event_id,
-            cash_tendered_minor=request.tendered_minor,
-            cash_change_minor=authoritative_change,
-            provider_metadata={},
-        )
+    transaction = PaymentTransaction(
+        payment_id=payment.id,
+        transaction_type="cash_payment",
+        status="succeeded",
+        amount_minor=payment.amount_minor,
+        actor_staff_id=context.staff_id,
+        client_event_id=request.client_event_id,
+        cash_tendered_minor=request.tendered_minor,
+        cash_change_minor=authoritative_change,
+        provider_metadata={},
     )
+    session.add(transaction)
     session.add(
         JobEvent(
             job_id=job.id,
@@ -907,6 +890,28 @@ async def record_cash(
         )
     )
     await session.flush()
+    invoice = await issue_revenue_invoice(
+        session,
+        booking=booking,
+        payment=payment,
+        transaction=transaction,
+    )
+    session.add(
+        NotificationOutbox(
+            business_id=context.business_id,
+            booking_id=booking.id,
+            channel="email",
+            notification_type="payment_received",
+            dedupe_key=f"payment-received:{invoice.id}",
+            recipient=booking.customer_email,
+            payload={
+                "booking_reference": booking.reference,
+                "invoice_id": str(invoice.id),
+            },
+            status=OutboxStatus.PENDING,
+            next_attempt_at=now,
+        )
+    )
     await evaluate_loyalty_for_job(session, business_id=context.business_id, job_id=job.id)
     return CashPaymentResult(
         job=await get_job(session, context, job.id),
@@ -1041,9 +1046,7 @@ async def assignment_options(
     rows = await _job_rows(session, context, job_id=job_id, scope="all", limit=1)
     if not rows:
         raise DomainError("JOB_NOT_FOUND", "Job not found.", status_code=404)
-    job, _booking, _payment, _staff_name, _team_name = _job_row_values(
-        rows[0]
-    )
+    job, _booking, _payment, _staff_name, _team_name = _job_row_values(rows[0])
     settings = await session.scalar(
         select(BusinessSettings).where(BusinessSettings.business_id == context.business_id)
     )

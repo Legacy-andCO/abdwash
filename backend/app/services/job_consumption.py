@@ -118,10 +118,7 @@ async def process_job_consumption(
                                 (
                                     (
                                         JobInventoryConsumptionLine.issue_code.is_not(None)
-                                        | (
-                                            JobInventoryConsumptionLine.shortfall_quantity
-                                            > ZERO
-                                        )
+                                        | (JobInventoryConsumptionLine.shortfall_quantity > ZERO)
                                     ),
                                     1,
                                 ),
@@ -361,8 +358,7 @@ async def consumption_summaries(
             )
             .outerjoin(
                 JobInventoryConsumptionRun,
-                JobInventoryConsumptionRun.inventory_operation_id
-                == InventoryMovement.operation_id,
+                JobInventoryConsumptionRun.inventory_operation_id == InventoryMovement.operation_id,
             )
             .where(
                 InventoryMovement.business_id == context.business_id,

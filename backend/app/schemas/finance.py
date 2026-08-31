@@ -33,8 +33,23 @@ class ExpenseCreate(StrictRequest):
     related_job_id: uuid.UUID | None = None
     supplier_name: str | None = Field(default=None, max_length=200)
     reference_number: str | None = Field(default=None, max_length=160)
+    supplier_tax_registration_number: str | None = Field(default=None, max_length=40)
+    supplier_document_number: str | None = Field(default=None, max_length=160)
+    net_amount_minor: int | None = Field(default=None, ge=0)
+    vat_amount_minor: int = Field(default=0, ge=0)
+    evidence_status: Literal["complete", "missing_evidence", "not_required"] = "missing_evidence"
     notes: str | None = Field(default=None, max_length=4000)
     client_event_id: str = Field(min_length=8, max_length=160)
+
+    @model_validator(mode="after")
+    def valid_amount_breakdown(self) -> "ExpenseCreate":
+        net = self.net_amount_minor
+        if net is None:
+            net = self.amount_minor - self.vat_amount_minor
+            self.net_amount_minor = net
+        if net < 0 or net + self.vat_amount_minor != self.amount_minor:
+            raise ValueError("Net amount plus VAT must equal the gross expense amount.")
+        return self
 
 
 class ExpenseVoid(StrictRequest):
@@ -57,6 +72,11 @@ class ExpenseView(BaseModel):
     related_booking_reference: str | None
     supplier_name: str | None
     reference_number: str | None
+    supplier_tax_registration_number: str | None
+    supplier_document_number: str | None
+    net_amount_minor: int
+    vat_amount_minor: int
+    evidence_status: str
     notes: str | None
     receipt_available: bool
     status: str
@@ -64,6 +84,27 @@ class ExpenseView(BaseModel):
     created_at: datetime
     voided_at: datetime | None
     void_reason: str | None
+
+
+class ExpenseEvidenceCreate(StrictRequest):
+    file_name: str = Field(min_length=1, max_length=255)
+    content_type: Literal["application/pdf", "image/jpeg", "image/png", "image/webp"]
+    client_request_id: str = Field(min_length=8, max_length=160)
+
+
+class ExpenseEvidenceView(BaseModel):
+    id: uuid.UUID
+    file_name: str
+    content_type: str
+    status: Literal["pending", "ready"]
+
+
+class ExpenseEvidenceUploadGrant(BaseModel):
+    evidence: ExpenseEvidenceView
+    bucket: str
+    path: str
+    upload_token: str
+    max_bytes: int
 
 
 class ExpenseCategoryTotal(BaseModel):

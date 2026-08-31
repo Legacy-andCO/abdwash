@@ -13,25 +13,7 @@ import type { CalendarJob, StaffContext } from "../lib";
 import { colors, radii, spacing } from "../theme";
 import { AppButton, EmptyState, Skeleton, StatusChip, uiStyles } from "./ui";
 import { domainErrorMessage } from "../errors/domainErrors";
-
-function businessDate(timezone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
-
-function time(value: string) {
-  return new Date(value).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import { formatUaeTime, uaeDateKey } from "../time/uaeTime";
 
 export function OperationsCalendar({
   context,
@@ -40,7 +22,7 @@ export function OperationsCalendar({
   context: StaffContext;
   onOpenJob: (jobId: string) => void;
 }) {
-  const today = businessDate(context.timezone);
+  const today = uaeDateKey();
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const range = useMemo(() => monthWindow(month), [month]);
@@ -126,7 +108,7 @@ export function OperationsCalendar({
                       <Text numberOfLines={1} style={styles.eventText}>
                         {job.team_short_name ?? "UN"} · {job.vehicle_label}
                       </Text>
-                      <Text style={styles.eventTime}>{time(job.scheduled_start)}</Text>
+                      <Text style={styles.eventTime}>{formatUaeTime(job.scheduled_start)}</Text>
                     </View>
                   ))}
                   {dayJobs.length > 3 ? (
@@ -169,7 +151,7 @@ function AgendaRow({ job, onPress }: { job: CalendarJob; onPress: () => void }) 
   return (
     <Pressable style={styles.agendaRow} onPress={onPress}>
       <View style={uiStyles.row}>
-        <Text style={styles.heading}>{time(job.scheduled_start)}</Text>
+        <Text style={styles.heading}>{formatUaeTime(job.scheduled_start)}</Text>
         <StatusChip value={job.status} />
       </View>
       <Text style={uiStyles.body}>{job.vehicle_label} · {job.service_label}</Text>

@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     job_photo_bucket: str = "job-quality-photos"
     job_photo_signed_url_seconds: int = Field(default=300, ge=60, le=3600)
     job_photo_max_bytes: int = Field(default=8_388_608, ge=1024, le=20_971_520)
+    expense_evidence_bucket: str = "expense-evidence"
+    expense_evidence_max_bytes: int = Field(default=10_485_760, ge=1024, le=20_971_520)
 
     supabase_url: str | None = None
     supabase_jwt_audience: str = "authenticated"
@@ -61,9 +63,7 @@ class Settings(BaseSettings):
             return None
         display_name, address = parseaddr(value)
         if display_name.strip().casefold() != "trifecta" or "@" not in address:
-            raise ValueError(
-                "EMAIL_FROM must use the format 'Trifecta <bookings@verified-domain>'"
-            )
+            raise ValueError("EMAIL_FROM must use the format 'Trifecta <bookings@verified-domain>'")
         return value
 
     @model_validator(mode="after")

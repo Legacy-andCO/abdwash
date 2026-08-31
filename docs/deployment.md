@@ -1,5 +1,18 @@
 # Deployment notes
 
+## Catalogue and invoicing migration (2026-08-31)
+
+Before deploying this API phase, apply Alembic revision `c18f4a7b2d91`. It adds catalogue
+feature/product metadata, business financial identity, optional booking billing snapshots,
+concurrency-safe invoice numbering and immutable revenue invoices, plus expense evidence fields.
+The migration activates the approved six-service catalogue and deactivates only the known old
+bootstrap catalogue names; historical booking snapshots are not changed or deleted.
+
+After migration, review **Mobile → Services & pricing → Settings → Invoice identity**. Leave VAT
+registration disabled unless Trifecta is actually VAT registered and its real TRN and supplier
+details have been entered. No new environment variable is required. Redeploy the API and web, then
+distribute a new staff mobile build because manager settings and expense forms changed.
+
 ## Website
 
 Select `apps/web` as the Vercel Root Directory. Set `NEXT_PUBLIC_API_URL` to the public HTTPS FastAPI origin and `NEXT_PUBLIC_SITE_URL` to the canonical website origin (for example, `https://abdwash-vdtc.vercel.app`, without a trailing path). Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the public Supabase project settings. Set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to a browser key restricted to the production website plus explicitly intended preview/development origins. Set `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` to the production map ID when available. No database, Resend, JWT, signing, dispatch, or service-role secret belongs in the web project.
@@ -19,6 +32,8 @@ Set a stable, randomly generated `BOOKING_MANAGEMENT_SIGNING_KEY` of at least 32
 For Phase 3.2/4, apply Alembic revision `8a72c1d4e6f0` before the matching API. It adds `business_settings.appointment_reminder_enabled` (default `true`) and `appointment_reminder_hours_before` (default `24`, constrained to 1–168). The prior Phase 3.1 migration still supplies the startup default stock pool and durable notification-outbox dedupe index. No new environment variable is required.
 
 For real booking email, configure backend-only `RESEND_API_KEY`, `EMAIL_FROM`, and `PUBLIC_WEB_URL`. Verify the sender domain in Resend before using a custom sender. The dispatcher derives `/manage#<signed-token>` from `PUBLIC_WEB_URL` at send time. Configure a strong random `OUTBOX_DISPATCH_SECRET`; it is accepted only in `X-Outbox-Dispatch-Secret` on `POST /api/v1/internal/notifications/dispatch`. Missing Resend configuration in production records retries/failure rather than pretending delivery succeeded.
+
+Resend HTTP 4xx/5xx responses are provider rejections even when Cron and the dispatcher are healthy. Inspect the notification's bounded `last_error` and the sanitized `notification_retry` log fields for the provider status/code/message. A Resend onboarding sender can be restricted to the account's approved test recipient; use a verified production sending domain and an allowed recipient policy before general customer delivery. Never copy the API key, recipient, or full provider response into logs or support notes.
 
 Choose the PostgreSQL endpoint for the compute model. A persistent regional container can use the direct endpoint when IPv6 is available or Supavisor session mode on IPv4-only networks. Serverless/elastic compute should use an appropriate transaction pooler and disable prepared statements when required by that pooler. Configure `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT_SECONDS`, `DB_POOL_RECYCLE_SECONDS`, and `DB_POOL_PRE_PING` against the Supabase connection budget. For a Vercel transaction-pooler deployment, start conservatively (for example size 2 and overflow 0-1 per warm instance), set `DB_DISABLE_PREPARED_STATEMENTS=true`, then adjust only from checkout/connection telemetry. See [`PERFORMANCE_ARCHITECTURE.md`](PERFORMANCE_ARCHITECTURE.md).
 
@@ -216,3 +231,24 @@ For Operations V2, apply Alembic revision `96493956784a`, deploy the API, then r
 After the API is live, open manager mobile Customers → Loyalty settings and select the intended active reward service. The migration populates `loyalty_reward_service_id` only for businesses with exactly one active service; it deliberately does not infer a service by name. No new environment variable is required for loyalty or cash tender.
 
 No deployment is performed by this foundation task.
+
+## Services, pricing, invoices, and expense evidence release
+
+Apply Alembic revision `c18f4a7b2d91` before deploying the matching API. The migration adds the
+approved six-service catalogue and vehicle-type prices, immutable revenue invoice/sequence tables,
+optional booking billing snapshots, VAT-aware business identity fields, and expense evidence fields.
+It preserves historical booking/service/payment snapshots.
+
+Create a **private** Supabase Storage bucket named `expense-evidence` (or set the backend-only
+`EXPENSE_EVIDENCE_BUCKET` to another private bucket name). Set `EXPENSE_EVIDENCE_MAX_BYTES` if the
+10 MiB default is unsuitable. Do not make the bucket public and do not expose the service-role key
+to web or mobile applications.
+
+Release order for this phase:
+
+1. Back up the production database and apply `alembic upgrade c18f4a7b2d91`.
+2. Create or verify the private expense-evidence Storage bucket.
+3. Deploy the API, then the web project.
+4. Publish the mobile JavaScript/application update for the catalogue/settings/expense form changes.
+5. Configure the legal supplier identity and VAT status in manager Services & pricing settings before
+   relying on Tax Invoice output. Never enable VAT status without the business's real TRN.

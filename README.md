@@ -21,6 +21,26 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 
 ## Current implementation status
 
+### Catalogue, booking, and financial records
+
+- The approved catalogue uses one logical service with deterministic Car/Sedan and SUV/4x4
+  prices. Standard, Gold, Premium, Interior Deep Cleaning, and Exterior Polishing are directly
+  bookable. Monthly Package is shown as “Once weekly” but cannot be mis-booked as one wash while
+  package entitlement semantics remain deferred.
+- Booking is vehicle-first, followed by service/extras, contact and location, schedule, review, and
+  payment. Server prices remain authoritative and historical booking rows keep their service and
+  amount snapshots.
+- Successful cash collection marks the customer payment paid immediately. Employee cash handover
+  remains a separate internal reconciliation workflow and does not affect the customer status.
+- Each successful payment transaction produces one immutable, sequentially numbered revenue
+  invoice/receipt and queues a payment-received email with a secure invoice link.
+- Managers configure legal/trading identity and VAT settings. A non-VAT business never labels a
+  document as a Tax Invoice.
+- Expenses support net/VAT/gross breakdowns, supplier document metadata, evidence status, and a
+  printable Internal Expense Voucher that cannot masquerade as a supplier Tax Invoice.
+
+See [Revenue invoicing and expense evidence](docs/invoicing-and-expense-evidence.md).
+
 ### Customer website
 
 - Trifecta visual system with centralized warm-cream, dark-brown, and orange brand tokens.
@@ -49,6 +69,7 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
   - Employees: Today, Jobs, Profile.
   - Managers/admins: Today, Jobs, Team, Reports, Profile.
 - Today and paginated Jobs views for today, upcoming, history, unassigned, and all work, plus a persisted monthly Operations Calendar with compact daily jobs and a chronological day agenda.
+- One UAE operational clock (`Asia/Dubai`) across Today, job cards/detail, calendar/agenda, manager rescheduling, correction scheduling, reports, and customer communications. Device timezone never shifts an appointment; transport and storage remain UTC.
 - Server-side, case-insensitive partial customer-name search on Jobs → All with scoped query-cache keys.
 - Job detail with customer, vehicle, service, location, payment, assignment, and append-only event timeline information.
 - Operational lifecycle: `assigned → en_route → arrived → in_progress → completed`, with explicit cancellation/unassignment paths where permitted.
@@ -86,8 +107,9 @@ The product brand is Trifecta, but these deployed identifiers intentionally reta
 - Tenant-scoped job-quality records and private Supabase Storage photo evidence. FastAPI chooses every object path, grants retry-safe signed uploads, verifies uploaded metadata, and issues short-lived signed reads without persisting signed URLs.
 - Flexible manager rescheduling with business-hour hourly shortcuts and native exact minute selection. The backend evaluates the exact immutable-duration interval, reruns automatic assignment, preserves feasible manual teams, never moves unrelated bookings, and queues one durable reschedule email.
 - Durable completion email queued with the first successful Job Complete. Dispatch renders the reserved service time, actual start-to-complete duration, and authoritative amount paid or a clear pending state without delaying the operational transaction.
-- Resend transactional booking confirmation, appointment reminder, en-route, arrival, manager delay, reschedule, completion, payment-pending, cancellation-request, and cancellation-approved email through the existing notification-provider abstraction; development can use the log provider.
+- Resend transactional booking confirmation, appointment reminder, en-route, arrival, manager delay, reschedule, completion, payment-received, cancellation-request, and cancellation-approved email through the existing notification-provider abstraction; development can use the log provider. Routine completion no longer queues a misleading customer payment-pending email.
 - Manager Job Detail exposes safe communication history as Queued, Sent, or Failed without exposing provider payloads, recipients, secrets, or raw management tokens.
+- Delay updates truthfully enter Queued state, refresh to Sent/Failed, retain the original schedule, and include the authoritative UAE appointment window. Sanitized Resend 4xx/5xx diagnostics preserve provider status/code/message for retry investigation without logging recipients or secrets.
 - Persistent notification worker for long-lived hosts and an authenticated bounded one-shot dispatcher for serverless deployments.
 - Supabase Cron + `pg_net` schedule support for one-minute dispatcher invocation, with URL and secret stored in Supabase Vault.
 - Payment abstraction and safe provider-reference schema. Pay Now and real card capture are not implemented; PAN, CVV/CVC, PIN, track data, and other raw card credentials must never enter Trifecta.
@@ -160,6 +182,12 @@ booking/job transaction
 → Resend/log provider
 → sent or exponential retry
 ```
+
+Permanent Resend validation/authentication responses are recorded as failed after one attempt;
+timeouts, rate limits, and 5xx responses retain bounded exponential retry. Manager rescheduling
+keeps `Asia/Dubai` wall-clock semantics, emits safe post-scheduler stage timings, and reconciles
+an uncertain mobile timeout once with the authoritative Job before offering a retry with the
+same client event ID.
 
 ### Mobile synchronization
 

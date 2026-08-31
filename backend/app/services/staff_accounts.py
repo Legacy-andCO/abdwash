@@ -47,14 +47,10 @@ async def _profile_view(session: AsyncSession, profile: StaffProfile) -> StaffPr
             .order_by(ScheduleResource.name)
         )
     ).all()
-    return _profile_data(
-        profile, [TeamReference(id=id, name=name) for id, name in teams]
-    )
+    return _profile_data(profile, [TeamReference(id=id, name=name) for id, name in teams])
 
 
-def _profile_data(
-    profile: StaffProfile, teams: list[TeamReference]
-) -> StaffProfileView:
+def _profile_data(profile: StaffProfile, teams: list[TeamReference]) -> StaffProfileView:
     return StaffProfileView(
         id=profile.id,
         display_name=profile.display_name,
@@ -67,9 +63,7 @@ def _profile_data(
     )
 
 
-async def get_own_profile(
-    session: AsyncSession, context: StaffContext
-) -> StaffProfileView:
+async def get_own_profile(session: AsyncSession, context: StaffContext) -> StaffProfileView:
     profile = (
         await session.scalars(
             select(StaffProfile).where(

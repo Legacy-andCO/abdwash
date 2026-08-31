@@ -102,6 +102,12 @@ async def create_booking(
             "SERVICE_CHANNEL_UNAVAILABLE",
             "One or more selected services are not available for mobile bookings.",
         )
+    if any(not service.customer_bookable for service in services):
+        raise DomainError(
+            "SERVICE_NOT_DIRECTLY_BOOKABLE",
+            "This product requires package activation and cannot be booked as one ordinary wash.",
+            status_code=422,
+        )
     if any(not is_vehicle_type(vehicle.vehicle_type) for vehicle in request.vehicles):
         raise DomainError("INVALID_VEHICLE_TYPE", "Choose a supported vehicle type.")
     price_rows = list(
@@ -331,6 +337,11 @@ async def create_booking(
         latitude=request.location.latitude,
         longitude=request.location.longitude,
         location_instructions=request.location.instructions,
+        billing_company_name=request.billing.company_name if request.billing else None,
+        billing_address=request.billing.billing_address if request.billing else None,
+        billing_tax_registration_number=(
+            request.billing.tax_registration_number if request.billing else None
+        ),
         management_token_hash=management_token_hash(management_token),
     )
     session.add(booking)

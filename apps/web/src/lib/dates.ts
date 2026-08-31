@@ -1,4 +1,5 @@
 const dateKeyFormatter = new Map<string, Intl.DateTimeFormat>();
+export const TRIFECTA_TIME_ZONE = "Asia/Dubai";
 
 export function todayInTimezone(timezone: string, now = new Date()): string {
   let formatter = dateKeyFormatter.get(timezone);

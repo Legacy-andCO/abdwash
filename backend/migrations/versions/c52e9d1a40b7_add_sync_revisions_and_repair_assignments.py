@@ -68,8 +68,7 @@ def upgrade() -> None:
     op.create_check_constraint(
         "unassigned_jobs_have_no_assignment",
         "jobs",
-        "status <> 'unassigned' OR "
-        "(assigned_resource_id IS NULL AND assigned_staff_id IS NULL)",
+        "status <> 'unassigned' OR (assigned_resource_id IS NULL AND assigned_staff_id IS NULL)",
     )
 
 

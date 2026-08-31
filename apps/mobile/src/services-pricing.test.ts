@@ -58,4 +58,22 @@ describe("services and pricing management", () => {
     expect(screen).toContain('management && tab === "settings"');
     expect(screen).toContain("useServiceTemplateQuery(context, serviceId");
   });
+
+  it("supports manager-owned invoice identity and VAT configuration", () => {
+    const screen = source("./screens/ServicesPricingScreen.tsx");
+    expect(screen).toContain("INVOICE IDENTITY");
+    expect(screen).toContain('label="VAT registered"');
+    expect(screen).toContain('label="Tax registration number (TRN)"');
+    expect(screen).toContain('label="Catalogue prices include VAT"');
+  });
+
+  it("captures supplier evidence metadata without calling the voucher a tax invoice", () => {
+    const finance = source("./screens/FinanceScreen.tsx");
+    expect(finance).toContain("supplier_document_number");
+    expect(finance).toContain("supplier_tax_registration_number");
+    expect(finance).toContain("evidence_status");
+    expect(finance).toContain("Attach receipt photo");
+    expect(finance).toContain("uploadExpenseEvidence");
+    expect(finance).not.toContain("Supplier Tax Invoice");
+  });
 });

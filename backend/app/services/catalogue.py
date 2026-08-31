@@ -101,6 +101,11 @@ async def get_catalogue(session: AsyncSession) -> CatalogueResponse:
                 estimated_duration_minutes=service.estimated_duration_minutes,
                 mobile_available=service.mobile_available,
                 shop_available=service.shop_available,
+                included_features=service.included_features or [],
+                product_kind=service.product_kind or "single_service",
+                customer_bookable=(
+                    True if service.customer_bookable is None else service.customer_bookable
+                ),
                 prices=prices[service.id],
                 addons=addons[service.id],
             )

@@ -17,6 +17,8 @@ import {
 } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { useQueryClient } from "@tanstack/react-query";
+import * as ImagePicker from "expo-image-picker";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
 import { DatePickerField } from "../components/pickers";
 import {
@@ -38,6 +40,7 @@ import {
   expenseCategories,
 } from "../finance/financeState";
 import { ClientEventIdStore } from "../idempotency/clientEventId";
+import { uploadExpenseEvidence } from "../lib";
 import type { CashPendingStaff, StaffContext } from "../lib";
 import {
   useCashReconciliationMutation,
@@ -54,10 +57,10 @@ import {
 } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
 import { operationalScope } from "../cache/policy";
+import { addUaeDays, uaeDateKey, wallDate } from "../time/uaeTime";
 
 type FinanceSection = "overview" | "expenses" | "cash";
 
-const iso = (date: Date) => date.toISOString().slice(0, 10);
 const money = (currency: string, amount: number) =>
   `${currency} ${(amount / 100).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -76,15 +79,18 @@ export function FinanceScreen({
   const [period, setPeriod] = useState<"today" | "week" | "month" | "custom">(
     "month",
   );
-  const [customStart, setCustomStart] = useState(iso(new Date()));
-  const [customEnd, setCustomEnd] = useState(iso(new Date()));
+  const [customStart, setCustomStart] = useState(() => uaeDateKey());
+  const [customEnd, setCustomEnd] = useState(() => uaeDateKey());
   const range = useMemo(() => {
     if (period === "custom") return { start: customStart, end: customEnd };
-    const endDate = new Date();
-    const startDate = new Date(endDate);
-    if (period === "week") startDate.setDate(endDate.getDate() - 6);
-    if (period === "month") startDate.setDate(1);
-    return { start: iso(startDate), end: iso(endDate) };
+    const end = uaeDateKey();
+    const start =
+      period === "week"
+        ? addUaeDays(end, -6)
+        : period === "month"
+          ? `${end.slice(0, 8)}01`
+          : end;
+    return { start, end };
   }, [customEnd, customStart, period]);
   const [section, setSection] = useState<FinanceSection>("overview");
   const queryClient = useQueryClient();
@@ -137,8 +143,8 @@ export function FinanceScreen({
       </View>
       {period === "custom" ? (
         <View style={styles.customDates}>
-          <DatePickerField label="From" value={customStart} maximumDate={new Date()} onChange={setCustomStart} />
-          <DatePickerField label="To" value={customEnd} maximumDate={new Date()} onChange={setCustomEnd} />
+          <DatePickerField label="From" value={customStart} maximumDate={wallDate(uaeDateKey())} onChange={setCustomStart} />
+          <DatePickerField label="To" value={customEnd} maximumDate={wallDate(uaeDateKey())} onChange={setCustomEnd} />
         </View>
       ) : null}
       <View style={styles.tabs}>
@@ -339,14 +345,34 @@ function Expenses({
           context={context}
           pending={create.isPending}
           onCancel={() => setAdding(false)}
-          onSave={async (body) => {
+          onSave={async (body, evidence) => {
             const network = await NetInfo.fetch();
             if (!network.isConnected) {
               Alert.alert("You're offline", "Expense changes require an internet connection.");
               return;
             }
             try {
-              await create.mutateAsync(body);
+              const expense = await create.mutateAsync(body);
+              if (evidence) {
+                try {
+                  await uploadExpenseEvidence(
+                    expense.id,
+                    evidence.uri,
+                    evidence.fileName,
+                    evidence.clientRequestId,
+                  );
+                } catch (error) {
+                  setAdding(false);
+                  Alert.alert(
+                    "Expense saved",
+                    domainErrorMessage(
+                      error,
+                      "The ledger entry was saved, but the receipt image was not attached. You can retry the evidence upload later.",
+                    ),
+                  );
+                  return;
+                }
+              }
               setAdding(false);
               Alert.alert("Expense saved");
             } catch (error) {
@@ -458,15 +484,31 @@ function ExpenseForm({
   context: StaffContext;
   pending: boolean;
   onCancel: () => void;
-  onSave: (body: object) => Promise<void>;
+  onSave: (
+    body: object,
+    evidence: {
+      uri: string;
+      fileName: string;
+      clientRequestId: string;
+    } | null,
+  ) => Promise<void>;
 }) {
-  const [expenseDate, setExpenseDate] = useState(iso(new Date()));
+  const [expenseDate, setExpenseDate] = useState(() => uaeDateKey());
   const [category, setCategory] = useState<(typeof expenseCategories)[number]>("fuel");
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
   const [description, setDescription] = useState("");
   const [supplier, setSupplier] = useState("");
   const [reference, setReference] = useState("");
+  const [supplierTrn, setSupplierTrn] = useState("");
+  const [supplierDocument, setSupplierDocument] = useState("");
+  const [vatAmount, setVatAmount] = useState("");
+  const [evidenceStatus, setEvidenceStatus] = useState<"missing_evidence" | "not_required">("missing_evidence");
+  const [evidence, setEvidence] = useState<{
+    uri: string;
+    fileName: string;
+    clientRequestId: string;
+  } | null>(null);
   const [notes, setNotes] = useState("");
   const [paidByStaffId, setPaidByStaffId] = useState("");
   const [teamId, setTeamId] = useState("");
@@ -476,10 +518,41 @@ function ExpenseForm({
   const jobs = useJobsQuery(context, { view: "all", scope: "all", limit: 50 });
   const eventIds = useRef(new ClientEventIdStore()).current;
   const minor = expenseAmountMinor(amount);
+  const vatMinor = vatAmount.trim() ? expenseAmountMinor(vatAmount) : 0;
+  const validBreakdown = minor !== null && vatMinor !== null && vatMinor <= minor;
+  async function chooseEvidencePhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Permission needed",
+        "Allow photo access to attach a supplier invoice or receipt.",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.9,
+      allowsMultipleSelection: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const manipulator = ImageManipulator.manipulate(result.assets[0].uri);
+    manipulator.resize({ width: 1800 });
+    const rendered = await manipulator.renderAsync();
+    const prepared = await rendered.saveAsync({
+      compress: 0.8,
+      format: SaveFormat.JPEG,
+    });
+    setEvidence({
+      uri: prepared.uri,
+      fileName: result.assets[0].fileName || "supplier-evidence.jpg",
+      clientRequestId: eventIds.get(`expense-evidence:${prepared.uri}`),
+    });
+    setEvidenceStatus("missing_evidence");
+  }
   return (
     <Card>
       <Text style={styles.cardTitle}>Add expense</Text>
-      <DatePickerField label="Date" value={expenseDate} maximumDate={new Date()} onChange={setExpenseDate} />
+      <DatePickerField label="Date" value={expenseDate} maximumDate={wallDate(uaeDateKey())} onChange={setExpenseDate} />
       <Text style={uiStyles.label}>CATEGORY</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.chips}>
@@ -506,6 +579,23 @@ function ExpenseForm({
           </Pressable>
         ))}
       </View>
+      <AppButton
+        title={evidence ? "Replace receipt photo" : "Attach receipt photo"}
+        tone="secondary"
+        onPress={() => void chooseEvidencePhoto()}
+      />
+      {evidence ? (
+        <View style={uiStyles.row}>
+          <Text style={uiStyles.muted}>Receipt photo ready to upload</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Remove receipt photo"
+            onPress={() => setEvidence(null)}
+          >
+            <Text style={styles.dangerText}>Remove</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <TextInput accessibilityLabel="Expense description" placeholder="Description" value={description} onChangeText={setDescription} style={uiStyles.field} />
       <Text style={uiStyles.label}>PAID BY (OPTIONAL)</Text>
       <FilterChoices
@@ -539,11 +629,22 @@ function ExpenseForm({
       />
       <TextInput accessibilityLabel="Supplier" placeholder="Supplier (optional)" value={supplier} onChangeText={setSupplier} style={uiStyles.field} />
       <TextInput accessibilityLabel="Reference" placeholder="Reference (optional)" value={reference} onChangeText={setReference} style={uiStyles.field} />
+      <TextInput accessibilityLabel="Supplier invoice or receipt number" placeholder="Supplier invoice / receipt number" value={supplierDocument} onChangeText={setSupplierDocument} style={uiStyles.field} />
+      <TextInput accessibilityLabel="Supplier tax registration number" placeholder="Supplier TRN (optional)" value={supplierTrn} onChangeText={setSupplierTrn} style={uiStyles.field} />
+      <TextInput accessibilityLabel="VAT amount" keyboardType="decimal-pad" placeholder="VAT amount (optional)" value={vatAmount} onChangeText={setVatAmount} style={uiStyles.field} />
+      <Text style={uiStyles.label}>SUPPLIER EVIDENCE</Text>
+      <View style={styles.chips}>
+        {(["missing_evidence", "not_required"] as const).map((item) => (
+          <Pressable key={item} onPress={() => setEvidenceStatus(item)} style={[styles.choice, evidenceStatus === item ? styles.choiceActive : undefined]}>
+            <Text style={styles.choiceText}>{label(item)}</Text>
+          </Pressable>
+        ))}
+      </View>
       <TextInput accessibilityLabel="Notes" placeholder="Notes (optional)" value={notes} onChangeText={setNotes} multiline style={uiStyles.field} />
       <AppButton
         title="Save expense"
         loading={pending}
-        disabled={!description.trim() || minor === null}
+        disabled={!description.trim() || !validBreakdown}
         onPress={() => {
           const key = JSON.stringify({
             expenseDate,
@@ -553,6 +654,10 @@ function ExpenseForm({
             description,
             supplier,
             reference,
+            supplierTrn,
+            supplierDocument,
+            vatAmount,
+            evidenceStatus,
             notes,
             paidByStaffId,
             teamId,
@@ -568,12 +673,17 @@ function ExpenseForm({
                 description: description.trim(),
                 supplier_name: supplier.trim() || null,
                 reference_number: reference.trim() || null,
+                supplier_tax_registration_number: supplierTrn.trim() || null,
+                supplier_document_number: supplierDocument.trim() || null,
+                net_amount_minor: minor! - vatMinor!,
+                vat_amount_minor: vatMinor!,
+                evidence_status: evidenceStatus,
                 notes: notes.trim() || null,
                 paid_by_staff_id: paidByStaffId || null,
                 team_id: teamId || null,
                 related_job_id: relatedJobId || null,
                 client_event_id: eventIds.get(key),
-              });
+              }, evidence);
               eventIds.succeeded(key);
             } catch (error) {
               eventIds.failed(key, error);
@@ -734,6 +844,7 @@ const styles = StyleSheet.create({
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   cardTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
   amount: { color: colors.text, fontSize: 15, fontWeight: "900" },
+  dangerText: { color: colors.danger, fontWeight: "800" },
   total: { color: colors.text, fontSize: 26, fontWeight: "900" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   choice: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radii.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },

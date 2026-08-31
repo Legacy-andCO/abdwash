@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, Query
 
 from app.auth.dependencies import SessionDep, optional_identity
 from app.auth.verifier import VerifiedIdentity
+from app.schemas.invoices import RevenueInvoiceView
 from app.schemas.public import (
     AvailabilityResponse,
     BookingCreate,
@@ -29,6 +30,7 @@ from app.services.idempotency import (
     find_idempotent_response,
     store_idempotent_response,
 )
+from app.services.invoices import managed_invoice
 from app.services.management_tokens import create_management_token
 from app.services.scheduling import availability_for_date, create_hold
 from app.services.sync_state import bump_sync_revisions
@@ -120,6 +122,21 @@ async def manage_booking(
 ) -> BookingManagementResponse:
     booking_record = await load_managed_booking(session, management_token)
     return await booking_management_response(session, booking_record)
+
+
+@router.get(
+    "/bookings/manage/invoices/{invoice_id}",
+    response_model=RevenueInvoiceView,
+)
+async def manage_invoice(
+    invoice_id: uuid.UUID,
+    session: SessionDep,
+    management_token: Annotated[
+        str, Header(alias="X-Booking-Management-Token", min_length=60, max_length=80)
+    ],
+) -> RevenueInvoiceView:
+    booking_record = await load_managed_booking(session, management_token)
+    return await managed_invoice(session, booking_id=booking_record.id, invoice_id=invoice_id)
 
 
 @router.post(

@@ -45,8 +45,6 @@ import { normalizePhone } from "@/lib/phone";
 import type {
   AvailabilitySlot,
   CustomerSavedVehicle,
-  LoyaltySummary,
-  Service,
   Vehicle,
 } from "@/lib/types";
 import {
@@ -147,7 +145,10 @@ export function BookingWizard({
         dispatch({ type: "catalogue", value: catalogue });
         if (
           initialServiceId &&
-          catalogue.services.some((service) => service.id === initialServiceId)
+          catalogue.services.some(
+            (service) =>
+              service.id === initialServiceId && service.customer_bookable !== false,
+          )
         )
           dispatch({ type: "service", value: initialServiceId });
       })
@@ -169,7 +170,8 @@ export function BookingWizard({
         if (
           initialServiceId &&
           catalogueResult.value.services.some(
-            (service) => service.id === initialServiceId,
+            (service) =>
+              service.id === initialServiceId && service.customer_bookable !== false,
           )
         )
           dispatch({ type: "service", value: initialServiceId });
@@ -319,7 +321,14 @@ function StepActions({
 
 function ServiceStep({ state, dispatch }: StepProps) {
   const { language, locale, t } = useI18n();
-  const services = state.catalogue!.services;
+  const services = state.catalogue!.services.filter(
+    (service) => service.customer_bookable !== false,
+  );
+  const rewards = state.customerProfile?.loyalty?.enabled
+    ? state.customerProfile.loyalty.rewards.filter(
+        (reward) => reward.status === "available",
+      )
+    : [];
   return (
     <>
       <StepIntro
@@ -327,49 +336,93 @@ function ServiceStep({ state, dispatch }: StepProps) {
         title={t("booking.service.title")}
         copy={t("booking.service.copy")}
       />
-      <div className="choice-list">
-        {services.map((service) => (
-          <label
-            className={
-              state.defaultServiceId === service.id
-                ? "choice-card selected"
-                : "choice-card"
-            }
-            key={service.id}
-          >
-            <input
-              type="radio"
-              name="service"
-              value={service.id}
-              checked={state.defaultServiceId === service.id}
-              onChange={() => dispatch({ type: "service", value: service.id })}
-            />
-            <span className="choice-check" />
-            <span className="choice-content">
-              <strong>{localizeServiceName(language, service.name)}</strong>
-              <small>
-                {localizeServiceDescription(
-                  language,
-                  service.description,
-                  "booking.service.defaultDescription",
-                )}
-              </small>
-              <em>
-                ≈{" "}
-                {t("services.minutes", {
-                  minutes: service.estimated_duration_minutes,
+      <div className="vehicle-stack">
+        {state.vehicles.map((vehicle, vehicleIndex) => {
+          const selectedService = services.find(
+            (service) => service.id === vehicle.service_id,
+          );
+          const availableRewards = rewards.filter(
+            (reward) =>
+              reward.service.id === vehicle.service_id &&
+              (reward.id === vehicle.loyalty_reward_id ||
+                !state.vehicles.some(
+                  (item) =>
+                    item.key !== vehicle.key && item.loyalty_reward_id === reward.id,
+                )),
+          );
+          return (
+            <fieldset className="vehicle-card" key={vehicle.key}>
+              <legend>{vehicle.make} {vehicle.model}</legend>
+              <div className="choice-list compact">
+                {services.map((service) => {
+                  const price =
+                    service.prices?.find(
+                      (item) => item.vehicle_type === vehicle.vehicle_type,
+                    )?.price_minor ?? service.price_minor;
+                  return (
+                    <label
+                      className={vehicle.service_id === service.id ? "choice-card selected" : "choice-card"}
+                      key={service.id}
+                    >
+                      <input
+                        type="radio"
+                        name={`service-${vehicle.key}`}
+                        checked={vehicle.service_id === service.id}
+                        onChange={() =>
+                          dispatch(
+                            vehicleIndex === 0
+                              ? { type: "service", value: service.id }
+                              : { type: "vehicle", key: vehicle.key, field: "service_id", value: service.id },
+                          )
+                        }
+                      />
+                      <span className="choice-check" />
+                      <span className="choice-content">
+                        <strong>{localizeServiceName(language, service.name)}</strong>
+                        <small>{localizeServiceDescription(language, service.description, "booking.service.defaultDescription")}</small>
+                      </span>
+                      <b>{formatMoney(price, service.currency_code, locale)}</b>
+                    </label>
+                  );
                 })}
-              </em>
-            </span>
-            <b>
-              {t("services.from")} {formatMoney(service.price_minor, service.currency_code, locale)}
-            </b>
-          </label>
-        ))}
+              </div>
+              {selectedService?.addons?.length ? (
+                <div className="booking-addons">
+                  <strong>{t("booking.vehicles.addons")}</strong>
+                  <small>{t("booking.vehicles.addonsCopy")}</small>
+                  {selectedService.addons.map((addon) => (
+                    <label className="booking-addon-option" key={addon.id}>
+                      <input
+                        type="checkbox"
+                        checked={(vehicle.addon_ids ?? []).includes(addon.id)}
+                        onChange={() => dispatch({ type: "toggle_addon", key: vehicle.key, addonId: addon.id })}
+                      />
+                      <span><strong>{addon.name}</strong>{addon.description ? <small>{addon.description}</small> : null}</span>
+                      <b>{formatMoney(addon.price_minor, addon.currency_code, locale)}</b>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+              {availableRewards.length ? (
+                <label className="loyalty-reward-choice">
+                  <span>{t("booking.vehicles.reward")}</span>
+                  <select
+                    value={vehicle.loyalty_reward_id ?? ""}
+                    onChange={(event) => dispatch({ type: "loyalty_reward", key: vehicle.key, value: event.target.value || undefined })}
+                  >
+                    <option value="">{t("booking.vehicles.rewardNone")}</option>
+                    {availableRewards.map((reward) => <option key={reward.id} value={reward.id}>{t("booking.vehicles.rewardApply")}</option>)}
+                  </select>
+                </label>
+              ) : null}
+            </fieldset>
+          );
+        })}
       </div>
       <StepActions
+        back={() => dispatch({ type: "step", value: "vehicles" })}
         next={() => dispatch({ type: "step", value: "details" })}
-        disabled={!state.defaultServiceId}
+        disabled={state.vehicles.some((vehicle) => !vehicle.service_id)}
       />
     </>
   );
@@ -388,7 +441,7 @@ function DetailsStep({ state, dispatch }: StepProps) {
       );
       if (normalizedPhone)
         dispatch({ type: "contact", field: "phone", value: normalizedPhone });
-      dispatch({ type: "step", value: "vehicles" });
+      dispatch({ type: "step", value: "schedule" });
     } else {
       setTimeout(
         () =>
@@ -505,6 +558,36 @@ function DetailsStep({ state, dispatch }: StepProps) {
         </div>
       </div>
       <div className="form-section">
+        <h2>{t("booking.details.billing")}</h2>
+        <div className="form-grid two">
+          <label>
+            <span>{t("booking.details.companyName")}</span>
+            <input
+              value={state.billing.company_name}
+              autoComplete="organization"
+              onChange={(event) => dispatch({ type: "billing", field: "company_name", value: event.target.value })}
+            />
+          </label>
+          <label>
+            <span>{t("booking.details.trn")}</span>
+            <input
+              value={state.billing.tax_registration_number}
+              className="bidi-ltr"
+              onChange={(event) => dispatch({ type: "billing", field: "tax_registration_number", value: event.target.value })}
+            />
+          </label>
+          <label className="full-span">
+            <span>{t("booking.details.billingAddress")}</span>
+            <textarea
+              rows={2}
+              value={state.billing.billing_address}
+              autoComplete="billing street-address"
+              onChange={(event) => dispatch({ type: "billing", field: "billing_address", value: event.target.value })}
+            />
+          </label>
+        </div>
+      </div>
+      <div className="form-section">
         <h2>{t("booking.details.serviceLocation")}</h2>
         <LocationPicker
           location={state.location}
@@ -524,15 +607,13 @@ function DetailsStep({ state, dispatch }: StepProps) {
 function VehiclesStep({ state, dispatch }: StepProps) {
   const { t } = useI18n();
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const rewards = state.customerProfile?.loyalty?.enabled
-    ? state.customerProfile.loyalty.rewards.filter(
-        (reward) => reward.status === "available",
-      )
-    : [];
   const next = () => {
     const found = vehicleErrors(state.vehicles, t);
+    state.vehicles.forEach((vehicle) => {
+      delete found[`${vehicle.key}.service_id`];
+    });
     setErrors(found);
-    if (!Object.keys(found).length) dispatch({ type: "step", value: "review" });
+    if (!Object.keys(found).length) dispatch({ type: "step", value: "service" });
     else
       setTimeout(
         () =>
@@ -557,22 +638,11 @@ function VehiclesStep({ state, dispatch }: StepProps) {
             key={vehicle.key}
             vehicle={vehicle}
             index={index}
-            services={state.catalogue!.services}
             savedVehicles={state.customerProfile?.vehicles ?? []}
             selectedSavedVehicleIds={state.vehicles
               .filter((item) => item.key !== vehicle.key)
               .map((item) => item.vehicle_id)
               .filter((id): id is string => Boolean(id))}
-            rewards={rewards.filter(
-              (reward) =>
-                reward.service.id === vehicle.service_id &&
-                (reward.id === vehicle.loyalty_reward_id ||
-                  !state.vehicles.some(
-                    (item) =>
-                      item.key !== vehicle.key &&
-                      item.loyalty_reward_id === reward.id,
-                  )),
-            )}
             errors={errors}
             canRemove={state.vehicles.length > 1}
             dispatch={dispatch}
@@ -598,7 +668,6 @@ function VehiclesStep({ state, dispatch }: StepProps) {
         </div>
       )}
       <StepActions
-        back={() => dispatch({ type: "step", value: "details" })}
         next={next}
       />
     </>
@@ -608,32 +677,21 @@ function VehiclesStep({ state, dispatch }: StepProps) {
 function VehicleCard({
   vehicle,
   index,
-  services,
   savedVehicles,
   selectedSavedVehicleIds,
-  rewards,
   errors,
   canRemove,
   dispatch,
 }: {
   vehicle: Vehicle;
   index: number;
-  services: Service[];
   savedVehicles: CustomerSavedVehicle[];
   selectedSavedVehicleIds: string[];
-  rewards: LoyaltySummary["rewards"];
   errors: Record<string, string>;
   canRemove: boolean;
   dispatch: StepProps["dispatch"];
 }) {
-  const { language, locale, t } = useI18n();
-  const selectedService = services.find(
-    (service) => service.id === vehicle.service_id,
-  );
-  const selectedPrice =
-    selectedService?.prices?.find(
-      (price) => price.vehicle_type === vehicle.vehicle_type,
-    )?.price_minor ?? selectedService?.price_minor ?? 0;
+  const { t } = useI18n();
   const update = (field: EditableVehicleField, value: string) =>
     dispatch({ type: "vehicle", key: vehicle.key, field, value });
   const input = (
@@ -771,84 +829,6 @@ function VehicleCard({
         {input("plate_number", t("booking.vehicles.plateRequired"))}
       </div>
       <label>
-        <span>{t("booking.vehicles.service")}</span>
-        <select
-          value={vehicle.service_id}
-          aria-invalid={!!errors[`${vehicle.key}.service_id`]}
-          onChange={(event) => update("service_id", event.target.value)}
-        >
-          {services.map((service) => (
-            <option key={service.id} value={service.id}>
-              {localizeServiceName(language, service.name)} —{" "}
-              {formatMoney(
-                service.prices?.find(
-                  (price) => price.vehicle_type === vehicle.vehicle_type,
-                )?.price_minor ?? service.price_minor,
-                service.currency_code,
-                locale,
-              )}
-            </option>
-          ))}
-        </select>
-        <FieldError id={`${vehicle.key}-service_id-error`}>
-          {errors[`${vehicle.key}.service_id`]}
-        </FieldError>
-      </label>
-      {selectedService?.addons?.length ? (
-        <div className="booking-addons">
-          <strong>{t("booking.vehicles.addons")}</strong>
-          <small>{t("booking.vehicles.addonsCopy")}</small>
-          {selectedService.addons.map((addon) => (
-            <label className="booking-addon-option" key={addon.id}>
-              <input
-                type="checkbox"
-                checked={(vehicle.addon_ids ?? []).includes(addon.id)}
-                onChange={() =>
-                  dispatch({
-                    type: "toggle_addon",
-                    key: vehicle.key,
-                    addonId: addon.id,
-                  })
-                }
-              />
-              <span>
-                <strong>{addon.name}</strong>
-                {addon.description ? <small>{addon.description}</small> : null}
-              </span>
-              <b>{formatMoney(addon.price_minor, addon.currency_code, locale)}</b>
-            </label>
-          ))}
-        </div>
-      ) : null}
-      {vehicle.vehicle_type && selectedService ? (
-        <small className="service-price-note">
-          {t("booking.vehicles.vehiclePrice")}: {formatMoney(selectedPrice, selectedService.currency_code, locale)}
-        </small>
-      ) : null}
-      {rewards.length ? (
-        <label className="loyalty-reward-choice">
-          <span>{t("booking.vehicles.reward")}</span>
-          <select
-            value={vehicle.loyalty_reward_id ?? ""}
-            onChange={(event) =>
-              dispatch({
-                type: "loyalty_reward",
-                key: vehicle.key,
-                value: event.target.value || undefined,
-              })
-            }
-          >
-            <option value="">{t("booking.vehicles.rewardNone")}</option>
-            {rewards.map((reward) => (
-              <option key={reward.id} value={reward.id}>
-                {t("booking.vehicles.rewardApply")}
-              </option>
-            ))}
-          </select>
-          <small>{t("booking.vehicles.rewardCopy")}</small>
-        </label>
-      ) : null}
-      <label>
         <span>
           {t("booking.vehicles.notes")} <em>{t("common.optional")}</em>
         </span>
@@ -973,9 +953,8 @@ function ReviewStep({ state, dispatch }: StepProps) {
         </div>
       </div>
       <StepActions
-        back={() => dispatch({ type: "step", value: "vehicles" })}
-        next={() => dispatch({ type: "step", value: "schedule" })}
-        nextLabel={t("booking.review.chooseTime")}
+        back={() => dispatch({ type: "step", value: "schedule" })}
+        next={() => dispatch({ type: "step", value: "payment" })}
         disabled={mobileMinimum > 0 && estimate < mobileMinimum}
       />
     </>
@@ -1054,7 +1033,7 @@ function ScheduleStep({ state, dispatch }: StepProps) {
         addon_ids: state.vehicles.flatMap((vehicle) => vehicle.addon_ids ?? []),
       });
       dispatch({ type: "hold", value: hold });
-      dispatch({ type: "step", value: "payment" });
+      dispatch({ type: "step", value: "review" });
     } catch (reason) {
       setError(
         reason instanceof ApiError && reason.isSchedulingConflict
@@ -1228,7 +1207,7 @@ function ScheduleStep({ state, dispatch }: StepProps) {
         </div>
       )}
       <StepActions
-        back={() => dispatch({ type: "step", value: "review" })}
+        back={() => dispatch({ type: "step", value: "details" })}
         next={proceed}
         nextLabel={t("booking.schedule.reserve")}
         busy={holding}
@@ -1330,6 +1309,7 @@ function PaymentStep({ state, dispatch }: StepProps) {
         value: await createBooking({
           hold_token: state.hold.hold_token,
           contact: state.contact,
+          billing: state.billing,
           location: state.location,
           vehicles: state.vehicles,
           payment_choice: "pay_after_service",
@@ -1445,7 +1425,7 @@ function PaymentStep({ state, dispatch }: StepProps) {
         </div>
       )}
       <StepActions
-        back={() => dispatch({ type: "step", value: "schedule" })}
+        back={() => dispatch({ type: "step", value: "review" })}
         next={submit}
         nextLabel={t("booking.payment.confirm")}
         busy={submitting}

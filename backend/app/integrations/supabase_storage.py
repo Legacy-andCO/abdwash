@@ -35,7 +35,7 @@ class SupabaseStorageAdminClient:
     def _object_path(self, path: str) -> str:
         return f"{quote(self.bucket, safe='')}/{quote(path, safe='/')}"
 
-    async def create_signed_upload(self, path: str) -> str:
+    async def create_signed_upload(self, path: str, *, upsert: bool = True) -> str:
         try:
             response = await observe_provider_call(
                 "supabase_storage",
@@ -43,7 +43,7 @@ class SupabaseStorageAdminClient:
                 lambda: self.client.post(
                     f"{self.base_url}/storage/v1/object/upload/sign/{self._object_path(path)}",
                     headers=self.headers,
-                    json={"upsert": True},
+                    json={"upsert": upsert},
                 ),
             )
         except httpx.HTTPError as exc:

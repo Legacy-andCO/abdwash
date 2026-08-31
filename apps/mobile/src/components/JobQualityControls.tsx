@@ -13,7 +13,7 @@ import { useNetInfo } from "@react-native-community/netinfo";
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { capabilities } from "../capabilities";
-import { DatePickerField, toIsoDate } from "./pickers";
+import { DatePickerField } from "./pickers";
 import {
   AppButton,
   Card,
@@ -47,6 +47,7 @@ import {
   toggledChecklist,
 } from "../quality/qualityState";
 import { colors, radii, spacing } from "../theme";
+import { formatUaeTime, uaeDateKey, wallDate } from "../time/uaeTime";
 
 type PhotoDraft = {
   uri: string;
@@ -729,7 +730,7 @@ function RewashScheduler({
   complaint: JobComplaint;
   onClose: () => void;
 }) {
-  const [day, setDay] = useState(() => toIsoDate(new Date()));
+  const [day, setDay] = useState(() => uaeDateKey());
   const [choice, setChoice] = useState<{
     startTime: string;
   } | null>(null);
@@ -747,7 +748,7 @@ function RewashScheduler({
         slot.available
           ? [{
               startTime: slot.time,
-              label: new Date(slot.starts_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+              label: formatUaeTime(slot.starts_at),
             }]
           : [],
       ),
@@ -759,7 +760,7 @@ function RewashScheduler({
       <DatePickerField
         label="Correction date"
         value={day}
-        minimumDate={new Date()}
+        minimumDate={wallDate(uaeDateKey())}
         onChange={(value) => {
           setDay(value);
           setChoice(null);

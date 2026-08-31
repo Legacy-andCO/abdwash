@@ -31,4 +31,12 @@ All messages use `notification_outbox`. Provider calls remain outside database t
 
 Communication history is manager-only and exposes only a safe label, Queued/Sent/Failed state, timestamps, and delay minutes. It does not expose recipient addresses, payloads, provider errors, or tokens. `Sent` means provider acceptance; inbox delivery/open telemetry is not implemented.
 
+While any visible item is queued, the mobile history performs a quiet bounded refresh so the manager sees the authoritative transition to Sent or Failed without replacing cached content. A delay mutation reports “queued”; it never claims provider acceptance synchronously. Delay messages include the unchanged current appointment window in UAE time and use the same provider, management-link derivation, claim, and retry path as every other email.
+
+Resend rejections retain only a bounded sanitized provider status, code, and message in `last_error`. Structured logs add the outbox ID, notification type, attempt count, status, and safe provider fields; API keys, authorization headers, recipients, message bodies, customer data, coordinates, and management tokens remain excluded. Transient/provider failures continue through the existing exponential retry policy.
+
+Resend network failures, 408, 429, and 5xx responses are retryable. Provider validation/authentication failures such as 400, 401, and 403 are permanent: the outbox row becomes `failed` after the first rejected attempt and is not sent again automatically. Historical retry rows already carrying a sanitized permanent Resend error are finalized as failed during claim without another provider call.
+
+Reschedule/cancellation reminder cleanup is deliberately bounded and uses `FOR UPDATE SKIP LOCKED`. Request sessions disable autoflush, so each deleted reminder is explicitly flushed before the next cleanup query; this prevents the same row being selected indefinitely while preserving the dispatcher's final currentness check.
+
 Emails currently use the established English transactional template system. Customer language preference is not stored authoritatively, so Arabic email templates are intentionally deferred rather than inferred incorrectly. SMS and WhatsApp are not implemented.

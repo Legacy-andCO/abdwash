@@ -30,8 +30,9 @@ import {
   useShiftAssignmentsQuery,
 } from "../queries/operations";
 import { colors, spacing } from "../theme";
+import { formatUaeDate, formatUaeTime, uaeDateKey } from "../time/uaeTime";
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = uaeDateKey;
 
 export function TodayScreen({
   context,
@@ -125,8 +126,7 @@ export function TodayScreen({
       contentContainerStyle={uiStyles.content}
     >
       <ScreenTitle
-        eyebrow={new Date()
-          .toLocaleDateString(undefined, {
+        eyebrow={formatUaeDate(new Date(), undefined, {
             weekday: "long",
             day: "numeric",
             month: "long",
@@ -249,10 +249,7 @@ export function TodayScreen({
                 {active ? "ACTIVE NOW" : "NEXT JOB"}
               </Text>
               <Text style={styles.nextTime}>
-                {new Date(next.scheduled_start).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                {formatUaeTime(next.scheduled_start)}
               </Text>
               <Text style={styles.cardTitle}>
                 {next.vehicles[0]
@@ -281,10 +278,7 @@ export function TodayScreen({
               <Card key={job.id}>
                 <View style={uiStyles.row}>
                   <Text style={styles.cardTitle}>
-                    {new Date(job.scheduled_start).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                    {formatUaeTime(job.scheduled_start)}
                   </Text>
                   <StatusChip value={job.status} />
                 </View>

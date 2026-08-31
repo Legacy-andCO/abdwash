@@ -14,6 +14,8 @@ export class ApiError extends Error {
 const messages: Record<string, string> = {
   OFFLINE: "Unable to reach Trifecta. Check your connection and try again.",
   REQUEST_TIMEOUT: "The request took too long. Please try again.",
+  RESCHEDULE_UNCONFIRMED:
+    "We couldn't confirm the reschedule. Try again safely.",
   UNAUTHORIZED: "Your session expired. Please sign in again.",
   STAFF_ACCESS_REQUIRED: "This account does not have staff access.",
   TEAM_ASSIGNMENT_CONFLICT:

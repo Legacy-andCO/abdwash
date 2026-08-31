@@ -4,6 +4,7 @@ Revision ID: 8a72c1d4e6f0
 Revises: 61343828bd05
 Create Date: 2026-08-30
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -42,8 +43,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "valid_appointment_reminder_hours", "business_settings", type_="check"
-    )
+    op.drop_constraint("valid_appointment_reminder_hours", "business_settings", type_="check")
     op.drop_column("business_settings", "appointment_reminder_hours_before")
     op.drop_column("business_settings", "appointment_reminder_enabled")

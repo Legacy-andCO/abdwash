@@ -9,6 +9,9 @@ export type Service = {
   estimated_duration_minutes: number;
   mobile_available?: boolean;
   shop_available?: boolean;
+  included_features?: string[];
+  product_kind?: "single_service" | "monthly_package";
+  customer_bookable?: boolean;
   prices?: { vehicle_type: string; price_minor: number }[];
   addons?: ServiceAddon[];
 };
@@ -75,6 +78,11 @@ export type Contact = {
   email: string;
   phone: string;
   phone_country: CountryCode;
+};
+export type BillingDetails = {
+  company_name: string;
+  billing_address: string;
+  tax_registration_number: string;
 };
 export type Location = {
   written_address: string;
@@ -207,6 +215,32 @@ export type Booking = {
   location_instructions: string | null;
   vehicles: BookingVehicleSummary[];
   management_token: string;
+};
+
+export type RevenueInvoice = {
+  id: string;
+  invoice_number: string;
+  document_type: "tax_invoice" | "invoice";
+  issued_at: string;
+  supply_date: string;
+  booking_reference: string;
+  currency_code: string;
+  supplier: Record<string, unknown>;
+  customer: Record<string, unknown>;
+  lines: {
+    description: string;
+    quantity: number;
+    unit_price_minor: number;
+    discount_minor: number;
+    line_total_minor: number;
+    vehicle: string | null;
+  }[];
+  subtotal_minor: number;
+  discount_minor: number;
+  vat_amount_minor: number;
+  total_minor: number;
+  payment_method: string;
+  payment_reference: string | null;
 };
 
 export type ManagedBooking = Omit<

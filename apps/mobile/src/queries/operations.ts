@@ -119,6 +119,8 @@ import {
   type TeamDetail,
   type TeamAssignmentOption,
 } from "../lib";
+import { ApiError } from "../errors/domainErrors";
+import { uaeAppointmentParts, uaeDateKey } from "../time/uaeTime";
 import {
   cacheTimes,
   operationalScope,
@@ -127,9 +129,12 @@ import {
   replaceJobInResponse,
   retentionTimes,
 } from "../cache/policy";
-import { ClientEventIdStore } from "../idempotency/clientEventId";
+import {
+  ClientEventIdStore,
+  isUncertainMutationFailure,
+} from "../idempotency/clientEventId";
 
-const day = () => new Date().toISOString().slice(0, 10);
+const day = uaeDateKey;
 
 export function useJobsQuery(
   context: StaffContext,
@@ -170,6 +175,12 @@ export function useJobCommunicationsQuery(
     queryKey: queryKeys.communications(scope, jobId),
     queryFn: ({ signal }) => getJobCommunications(jobId, signal),
     staleTime: cacheTimes.jobs,
+    refetchInterval: (query) => {
+      const items = query.state.data as CommunicationHistoryItem[] | undefined;
+      return enabled && items?.some((item) => item.state === "queued")
+        ? 15_000
+        : false;
+    },
     enabled,
     meta: persistedQueryMeta(retentionTimes.job),
   });
@@ -1386,7 +1397,7 @@ export function useAssignJobMutation(context: StaffContext) {
         queryKey: queryKeys.assignmentOptions(scope, job.id),
       });
       void client.invalidateQueries({
-        queryKey: queryKeys.dashboard(scope, new Date().toISOString().slice(0, 10)),
+        queryKey: queryKeys.dashboard(scope, uaeDateKey()),
       });
     },
   });
@@ -1421,6 +1432,24 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
         return result;
       } catch (error) {
         eventIds.failed(key, error);
+        if (isUncertainMutationFailure(error)) {
+          try {
+            const authoritative = await getJob(job.id);
+            const current = uaeAppointmentParts(authoritative.scheduled_start);
+            if (current.date === selectedDay && current.time === startTime) {
+              eventIds.succeeded(key);
+              return authoritative;
+            }
+          } catch {
+            // The original uncertain result remains authoritative until a retry.
+          }
+          throw new ApiError(
+            "RESCHEDULE_UNCONFIRMED",
+            0,
+            "We couldn't confirm the reschedule. Try again safely.",
+            error instanceof ApiError ? error.requestId : undefined,
+          );
+        }
         throw error;
       }
     },

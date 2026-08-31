@@ -126,6 +126,8 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
             ),
             subject_prefix="Payment pending for your Trifecta booking",
         )
+    if notification_type == "payment_received":
+        return render_payment_received(payload)
     if notification_type == "booking_cancelled":
         return render_simple_booking_update(
             payload,
@@ -266,6 +268,30 @@ def render_job_completed(payload: dict[str, Any]) -> tuple[str, str]:
     )
 
 
+def render_payment_received(payload: dict[str, Any]) -> tuple[str, str]:
+    reference = escape(str(payload["booking_reference"]))
+    first_name = escape(str(payload["customer_first_name"]))
+    invoice_number = escape(str(payload["invoice_number"]))
+    currency = escape(str(payload["currency_code"]))
+    amount_minor = int(payload["amount_paid_minor"])
+    payment_method = escape(
+        str(payload.get("payment_method") or "payment").replace("_", " ").title()
+    )
+    invoice_url = escape(str(payload["invoice_url"]), quote=True)
+    content = f"""
+      <p style="margin:0 0 24px">Hi {first_name},</p>
+      <p style="margin:0 0 24px">We received your payment. Thank you.</p>
+      {_detail("Booking", reference)}
+      {_detail("Invoice", invoice_number)}
+      {_detail("Amount received", f"{currency} {amount_minor / 100:,.2f}")}
+      {_detail("Payment method", payment_method)}
+      <p style="margin:30px 0"><a href="{invoice_url}"
+        style="background:#D65A1F;color:#fff;text-decoration:none;padding:13px 22px;
+        border-radius:8px;display:inline-block;font-weight:700">View invoice</a></p>
+    """
+    return f"Payment received — {reference}", _email_shell("Payment received", content)
+
+
 def render_driver_en_route(payload: dict[str, Any]) -> tuple[str, str]:
     reference = escape(str(payload["booking_reference"]))
     first_name = escape(str(payload["customer_first_name"]))
@@ -357,12 +383,8 @@ def _detail(label: str, value: str) -> str:
 
 
 def _scheduled_times(payload: dict[str, Any]) -> tuple[datetime, datetime]:
-    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(
-        TRIFECTA_ZONE
-    )
-    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(
-        TRIFECTA_ZONE
-    )
+    start = datetime.fromisoformat(str(payload["scheduled_start"])).astimezone(TRIFECTA_ZONE)
+    end = datetime.fromisoformat(str(payload["scheduled_end"])).astimezone(TRIFECTA_ZONE)
     return start, end
 
 

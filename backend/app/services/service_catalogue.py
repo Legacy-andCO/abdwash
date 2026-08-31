@@ -141,6 +141,9 @@ async def create_service(
         shop_available=request.shop_available,
         is_active=request.is_active,
         sort_order=request.sort_order,
+        included_features=request.included_features,
+        product_kind=request.product_kind,
+        customer_bookable=request.customer_bookable,
     )
     session.add(service)
     await session.flush()
@@ -361,6 +364,12 @@ async def update_business_booking_settings(
             )
     for key, value in values.items():
         setattr(settings, key, value)
+    if settings.vat_registered and not settings.tax_registration_number:
+        raise DomainError(
+            "VAT_REGISTRATION_REQUIRES_TRN",
+            "A tax registration number is required when VAT is enabled.",
+            status_code=422,
+        )
     if request.operating_hours is not None:
         await session.execute(
             delete(BusinessOperatingHour).where(
@@ -396,6 +405,9 @@ def _service_view(
         shop_available=service.shop_available,
         is_active=service.is_active,
         sort_order=service.sort_order,
+        included_features=service.included_features,
+        product_kind=service.product_kind,
+        customer_bookable=service.customer_bookable,
         prices=prices,
         addons=addons,
     )
@@ -430,6 +442,17 @@ def _settings_view(
         appointment_reminder_hours_before=settings.appointment_reminder_hours_before,
         default_inventory_location_id=settings.default_inventory_location_id,
         loyalty_reward_service_id=settings.loyalty_reward_service_id,
+        legal_name=settings.legal_name,
+        trading_name=settings.trading_name,
+        billing_address=settings.billing_address,
+        billing_emirate=settings.billing_emirate,
+        billing_country=settings.billing_country,
+        tax_registration_number=settings.tax_registration_number,
+        vat_registered=settings.vat_registered,
+        vat_rate=settings.vat_rate,
+        prices_include_vat=settings.prices_include_vat,
+        billing_email=settings.billing_email,
+        billing_phone=settings.billing_phone,
         operating_hours=[
             OperatingHourView(
                 weekday=item.weekday,

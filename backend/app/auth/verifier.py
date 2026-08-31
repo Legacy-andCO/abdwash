@@ -48,8 +48,7 @@ class SupabaseTokenVerifier:
         checked_at = time.monotonic() if now is None else now
         return bool(
             self._jwks is not None
-            and checked_at - self._jwks_loaded_at
-            < self.settings.jwks_cache_ttl_seconds
+            and checked_at - self._jwks_loaded_at < self.settings.jwks_cache_ttl_seconds
         )
 
     @staticmethod
@@ -153,9 +152,7 @@ class SupabaseTokenVerifier:
             logger.info("genuine_invalid_token", error_type=type(exc).__name__)
             raise AuthenticationError("Invalid or expired access token.") from exc
 
-    async def _verify_asymmetric(
-        self, token: str, algorithm: str | None
-    ) -> dict[str, Any]:
+    async def _verify_asymmetric(self, token: str, algorithm: str | None) -> dict[str, Any]:
         if algorithm not in {"RS256", "ES256", "EdDSA"}:
             raise AuthenticationError("Unsupported access-token algorithm.")
         header = jwt.get_unverified_header(token)

@@ -3,6 +3,7 @@ import type {
   Booking,
   Catalogue,
   Contact,
+  BillingDetails,
   CustomerBookingDetail,
   CustomerBookingSummary,
   CustomerContext,
@@ -12,6 +13,7 @@ import type {
   Hold,
   Location,
   ManagedBooking,
+  RevenueInvoice,
   Vehicle,
 } from "./types";
 import { normalizePhone } from "./phone";
@@ -129,6 +131,7 @@ export function createHold(input: {
 export function createBooking(input: {
   hold_token: string;
   contact: Contact;
+  billing?: BillingDetails;
   location: Location;
   vehicles: Vehicle[];
   payment_choice: "pay_after_service";
@@ -151,6 +154,15 @@ export function createBooking(input: {
       longitude: input.location.longitude,
       instructions: input.location.instructions,
     },
+    billing:
+      input.billing?.company_name.trim() && input.billing.billing_address.trim()
+        ? {
+            company_name: input.billing.company_name,
+            billing_address: input.billing.billing_address,
+            tax_registration_number:
+              input.billing.tax_registration_number || null,
+          }
+        : null,
     vehicles: input.vehicles.map(({ key: _key, year, ...vehicle }) => ({
       ...vehicle,
       year: year ? Number(year) : null,
@@ -169,6 +181,16 @@ export function getManagedBooking(token: string): Promise<ManagedBooking> {
   return request<ManagedBooking>("/api/v1/public/bookings/manage", {
     headers: { "X-Booking-Management-Token": token },
   });
+}
+
+export function getManagedInvoice(
+  token: string,
+  invoiceId: string,
+): Promise<RevenueInvoice> {
+  return request<RevenueInvoice>(
+    `/api/v1/public/bookings/manage/invoices/${encodeURIComponent(invoiceId)}`,
+    { headers: { "X-Booking-Management-Token": token } },
+  );
 }
 
 export function requestCancellation(

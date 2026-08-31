@@ -20,6 +20,7 @@ from app.schemas.customer import (
     CustomerVehicleResponse,
     CustomerVehicleWrite,
 )
+from app.schemas.invoices import RevenueInvoiceView
 from app.schemas.public import CancellationRequestCreate
 from app.services.booking_management import request_booking_cancellation
 from app.services.customer_profiles import (
@@ -47,6 +48,7 @@ from app.services.idempotency import (
     find_idempotent_response,
     store_idempotent_response,
 )
+from app.services.invoices import managed_invoice
 from app.services.sync_state import bump_sync_revisions
 
 router = APIRouter(prefix="/api/v1/customer", tags=["customer"])
@@ -167,6 +169,20 @@ async def booking_detail(
     booking_id: uuid.UUID, session: SessionDep, identity: IdentityDep
 ) -> CustomerBookingDetail:
     return await customer_booking_detail(session, identity, booking_id)
+
+
+@router.get(
+    "/bookings/{booking_id}/invoices/{invoice_id}",
+    response_model=RevenueInvoiceView,
+)
+async def booking_invoice(
+    booking_id: uuid.UUID,
+    invoice_id: uuid.UUID,
+    session: SessionDep,
+    identity: IdentityDep,
+) -> RevenueInvoiceView:
+    booking = await load_owned_booking(session, identity, booking_id)
+    return await managed_invoice(session, booking_id=booking.id, invoice_id=invoice_id)
 
 
 @router.post(

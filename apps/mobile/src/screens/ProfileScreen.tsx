@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { prepareOperationalLogout } from "../cache/queryClient";
-import { DatePickerField, fromIsoDate, toIsoDate } from "../components/pickers";
+import { DatePickerField, fromIsoDate } from "../components/pickers";
 import {
   AppButton,
   Card,
@@ -32,12 +32,11 @@ import {
   useUpdateProfileMutation,
 } from "../queries/operations";
 import { colors, spacing } from "../theme";
+import { addUaeDays, uaeDateKey, wallDate } from "../time/uaeTime";
 
 export function ProfileScreen({ context }: { context: StaffContext }) {
-  const end = new Date().toISOString().slice(0, 10);
-  const start = new Date(Date.now() - 30 * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  const end = uaeDateKey();
+  const start = addUaeDays(end, -30);
   const profileQuery = useProfileQuery(context);
   const attendanceQuery = useAttendanceHistoryQuery(context, start, end);
   const leaveQuery = useLeaveQuery(context);
@@ -50,8 +49,8 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
   const [changingPassword, setChangingPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [startDate, setStartDate] = useState(() => toIsoDate(new Date()));
-  const [endDate, setEndDate] = useState(() => toIsoDate(new Date()));
+  const [startDate, setStartDate] = useState(() => uaeDateKey());
+  const [endDate, setEndDate] = useState(() => uaeDateKey());
   const [reason, setReason] = useState("");
   function beginEdit() {
     if (!profile) return;
@@ -104,7 +103,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
         end_date: endDate,
         reason,
       });
-      const current = toIsoDate(new Date());
+      const current = uaeDateKey();
       setStartDate(current);
       setEndDate(current);
       setReason("");
@@ -283,7 +282,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
         <DatePickerField
           label="From"
           value={startDate}
-          minimumDate={new Date()}
+          minimumDate={wallDate(uaeDateKey())}
           onChange={(value) => {
             setStartDate(value);
             if (endDate < value) setEndDate(value);
