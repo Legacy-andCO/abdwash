@@ -1254,9 +1254,30 @@
   .auth-form .button {
     margin-top: 0.35rem;
   }
+  .auth-label-row {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+  .auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .auth-label-row label {
+    display: inline;
+  }
+  .auth-label-row a {
+    color: var(--brand-primary);
+    font-size: 0.74rem;
+    font-weight: 750;
+  }
   .auth-switch {
     display: block;
     margin: 1.2rem auto 0;
+  }
+  .auth-reset-notice {
+    margin-top: 2rem;
   }
   .auth-confirmation {
     text-align: center;
@@ -1267,6 +1288,276 @@
   }
   .auth-confirmation .button {
     margin-top: 1.5rem;
+  }
+  .contact-card > small {
+    color: var(--muted);
+    display: block;
+    margin-top: 1.3rem;
+  }
+  .contact-details {
+    display: grid;
+    gap: 0.8rem;
+    margin: 2rem 0;
+  }
+  .contact-details > * {
+    background: var(--mint);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 1.2rem;
+  }
+  .contact-details span {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+  .contact-details strong {
+    overflow-wrap: anywhere;
+  }
+  .contact-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+  .home-about {
+    background: var(--brand-dark);
+    color: white;
+    padding-block: 4.5rem;
+  }
+  .home-about-card {
+    align-items: center;
+    display: grid;
+    gap: 3rem;
+    grid-template-columns: 1fr 1fr;
+  }
+  .home-about-card h2 {
+    margin-top: 0.9rem;
+    max-width: 560px;
+  }
+  .home-about-card > div:last-child > p {
+    color: #e7dcd3;
+    margin-bottom: 1.4rem;
+    max-width: 540px;
+  }
+  .about-page {
+    background: var(--brand-background);
+  }
+  .about-hero {
+    background: var(--brand-dark);
+    color: white;
+    overflow: hidden;
+    padding-block: clamp(5rem, 9vw, 8rem);
+  }
+  .about-hero-grid {
+    align-items: center;
+    display: grid;
+    gap: clamp(3rem, 8vw, 7rem);
+    grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+  }
+  .about-hero h1 {
+    font-size: clamp(3.3rem, 7vw, 6.4rem);
+    margin: 1rem 0 1.5rem;
+    max-width: 850px;
+  }
+  .about-hero p:not(.eyebrow) {
+    color: #e7dcd3;
+    font-size: 1.02rem;
+    max-width: 690px;
+  }
+  .about-hero-actions,
+  .about-closing-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    margin-top: 2rem;
+  }
+  .about-hero .text-link,
+  .light-link {
+    border-color: rgba(255, 255, 255, 0.45);
+    color: white;
+  }
+  .about-signature {
+    aspect-ratio: 1;
+    background: radial-gradient(circle at 50% 42%, rgba(232, 148, 74, 0.28), transparent 48%);
+    border: 1px solid rgba(232, 148, 74, 0.5);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.5rem;
+    text-align: center;
+  }
+  .about-signature span,
+  .about-signature small {
+    color: #e7dcd3;
+    font-size: 0.7rem;
+  }
+  .about-signature strong {
+    color: var(--brand-accent);
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    margin-block: 1rem;
+  }
+  .about-values,
+  .audience-grid {
+    display: grid;
+    gap: 1.2rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .about-values article,
+  .audience-grid article,
+  .founder-grid article {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: clamp(1.6rem, 4vw, 2.6rem);
+  }
+  .about-values article > span,
+  .audience-grid article > span {
+    color: var(--brand-primary);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .about-values h3,
+  .audience-grid h3 {
+    font-size: clamp(1.7rem, 3vw, 2.4rem);
+    margin: 0.9rem 0;
+  }
+  .about-values p,
+  .audience-grid p,
+  .about-founders .section-heading > p,
+  .corporate-steps p {
+    color: var(--muted);
+  }
+  .audience-grid {
+    margin-top: 3rem;
+  }
+  .audience-grid .button {
+    margin-top: 1.5rem;
+  }
+  .audience-grid .corporate-card {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: white;
+  }
+  .audience-grid .corporate-card > span,
+  .audience-grid .corporate-card p {
+    color: #fff2e8;
+  }
+  .about-founders {
+    background: #fbf4ec;
+    padding-block: 6rem;
+  }
+  .founder-grid {
+    display: grid;
+    gap: 1.2rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .founder-grid article > span {
+    align-items: center;
+    background: var(--brand-background);
+    border-radius: 50%;
+    color: var(--brand-primary);
+    display: inline-flex;
+    font-weight: 800;
+    height: 58px;
+    justify-content: center;
+    width: 58px;
+  }
+  .founder-grid h3 {
+    font-size: 1.55rem;
+    margin-top: 1.2rem;
+  }
+  .founder-grid p {
+    color: var(--muted);
+  }
+  .about-capabilities {
+    background: var(--brand-dark);
+    color: white;
+    padding-block: 6rem;
+  }
+  .about-capabilities .section-heading > p,
+  .about-capabilities small {
+    color: #e7dcd3;
+  }
+  .capability-grid {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 1.5rem;
+  }
+  .capability-grid span {
+    border: 1px solid rgba(232, 148, 74, 0.38);
+    border-radius: 12px;
+    padding: 1rem;
+  }
+  .corporate-steps {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 3rem;
+  }
+  .corporate-steps article {
+    border-top: 2px solid var(--brand-primary);
+    padding: 1.4rem 0.5rem 0;
+  }
+  .corporate-steps article > span {
+    color: var(--brand-primary);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+  .corporate-steps h3 {
+    font-size: 1.25rem;
+    margin: 0.8rem 0;
+  }
+  .about-why {
+    background: white;
+    padding-block: 6rem;
+  }
+  .about-why-grid {
+    display: grid;
+    gap: 4rem;
+    grid-template-columns: 0.9fr 1.1fr;
+  }
+  .about-why h2 {
+    margin: 0.9rem 0 1.2rem;
+  }
+  .about-why-grid > div:first-child > p:not(.eyebrow) {
+    color: var(--muted);
+  }
+  .reason-list {
+    display: grid;
+    gap: 0.8rem;
+  }
+  .reason-list p {
+    align-items: start;
+    background: var(--brand-background);
+    border-radius: 12px;
+    display: flex;
+    gap: 0.8rem;
+    padding: 1rem;
+  }
+  .reason-list span {
+    color: var(--brand-primary);
+    font-weight: 900;
+  }
+  .about-closing {
+    background: var(--brand-primary);
+    color: white;
+    padding-block: 6rem;
+  }
+  .about-closing h2 {
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    margin: 1rem 0;
+    max-width: 800px;
+  }
+  .about-closing > .shell > p:not(.eyebrow) {
+    color: #fff2e8;
+    max-width: 720px;
   }
   .home-status-card {
     align-items: center;
@@ -2724,6 +3015,21 @@
 
 @layer responsive {
   @media (max-width: 900px) {
+    .about-hero-grid,
+    .about-why-grid {
+      grid-template-columns: 1fr;
+    }
+    .about-signature {
+      justify-self: center;
+      max-width: 360px;
+      width: 100%;
+    }
+    .corporate-steps {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .capability-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .hero {
       padding-top: 4rem;
     }
@@ -2838,6 +3144,24 @@
     }
     .section {
       padding-block: 5rem;
+    }
+    .home-about-card,
+    .about-values,
+    .audience-grid,
+    .founder-grid,
+    .capability-grid,
+    .corporate-steps {
+      grid-template-columns: 1fr;
+    }
+    .about-hero h1 {
+      font-size: clamp(3rem, 13vw, 4.5rem);
+    }
+    .about-signature {
+      max-width: 280px;
+    }
+    .contact-actions {
+      align-items: stretch;
+      flex-direction: column;
     }
     .service-grid,
     .promo-card,

@@ -15,9 +15,24 @@ distribute a new staff mobile build because manager settings and expense forms c
 
 ## Website
 
-Select `apps/web` as the Vercel Root Directory. Set `NEXT_PUBLIC_API_URL` to the public HTTPS FastAPI origin and `NEXT_PUBLIC_SITE_URL` to the canonical website origin (for example, `https://abdwash-vdtc.vercel.app`, without a trailing path). Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the public Supabase project settings. Set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to a browser key restricted to the production website plus explicitly intended preview/development origins. Set `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` to the production map ID when available. No database, Resend, JWT, signing, dispatch, or service-role secret belongs in the web project.
+Select `apps/web` as the Vercel Root Directory. Set `NEXT_PUBLIC_API_URL` to the public HTTPS FastAPI origin and set `NEXT_PUBLIC_SITE_URL=https://trifecta-wash.com` (without a trailing path). Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the public Supabase project settings. Set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to a browser key restricted to the production website plus explicitly intended preview/development origins. Set `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` to the production map ID when available. No database, Resend, JWT, signing, dispatch, SMTP, or service-role secret belongs in the web project.
 
-In **Supabase Dashboard → Authentication → URL Configuration**, set the production Site URL to the canonical website origin and allow the exact confirmation callback `https://<customer-web-domain>/auth/confirm`. Add `http://localhost:3000/auth/confirm` only for local development and add preview callbacks only when they are intentionally supported. Signup passes this same callback through `emailRedirectTo`; `/auth/confirm` exchanges the PKCE code and shows an explicit success or failure state.
+In **Supabase Dashboard → Authentication → URL Configuration**, configure:
+
+```text
+Site URL
+https://trifecta-wash.com
+
+Allowed Redirect URLs
+https://trifecta-wash.com/auth/confirm
+https://trifecta-wash.com/auth/reset-password
+http://localhost:3000/auth/confirm
+http://localhost:3000/auth/reset-password
+```
+
+Add the equivalent `www.trifecta-wash.com` callbacks only if that hostname is intentionally served. Do not use a production wildcard. Signup passes `/auth/confirm` through `emailRedirectTo`; password recovery passes `/auth/reset-password` through `redirectTo`. The browser Supabase client detects the returned session and the reset page accepts only a `PASSWORD_RECOVERY` session.
+
+Supabase Auth emails are separate from booking emails sent by the FastAPI/Resend notification provider. Supabase's default SMTP is for development only: it sends only to authorized project-team addresses, has restrictive rate limits, and has no delivery SLA. Before production customer recovery, open **Supabase Dashboard → Authentication → SMTP Settings**, enable custom SMTP, and configure a verified sender name/address plus the provider's SMTP host, port, username, and password. For Resend SMTP, obtain the current SMTP credentials from Resend and enter them only in the Supabase Dashboard; never add them to Vercel web variables or Git. Then review the Supabase recovery email template, rate limits, SPF/DKIM/DMARC, and send a real reset to a non-team test inbox before launch.
 
 Enable only the Google APIs used by this flow: Maps JavaScript API, Places API (New), and Geocoding API. Apply both Website application restrictions and API restrictions to the browser key. If the key is absent, the form intentionally falls back to written address plus a validated Google Maps share link.
 

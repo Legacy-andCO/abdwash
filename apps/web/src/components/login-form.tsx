@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "./auth-provider";
@@ -68,10 +69,11 @@ export function LoginForm() {
     <h1>{mode === "login" ? t("auth.loginTitle") : t("auth.signupTitle")}</h1>
     <p>{mode === "login" ? t("auth.loginCopy") : t("auth.signupCopy")}</p>
     {!available && <div className="error-banner" role="alert">{t("auth.unavailable")}</div>}
+    {searchParams.get("passwordReset") === "success" && <div className="inline-notice" role="status"><strong>{t("auth.passwordUpdated")}</strong><span>{t("auth.passwordUpdatedLogin")}</span></div>}
     <form className="auth-form" onSubmit={(event) => void submit(event)}>
       {mode === "signup" && <div className="form-grid two"><label><span>{t("booking.details.firstName")}</span><input required autoComplete="given-name" value={fields.firstName} onChange={(event) => update("firstName", event.target.value)} /></label><label><span>{t("booking.details.surname")}</span><input required autoComplete="family-name" value={fields.surname} onChange={(event) => update("surname", event.target.value)} /></label></div>}
       <label><span>{t("auth.email")}</span><input required type="email" autoComplete="email" value={fields.email} onChange={(event) => update("email", event.target.value)} /></label>
-      <label><span>{t("auth.password")}</span><input required minLength={6} type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={fields.password} onChange={(event) => update("password", event.target.value)} /></label>
+      <div className="auth-field"><div className="auth-label-row"><label htmlFor="customer-password">{t("auth.password")}</label>{mode === "login" && <Link href="/forgot-password">{t("auth.forgotPassword")}</Link>}</div><input id="customer-password" required minLength={6} type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={fields.password} onChange={(event) => update("password", event.target.value)} /></div>
       {mode === "signup" && <label><span>{t("auth.confirmPassword")}</span><input required minLength={6} type="password" autoComplete="new-password" value={fields.confirmPassword} onChange={(event) => update("confirmPassword", event.target.value)} /></label>}
       {error && <div className="error-banner" role="alert">{error}</div>}
       {notice && <div className="inline-notice" role="status"><strong>{t("auth.oneMoreStep")}</strong><span>{notice}</span></div>}

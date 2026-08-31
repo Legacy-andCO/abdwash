@@ -32,6 +32,7 @@ export function SiteHeader() {
     <nav id="primary-navigation" className={open ? "nav-links is-open" : "nav-links"} aria-label={t("nav.primary")}>
       <Link href="/#services" onClick={() => setOpen(false)}>{t("nav.services")}</Link>
       <Link href="/#how-it-works" onClick={() => setOpen(false)}>{t("nav.how")}</Link>
+      <Link href="/about" onClick={() => setOpen(false)}>{t("nav.about")}</Link>
       <Link href="/contact" onClick={() => setOpen(false)}>{t("nav.contact")}</Link>
       {!loading && !user && <Link href={loginHref} onClick={() => setOpen(false)}>{t("nav.login")}</Link>}
       {!loading && user && <div className="account-links"><Link href="/account" onClick={() => setOpen(false)}>{firstName ? t("nav.hello", { name: firstName }) : t("nav.account")}</Link><button type="button" onClick={() => void handleLogout()}>{t("nav.logout")}</button></div>}

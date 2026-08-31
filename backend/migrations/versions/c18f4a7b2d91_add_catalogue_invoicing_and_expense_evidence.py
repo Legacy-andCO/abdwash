@@ -126,6 +126,60 @@ CATALOGUE = (
 )
 
 
+def _service_insert_statement() -> sa.TextClause:
+    return sa.text(
+        "INSERT INTO services (id,business_id,name,description,price_minor,"
+        "estimated_duration_minutes,included_features,product_kind,"
+        "customer_bookable,is_active,mobile_available,shop_available,sort_order) "
+        "SELECT gen_random_uuid(), b.id, :name, :description, :price, :duration, "
+        ":features, :kind, :bookable, true, true, true, :sort_order FROM businesses b "
+        "WHERE NOT EXISTS (SELECT 1 FROM services s "
+        "WHERE s.business_id=b.id AND s.name=:name)"
+    ).bindparams(
+        sa.bindparam("name", type_=sa.String(160)),
+        sa.bindparam("description", type_=sa.Text()),
+        sa.bindparam("price", type_=sa.Integer()),
+        sa.bindparam("duration", type_=sa.Integer()),
+        sa.bindparam("features", type_=sa.JSON()),
+        sa.bindparam("kind", type_=sa.String(24)),
+        sa.bindparam("bookable", type_=sa.Boolean()),
+        sa.bindparam("sort_order", type_=sa.Integer()),
+    )
+
+
+def _service_update_statement() -> sa.TextClause:
+    return sa.text(
+        "UPDATE services SET description=:description, price_minor=:price, "
+        "estimated_duration_minutes=:duration, included_features=:features, "
+        "product_kind=:kind, customer_bookable=:bookable, is_active=true, "
+        "mobile_available=true, sort_order=:sort_order WHERE name=:name"
+    ).bindparams(
+        sa.bindparam("name", type_=sa.String(160)),
+        sa.bindparam("description", type_=sa.Text()),
+        sa.bindparam("price", type_=sa.Integer()),
+        sa.bindparam("duration", type_=sa.Integer()),
+        sa.bindparam("features", type_=sa.JSON()),
+        sa.bindparam("kind", type_=sa.String(24)),
+        sa.bindparam("bookable", type_=sa.Boolean()),
+        sa.bindparam("sort_order", type_=sa.Integer()),
+    )
+
+
+def _service_price_upsert_statement() -> sa.TextClause:
+    return sa.text(
+        "INSERT INTO service_prices "
+        "(id,business_id,service_id,vehicle_type,price_minor) "
+        "SELECT gen_random_uuid(),s.business_id,s.id,:vehicle_type,:price "
+        "FROM services s WHERE s.name=:name "
+        "ON CONFLICT (service_id,vehicle_type) DO UPDATE "
+        "SET price_minor=EXCLUDED.price_minor"
+    ).bindparams(
+        sa.bindparam("name", type_=sa.String(160)),
+        sa.bindparam("vehicle_type", type_=sa.String(80)),
+        sa.bindparam("price", type_=sa.Integer()),
+    )
+
+
 def upgrade() -> None:
     op.add_column(
         "services",
@@ -310,7 +364,9 @@ def upgrade() -> None:
             "'Signature Inside & Out','Premium Detail')"
         )
     )
-    import json
+    service_insert = _service_insert_statement()
+    service_update = _service_update_statement()
+    service_price_upsert = _service_price_upsert_statement()
 
     for sort_order, (
         name,
@@ -328,55 +384,20 @@ def upgrade() -> None:
             "price": car_price,
             "duration": duration,
             "sort_order": sort_order,
-            "features": json.dumps(features),
+            "features": features,
             "kind": kind,
             "bookable": bookable,
         }
-        bind.execute(
-            sa.text(
-                "INSERT INTO services (id,business_id,name,description,price_minor,"
-                "estimated_duration_minutes,included_features,product_kind,"
-                "customer_bookable,is_active,mobile_available,shop_available,sort_order) "
-                "SELECT gen_random_uuid(), b.id, :name, :description, :price, :duration, "
-                "CAST(:features AS json), "
-                ":kind, :bookable, true, true, true, :sort_order FROM businesses b "
-                "WHERE NOT EXISTS (SELECT 1 FROM services s "
-                "WHERE s.business_id=b.id AND s.name=:name)"
-            ),
-            params,
-        )
-        bind.execute(
-            sa.text(
-                "UPDATE services SET description=:description, price_minor=:price, "
-                "estimated_duration_minutes=:duration, included_features=CAST(:features AS json), "
-                "product_kind=:kind, customer_bookable=:bookable, is_active=true, "
-                "mobile_available=true, "
-                "sort_order=:sort_order WHERE name=:name"
-            ),
-            params,
-        )
+        bind.execute(service_insert, params)
+        bind.execute(service_update, params)
         for vehicle_type in ("sedan", "hatchback", "coupe", "other"):
             bind.execute(
-                sa.text(
-                    "INSERT INTO service_prices "
-                    "(id,business_id,service_id,vehicle_type,price_minor) "
-                    "SELECT gen_random_uuid(),s.business_id,s.id,:vehicle_type,:price "
-                    "FROM services s WHERE s.name=:name "
-                    "ON CONFLICT (service_id,vehicle_type) DO UPDATE "
-                    "SET price_minor=EXCLUDED.price_minor"
-                ),
+                service_price_upsert,
                 {"name": name, "vehicle_type": vehicle_type, "price": car_price},
             )
         for vehicle_type in ("suv", "pickup", "van"):
             bind.execute(
-                sa.text(
-                    "INSERT INTO service_prices "
-                    "(id,business_id,service_id,vehicle_type,price_minor) "
-                    "SELECT gen_random_uuid(),s.business_id,s.id,:vehicle_type,:price "
-                    "FROM services s WHERE s.name=:name "
-                    "ON CONFLICT (service_id,vehicle_type) DO UPDATE "
-                    "SET price_minor=EXCLUDED.price_minor"
-                ),
+                service_price_upsert,
                 {"name": name, "vehicle_type": vehicle_type, "price": suv_price},
             )
 

@@ -46,6 +46,10 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
+    supplied_connection = config.attributes.get("connection")
+    if supplied_connection is not None:
+        do_run_migrations(supplied_connection)
+        return
     asyncio.run(run_async_migrations())
 
 
