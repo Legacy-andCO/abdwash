@@ -17,10 +17,22 @@ type AuthContextValue = {
   signUp: (input: SignUpInput) => Promise<{ confirmationRequired: boolean }>;
   requestPasswordReset: (email: string) => Promise<void>;
   updateRecoveredPassword: (password: string) => Promise<void>;
+  updateAuthenticatedPassword: (password: string, nonce?: string) => Promise<void>;
+  requestPasswordReauthentication: () => Promise<void>;
   dismissProfileOnboarding: () => Promise<void>;
   logout: () => Promise<void>;
   logoutAfterAccountDeletion: () => Promise<void>;
 };
+
+export class AuthenticatedPasswordUpdateError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = "AuthenticatedPasswordUpdateError";
+  }
+}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const RECOVERY_SESSION_KEY = "trifecta-password-recovery";
@@ -122,6 +134,27 @@ export function AuthProvider({ children, client: clientOverride }: { children: R
       window.sessionStorage.removeItem(RECOVERY_SESSION_KEY);
       setRecoveryMode(false);
       setSession(null);
+    },
+    updateAuthenticatedPassword: async (password, nonce) => {
+      if (!client || !session) {
+        throw new AuthenticatedPasswordUpdateError("Authenticated session unavailable.");
+      }
+      const { error } = await client.auth.updateUser({
+        password,
+        ...(nonce ? { nonce } : {}),
+      });
+      if (error) {
+        throw new AuthenticatedPasswordUpdateError(error.message, error.code);
+      }
+    },
+    requestPasswordReauthentication: async () => {
+      if (!client || !session) {
+        throw new AuthenticatedPasswordUpdateError("Authenticated session unavailable.");
+      }
+      const { error } = await client.auth.reauthenticate();
+      if (error) {
+        throw new AuthenticatedPasswordUpdateError(error.message, error.code);
+      }
     },
     dismissProfileOnboarding: async () => {
       if (!client || !session) return;

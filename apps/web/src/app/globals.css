@@ -2230,6 +2230,30 @@
     gap: 1rem;
     justify-content: space-between;
   }
+  .security-panel-heading {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+  }
+  .security-panel-heading .eyebrow,
+  .security-panel-heading h2 {
+    margin-bottom: 0;
+  }
+  .security-password-form {
+    border-top: 1px solid var(--line);
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+  }
+  .security-password-form h3 {
+    font-size: 1.1rem;
+    margin: 0 0 1rem;
+  }
+  .security-code-field {
+    margin-top: 1rem;
+    max-width: 28rem;
+  }
   .profile-panel h2 {
     font-size: 1.25rem;
     margin: 0 0 1.2rem;

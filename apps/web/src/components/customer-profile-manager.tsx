@@ -37,6 +37,7 @@ import type { CountryCode } from "libphonenumber-js/min";
 import { useI18n } from "./i18n-provider";
 import { isVehicleType, VEHICLE_TYPES } from "@/lib/vehicle-types";
 import { clearCustomerBrowserState } from "@/lib/guest-device";
+import { AuthenticatedPasswordChange } from "./authenticated-password-change";
 
 const emptyLocation: Location = {
   written_address: "",
@@ -355,6 +356,7 @@ export function CustomerProfileManager() {
             {t("profile.savePersonal")}
           </button>
         </section>
+        <AuthenticatedPasswordChange />
         {data?.loyalty && (
           <section className="profile-panel loyalty-card" id="rewards">
             <header>

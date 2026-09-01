@@ -524,6 +524,20 @@ const en = {
   "profile.personal": "Personal information",
   "profile.emailHint": "Change this through your secure login identity.",
   "profile.savePersonal": "Save personal information",
+  "profile.security": "Security",
+  "profile.changePassword": "Change password",
+  "profile.passwordRequired": "Enter and confirm your new password.",
+  "profile.passwordUpdated": "Password updated successfully.",
+  "profile.passwordPolicyError":
+    "That password doesn’t meet the security requirements. Choose a stronger password and try again.",
+  "profile.passwordUpdateError":
+    "We couldn’t update your password. Please try again.",
+  "profile.passwordCode": "Verification code",
+  "profile.passwordCodeSent":
+    "For your security, enter the verification code sent to your email.",
+  "profile.passwordCodeRequired": "Enter the verification code to continue.",
+  "profile.passwordCodeInvalid":
+    "That verification code is invalid or expired. Please try again.",
   "profile.savedLocations": "Saved locations",
   "profile.addLocation": "Add location",
   "profile.editLocation": "Edit location",
@@ -1294,6 +1308,20 @@ const ar: Record<TranslationKey, string> = {
   "profile.personal": "المعلومات الشخصية",
   "profile.emailHint": "غيّر هذا من خلال هوية تسجيل الدخول الآمنة.",
   "profile.savePersonal": "حفظ المعلومات الشخصية",
+  "profile.security": "الأمان",
+  "profile.changePassword": "تغيير كلمة المرور",
+  "profile.passwordRequired": "أدخل كلمة المرور الجديدة وأكّدها.",
+  "profile.passwordUpdated": "تم تحديث كلمة المرور بنجاح.",
+  "profile.passwordPolicyError":
+    "كلمة المرور لا تستوفي متطلبات الأمان. اختر كلمة مرور أقوى وحاول مرة أخرى.",
+  "profile.passwordUpdateError":
+    "تعذر تحديث كلمة المرور. حاول مرة أخرى.",
+  "profile.passwordCode": "رمز التحقق",
+  "profile.passwordCodeSent":
+    "لحماية حسابك، أدخل رمز التحقق المُرسل إلى بريدك الإلكتروني.",
+  "profile.passwordCodeRequired": "أدخل رمز التحقق للمتابعة.",
+  "profile.passwordCodeInvalid":
+    "رمز التحقق غير صالح أو منتهي الصلاحية. حاول مرة أخرى.",
   "profile.savedLocations": "المواقع المحفوظة",
   "profile.addLocation": "إضافة موقع",
   "profile.editLocation": "تعديل الموقع",
