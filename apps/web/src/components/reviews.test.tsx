@@ -12,12 +12,17 @@ import { ReviewsPage } from "./reviews-page";
 
 const getPublicReviewSummary = vi.fn();
 const getPublicReviews = vi.fn();
+const getStaffContext = vi.fn();
+const hideReview = vi.fn();
 const recordCustomerReviewOpen = vi.fn();
 const submitCustomerReview = vi.fn();
 
 vi.mock("@/lib/api", () => ({
+  getCustomerProfile: () => Promise.reject(new Error("Profile unavailable")),
   getPublicReviewSummary: (...args: unknown[]) => getPublicReviewSummary(...args),
   getPublicReviews: (...args: unknown[]) => getPublicReviews(...args),
+  getStaffContext: (...args: unknown[]) => getStaffContext(...args),
+  hideReview: (...args: unknown[]) => hideReview(...args),
   recordCustomerReviewOpen: (...args: unknown[]) => recordCustomerReviewOpen(...args),
   submitCustomerReview: (...args: unknown[]) => submitCustomerReview(...args),
 }));
@@ -58,6 +63,15 @@ const eligibility: ReviewEligibility = {
 
 beforeEach(() => {
   window.sessionStorage.clear();
+  window.localStorage.clear();
+  document.documentElement.lang = "en";
+  document.documentElement.dir = "ltr";
+  getPublicReviewSummary.mockReset();
+  getPublicReviews.mockReset();
+  getStaffContext.mockReset();
+  hideReview.mockReset();
+  recordCustomerReviewOpen.mockReset();
+  submitCustomerReview.mockReset();
   getPublicReviewSummary.mockResolvedValue({
     average_rating: 3.5,
     total_count: 2,
@@ -68,6 +82,8 @@ beforeEach(() => {
     total_count: 2,
     reviews: [highReview, lowReview],
   });
+  getStaffContext.mockRejectedValue(new Error("Not staff"));
+  hideReview.mockResolvedValue({ id: highReview.id, status: "hidden" });
   recordCustomerReviewOpen.mockResolvedValue({ show_prompt: true, eligibility });
   submitCustomerReview.mockResolvedValue(highReview);
 });
@@ -125,5 +141,35 @@ describe("verified customer reviews", () => {
     await waitFor(() => expect(document.documentElement.dir).toBe("rtl"));
     expect(await screen.findByText("ماذا يقول عملاؤنا")).toBeTruthy();
     expect(screen.queryByText("reviews.whatCustomersSay")).toBeNull();
+  });
+
+  it("shows review removal only to a verified manager and refreshes public results", async () => {
+    getStaffContext.mockResolvedValue({ role: "manager", must_change_password: false });
+    getPublicReviews
+      .mockResolvedValueOnce({ average_rating: 3.5, total_count: 2, reviews: [highReview, lowReview] })
+      .mockResolvedValueOnce({ average_rating: 2, total_count: 1, reviews: [lowReview] });
+    render(<I18nProvider><ReviewsPage /></I18nProvider>);
+
+    const actions = await screen.findAllByRole("button", { name: "Review actions" });
+    await userEvent.click(actions[0]);
+    await userEvent.click(screen.getByRole("button", { name: "Remove review" }));
+    expect(screen.getByRole("dialog", { name: "Remove this review?" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    await waitFor(() => expect(hideReview).toHaveBeenCalledWith(highReview.id));
+    await waitFor(() => expect(screen.queryByText(/Careful and professional\./)).toBeNull());
+  });
+
+  it("does not show review actions to customers or unauthenticated visitors", async () => {
+    getStaffContext.mockResolvedValue({ role: "employee", must_change_password: false });
+    const customerView = render(<I18nProvider><ReviewsPage /></I18nProvider>);
+    await screen.findByText(/Careful and professional\./);
+    expect(screen.queryByRole("button", { name: "Review actions" })).toBeNull();
+    customerView.unmount();
+
+    getStaffContext.mockRejectedValue(new Error("Unauthenticated"));
+    render(<I18nProvider><ReviewsPage /></I18nProvider>);
+    await screen.findByText(/Careful and professional\./);
+    expect(screen.queryByRole("button", { name: "Review actions" })).toBeNull();
   });
 });

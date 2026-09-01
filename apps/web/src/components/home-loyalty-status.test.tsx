@@ -13,6 +13,7 @@ const loadCustomerProfile = vi.hoisted(() => vi.fn());
 vi.mock("./auth-provider", () => ({ useAuth: () => auth }));
 vi.mock("./i18n-provider", () => ({
   useI18n: () => ({
+    language: "en",
     t: (key: string, values?: Record<string, string | number>) => {
       const messages: Record<string, string> = {
         "home.loyaltyEyebrow": "Trifecta rewards",

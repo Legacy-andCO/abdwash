@@ -456,10 +456,12 @@ function DetailsStep({ state, dispatch }: StepProps) {
     label: ReactNode,
     type = "text",
     autocomplete?: string,
+    required = false,
   ) => (
     <label>
-      <span>{label}</span>
+      <span>{label} {required ? <em>{t("location.required")}</em> : null}</span>
       <input
+        required={required}
         type={type}
         autoComplete={autocomplete}
         value={state.contact[field]}
@@ -537,20 +539,24 @@ function DetailsStep({ state, dispatch }: StepProps) {
             t("booking.details.firstName"),
             "text",
             "given-name",
+            true,
           )}
           {contactField(
             "surname",
             t("booking.details.surname"),
             "text",
             "family-name",
+            true,
           )}
           {contactField(
             "email",
-            <>{t("booking.details.email")} <em>{t("common.optional")}</em></>,
+            t("booking.details.email"),
             "email",
             "email",
+            true,
           )}
           <PhoneInput
+            required
             value={state.contact.phone}
             country={state.contact.phone_country}
             error={errors.phone}

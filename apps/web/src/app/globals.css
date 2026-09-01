@@ -138,6 +138,72 @@
     gap: 0.2rem;
     text-align: end;
   }
+  .public-review-card {
+    position: relative;
+  }
+  .review-moderation {
+    inset-inline-end: 0.75rem;
+    position: absolute;
+    top: 0.65rem;
+    z-index: 2;
+  }
+  .review-menu-button {
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    color: var(--brand-text-secondary);
+    cursor: pointer;
+    font-size: 1.35rem;
+    height: 34px;
+    line-height: 1;
+    width: 34px;
+  }
+  .review-menu-button:hover,
+  .review-menu-button:focus-visible {
+    background: var(--brand-background);
+  }
+  .review-menu,
+  .review-remove-confirm {
+    background: var(--brand-surface);
+    border: 1px solid var(--brand-border);
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(15, 15, 16, 0.15);
+    inset-inline-end: 0;
+    min-width: 170px;
+    padding: 0.55rem;
+    position: absolute;
+    top: 36px;
+  }
+  .review-menu button,
+  .review-remove-confirm button {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    text-align: start;
+  }
+  .review-menu button {
+    padding: 0.45rem 0.55rem;
+    width: 100%;
+  }
+  .review-remove-confirm {
+    display: grid;
+    gap: 0.65rem;
+    min-width: min(280px, calc(100vw - 48px));
+    padding: 0.9rem;
+  }
+  .review-remove-confirm p {
+    color: var(--brand-text-secondary);
+    font-size: 0.75rem;
+  }
+  .review-remove-confirm > div {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+  .review-remove-confirm > div button:last-child {
+    color: var(--danger);
+    font-weight: 800;
+  }
   .review-summary strong,
   .review-stars {
     color: var(--brand-primary);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
@@ -9,6 +9,11 @@ import { LoginForm } from "./login-form";
 import { SiteHeader } from "./site-header";
 
 const replace = vi.fn();
+const profileResource = vi.hoisted(() => ({
+  cachedCustomerProfile: vi.fn(),
+  loadCustomerProfile: vi.fn(),
+}));
+vi.mock("@/lib/customer-profile-resource", () => profileResource);
 vi.mock("next/navigation", () => ({
   usePathname: () => "/book",
   useRouter: () => ({ replace }),
@@ -37,6 +42,16 @@ function authClient(initialSession: Session | null = null) {
   };
   return { client: { auth } as unknown as SupabaseClient, auth };
 }
+
+beforeEach(() => {
+  profileResource.cachedCustomerProfile.mockReturnValue(null);
+  profileResource.loadCustomerProfile.mockResolvedValue({
+    authenticated_email: "customer@example.com",
+    profile: null,
+    addresses: [],
+    vehicles: [],
+  });
+});
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -102,6 +117,37 @@ describe("customer authentication", () => {
     }));
     expect(await screen.findByRole("heading", { name: "Check your email" })).toBeTruthy();
     expect(screen.queryByText(/account exists/i)).toBeNull();
+  });
+
+  it("prefers the saved customer profile first name over auth metadata", async () => {
+    profileResource.loadCustomerProfile.mockResolvedValue({
+      authenticated_email: "customer@example.com",
+      profile: { id: "profile", first_name: "Ahmad", surname: "Ali", email: "customer@example.com", phone: "+971501234567" },
+      addresses: [],
+      vehicles: [],
+    });
+    const { client } = authClient(session("Metadata Name"));
+    render(<AuthProvider client={client}><SiteHeader /></AuthProvider>);
+    expect(await screen.findByText("Hi, Ahmad")).toBeTruthy();
+    expect(screen.queryByText("Hi, Metadata Name")).toBeNull();
+  });
+
+  it("uses a cached profile name immediately and falls back to Account without a name", async () => {
+    profileResource.cachedCustomerProfile.mockReturnValue({
+      authenticated_email: "customer@example.com",
+      profile: { id: "profile", first_name: "Aisha", surname: "Ali", email: "customer@example.com", phone: "+971501234567" },
+      addresses: [],
+      vehicles: [],
+    });
+    const cachedClient = authClient(session("")).client;
+    const view = render(<AuthProvider client={cachedClient}><SiteHeader /></AuthProvider>);
+    expect(await screen.findByText("Hi, Aisha")).toBeTruthy();
+    view.unmount();
+
+    profileResource.cachedCustomerProfile.mockReturnValue(null);
+    const fallbackClient = authClient(session("")).client;
+    render(<AuthProvider client={fallbackClient}><SiteHeader /></AuthProvider>);
+    expect(await screen.findByText("Account")).toBeTruthy();
   });
 
   it("keeps Magic Link primary while exposing password sign-up from password login", async () => {

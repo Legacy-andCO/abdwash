@@ -13,6 +13,7 @@ type PhoneInputProps = {
   value: string;
   country: CountryCode;
   error?: string;
+  required?: boolean;
   onChange: (value: string) => void;
   onCountryChange: (country: CountryCode) => void;
 };
@@ -21,6 +22,7 @@ export function PhoneInput({
   value,
   country,
   error,
+  required = false,
   onChange,
   onCountryChange,
 }: PhoneInputProps) {
@@ -34,7 +36,7 @@ export function PhoneInput({
 
   return (
     <label className="phone-field">
-      <span>{t("phone.number")}</span>
+      <span>{t("phone.number")} {required ? <em>{t("location.required")}</em> : null}</span>
       <span className="phone-control">
         <select
           aria-label={t("phone.country")}
@@ -52,6 +54,7 @@ export function PhoneInput({
           ))}
         </select>
         <input
+          required={required}
           type="tel"
           autoComplete="tel"
           inputMode="tel"

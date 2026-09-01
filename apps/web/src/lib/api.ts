@@ -141,12 +141,20 @@ export function createBooking(input: {
   payment_choice: "pay_after_service";
   idempotencyKey: string;
 }): Promise<Booking> {
+  const email = input.contact.email.trim();
+  if (!email) {
+    throw new ApiError(
+      "INVALID_EMAIL",
+      "Enter a valid email address.",
+      422,
+    );
+  }
   const body = {
     hold_token: input.hold_token,
     contact: {
       first_name: input.contact.first_name,
       surname: input.contact.surname,
-      email: input.contact.email.trim() || null,
+      email,
       phone:
         normalizePhone(input.contact.phone, input.contact.phone_country) ??
         input.contact.phone,
@@ -292,6 +300,23 @@ export function getPublicReviews(
   return request<PublicReviewList>(
     `/api/v1/public/reviews?limit=${limit}&offset=${offset}`,
   );
+}
+
+export function getStaffContext(): Promise<{
+  role: string;
+  must_change_password: boolean;
+}> {
+  return request("/api/v1/staff/context");
+}
+
+export function hideReview(reviewId: string): Promise<{
+  id: string;
+  status: "hidden";
+}> {
+  return request(`/api/v1/staff/reviews/${encodeURIComponent(reviewId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "hidden" }),
+  });
 }
 
 export function getCustomerReviewEligibility(): Promise<ReviewEligibility> {

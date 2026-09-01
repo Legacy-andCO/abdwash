@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  cachedCustomerProfile,
+  loadCustomerProfile,
+} from "@/lib/customer-profile-resource";
 import { useAuth } from "./auth-provider";
 import { BrandMark } from "./brand-mark";
 import { LanguageSwitcher, useI18n } from "./i18n-provider";
@@ -13,8 +17,39 @@ export function SiteHeader() {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
   const { t } = useI18n();
-  const firstName = typeof user?.user_metadata.first_name === "string" ? user.user_metadata.first_name : "";
+  const [profileName, setProfileName] = useState<{
+    userId: string;
+    firstName: string;
+  } | null>(null);
+  const cachedName = user
+    ? cachedCustomerProfile(user.id)?.profile?.first_name.trim() ?? ""
+    : "";
+  const metadataName =
+    typeof user?.user_metadata.first_name === "string"
+      ? user.user_metadata.first_name.trim()
+      : "";
+  const firstName =
+    user && profileName?.userId === user.id
+      ? profileName.firstName || metadataName
+      : cachedName || metadataName;
   const loginHref = `/login?returnTo=${encodeURIComponent(pathname)}`;
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void loadCustomerProfile(user.id)
+      .then((data) => {
+        if (active)
+          setProfileName({
+            userId: user.id,
+            firstName: data.profile?.first_name.trim() ?? "",
+          });
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   async function handleLogout() {
     setLogoutError("");

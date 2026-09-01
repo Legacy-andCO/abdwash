@@ -9,11 +9,12 @@ import {
   loadCustomerProfile,
 } from "@/lib/customer-profile-resource";
 import type { CustomerProfileBootstrap } from "@/lib/types";
+import { localizeServiceName } from "@/lib/i18n";
 
 export function HomeLoyaltyStatus() {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const [snapshot, setSnapshot] = useState<{
     userId: string;
     data: CustomerProfileBootstrap;
@@ -46,6 +47,9 @@ export function HomeLoyaltyStatus() {
 
   const rewardAvailable = loyalty.available_rewards > 0;
   const rewardService = loyalty.reward_service;
+  const rewardServiceName = rewardService
+    ? localizeServiceName(language, rewardService.name)
+    : t("home.loyaltyWash");
   return (
     <section className="shell home-loyalty" aria-labelledby="home-loyalty-title">
       <div>
@@ -55,7 +59,7 @@ export function HomeLoyaltyStatus() {
         <h2 id="home-loyalty-title">
           {rewardAvailable
             ? t("home.loyaltyAvailable", {
-                service: rewardService?.name ?? t("home.loyaltyWash"),
+                service: rewardServiceName,
               })
             : t("home.loyaltyProgress", {
                 current: loyalty.progress_washes,
@@ -67,7 +71,7 @@ export function HomeLoyaltyStatus() {
             ? t("home.loyaltyAvailableCopy")
             : t("home.loyaltyRemaining", {
                 count: loyalty.washes_remaining,
-                service: rewardService?.name ?? t("home.loyaltyWash"),
+                service: rewardServiceName,
               })}
         </p>
       </div>

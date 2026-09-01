@@ -123,12 +123,14 @@ describe("central API client", () => {
     expect(body.contact.phone_country).toBeUndefined();
     expect(body.location).toMatchObject({ latitude: 24.45, longitude: 54.37 });
   });
-  it("normalizes an empty booking email to null", async () => {
+  it("refuses to send a booking with a blank email", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: "booking" }, 201));
     vi.stubGlobal("fetch", fetchMock);
     const input = bookingInput("no-email-key");
-    await createBooking({ ...input, contact: { ...input.contact, email: "  " } });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).contact.email).toBeNull();
+    expect(() =>
+      createBooking({ ...input, contact: { ...input.contact, email: "  " } }),
+    ).toThrowError("Enter a valid email address.");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
   it("attaches the booking idempotency key", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, 201));
