@@ -92,6 +92,7 @@ from app.schemas.manager_customers import (
     ManagerCustomerList,
     ManagerCustomerUpdate,
 )
+from app.schemas.reviews import ReviewModerationUpdate, ReviewModerationView
 from app.schemas.staff import (
     AssignmentAction,
     AttendanceAction,
@@ -214,6 +215,7 @@ from app.services.manager_customers import (
     update_manager_customer,
     update_manager_vehicle,
 )
+from app.services.reviews import hide_customer_review
 from app.services.service_catalogue import (
     create_addon,
     create_service,
@@ -273,6 +275,21 @@ from app.services.workforce import (
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 logger = structlog.get_logger()
 StaffDep = Annotated[StaffContext, Depends(staff_context)]
+
+
+@router.patch("/reviews/{review_id}", response_model=ReviewModerationView)
+async def review_moderation_update(
+    review_id: uuid.UUID,
+    _payload: ReviewModerationUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ReviewModerationView:
+    async with session.begin():
+        return await hide_customer_review(
+            session,
+            business_id=context.business_id,
+            review_id=review_id,
+        )
 
 
 @router.get("/catalogue", response_model=CatalogueManagementView)

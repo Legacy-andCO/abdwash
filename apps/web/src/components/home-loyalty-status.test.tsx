@@ -17,8 +17,8 @@ vi.mock("./i18n-provider", () => ({
     t: (key: string, values?: Record<string, string | number>) => {
       const messages: Record<string, string> = {
         "home.loyaltyEyebrow": "Trifecta rewards",
-        "home.loyaltyProgress": `${values?.current} / ${values?.required} washes`,
-        "home.loyaltyRemaining": `${values?.count} more washes until your free ${values?.service}.`,
+        "home.loyaltyProgress": `${values?.current} / ${values?.required} points`,
+        "home.loyaltyRemaining": `${values?.count} more points until your free ${values?.service}.`,
         "home.loyaltyAvailable": `Free ${values?.service} available`,
         "home.loyaltyAvailableCopy": "Your reward is ready.",
         "home.loyaltyWash": "Standard Wash",
@@ -80,8 +80,8 @@ describe("homepage loyalty status", () => {
     const { container } = render(<HomeLoyaltyStatus />);
     expect(container.innerHTML).toBe("");
     resolve(bootstrap(0));
-    expect(await screen.findByText("6 / 9 washes")).toBeTruthy();
-    expect(screen.getByText("3 more washes until your free Standard Wash.")).toBeTruthy();
+    expect(await screen.findByText("6 / 9 points")).toBeTruthy();
+    expect(screen.getByText("3 more points until your free Standard Wash.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "View rewards" }).getAttribute("href")).toBe(
       "/account/profile#rewards",
     );
@@ -95,5 +95,23 @@ describe("homepage loyalty status", () => {
     expect(screen.getByRole("link", { name: "Book reward" }).getAttribute("href")).toBe(
       "/book?service=standard",
     );
+  });
+
+  it("refreshes reward-point progress immediately after a review bonus", async () => {
+    auth.user = { id: "customer-1" };
+    loadCustomerProfile
+      .mockResolvedValueOnce(bootstrap(0))
+      .mockResolvedValueOnce({
+        ...bootstrap(0),
+        loyalty: {
+          ...bootstrap(0).loyalty,
+          progress_washes: 7,
+          washes_remaining: 2,
+        },
+      });
+    render(<HomeLoyaltyStatus />);
+    expect(await screen.findByText("6 / 9 points")).toBeTruthy();
+    window.dispatchEvent(new Event("trifecta-loyalty-updated"));
+    expect(await screen.findByText("7 / 9 points")).toBeTruthy();
   });
 });

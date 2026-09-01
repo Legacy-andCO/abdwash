@@ -320,6 +320,11 @@ export type ReviewEligibility = {
   service_name: string | null;
   service_date: string | null;
   existing_review: PublicReview | null;
+  first_review_bonus_available: boolean;
+};
+
+export type CustomerReviewSubmissionResult = PublicReview & {
+  first_review_bonus_awarded: boolean;
 };
 
 export type PublicReviewSummary = {

@@ -204,7 +204,7 @@ async def test_authenticated_booking_atomically_provisions_or_updates_profile() 
     contact = CustomerContact(
         first_name="Noor",
         surname="Ali",
-        email=None,
+        email="booking-contact@example.com",
         phone="050 123 4567",
     )
 

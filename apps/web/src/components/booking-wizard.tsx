@@ -14,6 +14,7 @@ import {
 import { BrandMark } from "./brand-mark";
 import { LocationPicker } from "./location-picker";
 import { PhoneInput } from "./phone-input";
+import { ServiceAreaNotice } from "./service-area-notice";
 import { useAuth } from "./auth-provider";
 import { LanguageSwitcher, useI18n } from "./i18n-provider";
 import {
@@ -601,6 +602,7 @@ function DetailsStep({ state, dispatch }: StepProps) {
       </div>
       <div className="form-section">
         <h2>{t("booking.details.serviceLocation")}</h2>
+        <ServiceAreaNotice compact />
         <LocationPicker
           location={state.location}
           errors={errors}

@@ -37,17 +37,23 @@ export function SiteHeader() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    void loadCustomerProfile(user.id)
-      .then((data) => {
-        if (active)
-          setProfileName({
-            userId: user.id,
-            firstName: data.profile?.first_name.trim() ?? "",
-          });
-      })
-      .catch(() => undefined);
+    const load = (refresh = false) => {
+      void loadCustomerProfile(user.id, { refresh })
+        .then((data) => {
+          if (active)
+            setProfileName({
+              userId: user.id,
+              firstName: data.profile?.first_name.trim() ?? "",
+            });
+        })
+        .catch(() => undefined);
+    };
+    load();
+    const refreshProfile = () => load(true);
+    window.addEventListener("trifecta-loyalty-updated", refreshProfile);
     return () => {
       active = false;
+      window.removeEventListener("trifecta-loyalty-updated", refreshProfile);
     };
   }, [user]);
 

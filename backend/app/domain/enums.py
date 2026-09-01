@@ -96,6 +96,7 @@ class ComplaintStatus(StrEnum):
 
 class LoyaltyEventType(StrEnum):
     QUALIFYING_WASH = "qualifying_wash"
+    FIRST_REVIEW_BONUS = "first_review_bonus"
     MANUAL_CREDIT = "manual_credit"
     MANUAL_DEBIT = "manual_debit"
     REWARD_EARNED = "reward_earned"

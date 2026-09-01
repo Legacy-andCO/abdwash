@@ -114,6 +114,7 @@ async def list_manager_customers(
             LoyaltyEvent.event_type.in_(
                 [
                     LoyaltyEventType.QUALIFYING_WASH,
+                    LoyaltyEventType.FIRST_REVIEW_BONUS,
                     LoyaltyEventType.MANUAL_CREDIT,
                     LoyaltyEventType.MANUAL_DEBIT,
                 ]

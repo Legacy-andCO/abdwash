@@ -25,18 +25,44 @@ from app.models.entities import (
 )
 from app.repositories.business import load_default_business
 from app.schemas.reviews import (
+    CustomerReviewSubmissionResult,
     GuestReviewVerificationResponse,
     PublicReview,
     PublicReviewList,
     PublicReviewSummary,
     ReviewEligibility,
+    ReviewModerationView,
     ReviewPromptOpenResponse,
 )
 from app.services.customer_profiles import require_customer_profile
+from app.services.loyalty import award_first_review_bonus, first_review_bonus_available
 
 REVIEW_TOKEN_TTL = timedelta(minutes=30)
 VERIFICATION_WINDOW = timedelta(minutes=15)
 MAX_VERIFICATION_ATTEMPTS = 5
+
+
+async def hide_customer_review(
+    session: AsyncSession,
+    *,
+    business_id: uuid.UUID,
+    review_id: uuid.UUID,
+) -> ReviewModerationView:
+    review = (
+        await session.scalars(
+            select(CustomerReview)
+            .where(
+                CustomerReview.id == review_id,
+                CustomerReview.business_id == business_id,
+            )
+            .with_for_update()
+        )
+    ).one_or_none()
+    if review is None:
+        raise DomainError("REVIEW_NOT_FOUND", "Review not found.", status_code=404)
+    review.status = "hidden"
+    await session.flush()
+    return ReviewModerationView(id=review.id, status="hidden")
 
 
 def _hash(value: str) -> str:
@@ -167,6 +193,11 @@ async def _eligibility_for_profile(
         booking_reference=booking.reference,
         service_name=selected_service,
         service_date=booking.scheduled_start,
+        first_review_bonus_available=await first_review_bonus_available(
+            session,
+            business_id=profile.business_id,
+            customer_profile_id=profile.id,
+        ),
     )
 
 
@@ -217,7 +248,7 @@ async def submit_customer_review(
     booking_id: uuid.UUID,
     rating: int,
     comment: str | None,
-) -> PublicReview:
+) -> CustomerReviewSubmissionResult:
     profile = await require_customer_profile(session, identity, lock=True)
     booking = (
         await session.scalars(
@@ -232,13 +263,23 @@ async def submit_customer_review(
     ).one_or_none()
     if booking is None:
         raise DomainError("BOOKING_NOT_FOUND", "Booking not found.", status_code=404)
-    return await _create_review(
+    review = await _create_review(
         session,
         booking,
         rating=rating,
         comment=comment,
         customer_profile_id=profile.id,
         guest_device_id_hash=None,
+    )
+    bonus_awarded = await award_first_review_bonus(
+        session,
+        business_id=profile.business_id,
+        customer_profile_id=profile.id,
+        booking_id=booking.id,
+    )
+    return CustomerReviewSubmissionResult(
+        **review.model_dump(),
+        first_review_bonus_awarded=bonus_awarded,
     )
 
 

@@ -19,6 +19,7 @@ from app.domain.enums import StaffRole
 from app.main import app
 from app.schemas.catalogue import CatalogueManagementView
 from app.schemas.public import CatalogueResponse
+from app.schemas.reviews import ReviewModerationView
 
 
 def test_api_uses_trifecta_brand() -> None:
@@ -180,6 +181,46 @@ def test_manager_route_accepts_manager_and_admin() -> None:
             assert response.status_code == 200
         finally:
             app.dependency_overrides.clear()
+
+
+def test_review_moderation_rejects_employee_and_accepts_manager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    review_id = uuid.uuid4()
+    session = MagicMock()
+    session.begin.return_value.__aenter__ = AsyncMock(return_value=None)
+    session.begin.return_value.__aexit__ = AsyncMock(return_value=None)
+    app.dependency_overrides[session_dependency] = lambda: session
+    app.dependency_overrides[staff_context] = lambda: _context(StaffRole.EMPLOYEE)
+    try:
+        with TestClient(app) as client:
+            forbidden = client.patch(
+                f"/api/v1/staff/reviews/{review_id}",
+                json={"status": "hidden"},
+            )
+        assert forbidden.status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+
+    manager = _context(StaffRole.MANAGER)
+    hide = AsyncMock(return_value=ReviewModerationView(id=review_id, status="hidden"))
+    app.dependency_overrides[session_dependency] = lambda: session
+    app.dependency_overrides[staff_context] = lambda: manager
+    monkeypatch.setattr(staff_api, "hide_customer_review", hide)
+    try:
+        with TestClient(app) as client:
+            response = client.patch(
+                f"/api/v1/staff/reviews/{review_id}",
+                json={"status": "hidden"},
+            )
+        assert response.status_code == 200
+        assert response.json() == {"id": str(review_id), "status": "hidden"}
+        assert hide.await_args.kwargs == {
+            "business_id": manager.business_id,
+            "review_id": review_id,
+        }
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_employee_can_read_but_cannot_mutate_managed_catalogue(

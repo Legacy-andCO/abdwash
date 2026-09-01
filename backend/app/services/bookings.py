@@ -338,7 +338,7 @@ async def create_booking(
         source=request.source,
         customer_first_name=request.contact.first_name,
         customer_surname=request.contact.surname,
-        customer_email=str(request.contact.email) if request.contact.email is not None else None,
+        customer_email=str(request.contact.email),
         customer_phone=request.contact.phone,
         written_address=request.location.written_address,
         location_url=str(request.location.location_url),

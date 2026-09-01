@@ -18,6 +18,7 @@ import type {
   PublicReviewList,
   PublicReviewSummary,
   ReviewEligibility,
+  CustomerReviewSubmissionResult,
   Vehicle,
 } from "./types";
 import { normalizePhone } from "./phone";
@@ -342,10 +343,15 @@ export function submitCustomerReview(input: {
   booking_id: string;
   rating: number;
   comment: string;
-}): Promise<PublicReview> {
-  return request<PublicReview>("/api/v1/customer/reviews", {
+}): Promise<CustomerReviewSubmissionResult> {
+  return request<CustomerReviewSubmissionResult>("/api/v1/customer/reviews", {
     method: "POST",
     body: JSON.stringify({ ...input, comment: input.comment.trim() || null }),
+  }).then((result) => {
+    if (result.first_review_bonus_awarded && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("trifecta-loyalty-updated"));
+    }
+    return result;
   });
 }
 

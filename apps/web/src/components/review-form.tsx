@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { PublicReview, ReviewEligibility } from "@/lib/types";
+import type {
+  CustomerReviewSubmissionResult,
+  PublicReview,
+  ReviewEligibility,
+} from "@/lib/types";
 import { useI18n } from "./i18n-provider";
 
 export function ReviewForm({
@@ -12,7 +16,10 @@ export function ReviewForm({
 }: {
   eligibility: ReviewEligibility;
   compact?: boolean;
-  onSubmit: (rating: number, comment: string) => Promise<PublicReview>;
+  onSubmit: (
+    rating: number,
+    comment: string,
+  ) => Promise<PublicReview | CustomerReviewSubmissionResult>;
   onClose?: () => void;
 }) {
   const { locale, t } = useI18n();
@@ -29,6 +36,9 @@ export function ReviewForm({
         {"★".repeat(existing.rating)}{"☆".repeat(5 - existing.rating)}
       </div>
       <strong>{submitted ? t("reviews.thanks") : t("reviews.yourReview")}</strong>
+      {submitted && "first_review_bonus_awarded" in submitted && submitted.first_review_bonus_awarded ? (
+        <p className="review-bonus-earned">{t("reviews.firstBonusEarned")}</p>
+      ) : null}
       {existing.comment && <p>{existing.comment}</p>}
       {onClose && <button className="button button-ghost" type="button" onClick={onClose}>{t("common.close")}</button>}
     </div>;
@@ -53,6 +63,10 @@ export function ReviewForm({
   return <div className={compact ? "review-form compact" : "review-form"}>
     <p className="eyebrow"><span /> {t("reviews.howWasService")}</p>
     <h2>{t("reviews.reviewUs")}</h2>
+    {eligibility.first_review_bonus_available ? <div className="review-bonus-incentive">
+      <strong>{t("reviews.firstBonusTitle")}</strong>
+      <span>{t("reviews.firstBonusCopy")}</span>
+    </div> : null}
     {eligibility.booking_reference && <p className="review-booking-label">
       {eligibility.service_name} · <bdi>{eligibility.booking_reference}</bdi>
       {eligibility.service_date ? ` · ${new Date(eligibility.service_date).toLocaleDateString(locale, { dateStyle: "medium" })}` : ""}

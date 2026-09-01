@@ -22,10 +22,10 @@ describe("customer loyalty UI contract", () => {
   it("contains customer-facing English and Arabic loyalty translations", () => {
     const translations = source("./i18n.ts");
     expect(translations).toContain(
-      '"profile.loyaltyTitle": "Your wash rewards"',
+      '"profile.loyaltyTitle": "Your reward points"',
     );
     expect(translations).toContain(
-      '"profile.loyaltyTitle": "مكافآت غسيل مركبتك"',
+      '"profile.loyaltyTitle": "نقاط المكافآت الخاصة بك"',
     );
     expect(translations).toContain('"booking.vehicles.rewardApply"');
   });

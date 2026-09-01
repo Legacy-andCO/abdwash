@@ -89,6 +89,7 @@ async def loyalty_summary(
                         LoyaltyEvent.event_type.in_(
                             [
                                 LoyaltyEventType.QUALIFYING_WASH,
+                                LoyaltyEventType.FIRST_REVIEW_BONUS,
                                 LoyaltyEventType.MANUAL_CREDIT,
                                 LoyaltyEventType.MANUAL_DEBIT,
                             ]
@@ -208,6 +209,7 @@ async def _earn_available_rewards(
                 LoyaltyEvent.event_type.in_(
                     [
                         LoyaltyEventType.QUALIFYING_WASH,
+                        LoyaltyEventType.FIRST_REVIEW_BONUS,
                         LoyaltyEventType.MANUAL_CREDIT,
                         LoyaltyEventType.MANUAL_DEBIT,
                     ]
@@ -339,6 +341,55 @@ async def evaluate_loyalty_for_job(
     await _earn_available_rewards(
         session, business_id=business_id, customer_profile_id=booking.customer_profile_id
     )
+
+
+async def first_review_bonus_available(
+    session: AsyncSession,
+    *,
+    business_id: uuid.UUID,
+    customer_profile_id: uuid.UUID,
+) -> bool:
+    awarded = await session.scalar(
+        select(LoyaltyEvent.id).where(
+            LoyaltyEvent.business_id == business_id,
+            LoyaltyEvent.customer_profile_id == customer_profile_id,
+            LoyaltyEvent.event_type == LoyaltyEventType.FIRST_REVIEW_BONUS,
+        )
+    )
+    return awarded is None
+
+
+async def award_first_review_bonus(
+    session: AsyncSession,
+    *,
+    business_id: uuid.UUID,
+    customer_profile_id: uuid.UUID,
+    booking_id: uuid.UUID,
+) -> bool:
+    if not await first_review_bonus_available(
+        session,
+        business_id=business_id,
+        customer_profile_id=customer_profile_id,
+    ):
+        return False
+    session.add(
+        LoyaltyEvent(
+            business_id=business_id,
+            customer_profile_id=customer_profile_id,
+            event_type=LoyaltyEventType.FIRST_REVIEW_BONUS,
+            quantity=1,
+            booking_id=booking_id,
+            reason="First authenticated customer review bonus",
+            source_key=f"first-review-bonus:{customer_profile_id}",
+        )
+    )
+    await session.flush()
+    await _earn_available_rewards(
+        session,
+        business_id=business_id,
+        customer_profile_id=customer_profile_id,
+    )
+    return True
 
 
 async def release_booking_rewards(

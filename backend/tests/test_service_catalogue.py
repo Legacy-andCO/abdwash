@@ -378,3 +378,21 @@ def test_seed_backfills_missing_prices_without_overwriting_owner_catalogue() -> 
     assert "if not price_count:" in seed
     assert "service.name =" not in seed
     assert "service.price_minor =" not in seed
+
+
+def test_customer_catalogue_repair_updates_loyalty_identity_and_premium_feature() -> None:
+    root = __import__("pathlib").Path(__file__).parents[1]
+    migration = (
+        root
+        / "migrations/versions/e5b17c9d2a40_repair_customer_catalogue_identity.py"
+    ).read_text(encoding="utf-8")
+    seed = (root / "app/cli/seed.py").read_text(encoding="utf-8")
+
+    assert "loyalty_reward_service_id = pairs.standard_id" in migration
+    assert "reward_service_name = 'Standard Wash'" in migration
+    assert "Protective Plastic Covers for Mat & Steering Wheel" in migration
+    premium_seed = seed.split('"Premium Wash"', maxsplit=1)[1].split(
+        '"Monthly Package"', maxsplit=1
+    )[0]
+    assert "Protective Plastic Covers for Mat & Steering Wheel" in premium_seed
+    assert "Protective Plastic Covers for Mat, Steering Wheel & Seats" not in premium_seed

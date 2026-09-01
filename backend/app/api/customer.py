@@ -27,7 +27,7 @@ from app.schemas.invoices import RevenueInvoiceView
 from app.schemas.public import CancellationRequestCreate
 from app.schemas.reviews import (
     CustomerAccountDelete,
-    PublicReview,
+    CustomerReviewSubmissionResult,
     ReviewEligibility,
     ReviewPromptOpenResponse,
     ReviewSubmission,
@@ -60,6 +60,7 @@ from app.services.idempotency import (
     store_idempotent_response,
 )
 from app.services.invoices import managed_invoice
+from app.services.loyalty import first_review_bonus_available
 from app.services.reviews import (
     customer_review_eligibility,
     record_customer_website_open,
@@ -197,13 +198,24 @@ async def booking_review_eligibility(
     booking_id: uuid.UUID, session: SessionDep, identity: IdentityDep
 ) -> ReviewEligibility:
     booking = await load_owned_booking(session, identity, booking_id)
-    return await review_eligibility_for_booking(session, booking)
+    result = await review_eligibility_for_booking(session, booking)
+    if booking.customer_profile_id is not None:
+        result.first_review_bonus_available = await first_review_bonus_available(
+            session,
+            business_id=booking.business_id,
+            customer_profile_id=booking.customer_profile_id,
+        )
+    return result
 
 
-@router.post("/reviews", response_model=PublicReview, status_code=201)
+@router.post(
+    "/reviews",
+    response_model=CustomerReviewSubmissionResult,
+    status_code=201,
+)
 async def review_create(
     payload: ReviewSubmission, session: SessionDep, identity: IdentityDep
-) -> PublicReview:
+) -> CustomerReviewSubmissionResult:
     async with session.begin():
         return await submit_customer_review(
             session,

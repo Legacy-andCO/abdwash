@@ -59,6 +59,7 @@ const eligibility: ReviewEligibility = {
   service_name: "Standard Wash",
   service_date: "2026-08-01T09:00:00Z",
   existing_review: null,
+  first_review_bonus_available: false,
 };
 
 beforeEach(() => {
@@ -122,6 +123,28 @@ describe("verified customer reviews", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit review" }));
     await waitFor(() => expect(submit).toHaveBeenCalledWith(5, ""));
     expect(await screen.findByText("Thanks for your feedback")).toBeTruthy();
+  });
+
+  it("shows the first-review incentive and only confirms an awarded bonus", async () => {
+    const bonusEligibility = { ...eligibility, first_review_bonus_available: true };
+    const submit = vi.fn().mockResolvedValue({
+      ...highReview,
+      rating: 1,
+      first_review_bonus_awarded: true,
+    });
+    render(<I18nProvider><ReviewForm eligibility={bonusEligibility} onSubmit={submit} /></I18nProvider>);
+    expect(screen.getByText("Make your first review")).toBeTruthy();
+    expect(screen.getByText("Earn +1 reward point")).toBeTruthy();
+    await userEvent.click(screen.getByRole("radio", { name: "1 star rating" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit review" }));
+    expect(await screen.findByText("+1 reward point earned")).toBeTruthy();
+    expect(screen.queryByText("Make your first review")).toBeNull();
+  });
+
+  it("does not promise another bonus after it has already been earned", () => {
+    render(<I18nProvider><ReviewForm eligibility={eligibility} onSubmit={vi.fn()} /></I18nProvider>);
+    expect(screen.queryByText("Make your first review")).toBeNull();
+    expect(screen.queryByText("Earn +1 reward point")).toBeNull();
   });
 
   it("records one genuine session open and never subscribes to focus events", async () => {

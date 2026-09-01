@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -58,6 +59,10 @@ class PublicReview(BaseModel):
     verified: bool = True
 
 
+class CustomerReviewSubmissionResult(PublicReview):
+    first_review_bonus_awarded: bool
+
+
 class PublicReviewSummary(BaseModel):
     average_rating: float | None
     total_count: int
@@ -70,6 +75,15 @@ class PublicReviewList(BaseModel):
     reviews: list[PublicReview]
 
 
+class ReviewModerationUpdate(StrictRequest):
+    status: Literal["hidden"]
+
+
+class ReviewModerationView(BaseModel):
+    id: uuid.UUID
+    status: Literal["hidden"]
+
+
 class ReviewEligibility(BaseModel):
     eligible: bool
     booking_id: uuid.UUID | None = None
@@ -77,6 +91,7 @@ class ReviewEligibility(BaseModel):
     service_name: str | None = None
     service_date: datetime | None = None
     existing_review: PublicReview | None = None
+    first_review_bonus_available: bool = False
 
 
 class ReviewPromptOpenResponse(BaseModel):

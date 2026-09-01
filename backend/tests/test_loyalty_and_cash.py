@@ -7,7 +7,7 @@ import pytest
 import app.services.staff_operations as staff_operations
 from app.auth.dependencies import StaffContext
 from app.domain.cash import authoritative_cash_change
-from app.domain.enums import JobStatus, PaymentStatus, StaffRole
+from app.domain.enums import JobStatus, LoyaltyEventType, PaymentStatus, StaffRole
 from app.domain.errors import DomainError
 from app.models.entities import (
     Booking,
@@ -21,7 +21,11 @@ from app.models.entities import (
     RevenueInvoice,
 )
 from app.schemas.staff import CashTenderAction, StaffJob
-from app.services.loyalty import is_qualifying_service_line, loyalty_progress_from_ledger
+from app.services.loyalty import (
+    award_first_review_bonus,
+    is_qualifying_service_line,
+    loyalty_progress_from_ledger,
+)
 from app.services.manager_customers import list_manager_customers
 
 
@@ -238,6 +242,51 @@ def test_loyalty_progress_is_ledger_based_and_reward_thresholds_are_snapshots() 
         constraint.name == "uq_loyalty_event_source"
         for constraint in LoyaltyEvent.__table__.constraints
     )
+    bonus_index = next(
+        index
+        for index in LoyaltyEvent.__table__.indexes
+        if index.name == "uq_loyalty_first_review_bonus_customer"
+    )
+    assert bonus_index.unique is True
+    assert "first_review_bonus" in str(bonus_index.dialect_options["postgresql"]["where"])
+
+
+@pytest.mark.asyncio
+async def test_first_review_bonus_awards_one_point_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=None)
+    session.flush = AsyncMock()
+    earn = AsyncMock()
+    monkeypatch.setattr("app.services.loyalty._earn_available_rewards", earn)
+    business_id = uuid.uuid4()
+    customer_id = uuid.uuid4()
+    booking_id = uuid.uuid4()
+
+    awarded = await award_first_review_bonus(
+        session,
+        business_id=business_id,
+        customer_profile_id=customer_id,
+        booking_id=booking_id,
+    )
+
+    assert awarded is True
+    event = session.add.call_args.args[0]
+    assert event.event_type == LoyaltyEventType.FIRST_REVIEW_BONUS
+    assert event.quantity == 1
+    assert event.source_key == f"first-review-bonus:{customer_id}"
+    earn.assert_awaited_once()
+
+    session.reset_mock()
+    session.scalar = AsyncMock(return_value=uuid.uuid4())
+    assert await award_first_review_bonus(
+        session,
+        business_id=business_id,
+        customer_profile_id=customer_id,
+        booking_id=uuid.uuid4(),
+    ) is False
+    session.add.assert_not_called()
 
 
 def test_released_reward_can_be_reused_without_erasing_historical_booking_snapshot() -> None:

@@ -10,7 +10,7 @@ from app.services.customer_communications import queue_customer_email_if_availab
 
 
 @pytest.mark.parametrize("value", [None, "", "   "])
-def test_booking_contact_accepts_missing_or_blank_email(value: str | None) -> None:
+def test_new_booking_contact_requires_email(value: str | None) -> None:
     payload: dict[str, object] = {
         "first_name": "Amina",
         "surname": "Ali",
@@ -18,8 +18,8 @@ def test_booking_contact_accepts_missing_or_blank_email(value: str | None) -> No
     }
     if value is not None:
         payload["email"] = value
-    contact = CustomerContact.model_validate(payload)
-    assert contact.email is None
+    with pytest.raises(ValidationError):
+        CustomerContact.model_validate(payload)
 
 
 def test_booking_contact_rejects_invalid_non_empty_email() -> None:

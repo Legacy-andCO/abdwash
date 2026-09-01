@@ -834,17 +834,26 @@ class LoyaltyEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     source_key: Mapped[str] = mapped_column(String(200), nullable=False)
     __table_args__ = (
         CheckConstraint(
-            "event_type IN ('qualifying_wash','manual_credit','manual_debit',"
+            "event_type IN ('qualifying_wash','first_review_bonus','manual_credit','manual_debit',"
             "'reward_earned','reward_reserved','reward_released','reward_redeemed')",
             name="loyalty_event_type",
         ),
         CheckConstraint(
             "(event_type = 'manual_debit' AND quantity < 0) OR "
-            "(event_type IN ('qualifying_wash','manual_credit') AND quantity > 0) OR "
+            "(event_type IN ('qualifying_wash','first_review_bonus','manual_credit') "
+            "AND quantity > 0) OR "
             "(event_type LIKE 'reward_%' AND quantity = 0)",
             name="loyalty_event_quantity",
         ),
         UniqueConstraint("business_id", "source_key", name="uq_loyalty_event_source"),
+        Index(
+            "uq_loyalty_first_review_bonus_customer",
+            "business_id",
+            "customer_profile_id",
+            unique=True,
+            postgresql_where=text("event_type = 'first_review_bonus'"),
+            sqlite_where=text("event_type = 'first_review_bonus'"),
+        ),
         Index(
             "ix_loyalty_events_business_customer_created",
             "business_id",

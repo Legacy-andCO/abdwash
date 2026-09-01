@@ -199,7 +199,7 @@ async def seed() -> None:
                         "Interior Wipe Down",
                         "Interior Windows Cleaning",
                         "Dashboard Shine",
-                        "Protective Plastic Covers for Mat, Steering Wheel & Seats",
+                        "Protective Plastic Covers for Mat & Steering Wheel",
                         "Air Freshener",
                     ],
                 ),

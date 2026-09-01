@@ -24,20 +24,22 @@ export function HomeLoyaltyStatus() {
     if (authLoading || !userId) return;
     let active = true;
     const cached = cachedCustomerProfile(userId);
-    void loadCustomerProfile(userId)
-      .then((data) => {
-        if (active) setSnapshot({ userId, data });
-      })
-      .catch(() => undefined);
-    if (cached) {
-      void loadCustomerProfile(userId, { refresh: true })
+    const load = (refresh = false) => {
+      void loadCustomerProfile(userId, { refresh })
         .then((data) => {
           if (active) setSnapshot({ userId, data });
         })
         .catch(() => undefined);
+    };
+    load();
+    if (cached) {
+      load(true);
     }
+    const refreshLoyalty = () => load(true);
+    window.addEventListener("trifecta-loyalty-updated", refreshLoyalty);
     return () => {
       active = false;
+      window.removeEventListener("trifecta-loyalty-updated", refreshLoyalty);
     };
   }, [authLoading, userId]);
 

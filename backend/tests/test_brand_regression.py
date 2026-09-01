@@ -75,6 +75,9 @@ ALLOWED_BY_PATH: dict[str, tuple[str, ...]] = {
     "backend/migrations/versions/c52e9d1a40b7_add_sync_revisions_and_repair_assignments.py": (
         "AbdWash assignment repair",
     ),
+    "backend/migrations/versions/e5b17c9d2a40_repair_customer_catalogue_identity.py": (
+        "Development Standard Wash",
+    ),
     "backend/tests/test_inventory.py": ("slug = 'abdwash'",),
     "backend/tests/test_management_tokens.py": ("/abdwash",),
     "backend/tests/test_notifications.py": ("AbdWash", "ABD Wash", "ADB Wash"),
