@@ -8,6 +8,7 @@ import { ReviewCard } from "./review-card";
 import { SiteFooter } from "./site-footer";
 import { SiteHeader } from "./site-header";
 import { useI18n } from "./i18n-provider";
+import { ScrollReveal } from "./scroll-reveal";
 
 export function ReviewsPage() {
   const { t } = useI18n();
@@ -36,10 +37,10 @@ export function ReviewsPage() {
     <p className="eyebrow"><span /> {t("reviews.eyebrow")}</p><h1>{t("reviews.pageTitle")}</h1>
     {data && <div className="review-summary large"><strong>{data.average_rating ? `★ ${data.average_rating.toFixed(1)}` : "—"}</strong><span>{t("reviews.basedOn", { count: data.total_count })}</span></div>}
     <Link className="button" href="/reviews/leave">{t("reviews.reviewUs")}</Link>
-  </section><section className="section shell">
+  </section><ScrollReveal as="section" className="section shell">
     {!data && !error && <div className="loading-panel" role="status"><span className="spinner dark" /><strong>{t("common.loading")}</strong></div>}
     {error && <div className="error-banner" role="alert">{t("reviews.loadFailed")}</div>}
-    {data && (data.reviews.length ? <div className="review-card-grid full">{data.reviews.map((review) => <ReviewCard key={review.id} review={review} />)}</div> : <p className="review-empty">{t("reviews.empty")}</p>)}
+    {data && (data.reviews.length ? <ScrollReveal className="review-card-grid full" stagger>{data.reviews.map((review) => <ReviewCard key={review.id} review={review} />)}</ScrollReveal> : <p className="review-empty">{t("reviews.empty")}</p>)}
     {data && data.reviews.length < data.total_count && <div className="review-section-actions"><button className="button button-ghost" type="button" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? t("common.loading") : t("reviews.loadMore")}</button></div>}
-  </section></main><SiteFooter /></>;
+  </ScrollReveal></main><SiteFooter /></>;
 }

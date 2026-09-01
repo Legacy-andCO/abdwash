@@ -221,6 +221,14 @@ const en = {
   "services.monthlyPackage": "Monthly Package",
   "services.interiorDeepCleaning": "Interior Deep Cleaning",
   "services.exteriorPolishing": "Exterior Polishing",
+  "services.monthlyPackageDescription":
+    "Once weekly. Monthly package; online entitlement activation is not yet available.",
+  "services.interiorDeepCleaningDescription":
+    "A complete interior reset for upholstery, leather and difficult stains.",
+  "services.exteriorPolishingDescription":
+    "Exterior polishing, wax and paint enhancement.",
+  "services.featureIncluded": "Included",
+  "services.featureNotIncluded": "Not included",
   "serviceFeature.exteriorPowerWash": "Exterior Power Wash",
   "serviceFeature.hardWash": "Hard Wash",
   "serviceFeature.tyresRims": "Tires & Rims Clean & Shine",
@@ -971,6 +979,14 @@ const ar: Record<TranslationKey, string> = {
   "services.monthlyPackage": "الباقة الشهرية",
   "services.interiorDeepCleaning": "التنظيف الداخلي العميق",
   "services.exteriorPolishing": "تلميع الهيكل الخارجي",
+  "services.monthlyPackageDescription":
+    "زيارة واحدة أسبوعياً ضمن باقة شهرية؛ تفعيل الاستحقاق عبر الإنترنت غير متاح حالياً.",
+  "services.interiorDeepCleaningDescription":
+    "تجديد داخلي متكامل للمفروشات والجلد وإزالة البقع الصعبة.",
+  "services.exteriorPolishingDescription":
+    "تلميع الهيكل الخارجي مع طبقة شمع وتحسين طلاء المركبة.",
+  "services.featureIncluded": "مشمول",
+  "services.featureNotIncluded": "غير مشمول",
   "serviceFeature.exteriorPowerWash": "غسيل خارجي بضغط الماء",
   "serviceFeature.hardWash": "غسيل يدوي دقيق",
   "serviceFeature.tyresRims": "تنظيف وتلميع الإطارات والجنوط",
@@ -1543,6 +1559,12 @@ const serviceDescriptionKeys: Record<string, TranslationKey> = {
     "services.signatureDescription",
   "Our most thorough reset for a car that deserves extra attention.":
     "services.premiumDetailDescription",
+  "Once weekly. Monthly package; online entitlement activation is not yet available.":
+    "services.monthlyPackageDescription",
+  "A complete interior reset for upholstery, leather and difficult stains.":
+    "services.interiorDeepCleaningDescription",
+  "Exterior polishing, wax and paint enhancement.":
+    "services.exteriorPolishingDescription",
 };
 
 export function localizeServiceName(language: Language, name: string): string {

@@ -12,6 +12,7 @@ import {
 } from "@/lib/i18n";
 import type { Catalogue, Service } from "@/lib/types";
 import { useI18n } from "./i18n-provider";
+import { ScrollReveal } from "./scroll-reveal";
 
 type PricingClass = "car" | "suv";
 
@@ -126,7 +127,11 @@ export function ServicesPreview() {
                   return (
                     <td
                       key={service.id}
-                      aria-label={included ? "Included" : "Not included"}
+                      aria-label={t(
+                        included
+                          ? "services.featureIncluded"
+                          : "services.featureNotIncluded",
+                      )}
                     >
                       {included ? "✓" : "—"}
                     </td>
@@ -137,7 +142,7 @@ export function ServicesPreview() {
           </tbody>
         </table>
       </div>
-      <div className="service-comparison-mobile">
+      <ScrollReveal className="service-comparison-mobile" stagger>
         {core.map((service, index) => {
           const previous = core[index - 1];
           const additions = serviceFeatureAdditions(service, previous);
@@ -179,9 +184,9 @@ export function ServicesPreview() {
             </article>
           );
         })}
-      </div>
+      </ScrollReveal>
       <h3 className="secondary-services-title">{t("services.otherCare")}</h3>
-      <div className="service-grid secondary-services">
+      <ScrollReveal className="service-grid secondary-services" stagger>
         {secondary.map((service, index) => (
           <article className="service-card" key={service.id}>
             <div
@@ -193,7 +198,7 @@ export function ServicesPreview() {
             <div className="service-card-body">
               <div className="service-title-row">
                 <h3>{localizeServiceName(language, service.name)}</h3>
-                <span>
+                <span className="numeric-content">
                   {formatMoney(
                     priceFor(service, pricingClass),
                     service.currency_code,
@@ -214,7 +219,7 @@ export function ServicesPreview() {
                 ))}
               </ul>
               <div className="service-meta">
-                <span>
+                <span className="numeric-content">
                   ≈ {t("services.minutes", { minutes: service.estimated_duration_minutes })}
                 </span>
                 {service.customer_bookable !== false ? (
@@ -228,7 +233,7 @@ export function ServicesPreview() {
             </div>
           </article>
         ))}
-      </div>
+      </ScrollReveal>
     </div>
   );
 }
