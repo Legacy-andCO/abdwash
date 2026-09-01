@@ -9,6 +9,7 @@ import { formatMoney, formatSchedule } from "@/lib/dates";
 import type { ManagedBooking } from "@/lib/types";
 import { LanguageSwitcher, useI18n } from "./i18n-provider";
 import { localizePaymentStatus, localizeServiceName } from "@/lib/i18n";
+import { BookingReviewAction } from "./booking-review-action";
 
 export function ManageBooking() {
   const { language, locale, t } = useI18n();
@@ -20,21 +21,22 @@ export function ManageBooking() {
   const [reason, setReason] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [managementToken, setManagementToken] = useState("");
   const idempotencyKey = useRef("");
-  const token = useRef("");
   useEffect(() => { translationRef.current = t; languageRef.current = language; }, [language, t]);
   useEffect(() => {
-    token.current = decodeURIComponent(window.location.hash.slice(1));
-    if (!token.current) {
+    const token = decodeURIComponent(window.location.hash.slice(1));
+    Promise.resolve().then(() => setManagementToken(token));
+    if (!token) {
       Promise.resolve().then(() => {
         setError(translationRef.current("manage.incomplete"));
         setLoading(false);
       });
       return;
     }
-    getManagedBooking(token.current).then(setBooking).catch((value) => setError(localizedCustomerError(value, languageRef.current, translationRef.current))).finally(() => setLoading(false));
+    getManagedBooking(token).then(setBooking).catch((value) => setError(localizedCustomerError(value, languageRef.current, translationRef.current))).finally(() => setLoading(false));
   }, []);
-  const submit = async (event: FormEvent) => { event.preventDefault(); setSubmitting(true); setError(""); idempotencyKey.current ||= crypto.randomUUID(); try { const result = await requestCancellation(token.current, reason, idempotencyKey.current); setBooking(result.booking); setShowForm(false); } catch (value) { setError(localizedCustomerError(value, language, t)); } finally { setSubmitting(false); } };
+  const submit = async (event: FormEvent) => { event.preventDefault(); setSubmitting(true); setError(""); idempotencyKey.current ||= crypto.randomUUID(); try { const result = await requestCancellation(managementToken, reason, idempotencyKey.current); setBooking(result.booking); setShowForm(false); } catch (value) { setError(localizedCustomerError(value, language, t)); } finally { setSubmitting(false); } };
   const statusLabels: Partial<Record<string, string>> = { confirmed: t("status.confirmed"), en_route: t("status.driverEnRoute"), arrived: t("status.driverArrived"), in_progress: t("status.inProgress"), completed: t("status.completed"), cancelled: t("status.cancelled"), cancellation_requested: t("status.cancellationRequested") };
 
   return <>
@@ -54,6 +56,7 @@ export function ManageBooking() {
         </div>
         <div className="confirmed-vehicles"><h2>{t("manage.visitDetails")}</h2>{booking.vehicles.map((vehicle, index) => <div key={`${vehicle.make}-${vehicle.model}-${index}`}><span><strong>{vehicle.make} {vehicle.model}</strong><small className="bidi-ltr">{[vehicle.year, vehicle.colour, vehicle.plate_number].filter(Boolean).join(" · ")}</small></span><b>{localizeServiceName(language, vehicle.service_name)}</b></div>)}</div>
         <section className="cancellation-panel"><h2>{t("manage.plansChanged")}</h2>{booking.cancellation_eligible ? <><p>{t("manage.cancellationCopy", { cutoff: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: booking.timezone }).format(new Date(booking.cancellation_cutoff_at)) })}</p>{!showForm ? <button className="button button-danger" type="button" onClick={() => setShowForm(true)}>{t("account.cancelRequest")}</button> : <form onSubmit={submit}><label><span>{t("account.reason")} <em>{t("common.optional")}</em></span><textarea rows={3} maxLength={2000} value={reason} onChange={(event) => setReason(event.target.value)} /></label><div className="step-actions"><button className="button button-ghost" type="button" onClick={() => setShowForm(false)}>{t("account.keep")}</button><button className="button button-danger" disabled={submitting} type="submit">{submitting ? t("account.sending") : t("account.send")}</button></div></form>}</> : <p>{t("manage.cancellationUnavailable")}</p>}</section>
+        {booking.status === "completed" && <BookingReviewAction managementToken={managementToken} />}
         {error && <div className="error-banner" role="alert">{error}</div>}
       </>}
     </section></main>

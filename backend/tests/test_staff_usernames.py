@@ -16,6 +16,7 @@ from app.core.config import Settings
 from app.domain.enums import StaffRole
 from app.domain.errors import DomainError
 from app.domain.staff_usernames import normalize_staff_username, staff_synthetic_email
+from app.integrations.supabase_admin import SupabaseAdminClient
 from app.models.entities import StaffProfile
 
 
@@ -159,3 +160,25 @@ def test_demo_seed_requires_private_configuration(
     )
     with pytest.raises(RuntimeError, match=missing_name):
         require_seed_settings(settings)
+
+
+async def test_customer_auth_identity_deletion_uses_server_side_admin_api() -> None:
+    user_id = uuid.uuid4()
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        admin = SupabaseAdminClient(
+            client,
+            supabase_url="https://example.supabase.co",
+            service_role_key="private-service-role",
+        )
+        await admin.delete_customer_user(user_id)
+
+    assert len(requests) == 1
+    assert requests[0].method == "DELETE"
+    assert requests[0].url.path == f"/auth/v1/admin/users/{user_id}"
+    assert requests[0].headers["authorization"] == "Bearer private-service-role"

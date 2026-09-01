@@ -23,10 +23,11 @@ from app.models.entities import (
     NotificationOutbox,
     ScheduleSlot,
     SlotHoldGroup,
+    Vehicle,
 )
 from app.schemas.customer import CustomerRescheduleCreate, ManagerRescheduleCreate
-from app.schemas.public import CustomerContact
-from app.services.bookings import _resolve_customer_profile
+from app.schemas.public import BookingVehicleCreate, CustomerContact
+from app.services.bookings import _resolve_customer_profile, _save_new_customer_vehicles
 from app.services.customers import (
     CustomerScope,
     list_customer_bookings,
@@ -94,6 +95,13 @@ def test_customer_routes_require_supabase_authentication() -> None:
         assert client.get("/api/v1/customer/context").status_code == 401
         assert client.get("/api/v1/customer/bookings").status_code == 401
         assert client.get(f"/api/v1/customer/bookings/{booking_id}").status_code == 401
+        assert client.get("/api/v1/customer/reviews/eligibility").status_code == 401
+        response = client.request(
+            "DELETE",
+            "/api/v1/customer/account",
+            json={"confirmation": "DELETE"},
+        )
+        assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -191,6 +199,7 @@ async def test_authenticated_booking_atomically_provisions_or_updates_profile() 
     result.one_or_none.return_value = profile_id
     session = AsyncMock()
     session.scalars.return_value = result
+    session.scalar.return_value = None
     identity = VerifiedIdentity(user_id=uuid.uuid4(), claims={"email": "noor@example.com"})
     contact = CustomerContact(
         first_name="Noor",
@@ -233,6 +242,55 @@ async def test_guest_booking_never_claims_profile_by_email() -> None:
         is None
     )
     session.scalars.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_authenticated_booking_saves_new_vehicle_once_by_normalized_plate() -> None:
+    customer_id = uuid.uuid4()
+    existing = Vehicle(
+        id=uuid.uuid4(),
+        customer_id=customer_id,
+        make="Toyota",
+        model="Land Cruiser",
+        vehicle_type="suv",
+        plate_number="AD 12 345",
+        is_active=True,
+    )
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=customer_id)
+    session.scalars = AsyncMock(return_value=scalar_result(all_items=[existing]))
+    session.flush = AsyncMock()
+    vehicles = [
+        BookingVehicleCreate(
+            make="Toyota",
+            model="Land Cruiser",
+            vehicle_type="suv",
+            plate_number="ad-12345",
+            service_id=uuid.uuid4(),
+        )
+    ]
+
+    result = await _save_new_customer_vehicles(
+        session,
+        requested_vehicles=vehicles,
+        customer_profile_id=customer_id,
+    )
+
+    assert result == {1: existing.id}
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_guest_booking_does_not_save_vehicle_profile_data() -> None:
+    session = MagicMock()
+    result = await _save_new_customer_vehicles(
+        session,
+        requested_vehicles=[],
+        customer_profile_id=None,
+    )
+    assert result == {}
+    session.scalar.assert_not_called()
 
 
 def reschedule_records() -> tuple[

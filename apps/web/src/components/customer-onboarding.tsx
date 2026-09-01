@@ -21,7 +21,7 @@ import { useAuth } from "./auth-provider";
 import { useI18n } from "./i18n-provider";
 import { PhoneInput } from "./phone-input";
 
-type Step = "loading" | "core" | "vehicle" | "done" | "failed";
+type Step = "idle" | "core" | "vehicle" | "done";
 
 export function profileNeedsOnboarding(data: CustomerProfileBootstrap): boolean {
   return !(
@@ -32,12 +32,17 @@ export function profileNeedsOnboarding(data: CustomerProfileBootstrap): boolean 
 }
 
 export function CustomerOnboarding() {
-  const { user, loading: authLoading, recoveryMode } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+    recoveryMode,
+    dismissProfileOnboarding,
+  } = useAuth();
   const { t } = useI18n();
-  const translationRef = useRef(t);
   const pathname = usePathname();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [step, setStep] = useState<Step>("loading");
+  const loadedUserId = useRef<string | null>(null);
+  const [step, setStep] = useState<Step>("idle");
   const [data, setData] = useState<CustomerProfileBootstrap | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -53,44 +58,67 @@ export function CustomerOnboarding() {
 
   const excluded =
     pathname === "/auth/confirm" || pathname === "/auth/reset-password";
-
-  useEffect(() => {
-    translationRef.current = t;
-  }, [t]);
+  const userId = user?.id ?? null;
+  const metadataFirstName = String(user?.user_metadata.first_name ?? "");
+  const metadataSurname = String(user?.user_metadata.surname ?? "");
+  const onboardingDismissed =
+    user?.user_metadata.profile_onboarding_dismissed === true;
 
   const load = useCallback(async () => {
-    if (!user || recoveryMode || excluded) return;
-    setStep("loading");
+    if (!userId || recoveryMode || excluded) return;
+    const dismissalKey = `trifecta-profile-onboarding-dismissed:${userId}`;
+    if (
+      window.localStorage.getItem(dismissalKey) === "1" ||
+      onboardingDismissed
+    ) {
+      setStep("done");
+      return;
+    }
     setError("");
     try {
-      const next = await loadCustomerProfile(user.id);
+      const next = await loadCustomerProfile(userId);
       setData(next);
       if (!profileNeedsOnboarding(next)) {
         setStep("done");
         return;
       }
       setCore({
-        first_name: next.profile?.first_name ?? String(user.user_metadata.first_name ?? ""),
-        surname: next.profile?.surname ?? String(user.user_metadata.surname ?? ""),
+        first_name: next.profile?.first_name ?? metadataFirstName,
+        surname: next.profile?.surname ?? metadataSurname,
         phone: next.profile?.phone ?? "",
       });
       setStep("core");
     } catch {
-      setStep("failed");
-      setError(translationRef.current("onboarding.loadFailed"));
+      // Profile checks are a convenience and must never cover the website on failure.
+      setStep("done");
     }
-  }, [excluded, recoveryMode, user]);
+  }, [
+    excluded,
+    metadataFirstName,
+    metadataSurname,
+    onboardingDismissed,
+    recoveryMode,
+    userId,
+  ]);
 
   useEffect(() => {
-    if (authLoading || !user || recoveryMode || excluded) {
+    if (authLoading || !userId || recoveryMode || excluded) {
       return;
     }
+    if (loadedUserId.current === userId) return;
+    loadedUserId.current = userId;
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
-  }, [authLoading, excluded, load, recoveryMode, user]);
+  }, [authLoading, excluded, load, recoveryMode, userId]);
 
   useEffect(() => {
-    if (!["core", "vehicle", "failed"].includes(step)) return;
+    if (!userId) {
+      loadedUserId.current = null;
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!["core", "vehicle"].includes(step)) return;
     dialogRef.current?.querySelector<HTMLElement>("input, select, button")?.focus();
   }, [step]);
 
@@ -173,7 +201,23 @@ export function CustomerOnboarding() {
     }
   }
 
-  if (step === "done" || !user || recoveryMode || excluded) return null;
+  function skipOnboarding() {
+    if (!userId) return;
+    setStep("done");
+    window.localStorage.setItem(
+      `trifecta-profile-onboarding-dismissed:${userId}`,
+      "1",
+    );
+    void dismissProfileOnboarding().catch(() => undefined);
+  }
+
+  if (
+    step === "idle" ||
+    step === "done" ||
+    !user ||
+    recoveryMode ||
+    excluded
+  ) return null;
 
   return (
     <div className="onboarding-backdrop">
@@ -185,20 +229,6 @@ export function CustomerOnboarding() {
         aria-labelledby="onboarding-title"
         onKeyDown={trapFocus}
       >
-        {step === "loading" && (
-          <div className="loading-panel" role="status">
-            <span className="spinner dark" />
-            <strong>{t("common.loading")}</strong>
-          </div>
-        )}
-        {step === "failed" && (
-          <div className="onboarding-state">
-            <div className="error-banner" role="alert">{error}</div>
-            <button className="button" type="button" onClick={() => void load()}>
-              {t("common.tryAgain")}
-            </button>
-          </div>
-        )}
         {step === "core" && (
           <>
             <p className="eyebrow"><span /> {t("onboarding.eyebrow")}</p>
@@ -226,9 +256,12 @@ export function CustomerOnboarding() {
               />
             </div>
             {error && <div className="error-banner" role="alert">{error}</div>}
-            <button className="button" type="button" disabled={saving} onClick={() => void saveCore()}>
-              {saving ? t("common.saving") : t("onboarding.continue")}
-            </button>
+            <div className="onboarding-actions">
+              <button className="button" type="button" disabled={saving} onClick={() => void saveCore()}>
+                {saving ? t("common.saving") : t("onboarding.continue")}
+              </button>
+              <button className="auth-switch" type="button" disabled={saving} onClick={skipOnboarding}>{t("onboarding.skip")}</button>
+            </div>
           </>
         )}
         {step === "vehicle" && (
@@ -252,7 +285,7 @@ export function CustomerOnboarding() {
             {error && <div className="error-banner" role="alert">{error}</div>}
             <div className="onboarding-actions">
               <button className="button" type="button" disabled={saving} onClick={() => void saveVehicle()}>{saving ? t("common.saving") : t("onboarding.addVehicle")}</button>
-              <button className="button button-ghost" type="button" disabled={saving} onClick={() => setStep("done")}>{t("onboarding.later")}</button>
+              <button className="button button-ghost" type="button" disabled={saving} onClick={skipOnboarding}>{t("onboarding.later")}</button>
             </div>
           </>
         )}

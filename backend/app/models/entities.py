@@ -205,6 +205,18 @@ class CustomerProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class DeletedCustomerIdentity(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "deleted_customer_identities"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    auth_user_id: Mapped[uuid.UUID] = mapped_column(Uuid, unique=True, nullable=False)
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class CustomerAddress(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "customer_addresses"
 
@@ -674,6 +686,93 @@ class BookingServiceAddon(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="valid_booking_addon_duration",
         ),
         Index("ix_booking_service_addons_booking", "booking_id", "booking_vehicle_id"),
+    )
+
+
+class CustomerReview(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "customer_reviews"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    booking_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bookings.id", ondelete="RESTRICT"), nullable=False
+    )
+    customer_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("customer_profiles.id", ondelete="CASCADE")
+    )
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text)
+    reviewer_display_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="published", server_default="published"
+    )
+    published_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    guest_device_id_hash: Mapped[str | None] = mapped_column(String(64))
+    __table_args__ = (
+        UniqueConstraint("booking_id", name="uq_customer_reviews_booking"),
+        CheckConstraint("rating BETWEEN 1 AND 5", name="customer_review_rating"),
+        CheckConstraint("status IN ('published','hidden')", name="customer_review_status"),
+        Index(
+            "ix_customer_reviews_business_status_published",
+            "business_id",
+            "status",
+            "published_at",
+        ),
+        Index("ix_customer_reviews_customer_profile", "customer_profile_id"),
+        Index("ix_customer_reviews_business_rating", "business_id", "rating"),
+    )
+
+
+class CustomerReviewPromptState(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "customer_review_prompt_states"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    customer_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("customer_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    opens_since_last_prompt: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    next_prompt_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    last_prompted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        UniqueConstraint(
+            "customer_profile_id", name="uq_customer_review_prompt_customer"
+        ),
+        CheckConstraint(
+            "opens_since_last_prompt >= 0", name="nonnegative_review_prompt_opens"
+        ),
+        CheckConstraint(
+            "next_prompt_after BETWEEN 1 AND 3", name="review_prompt_threshold"
+        ),
+        Index("ix_review_prompt_business_customer", "business_id", "customer_profile_id"),
+    )
+
+
+class GuestReviewVerificationAttempt(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "guest_review_verification_attempts"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    challenge_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    device_id_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    __table_args__ = (
+        CheckConstraint("attempt_count >= 0", name="nonnegative_guest_review_attempts"),
+        UniqueConstraint(
+            "business_id",
+            "challenge_hash",
+            "device_id_hash",
+            name="uq_guest_review_verification_challenge_device",
+        ),
+        Index("ix_guest_review_attempt_window", "business_id", "window_started_at"),
     )
 
 

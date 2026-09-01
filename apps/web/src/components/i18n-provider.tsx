@@ -1,6 +1,15 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   LANGUAGE_STORAGE_KEY,
   appDirection,
@@ -32,11 +41,15 @@ const I18nContext = createContext<I18nContextValue>(defaultValue);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("en");
+  const readyToPersist = useRef(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
     const initial = preferredLanguage(stored ?? document.documentElement.lang ?? window.navigator.language);
-    const timer = window.setTimeout(() => setLanguageState(initial), 0);
+    const timer = window.setTimeout(() => {
+      readyToPersist.current = true;
+      setLanguageState(initial);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -48,6 +61,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = appDirection(language);
+    if (!readyToPersist.current) return;
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
   }, [language]);
 

@@ -18,6 +18,7 @@ import { formatMoney, formatSchedule, todayInTimezone } from "@/lib/dates";
 import type { Availability, CustomerBookingDetail as BookingDetail } from "@/lib/types";
 import { useI18n } from "./i18n-provider";
 import { localizePaymentStatus, localizeServiceName } from "@/lib/i18n";
+import { BookingReviewAction } from "./booking-review-action";
 
 export function CustomerBookingDetail({ bookingId }: { bookingId: string }) {
   const { language, locale, t } = useI18n();
@@ -147,6 +148,7 @@ export function CustomerBookingDetail({ bookingId }: { bookingId: string }) {
         <div><span>{t("common.total")}</span><strong>{formatMoney(booking.total_amount_minor, booking.currency_code, locale)}</strong></div>
       </div>
       <section className="customer-vehicles"><h2>{t("account.vehicleServices")}</h2>{booking.vehicles.map((vehicle, index) => <div key={`${vehicle.make}-${vehicle.model}-${index}`}><span><strong>{vehicle.make} {vehicle.model}</strong><small className="bidi-ltr">{[vehicle.year, vehicle.colour, vehicle.plate_number].filter(Boolean).join(" · ")}</small></span><b>{localizeServiceName(language, vehicle.service_name)}</b></div>)}</section>
+      {booking.status.key === "completed" && <BookingReviewAction bookingId={booking.id} />}
       {(booking.cancellation_eligible || booking.reschedule_eligible) && <div className="customer-actions">
         {booking.reschedule_eligible && <button className="button button-ghost" type="button" onClick={() => { setRescheduleOpen(true); setCancelOpen(false); }}>{t("account.reschedule")}</button>}
         {booking.cancellation_eligible && <button className="button button-danger" type="button" onClick={() => { setCancelOpen(true); setRescheduleOpen(false); }}>{t("account.cancelRequest")}</button>}

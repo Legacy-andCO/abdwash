@@ -3,15 +3,19 @@ import {
   ApiError,
   createBooking,
   createHold,
+  deleteCustomerAccount,
   friendlyError,
   getAvailability,
   getCatalogue,
+  getPublicReviewSummary,
   getCustomerBooking,
   getCustomerBookings,
   getManagedBooking,
   requestCancellation,
   requestCustomerCancellation,
   rescheduleCustomerBooking,
+  submitGuestReview,
+  verifyGuestReview,
 } from "./api";
 import { emptyVehicle } from "./booking-state";
 import * as supabaseClient from "./supabase-client";
@@ -269,5 +273,57 @@ describe("central API client", () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       hold_token: "h".repeat(40),
     });
+  });
+  it("deletes only the authenticated account through the deliberate server endpoint", async () => {
+    vi.spyOn(supabaseClient, "getSupabaseAccessToken").mockResolvedValue(
+      "customer-token",
+    );
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await deleteCustomerAccount();
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "http://localhost:8000/api/v1/customer/account",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      confirmation: "DELETE",
+    });
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get("Authorization")).toBe(
+      "Bearer customer-token",
+    );
+  });
+  it("loads public review summaries without JSON or customer authentication", async () => {
+    vi.spyOn(supabaseClient, "getSupabaseAccessToken").mockResolvedValue(null);
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ average_rating: null, total_count: 0, featured_reviews: [] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await getPublicReviewSummary();
+    const headers = new Headers(fetchMock.mock.calls[0][1].headers);
+    expect(headers.has("Content-Type")).toBe(false);
+    expect(headers.has("Authorization")).toBe(false);
+  });
+  it("uses booking proof for guest review verification and management submission", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ review_token: "r".repeat(60), eligibility: {} }))
+      .mockResolvedValueOnce(jsonResponse({ id: "review" }, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    await verifyGuestReview({
+      booking_reference: "AW-12345678",
+      phone: "+971501234567",
+      device_id: "43bd6679-dc2f-49dc-bc1c-6c5bed68f860",
+    });
+    await submitGuestReview({
+      management_token: "m".repeat(64),
+      device_id: "43bd6679-dc2f-49dc-bc1c-6c5bed68f860",
+      rating: 5,
+      comment: "Excellent",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      booking_reference: "AW-12345678",
+      phone: "+971501234567",
+    });
+    const headers = new Headers(fetchMock.mock.calls[1][1].headers);
+    expect(headers.get("X-Booking-Management-Token")).toBe("m".repeat(64));
   });
 });

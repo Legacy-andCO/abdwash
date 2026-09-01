@@ -301,3 +301,35 @@ export type CustomerContext = {
   };
   booking_count: number;
 };
+
+export type PublicReview = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  reviewer_display_name: string;
+  service_name: string;
+  service_date: string;
+  published_at: string;
+  verified: boolean;
+};
+
+export type ReviewEligibility = {
+  eligible: boolean;
+  booking_id: string | null;
+  booking_reference: string | null;
+  service_name: string | null;
+  service_date: string | null;
+  existing_review: PublicReview | null;
+};
+
+export type PublicReviewSummary = {
+  average_rating: number | null;
+  total_count: number;
+  featured_reviews: PublicReview[];
+};
+
+export type PublicReviewList = {
+  average_rating: number | null;
+  total_count: number;
+  reviews: PublicReview[];
+};

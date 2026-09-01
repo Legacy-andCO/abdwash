@@ -18,11 +18,13 @@ from app.domain.enums import (
     SlotStatus,
 )
 from app.domain.errors import ConflictError, DomainError
+from app.domain.vehicle_identity import normalize_vehicle_plate
 from app.models.entities import (
     Booking,
     BookingService,
     BookingServiceAddon,
     BookingVehicle,
+    CustomerProfile,
     Job,
     JobEvent,
     LoyaltyEvent,
@@ -40,6 +42,7 @@ from app.schemas.public import (
     BookingAddonSummary,
     BookingCreate,
     BookingResponse,
+    BookingVehicleCreate,
     BookingVehicleSummary,
     CustomerContact,
 )
@@ -231,6 +234,11 @@ async def create_booking(
         vehicle_ids={item.vehicle_id for item in request.vehicles if item.vehicle_id},
         customer_profile_id=customer_profile_id,
     )
+    saved_vehicle_ids = await _save_new_customer_vehicles(
+        session,
+        requested_vehicles=request.vehicles,
+        customer_profile_id=customer_profile_id,
+    )
     reward_ids = {
         item.loyalty_reward_id for item in request.vehicles if item.loyalty_reward_id is not None
     }
@@ -351,7 +359,7 @@ async def create_booking(
     for position, requested_vehicle in enumerate(request.vehicles, start=1):
         booking_vehicle = BookingVehicle(
             booking_id=booking.id,
-            vehicle_id=requested_vehicle.vehicle_id,
+            vehicle_id=requested_vehicle.vehicle_id or saved_vehicle_ids.get(position),
             position=position,
             make=requested_vehicle.make,
             model=requested_vehicle.model,
@@ -547,7 +555,7 @@ async def _resolve_customer_profile(
         first_name=contact.first_name,
         surname=contact.surname,
         phone=contact.phone,
-        update_existing=False,
+        update_existing=True,
     )
 
 
@@ -574,3 +582,58 @@ async def _validate_saved_vehicles(
     )
     if found != vehicle_ids:
         raise DomainError("INVALID_VEHICLE", "One or more saved vehicles are unavailable.")
+
+
+async def _save_new_customer_vehicles(
+    session: AsyncSession,
+    *,
+    requested_vehicles: list[BookingVehicleCreate],
+    customer_profile_id: uuid.UUID | None,
+) -> dict[int, uuid.UUID]:
+    if customer_profile_id is None:
+        return {}
+    await session.scalar(
+        select(CustomerProfile.id)
+        .where(CustomerProfile.id == customer_profile_id)
+        .with_for_update()
+    )
+    existing = list(
+        (
+            await session.scalars(
+                select(Vehicle).where(
+                    Vehicle.customer_id == customer_profile_id,
+                    Vehicle.is_active.is_(True),
+                )
+            )
+        ).all()
+    )
+    by_plate = {
+        normalize_vehicle_plate(vehicle.plate_number): vehicle.id
+        for vehicle in existing
+        if vehicle.plate_number and normalize_vehicle_plate(vehicle.plate_number)
+    }
+    saved: dict[int, uuid.UUID] = {}
+    for position, requested in enumerate(requested_vehicles, start=1):
+        if requested.vehicle_id is not None:
+            continue
+        plate_key = normalize_vehicle_plate(requested.plate_number)
+        existing_id = by_plate.get(plate_key)
+        if existing_id is not None:
+            saved[position] = existing_id
+            continue
+        vehicle = Vehicle(
+            customer_id=customer_profile_id,
+            make=requested.make,
+            model=requested.model,
+            year=requested.year,
+            vehicle_type=requested.vehicle_type,
+            colour=requested.colour,
+            plate_number=requested.plate_number,
+            notes=requested.notes,
+            is_active=True,
+        )
+        session.add(vehicle)
+        await session.flush()
+        by_plate[plate_key] = vehicle.id
+        saved[position] = vehicle.id
+    return saved

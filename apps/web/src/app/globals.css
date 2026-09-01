@@ -23,6 +23,279 @@
     font: inherit;
   }
 }
+
+@layer components {
+  .auth-alternative-stack {
+    flex-direction: column;
+  }
+  .auth-card .auth-magic-sent {
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: 1.35rem;
+  }
+  .auth-card .auth-magic-sent .confirmation-burst {
+    border-width: 4px;
+    font-size: 1.55rem;
+    height: 60px;
+    margin: 0 auto;
+    width: 60px;
+  }
+  .auth-card .auth-magic-sent h2 {
+    font-size: clamp(1.8rem, 5vw, 2.5rem);
+    margin: 0.2rem 0 0;
+  }
+  .auth-card .auth-magic-sent p {
+    color: var(--brand-text-secondary);
+    margin: 0 auto 0.35rem;
+    max-width: 34ch;
+  }
+  .auth-card .auth-magic-sent .button {
+    margin-top: 0.35rem;
+  }
+  .danger-zone {
+    align-items: center;
+    border-color: #d8aaa2;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: space-between;
+  }
+  .danger-zone h2 {
+    margin-block: 0.4rem;
+  }
+  .danger-zone > div > p:last-child,
+  .delete-account-dialog > p {
+    color: var(--brand-text-secondary);
+  }
+  .modal-backdrop,
+  .review-prompt-backdrop {
+    align-items: center;
+    background: rgba(15, 15, 16, 0.62);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 1rem;
+    position: fixed;
+    z-index: 1100;
+  }
+  .confirmation-dialog,
+  .review-prompt {
+    background: var(--brand-surface);
+    border: 1px solid var(--brand-border);
+    border-radius: 20px;
+    box-shadow: 0 24px 70px rgba(15, 15, 16, 0.28);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    padding: clamp(1.4rem, 4vw, 2.25rem);
+    width: min(100%, 560px);
+  }
+  .delete-account-dialog {
+    display: grid;
+    gap: 1rem;
+  }
+  .delete-account-dialog label {
+    margin-top: 0.4rem;
+  }
+  .home-reviews {
+    background: var(--brand-surface);
+  }
+  .review-summary {
+    display: grid;
+    gap: 0.2rem;
+    text-align: end;
+  }
+  .review-summary strong,
+  .review-stars {
+    color: var(--brand-primary);
+    letter-spacing: 0.08em;
+  }
+  .review-summary strong {
+    font-size: 1.8rem;
+  }
+  .review-summary span,
+  .public-review-card footer span,
+  .public-review-card footer small,
+  .review-booking-label,
+  .review-empty {
+    color: var(--brand-text-secondary);
+  }
+  .review-card-grid {
+    display: grid;
+    gap: 1.15rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .review-card-grid.full {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .public-review-card {
+    background: var(--brand-background);
+    border: 1px solid var(--brand-border);
+    border-radius: 16px;
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+    padding: 1.4rem;
+  }
+  .public-review-card blockquote {
+    line-height: 1.7;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .public-review-card footer {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .review-section-actions,
+  .review-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .reviews-page {
+    background: var(--brand-background);
+    min-height: calc(100vh - 78px);
+  }
+  .reviews-hero {
+    padding-block: clamp(4rem, 8vw, 7rem) 2rem;
+  }
+  .reviews-hero h1 {
+    max-width: 760px;
+  }
+  .reviews-hero .review-summary {
+    margin-block: 1.5rem;
+    text-align: start;
+  }
+  .leave-review-page {
+    padding-block: clamp(3rem, 7vw, 6rem);
+  }
+  .review-leave-card {
+    background: var(--brand-surface);
+    border: 1px solid var(--brand-border);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    max-width: 720px;
+    padding: clamp(1.4rem, 5vw, 3rem);
+  }
+  .review-form,
+  .review-success,
+  .review-verify-form {
+    display: grid;
+    gap: 1rem;
+  }
+  .review-form h2,
+  .review-success strong,
+  .review-verify-form h1 {
+    margin: 0;
+  }
+  .review-star-input {
+    display: flex;
+    gap: 0.25rem;
+  }
+  .review-star-input button {
+    background: transparent;
+    border: 0;
+    color: #a39b96;
+    cursor: pointer;
+    font-size: clamp(2rem, 7vw, 2.75rem);
+    line-height: 1;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.15rem;
+  }
+  .review-star-input button.selected {
+    color: var(--brand-primary);
+  }
+  .review-star-input button:focus-visible {
+    outline: 3px solid var(--brand-accent);
+    outline-offset: 2px;
+  }
+  .review-form textarea {
+    resize: vertical;
+  }
+  .review-form label small {
+    color: var(--brand-text-secondary);
+    display: block;
+    text-align: end;
+  }
+  .review-prompt {
+    position: relative;
+  }
+  .review-close {
+    align-items: center;
+    background: var(--brand-background);
+    border: 1px solid var(--brand-border);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    font-size: 1.35rem;
+    height: 40px;
+    justify-content: center;
+    position: absolute;
+    inset-inline-end: 1rem;
+    top: 1rem;
+    width: 40px;
+    z-index: 1;
+  }
+  .review-prompt .review-form {
+    padding-inline-end: 2.5rem;
+  }
+  .booking-review-summary {
+    background: var(--brand-background);
+    border: 1px solid var(--brand-border);
+    border-radius: 16px;
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+  }
+}
+
+@layer responsive {
+  @media (max-width: 720px) {
+    .auth-card:has(.auth-magic-sent) {
+      padding-block: 1.5rem;
+    }
+    .auth-card .auth-magic-sent {
+      margin-top: 0.9rem;
+    }
+    .danger-zone,
+    .section-heading {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .review-summary {
+      margin-top: 1rem;
+      text-align: start;
+    }
+    .review-card-grid,
+    .review-card-grid.full {
+      grid-template-columns: 1fr;
+    }
+    .review-prompt-backdrop {
+      align-items: flex-end;
+      padding: 0;
+    }
+    .review-prompt {
+      border-radius: 20px 20px 0 0;
+      max-height: 92vh;
+      width: 100%;
+    }
+  }
+  @media (max-width: 360px) {
+    .auth-card:has(.auth-magic-sent) {
+      padding-inline: 1.15rem;
+    }
+    .auth-card .auth-magic-sent h2 {
+      font-size: 1.7rem;
+    }
+    .review-star-input button {
+      font-size: 1.85rem;
+      min-width: 40px;
+    }
+  }
+}
 @layer base {
   :root {
     color-scheme: light;

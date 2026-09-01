@@ -10,6 +10,7 @@ import { resetCustomerProfileResourceForTests } from "@/lib/customer-profile-res
 const getCustomerProfile = vi.fn();
 const updateCustomerProfile = vi.fn();
 const createCustomerVehicle = vi.fn();
+const dismissProfileOnboarding = vi.fn().mockResolvedValue(undefined);
 const authenticatedUser = {
   id: "customer-1",
   email: "verified@example.com",
@@ -22,6 +23,7 @@ vi.mock("./auth-provider", () => ({
     user: authenticatedUser,
     loading: false,
     recoveryMode: false,
+    dismissProfileOnboarding,
   }),
 }));
 vi.mock("@/lib/api", () => ({
@@ -48,6 +50,7 @@ const complete = {
 };
 
 beforeEach(() => {
+  window.localStorage.clear();
   resetCustomerProfileResourceForTests();
   getCustomerProfile.mockResolvedValue(empty);
   updateCustomerProfile.mockResolvedValue(complete);
@@ -69,7 +72,7 @@ afterEach(() => {
 });
 
 describe("first-login profile onboarding", () => {
-  it("shows incomplete profiles and provisions core details before allowing skip", async () => {
+  it("shows incomplete profiles, saves core details, and allows the vehicle step to be skipped", async () => {
     render(<I18nProvider><CustomerOnboarding /></I18nProvider>);
     expect(await screen.findByRole("heading", { name: "Let’s build your profile." })).toBeTruthy();
     expect((screen.getByLabelText(/Email address/) as HTMLInputElement).readOnly).toBe(true);
@@ -88,6 +91,7 @@ describe("first-login profile onboarding", () => {
     expect(await screen.findByRole("heading", { name: "Add your first vehicle" })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "I’ll do this later" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(dismissProfileOnboarding).toHaveBeenCalledOnce();
   });
 
   it("does not appear for a complete server-backed profile", async () => {
@@ -116,12 +120,20 @@ describe("first-login profile onboarding", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("keeps onboarding open and offers retry when loading fails", async () => {
-    getCustomerProfile.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(complete);
+  it("never renders a blocking loading or error modal while the profile check fails", async () => {
+    getCustomerProfile.mockRejectedValueOnce(new Error("offline"));
     render(<I18nProvider><CustomerOnboarding /></I18nProvider>);
-    expect((await screen.findByRole("alert")).textContent).toContain("couldn’t load your profile");
-    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(getCustomerProfile).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(getCustomerProfile).toHaveBeenCalledOnce());
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Loading…")).toBeNull();
+  });
+
+  it("persists Skip for now and does not reopen on rerender", async () => {
+    const view = render(<I18nProvider><CustomerOnboarding /></I18nProvider>);
+    await userEvent.click(await screen.findByRole("button", { name: "Skip for now" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    view.rerender(<I18nProvider><CustomerOnboarding /></I18nProvider>);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(getCustomerProfile).toHaveBeenCalledOnce();
   });
 });

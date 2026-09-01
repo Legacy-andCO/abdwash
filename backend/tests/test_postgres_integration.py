@@ -17,6 +17,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import app.api.staff as staff_api
+import app.services.reviews as review_service
 from app.api.public import router as public_router
 from app.api.staff import router as staff_router
 from app.auth.dependencies import StaffContext, optional_identity, staff_context
@@ -29,7 +30,7 @@ from app.core.database import (
     request_database_metrics,
     session_dependency,
 )
-from app.domain.enums import JobStatus, LeaveStatus, SlotStatus, StaffRole
+from app.domain.enums import BookingStatus, JobStatus, LeaveStatus, SlotStatus, StaffRole
 from app.domain.errors import ConflictError, DomainError
 from app.models import Base
 from app.models.entities import (
@@ -41,7 +42,11 @@ from app.models.entities import (
     BusinessSettings,
     BusinessSyncRevision,
     CancellationRequest,
+    CustomerAddress,
     CustomerProfile,
+    CustomerReview,
+    CustomerReviewPromptState,
+    DeletedCustomerIdentity,
     IdempotencyRecord,
     InventoryItem,
     InventoryLocation,
@@ -63,6 +68,7 @@ from app.models.entities import (
     SlotHoldGroup,
     StaffProfile,
     TeamMembership,
+    Vehicle,
 )
 from app.schemas.inventory import InventoryReceiptCreate, InventoryTransferCreate
 from app.schemas.public import BookingCreate, HoldCreate, HoldResponse
@@ -77,6 +83,7 @@ from app.schemas.staff import (
     ShiftAssignmentCreate,
     ShiftCreate,
 )
+from app.services.account_deletion import delete_customer_domain_account
 from app.services.bookings import create_booking
 from app.services.finance import finance_overview
 from app.services.idempotency import (
@@ -93,6 +100,13 @@ from app.services.job_quality import (
     update_checklist,
 )
 from app.services.manager_customers import list_manager_customers, manager_customer_detail
+from app.services.reviews import (
+    public_review_summary,
+    record_customer_website_open,
+    submit_customer_review,
+    submit_guest_review,
+    verify_guest_review_access,
+)
 from app.services.scheduling import create_hold, hold_token_hash
 from app.services.smart_scheduling import get_eligible_teams
 from app.services.staff_operations import list_jobs, transition_job
@@ -2073,3 +2087,276 @@ async def test_concurrent_multi_item_completion_uses_deterministic_lock_order(
             )
         )
     assert run_count == 2
+
+
+async def _review_booking(
+    session: AsyncSession,
+    *,
+    customer_profile_id: uuid.UUID | None,
+    reference: str,
+    first_name: str = "Ahmad",
+    surname: str = "Hassan",
+    phone: str = "+971501234567",
+    status: str = BookingStatus.COMPLETED,
+) -> Booking:
+    business = await session.scalar(select(Business).where(Business.slug == "abdwash"))
+    resource = await session.scalar(select(ScheduleResource).limit(1))
+    service = await session.scalar(select(Service).limit(1))
+    assert business is not None and resource is not None and service is not None
+    now = datetime.now(UTC)
+    hold = SlotHoldGroup(
+        business_id=business.id,
+        resource_id=resource.id,
+        token_hash=uuid.uuid4().hex + uuid.uuid4().hex,
+        status="consumed",
+        vehicle_count=1,
+        required_slot_count=1,
+        expected_duration_minutes=120,
+        slot_start=now - timedelta(hours=2),
+        slot_end=now,
+        expires_at=now - timedelta(hours=1),
+        consumed_at=now - timedelta(hours=2),
+    )
+    session.add(hold)
+    await session.flush()
+    booking = Booking(
+        business_id=business.id,
+        reference=reference,
+        customer_profile_id=customer_profile_id,
+        hold_group_id=hold.id,
+        resource_id=resource.id,
+        status=status,
+        payment_choice="pay_after_service",
+        payment_status="unpaid",
+        scheduled_start=hold.slot_start,
+        scheduled_end=hold.slot_end,
+        vehicle_count=1,
+        total_amount_minor=service.price_minor,
+        currency_code="AED",
+        source="web",
+        customer_first_name=first_name,
+        customer_surname=surname,
+        customer_email="booking-contact@example.com",
+        customer_phone=phone,
+        written_address="Al Reem Island, Abu Dhabi",
+        location_url="https://www.google.com/maps",
+        management_token_hash=uuid.uuid4().hex + uuid.uuid4().hex,
+    )
+    session.add(booking)
+    await session.flush()
+    booking_vehicle = BookingVehicle(
+        booking_id=booking.id,
+        position=1,
+        make="Toyota",
+        model="Land Cruiser",
+        vehicle_type="suv",
+        plate_number="AD 12345",
+    )
+    session.add(booking_vehicle)
+    await session.flush()
+    session.add(
+        BookingService(
+            booking_id=booking.id,
+            booking_vehicle_id=booking_vehicle.id,
+            service_id=service.id,
+            service_name=service.name,
+            unit_price_minor=service.price_minor,
+            list_price_minor=service.price_minor,
+            discount_minor=0,
+            quantity=1,
+            line_total_minor=service.price_minor,
+            expected_duration_minutes=service.estimated_duration_minutes,
+        )
+    )
+    await session.flush()
+    return booking
+
+
+@pytest.mark.asyncio
+async def test_verified_reviews_require_completed_owned_booking_and_publish_safe_data(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    identity = VerifiedIdentity(user_id=uuid.uuid4(), claims={"email": "reviews@example.com"})
+    async with database() as session, session.begin():
+        business = await session.scalar(select(Business).where(Business.slug == "abdwash"))
+        assert business is not None
+        profile = CustomerProfile(
+            business_id=business.id,
+            auth_user_id=identity.user_id,
+            first_name="Ahmad",
+            surname="Hassan",
+            email="reviews@example.com",
+            phone="+971501234567",
+        )
+        session.add(profile)
+        await session.flush()
+        booking = await _review_booking(
+            session,
+            customer_profile_id=profile.id,
+            reference=f"AW-R-{uuid.uuid4().hex[:8].upper()}",
+        )
+        pending = await _review_booking(
+            session,
+            customer_profile_id=profile.id,
+            reference=f"AW-P-{uuid.uuid4().hex[:8].upper()}",
+            status=BookingStatus.CONFIRMED,
+        )
+        review = await submit_customer_review(
+            session,
+            identity,
+            booking_id=booking.id,
+            rating=5,
+            comment="Excellent care.",
+        )
+        assert review.reviewer_display_name == "Ahmad H."
+        assert "email" not in review.model_dump()
+        with pytest.raises(ConflictError) as duplicate:
+            await submit_customer_review(
+                session, identity, booking_id=booking.id, rating=4, comment=None
+            )
+        assert duplicate.value.code == "REVIEW_ALREADY_SUBMITTED"
+        with pytest.raises(ConflictError) as incomplete:
+            await submit_customer_review(
+                session, identity, booking_id=pending.id, rating=4, comment=None
+            )
+        assert incomplete.value.code == "REVIEW_NOT_AVAILABLE"
+
+    async with database() as session:
+        summary = await public_review_summary(session)
+    assert summary.total_count >= 1
+    assert any(item.id == review.id for item in summary.featured_reviews)
+
+
+@pytest.mark.asyncio
+async def test_guest_review_verification_token_is_device_bound_and_single_use(
+    database: async_sessionmaker[AsyncSession],
+) -> None:
+    reference = f"AW-G-{uuid.uuid4().hex[:8].upper()}"
+    device_id = uuid.uuid4()
+    async with database() as session, session.begin():
+        booking = await _review_booking(
+            session, customer_profile_id=None, reference=reference, first_name="Guest"
+        )
+        proof = await verify_guest_review_access(
+            session,
+            booking_reference=reference,
+            phone="+971501234567",
+            device_id=device_id,
+        )
+        assert proof.eligibility.booking_id == booking.id
+        with pytest.raises(DomainError) as wrong_device:
+            await submit_guest_review(
+                session,
+                review_token=proof.review_token,
+                device_id=uuid.uuid4(),
+                rating=5,
+                comment=None,
+            )
+        assert wrong_device.value.code == "REVIEW_AUTHORIZATION_INVALID"
+        created = await submit_guest_review(
+            session,
+            review_token=proof.review_token,
+            device_id=device_id,
+            rating=3,
+            comment=None,
+        )
+        assert created.rating == 3
+        with pytest.raises(ConflictError):
+            await submit_guest_review(
+                session,
+                review_token=proof.review_token,
+                device_id=device_id,
+                rating=5,
+                comment=None,
+            )
+
+
+@pytest.mark.asyncio
+async def test_prompt_state_is_account_scoped_and_account_deletion_anonymizes_history(
+    database: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = VerifiedIdentity(user_id=uuid.uuid4(), claims={"email": "delete@example.com"})
+    unrelated_auth_id = uuid.uuid4()
+    async with database() as session, session.begin():
+        business = await session.scalar(select(Business).where(Business.slug == "abdwash"))
+        assert business is not None
+        profile = CustomerProfile(
+            business_id=business.id,
+            auth_user_id=identity.user_id,
+            first_name="Delete",
+            surname="Me",
+            email="delete@example.com",
+            phone="+971501234568",
+        )
+        unrelated = CustomerProfile(
+            business_id=business.id,
+            auth_user_id=unrelated_auth_id,
+            first_name="Keep",
+            surname="Me",
+            email="keep@example.com",
+            phone="+971501234569",
+        )
+        session.add_all([profile, unrelated])
+        await session.flush()
+        vehicle = Vehicle(
+            customer_id=profile.id,
+            make="BMW",
+            model="X5",
+            vehicle_type="suv",
+            plate_number="D 555",
+        )
+        address = CustomerAddress(
+            customer_id=profile.id,
+            label="Home",
+            written_address="Private home",
+            location_url="https://www.google.com/maps",
+            is_default=True,
+        )
+        session.add_all([vehicle, address])
+        booking = await _review_booking(
+            session,
+            customer_profile_id=profile.id,
+            reference=f"AW-D-{uuid.uuid4().hex[:8].upper()}",
+            first_name="Delete",
+            surname="Me",
+            phone=profile.phone,
+        )
+
+    monkeypatch.setattr(review_service, "_next_prompt_after", lambda: 2)
+    async with database() as session, session.begin():
+        first = await record_customer_website_open(session, identity)
+    async with database() as session, session.begin():
+        second = await record_customer_website_open(session, identity)
+        await submit_customer_review(
+            session, identity, booking_id=booking.id, rating=4, comment="Good"
+        )
+    assert first.show_prompt is False
+    assert second.show_prompt is True
+
+    async with database() as session, session.begin():
+        await delete_customer_domain_account(session, identity)
+    async with database() as session:
+        retained_booking = await session.get(Booking, booking.id)
+        assert retained_booking is not None
+        assert retained_booking.customer_profile_id is None
+        assert retained_booking.customer_email is None
+        assert retained_booking.customer_first_name == "Deleted"
+        assert await session.scalar(
+            select(CustomerProfile.id).where(CustomerProfile.auth_user_id == identity.user_id)
+        ) is None
+        assert await session.scalar(
+            select(CustomerProfile.id).where(CustomerProfile.auth_user_id == unrelated_auth_id)
+        ) is not None
+        assert await session.scalar(
+            select(CustomerReview.id).where(CustomerReview.booking_id == booking.id)
+        ) is None
+        assert await session.scalar(
+            select(CustomerReviewPromptState.id).where(
+                CustomerReviewPromptState.customer_profile_id == profile.id
+            )
+        ) is None
+        assert await session.scalar(
+            select(DeletedCustomerIdentity.id).where(
+                DeletedCustomerIdentity.auth_user_id == identity.user_id
+            )
+        ) is not None

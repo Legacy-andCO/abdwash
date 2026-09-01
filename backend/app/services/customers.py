@@ -42,6 +42,7 @@ from app.services.customer_communications import (
     discard_unsent_appointment_reminders,
     queue_customer_email_if_available,
 )
+from app.services.customer_profiles import load_customer_profile
 from app.services.scheduling import _lock_slot_sequence, hold_token_hash, policy_for_day
 from app.services.smart_scheduling import choose_team_for_booking, lock_schedule_day
 
@@ -87,17 +88,8 @@ class CustomerScope:
 
 
 async def load_customer_scope(session: AsyncSession, identity: VerifiedIdentity) -> CustomerScope:
-    configuration = await load_default_business(session)
-    profile = (
-        await session.scalars(
-            select(CustomerProfile).where(
-                CustomerProfile.auth_user_id == identity.user_id,
-                CustomerProfile.business_id == configuration.business.id,
-                CustomerProfile.is_active.is_(True),
-            )
-        )
-    ).one_or_none()
-    return CustomerScope(identity, configuration.business.id, profile)
+    business_id, profile = await load_customer_profile(session, identity)
+    return CustomerScope(identity, business_id, profile)
 
 
 async def customer_context(

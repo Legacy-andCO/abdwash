@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, Query
 
 from app.auth.dependencies import SessionDep, optional_identity
 from app.auth.verifier import VerifiedIdentity
+from app.domain.errors import DomainError
 from app.schemas.invoices import RevenueInvoiceView
 from app.schemas.public import (
     AvailabilityResponse,
@@ -17,6 +18,15 @@ from app.schemas.public import (
     CatalogueResponse,
     HoldCreate,
     HoldResponse,
+)
+from app.schemas.reviews import (
+    GuestReviewSubmission,
+    GuestReviewVerification,
+    GuestReviewVerificationResponse,
+    PublicReview,
+    PublicReviewList,
+    PublicReviewSummary,
+    ReviewEligibility,
 )
 from app.services.booking_management import (
     booking_management_response,
@@ -32,6 +42,16 @@ from app.services.idempotency import (
 )
 from app.services.invoices import managed_invoice
 from app.services.management_tokens import create_management_token
+from app.services.reviews import (
+    clear_guest_review_submission_attempt,
+    consume_guest_review_submission_attempt,
+    list_public_reviews,
+    public_review_summary,
+    review_eligibility_for_booking,
+    submit_guest_review,
+    submit_managed_guest_review,
+    verify_guest_review_access,
+)
 from app.services.scheduling import availability_for_date, create_hold
 from app.services.sync_state import bump_sync_revisions
 
@@ -41,6 +61,115 @@ router = APIRouter(prefix="/api/v1/public", tags=["public"])
 @router.get("/catalogue", response_model=CatalogueResponse)
 async def catalogue(session: SessionDep) -> CatalogueResponse:
     return await get_catalogue(session)
+
+
+@router.get("/reviews/summary", response_model=PublicReviewSummary)
+async def reviews_summary(session: SessionDep) -> PublicReviewSummary:
+    return await public_review_summary(session)
+
+
+@router.get("/reviews", response_model=PublicReviewList)
+async def reviews(
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> PublicReviewList:
+    return await list_public_reviews(session, limit=limit, offset=offset)
+
+
+@router.get("/reviews/guest/eligibility", response_model=ReviewEligibility)
+async def guest_review_eligibility(
+    session: SessionDep,
+    management_token: Annotated[
+        str, Header(alias="X-Booking-Management-Token", min_length=60, max_length=80)
+    ],
+) -> ReviewEligibility:
+    booking_record = await load_managed_booking(session, management_token)
+    return await review_eligibility_for_booking(session, booking_record)
+
+
+@router.post(
+    "/reviews/guest/verify",
+    response_model=GuestReviewVerificationResponse,
+)
+async def guest_review_verify(
+    payload: GuestReviewVerification, session: SessionDep
+) -> GuestReviewVerificationResponse:
+    verification_error: DomainError | None = None
+    response: GuestReviewVerificationResponse | None = None
+    async with session.begin():
+        try:
+            response = await verify_guest_review_access(
+                session,
+                booking_reference=payload.booking_reference,
+                phone=payload.phone,
+                device_id=payload.device_id,
+            )
+        except DomainError as exc:
+            # Failed verification attempts are security state and must commit even
+            # though the caller receives a domain error.
+            verification_error = exc
+    if verification_error is not None:
+        raise verification_error
+    if response is None:
+        raise RuntimeError("Guest review verification returned no result")
+    return response
+
+
+@router.post("/reviews/guest/submit", response_model=PublicReview, status_code=201)
+async def guest_review_submit(
+    payload: GuestReviewSubmission,
+    session: SessionDep,
+    management_token: Annotated[
+        str | None, Header(alias="X-Booking-Management-Token", min_length=60, max_length=80)
+    ] = None,
+) -> PublicReview:
+    submission_error: DomainError | None = None
+    response: PublicReview | None = None
+    async with session.begin():
+        proof = management_token or payload.review_token or "missing"
+        attempt_id = await consume_guest_review_submission_attempt(
+            session,
+            authorization_proof=proof,
+            device_id=payload.device_id,
+        )
+        try:
+            if management_token:
+                booking_record = await load_managed_booking(
+                    session, management_token, lock=True
+                )
+                response = await submit_managed_guest_review(
+                    session,
+                    booking_record,
+                    device_id=payload.device_id,
+                    rating=payload.rating,
+                    comment=payload.comment,
+                )
+            elif payload.review_token:
+                response = await submit_guest_review(
+                    session,
+                    review_token=payload.review_token,
+                    device_id=payload.device_id,
+                    rating=payload.rating,
+                    comment=payload.comment,
+                )
+            else:
+                raise DomainError(
+                    "REVIEW_AUTHORIZATION_REQUIRED",
+                    "Verify a completed booking before leaving a review.",
+                    status_code=401,
+                )
+        except DomainError as exc:
+            # Authorization failures commit the hashed limiter state while the
+            # original safe domain response is returned to the caller.
+            submission_error = exc
+        else:
+            await clear_guest_review_submission_attempt(session, attempt_id)
+    if submission_error is not None:
+        raise submission_error
+    if response is None:
+        raise RuntimeError("Guest review submission returned no result")
+    return response
 
 
 @router.get("/availability", response_model=AvailabilityResponse)

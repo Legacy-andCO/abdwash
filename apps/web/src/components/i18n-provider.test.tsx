@@ -49,6 +49,7 @@ describe("customer website localization", () => {
     render(<I18nProvider><StateProbe /></I18nProvider>);
     await waitFor(() => expect(document.documentElement.dir).toBe("rtl"));
     expect(screen.getByText("رقم اللوحة (مطلوب)")).toBeTruthy();
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("ar");
   });
 
   it("localizes required plate and location-notes validation", () => {

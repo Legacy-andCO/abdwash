@@ -14,6 +14,10 @@ import type {
   Location,
   ManagedBooking,
   RevenueInvoice,
+  PublicReview,
+  PublicReviewList,
+  PublicReviewSummary,
+  ReviewEligibility,
   Vehicle,
 } from "./types";
 import { normalizePhone } from "./phone";
@@ -269,6 +273,96 @@ export const deleteCustomerVehicle = (id: string) =>
   request<void>(`/api/v1/customer/vehicles/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+
+export function deleteCustomerAccount(): Promise<void> {
+  return request<void>("/api/v1/customer/account", {
+    method: "DELETE",
+    body: JSON.stringify({ confirmation: "DELETE" }),
+  });
+}
+
+export function getPublicReviewSummary(): Promise<PublicReviewSummary> {
+  return request<PublicReviewSummary>("/api/v1/public/reviews/summary");
+}
+
+export function getPublicReviews(
+  limit = 20,
+  offset = 0,
+): Promise<PublicReviewList> {
+  return request<PublicReviewList>(
+    `/api/v1/public/reviews?limit=${limit}&offset=${offset}`,
+  );
+}
+
+export function getCustomerReviewEligibility(): Promise<ReviewEligibility> {
+  return request<ReviewEligibility>("/api/v1/customer/reviews/eligibility");
+}
+
+export function getCustomerBookingReviewEligibility(
+  bookingId: string,
+): Promise<ReviewEligibility> {
+  return request<ReviewEligibility>(
+    `/api/v1/customer/bookings/${encodeURIComponent(bookingId)}/review`,
+  );
+}
+
+export function recordCustomerReviewOpen(): Promise<{
+  show_prompt: boolean;
+  eligibility: ReviewEligibility;
+}> {
+  return request("/api/v1/customer/review-prompt/open", { method: "POST" });
+}
+
+export function submitCustomerReview(input: {
+  booking_id: string;
+  rating: number;
+  comment: string;
+}): Promise<PublicReview> {
+  return request<PublicReview>("/api/v1/customer/reviews", {
+    method: "POST",
+    body: JSON.stringify({ ...input, comment: input.comment.trim() || null }),
+  });
+}
+
+export function getManagedReviewEligibility(
+  managementToken: string,
+): Promise<ReviewEligibility> {
+  return request<ReviewEligibility>("/api/v1/public/reviews/guest/eligibility", {
+    headers: { "X-Booking-Management-Token": managementToken },
+  });
+}
+
+export function verifyGuestReview(input: {
+  booking_reference: string;
+  phone: string;
+  device_id: string;
+}): Promise<{ review_token: string; eligibility: ReviewEligibility }> {
+  return request("/api/v1/public/reviews/guest/verify", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function submitGuestReview(input: {
+  review_token?: string;
+  management_token?: string;
+  device_id: string;
+  rating: number;
+  comment: string;
+}): Promise<PublicReview> {
+  return request<PublicReview>("/api/v1/public/reviews/guest/submit", {
+    method: "POST",
+    headers: input.management_token
+      ? { "X-Booking-Management-Token": input.management_token }
+      : undefined,
+    body: JSON.stringify({
+      review_token: input.review_token ?? null,
+      device_id: input.device_id,
+      rating: input.rating,
+      comment: input.comment.trim() || null,
+    }),
+  });
+}
 
 export async function getCustomerBookings(): Promise<CustomerBookingSummary[]> {
   const response = await request<{ bookings: CustomerBookingSummary[] }>(

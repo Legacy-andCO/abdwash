@@ -1,10 +1,13 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Header, Response
+import httpx
+from fastapi import APIRouter, Depends, Header, Request, Response
 
 from app.auth.dependencies import SessionDep, required_identity
 from app.auth.verifier import VerifiedIdentity
+from app.core.config import get_settings
+from app.integrations.supabase_admin import SupabaseAdminClient
 from app.repositories.business import load_default_business
 from app.schemas.customer import (
     CustomerAddressResponse,
@@ -22,6 +25,14 @@ from app.schemas.customer import (
 )
 from app.schemas.invoices import RevenueInvoiceView
 from app.schemas.public import CancellationRequestCreate
+from app.schemas.reviews import (
+    CustomerAccountDelete,
+    PublicReview,
+    ReviewEligibility,
+    ReviewPromptOpenResponse,
+    ReviewSubmission,
+)
+from app.services.account_deletion import delete_customer_domain_account
 from app.services.booking_management import request_booking_cancellation
 from app.services.customer_profiles import (
     create_customer_address,
@@ -49,11 +60,26 @@ from app.services.idempotency import (
     store_idempotent_response,
 )
 from app.services.invoices import managed_invoice
+from app.services.reviews import (
+    customer_review_eligibility,
+    record_customer_website_open,
+    review_eligibility_for_booking,
+    submit_customer_review,
+)
 from app.services.sync_state import bump_sync_revisions
 
 router = APIRouter(prefix="/api/v1/customer", tags=["customer"])
 IdentityDep = Annotated[VerifiedIdentity, Depends(required_identity)]
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=255)]
+
+
+def _admin(request: Request) -> SupabaseAdminClient:
+    settings = get_settings()
+    return SupabaseAdminClient(
+        cast(httpx.AsyncClient, request.app.state.http_client),
+        supabase_url=settings.supabase_url,
+        service_role_key=settings.supabase_service_role_key,
+    )
 
 
 @router.get("/context", response_model=CustomerContextResponse)
@@ -156,6 +182,57 @@ async def vehicle_delete(
         await deactivate_customer_vehicle(session, identity, vehicle_id)
         configuration = await load_default_business(session)
         await bump_sync_revisions(session, configuration.business.id, "customers")
+    return Response(status_code=204)
+
+
+@router.get("/reviews/eligibility", response_model=ReviewEligibility)
+async def review_eligibility(
+    session: SessionDep, identity: IdentityDep
+) -> ReviewEligibility:
+    return await customer_review_eligibility(session, identity)
+
+
+@router.get("/bookings/{booking_id}/review", response_model=ReviewEligibility)
+async def booking_review_eligibility(
+    booking_id: uuid.UUID, session: SessionDep, identity: IdentityDep
+) -> ReviewEligibility:
+    booking = await load_owned_booking(session, identity, booking_id)
+    return await review_eligibility_for_booking(session, booking)
+
+
+@router.post("/reviews", response_model=PublicReview, status_code=201)
+async def review_create(
+    payload: ReviewSubmission, session: SessionDep, identity: IdentityDep
+) -> PublicReview:
+    async with session.begin():
+        return await submit_customer_review(
+            session,
+            identity,
+            booking_id=payload.booking_id,
+            rating=payload.rating,
+            comment=payload.comment,
+        )
+
+
+@router.post("/review-prompt/open", response_model=ReviewPromptOpenResponse)
+async def review_prompt_open(
+    session: SessionDep, identity: IdentityDep
+) -> ReviewPromptOpenResponse:
+    async with session.begin():
+        return await record_customer_website_open(session, identity)
+
+
+@router.delete("/account", status_code=204)
+async def account_delete(
+    payload: CustomerAccountDelete,
+    request: Request,
+    session: SessionDep,
+    identity: IdentityDep,
+) -> Response:
+    del payload
+    async with session.begin():
+        auth_user_id = await delete_customer_domain_account(session, identity)
+    await _admin(request).delete_customer_user(auth_user_id)
     return Response(status_code=204)
 
 

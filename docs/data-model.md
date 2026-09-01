@@ -9,6 +9,7 @@ All primary keys are UUIDs, money uses integer minor units plus ISO currency cod
 - `business_operating_hours` — one tenant-owned open/closed and opening/closing window per weekday.
 - `customer_profiles` — optional link to a Supabase Auth user plus reusable contact data.
 - `customer_addresses` — saved written/map addresses and optional coordinates.
+- `deleted_customer_identities` — minimal deleted Supabase user tombstones that prevent an already-issued JWT from recreating erased customer data before token expiry.
 - `staff_profiles` — lowercase staff username, contact details, authoritative role, active state, and Supabase Auth link.
 - `vehicles` — reusable customer vehicles.
 - `services` — active catalogue identity, expected duration, mobile/shop channel flags, and an optional service-specific checklist template. The legacy base price is retained as a compatibility/minimum summary, not as the booking authority.
@@ -26,6 +27,9 @@ All primary keys are UUIDs, money uses integer minor units plus ISO currency cod
 - `booking_vehicles` — immutable booking-time vehicle snapshots.
 - `booking_services` — immutable service/list-price, applied discount, charged total, expected-duration, and optional loyalty-reward snapshot per booking vehicle.
 - `booking_service_addons` — immutable selected add-on name, charged price, and expected-duration snapshots per booking vehicle.
+- `customer_reviews` — one completed-booking-backed verified review with constrained rating, optional plain-text comment, safe public display name, publication state, and optional hashed guest device correlation.
+- `customer_review_prompt_states` — one account-scoped 1–3-open cadence counter shared across devices for eligible logged-in customers.
+- `guest_review_verification_attempts` — short-lived hashed booking/device challenge counters for bounded guest proof attempts; no review or management token is stored.
 - `loyalty_events` — tenant/customer-scoped append-only wash-credit, manual-adjustment, and reward lifecycle ledger with source-key deduplication and actor/reason references.
 - `loyalty_rewards` — durable configured-service and required-wash snapshots with `available`, `reserved`, and `redeemed` state plus booking/service/job references.
 - `jobs` — operational lifecycle, optional primary staff and scheduling-resource team assignment, immutable operational duration, `auto`/`manual`/legacy assignment provenance, authoritative timing, and version.
@@ -56,6 +60,8 @@ All primary keys are UUIDs, money uses integer minor units plus ISO currency cod
 - `audit_events` — security/administrative audit history that does not duplicate operational job events.
 
 Booking snapshots intentionally remain unchanged if reusable customer, vehicle, address, service, vehicle-price, or add-on rows change later. Phase 2 uses the captured service/add-on duration for rescheduling and capacity decisions without rewriting historical work.
+
+Account deletion removes reusable customer data, loyalty rows, prompt state, and account-owned public reviews. Completed/cancelled booking and financial snapshots remain for operational/accounting integrity after their live profile link and removable booking PII are severed/anonymized. The Supabase Auth user is deleted through the server-only Admin API; the tombstone prevents a still-valid pre-deletion access token from provisioning a new profile.
 
 Checklist templates are copied into `job_checklist_items` when a booking creates its job. Later catalogue edits do not alter that job's requirements. The quality migration does not fabricate evidence for historical completed jobs; an empty historical snapshot is valid.
 

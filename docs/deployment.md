@@ -284,3 +284,24 @@ Release order for this phase:
 4. Publish the mobile JavaScript/application update for the catalogue/settings/expense form changes.
 5. Configure the legal supplier identity and VAT status in manager Services & pricing settings before
    relying on Tax Invoice output. Never enable VAT status without the business's real TRN.
+
+## Customer account and verified reviews release
+
+Apply Alembic revision `d4a9e7c31f26` after `c6c7c3026e63` and before deploying the matching API.
+It adds verified reviews, account-level prompt cadence, bounded guest verification state, and deleted-
+identity tombstones. The release does not rewrite historical booking, invoice, payment, loyalty, or
+notification data.
+
+The API project must already have backend-only `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for
+real Supabase Auth identity deletion. Do not expose the service-role key to `NEXT_PUBLIC_*`, Expo,
+logs, or client bundles. No new environment variable is introduced. Deploy in this order:
+
+1. Back up the production database and run `alembic upgrade d4a9e7c31f26`.
+2. Confirm `alembic current` returns `d4a9e7c31f26` and `alembic heads` shows one head.
+3. Deploy the FastAPI backend.
+4. Deploy the Next.js web project.
+5. Smoke-test Magic Link sent state, password sign-up, onboarding skip, authenticated and guest
+   completed-booking reviews, `/reviews`, and deliberate self-account deletion with a disposable
+   customer identity.
+
+No mobile source or native dependency changes are part of this release; no APK rebuild is required.

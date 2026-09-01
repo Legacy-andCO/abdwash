@@ -21,8 +21,8 @@ class SupabaseAdminClient:
     ) -> None:
         if not supabase_url or not service_role_key:
             raise DomainError(
-                "STAFF_AUTH_UNAVAILABLE",
-                "Staff account management is not configured.",
+                "AUTH_ADMIN_UNAVAILABLE",
+                "Server-side account management is not configured.",
                 status_code=503,
             )
         self.client = client
@@ -116,6 +116,20 @@ class SupabaseAdminClient:
         self._raise(response, "STAFF_AUTH_UPDATE_FAILED")
 
     async def delete_staff_user(self, user_id: uuid.UUID) -> None:
+        await self._delete_user(
+            user_id,
+            code="STAFF_AUTH_COMPENSATION_FAILED",
+            message="Supabase could not complete the staff account operation.",
+        )
+
+    async def delete_customer_user(self, user_id: uuid.UUID) -> None:
+        await self._delete_user(
+            user_id,
+            code="CUSTOMER_ACCOUNT_DELETE_FAILED",
+            message="Customer account deletion is temporarily unavailable.",
+        )
+
+    async def _delete_user(self, user_id: uuid.UUID, *, code: str, message: str) -> None:
         response = await observe_provider_call(
             "supabase_auth_admin",
             "delete_user",
@@ -124,7 +138,8 @@ class SupabaseAdminClient:
                 headers=self.headers,
             ),
         )
-        self._raise(response, "STAFF_AUTH_COMPENSATION_FAILED")
+        if not response.is_success:
+            raise DomainError(code, message, status_code=502)
 
     @staticmethod
     def _body(username: str, password: str) -> dict[str, Any]:
@@ -150,6 +165,6 @@ class SupabaseAdminClient:
             return
         raise DomainError(
             code,
-            "Supabase could not complete the staff account operation.",
+            "Supabase could not complete the account operation.",
             status_code=502,
         )

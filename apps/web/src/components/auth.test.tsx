@@ -104,6 +104,27 @@ describe("customer authentication", () => {
     expect(screen.queryByText(/account exists/i)).toBeNull();
   });
 
+  it("keeps Magic Link primary while exposing password sign-up from password login", async () => {
+    const { client, auth } = authClient();
+    render(<AuthProvider client={client}><LoginForm /></AuthProvider>);
+    expect(screen.getByRole("button", { name: "Email me a sign-in link" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Use password instead" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sign up with password" }));
+    await userEvent.type(screen.getByLabelText("Email address"), "new@example.com");
+    await userEvent.type(screen.getByLabelText("Password"), "secure-password");
+    await userEvent.type(screen.getByLabelText("Confirm password"), "secure-password");
+    await userEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    await waitFor(() => expect(auth.signUp).toHaveBeenCalledWith({
+      email: "new@example.com",
+      password: "secure-password",
+      options: {
+        emailRedirectTo: "http://localhost:3000/auth/confirm?returnTo=%2Fbook",
+      },
+    }));
+    expect(await screen.findByRole("heading", { name: "Confirm your email" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Use another email" })).toBeTruthy();
+  });
+
   it("rejects an unsafe external return path", async () => {
     const { client, auth } = authClient();
     render(<AuthProvider client={client}><LoginForm /></AuthProvider>);

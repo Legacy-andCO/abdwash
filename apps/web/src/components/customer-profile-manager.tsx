@@ -9,6 +9,7 @@ import { PhoneInput } from "./phone-input";
 import {
   createCustomerAddress,
   createCustomerVehicle,
+  deleteCustomerAccount,
   deleteCustomerAddress,
   deleteCustomerVehicle,
   updateCustomerAddress,
@@ -18,9 +19,11 @@ import {
   type SavedVehicleInput,
 } from "@/lib/api";
 import {
+  clearCachedCustomerProfile,
   loadCustomerProfile,
   setCachedCustomerProfile,
 } from "@/lib/customer-profile-resource";
+import { clearCachedCustomerBookings } from "@/lib/customer-bookings-resource";
 import { localizedCustomerError } from "@/lib/customer-error";
 import type { TranslationKey } from "@/lib/i18n";
 import { normalizePhone } from "@/lib/phone";
@@ -33,6 +36,7 @@ import type {
 import type { CountryCode } from "libphonenumber-js/min";
 import { useI18n } from "./i18n-provider";
 import { isVehicleType, VEHICLE_TYPES } from "@/lib/vehicle-types";
+import { clearCustomerBrowserState } from "@/lib/guest-device";
 
 const emptyLocation: Location = {
   written_address: "",
@@ -55,7 +59,7 @@ export function CustomerProfileManager() {
   const { language, t } = useI18n();
   const languageRef = useRef(language);
   const translationRef = useRef(t);
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logoutAfterAccountDeletion } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<CustomerProfileBootstrap | null>(null);
   const [error, setError] = useState("");
@@ -76,6 +80,9 @@ export function CustomerProfileManager() {
   const [vehicleEditor, setVehicleEditor] = useState<
     (SavedVehicleInput & { id?: string }) | null
   >(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     languageRef.current = language;
@@ -236,6 +243,25 @@ export function CustomerProfileManager() {
       setError(localizedCustomerError(reason, language, t));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (!user || deleteConfirmation !== "DELETE") return;
+    setDeleting(true);
+    setError("");
+    try {
+      await deleteCustomerAccount();
+      clearCustomerBrowserState(user.id);
+      clearCachedCustomerProfile(user.id);
+      clearCachedCustomerBookings(user.id);
+      await logoutAfterAccountDeletion();
+      router.replace("/?accountDeleted=1");
+    } catch (reason) {
+      setError(localizedCustomerError(reason, language, t));
+      setDeleteOpen(false);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -572,6 +598,19 @@ export function CustomerProfileManager() {
           />
         )}
         {!data?.profile && <p className="profile-help">{t("profile.help")}</p>}
+        <section className="profile-panel danger-zone">
+          <div><p className="eyebrow"><span /> {t("profile.dangerZone")}</p><h2>{t("profile.deleteAccount")}</h2><p>{t("profile.deleteAccountCopy")}</p></div>
+          <button className="button button-danger" type="button" onClick={() => setDeleteOpen(true)}>{t("profile.deleteAccount")}</button>
+        </section>
+        {deleteOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target && !deleting) setDeleteOpen(false); }}>
+          <section className="confirmation-dialog delete-account-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+            <h2 id="delete-account-title">{t("profile.deleteAccountTitle")}</h2>
+            <p>{t("profile.deleteAccountWarning")}</p>
+            <p>{t("profile.deleteAccountRetention")}</p>
+            <label><span>{t("profile.typeDelete")}</span><input className="bidi-ltr" autoComplete="off" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} /></label>
+            <div className="profile-actions"><button className="button button-ghost" type="button" disabled={deleting} onClick={() => setDeleteOpen(false)}>{t("common.cancel")}</button><button className="button button-danger" type="button" disabled={deleting || deleteConfirmation !== "DELETE"} onClick={() => void deleteAccount()}>{deleting ? t("common.saving") : t("profile.deleteMyAccount")}</button></div>
+          </section>
+        </div>}
       </div>
     </main>
   );

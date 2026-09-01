@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 import { getAuthConfirmUrl, getPublicSiteUrl } from "@/lib/site-url";
 
-type SignUpInput = { firstName: string; surname: string; email: string; password: string };
+type SignUpInput = { email: string; password: string; returnTo?: string | null };
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
@@ -17,7 +17,9 @@ type AuthContextValue = {
   signUp: (input: SignUpInput) => Promise<{ confirmationRequired: boolean }>;
   requestPasswordReset: (email: string) => Promise<void>;
   updateRecoveredPassword: (password: string) => Promise<void>;
+  dismissProfileOnboarding: () => Promise<void>;
   logout: () => Promise<void>;
+  logoutAfterAccountDeletion: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -90,14 +92,13 @@ export function AuthProvider({ children, client: clientOverride }: { children: R
       if (error) throw new Error(error.message);
       setSession(data.session);
     },
-    signUp: async ({ firstName, surname, email, password }) => {
+    signUp: async ({ email, password, returnTo }) => {
       if (!client) throw new Error("Customer sign-up is not configured.");
       const { data, error } = await client.auth.signUp({
         email,
         password,
         options: {
-          data: { first_name: firstName, surname },
-          emailRedirectTo: `${getPublicSiteUrl()}/auth/confirm`,
+          emailRedirectTo: getAuthConfirmUrl(returnTo ?? null),
         },
       });
       if (error) throw new Error(error.message);
@@ -122,10 +123,27 @@ export function AuthProvider({ children, client: clientOverride }: { children: R
       setRecoveryMode(false);
       setSession(null);
     },
+    dismissProfileOnboarding: async () => {
+      if (!client || !session) return;
+      const { data, error } = await client.auth.updateUser({
+        data: {
+          ...session.user.user_metadata,
+          profile_onboarding_dismissed: true,
+        },
+      });
+      if (error) throw new Error(error.message);
+      setSession((current) => current ? { ...current, user: data.user } : current);
+    },
     logout: async () => {
       if (!client) return;
       const { error } = await client.auth.signOut({ scope: "local" });
       if (error) throw new Error(error.message);
+      setSession(null);
+    },
+    logoutAfterAccountDeletion: async () => {
+      if (client) {
+        await client.auth.signOut({ scope: "local" }).catch(() => undefined);
+      }
       setSession(null);
     },
   }), [client, loading, recoveryMode, session]);

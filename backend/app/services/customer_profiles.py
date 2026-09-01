@@ -18,7 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.verifier import VerifiedIdentity
 from app.domain.errors import DomainError
-from app.models.entities import CustomerAddress, CustomerProfile, Vehicle
+from app.models.entities import (
+    CustomerAddress,
+    CustomerProfile,
+    DeletedCustomerIdentity,
+    Vehicle,
+)
 from app.repositories.business import load_default_business
 from app.schemas.customer import (
     CustomerAddressResponse,
@@ -32,6 +37,22 @@ from app.schemas.customer import (
 from app.services.loyalty import loyalty_summary
 
 email_adapter = TypeAdapter(EmailStr)
+
+
+async def ensure_customer_identity_active(
+    session: AsyncSession, identity: VerifiedIdentity
+) -> None:
+    deleted = await session.scalar(
+        select(DeletedCustomerIdentity.id).where(
+            DeletedCustomerIdentity.auth_user_id == identity.user_id
+        )
+    )
+    if deleted is not None:
+        raise DomainError(
+            "CUSTOMER_ACCOUNT_DELETED",
+            "This customer account has been deleted.",
+            status_code=410,
+        )
 
 
 def verified_identity_email(identity: VerifiedIdentity) -> str:
@@ -55,6 +76,7 @@ async def provision_customer_profile(
     phone: str,
     update_existing: bool,
 ) -> uuid.UUID:
+    await ensure_customer_identity_active(session, identity)
     values: dict[str, object] = {
         "business_id": business_id,
         "auth_user_id": identity.user_id,
@@ -213,6 +235,7 @@ async def load_customer_profile(
     *,
     lock: bool = False,
 ) -> tuple[uuid.UUID, CustomerProfile | None]:
+    await ensure_customer_identity_active(session, identity)
     configuration = await load_default_business(session)
     statement = select(CustomerProfile).where(
         CustomerProfile.auth_user_id == identity.user_id,

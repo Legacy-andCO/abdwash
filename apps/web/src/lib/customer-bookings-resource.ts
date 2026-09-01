@@ -15,6 +15,10 @@ export function cachedCustomerBookings(userId: string) {
   return entries.get(userId)?.data ?? null;
 }
 
+export function clearCachedCustomerBookings(userId: string) {
+  entries.delete(userId);
+}
+
 export function loadCustomerBookings(
   userId: string,
   options: { refresh?: boolean } = {},

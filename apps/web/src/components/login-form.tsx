@@ -27,14 +27,25 @@ export function LoginForm() {
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, requestMagicLink, available } = useAuth();
-  const [mode, setMode] = useState<"magic" | "password">("magic");
+  const { login, requestMagicLink, signUp, available } = useAuth();
+  const [mode, setMode] = useState<"magic" | "password" | "signup">("magic");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<"magic" | "signup" | null>(null);
   const [resendIn, setResendIn] = useState(0);
   const [error, setError] = useState("");
+  const [passwordResetNotice, setPasswordResetNotice] = useState(
+    searchParams.get("passwordReset") === "success",
+  );
+
+  useEffect(() => {
+    if (searchParams.get("passwordReset") !== "success") return;
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("passwordReset");
+    router.replace(`/login${next.size ? `?${next.toString()}` : ""}`);
+  }, [router, searchParams]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -58,7 +69,8 @@ export function LoginForm() {
     setBusy(true);
     try {
       await requestMagicLink(normalizedEmail, returnTo);
-      setSent(true);
+      setSent("magic");
+      setPasswordResetNotice(false);
       setResendIn(60);
     } catch (reason) {
       setError(customerAuthError(reason, t));
@@ -77,8 +89,26 @@ export function LoginForm() {
     setBusy(true);
     setError("");
     try {
-      await login(email.trim(), password);
-      router.replace(returnTo);
+      if (mode === "signup") {
+        if (!EMAIL_PATTERN.test(email.trim())) {
+          setError(t("auth.resetEmailInvalid"));
+          return;
+        }
+        if (password.length < 6) {
+          setError(t("auth.passwordTooShort"));
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError(t("auth.passwordMismatch"));
+          return;
+        }
+        const result = await signUp({ email: email.trim(), password, returnTo });
+        if (result.confirmationRequired) setSent("signup");
+        else router.replace(returnTo);
+      } else {
+        await login(email.trim(), password);
+        router.replace(returnTo);
+      }
     } catch (reason) {
       setError(customerAuthError(reason, t));
     } finally {
@@ -87,17 +117,20 @@ export function LoginForm() {
   }
 
   function useAnotherEmail() {
-    setSent(false);
+    setSent(null);
     setResendIn(0);
     setEmail("");
     setError("");
   }
 
-  function switchMode(nextMode: "magic" | "password") {
+  function switchMode(nextMode: "magic" | "password" | "signup") {
     setMode(nextMode);
-    setSent(false);
+    setSent(null);
     setResendIn(0);
     setError("");
+    setPassword("");
+    setConfirmPassword("");
+    setPasswordResetNotice(false);
   }
 
   return (
@@ -105,33 +138,35 @@ export function LoginForm() {
       <p className="eyebrow">
         <span /> {t("auth.customerAccess")}
       </p>
-      <h1>{t(mode === "magic" ? "auth.magicTitle" : "auth.loginTitle")}</h1>
-      <p>{t(mode === "magic" ? "auth.magicCopy" : "auth.loginCopy")}</p>
+      {!sent && <>
+        <h1>{t(mode === "magic" ? "auth.magicTitle" : mode === "signup" ? "auth.signupTitle" : "auth.loginTitle")}</h1>
+        <p>{t(mode === "magic" ? "auth.magicCopy" : mode === "signup" ? "auth.signupCopy" : "auth.loginCopy")}</p>
+      </>}
       {!available && <div className="error-banner" role="alert">{t("auth.unavailable")}</div>}
-      {searchParams.get("passwordReset") === "success" && (
+      {passwordResetNotice && !sent && (
         <div className="inline-notice" role="status">
           <strong>{t("auth.passwordUpdated")}</strong>
           <span>{t("auth.passwordUpdatedLogin")}</span>
         </div>
       )}
-      {mode === "magic" && sent ? (
+      {sent ? (
         <div className="auth-magic-sent" aria-live="polite">
           <div className="confirmation-burst" aria-hidden="true">✓</div>
-          <h2>{t("auth.magicSentTitle")}</h2>
-          <p>{t("auth.magicSentCopy")}</p>
+          <h2>{t(sent === "magic" ? "auth.magicSentTitle" : "auth.signupSentTitle")}</h2>
+          <p>{t(sent === "magic" ? "auth.magicSentCopy" : "auth.signupSentCopy")}</p>
           {error && <div className="error-banner" role="alert">{error}</div>}
-          <button
-            className="button"
-            type="button"
-            disabled={!available || busy || resendIn > 0}
-            onClick={() => void sendMagicLink()}
-          >
-            {busy
-              ? t("auth.magicSending")
-              : resendIn > 0
-                ? t("auth.magicResendCountdown", { seconds: resendIn })
-                : t("auth.magicResend")}
-          </button>
+          {sent === "magic" && <button
+              className="button"
+              type="button"
+              disabled={!available || busy || resendIn > 0}
+              onClick={() => void sendMagicLink()}
+            >
+              {busy
+                ? t("auth.magicSending")
+                : resendIn > 0
+                  ? t("auth.magicResendCountdown", { seconds: resendIn })
+                  : t("auth.magicResend")}
+            </button>}
           <button className="auth-switch" type="button" onClick={useAnotherEmail}>
             {t("auth.magicAnotherEmail")}
           </button>
@@ -149,43 +184,57 @@ export function LoginForm() {
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
-          {mode === "password" && (
+          {(mode === "password" || mode === "signup") && (
             <div className="auth-field">
               <div className="auth-label-row">
                 <label htmlFor="customer-password">{t("auth.password")}</label>
-                <Link href="/forgot-password">{t("auth.forgotPassword")}</Link>
+                {mode === "password" && <Link href="/forgot-password">{t("auth.forgotPassword")}</Link>}
               </div>
               <input
                 id="customer-password"
                 required
                 minLength={6}
                 type="password"
-                autoComplete="current-password"
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
             </div>
           )}
+          {mode === "signup" && <label>
+            <span>{t("auth.confirmPassword")}</span>
+            <input required minLength={6} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+          </label>}
           {error && <div className="error-banner" role="alert">{error}</div>}
           <button className="button" type="submit" disabled={busy || !available}>
             {busy
               ? t("booking.pleaseWait")
-              : t(mode === "magic" ? "auth.magicSend" : "auth.login")}
+              : t(mode === "magic" ? "auth.magicSend" : mode === "signup" ? "auth.signup" : "auth.login")}
           </button>
         </form>
       )}
-      {!sent && (
+      {!sent && mode === "magic" && (
         <div className="auth-alternative">
-          <span>{t(mode === "magic" ? "auth.preferPassword" : "auth.preferMagic")}</span>
+          <span>{t("auth.preferPassword")}</span>
           <button
             className="auth-switch"
             type="button"
-            onClick={() => switchMode(mode === "magic" ? "password" : "magic")}
+            onClick={() => switchMode("password")}
           >
-            {t(mode === "magic" ? "auth.usePassword" : "auth.useMagic")}
+            {t("auth.usePassword")}
           </button>
         </div>
       )}
+      {!sent && mode === "password" && <div className="auth-alternative auth-alternative-stack">
+        <span>{t("auth.noAccount")}</span>
+        <button className="auth-switch" type="button" onClick={() => switchMode("signup")}>{t("auth.signupWithPassword")}</button>
+        <button className="auth-switch" type="button" onClick={() => switchMode("magic")}>{t("auth.useMagic")}</button>
+      </div>}
+      {!sent && mode === "signup" && <div className="auth-alternative auth-alternative-stack">
+        <span>{t("auth.alreadyAccount")}</span>
+        <button className="auth-switch" type="button" onClick={() => switchMode("password")}>{t("auth.loginWithPassword")}</button>
+        <button className="auth-switch" type="button" onClick={() => switchMode("magic")}>{t("auth.backPasswordless")}</button>
+      </div>}
     </section>
   );
 }

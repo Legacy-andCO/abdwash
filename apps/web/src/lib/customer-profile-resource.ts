@@ -22,6 +22,10 @@ export function setCachedCustomerProfile(
   entries.set(userId, { data, fetchedAt: Date.now() });
 }
 
+export function clearCachedCustomerProfile(userId: string) {
+  entries.delete(userId);
+}
+
 export function loadCustomerProfile(
   userId: string,
   options: { refresh?: boolean } = {},
