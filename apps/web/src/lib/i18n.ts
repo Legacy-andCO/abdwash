@@ -318,8 +318,6 @@ const en = {
   "booking.details.email": "Email address",
   "booking.details.phone": "Phone number (WhatsApp number)",
   "booking.details.serviceLocation": "Service location",
-  "booking.details.profileSaveError":
-    "We couldn't save your information. Please try again.",
   "booking.vehicles.eyebrow": "Your vehicles",
   "booking.vehicles.titleOne": "Tell us about your car.",
   "booking.vehicles.titleMany": "Tell us about your {count} cars.",
@@ -1112,8 +1110,6 @@ const ar: Record<TranslationKey, string> = {
   "booking.details.email": "البريد الإلكتروني",
   "booking.details.phone": "رقم الهاتف (رقم واتساب)",
   "booking.details.serviceLocation": "موقع الخدمة",
-  "booking.details.profileSaveError":
-    "تعذر حفظ معلوماتك. يرجى المحاولة مرة أخرى.",
   "booking.vehicles.eyebrow": "مركباتك",
   "booking.vehicles.titleOne": "أخبرنا عن سيارتك.",
   "booking.vehicles.titleMany": "أخبرنا عن مركباتك وعددها {count}.",

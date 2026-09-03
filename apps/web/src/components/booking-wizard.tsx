@@ -438,13 +438,9 @@ function DetailsStep({ state, dispatch }: StepProps) {
   const { t } = useI18n();
   const { user } = useAuth();
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileSaveError, setProfileSaveError] = useState("");
-  const next = async () => {
-    if (savingProfile) return;
+  const next = () => {
     const found = contactErrors(state.contact, state.location, t);
     setErrors(found);
-    setProfileSaveError("");
     if (Object.keys(found).length) {
       setTimeout(
         () =>
@@ -460,21 +456,16 @@ function DetailsStep({ state, dispatch }: StepProps) {
     if (!normalizedPhone) return;
     dispatch({ type: "contact", field: "phone", value: normalizedPhone });
     if (user) {
-      setSavingProfile(true);
-      try {
-        const nextProfile = await updateCustomerProfile({
-          first_name: state.contact.first_name,
-          surname: state.contact.surname,
-          phone: normalizedPhone,
-        });
-        setCachedCustomerProfile(user.id, nextProfile);
-        dispatch({ type: "customer_profile_saved", value: nextProfile });
-      } catch {
-        setProfileSaveError(t("booking.details.profileSaveError"));
-        return;
-      } finally {
-        setSavingProfile(false);
-      }
+      void updateCustomerProfile({
+        first_name: state.contact.first_name,
+        surname: state.contact.surname,
+        phone: normalizedPhone,
+      })
+        .then((nextProfile) => {
+          setCachedCustomerProfile(user.id, nextProfile);
+          dispatch({ type: "customer_profile_saved", value: nextProfile });
+        })
+        .catch(() => undefined);
     }
     dispatch({ type: "step", value: "schedule" });
   };
@@ -605,15 +596,9 @@ function DetailsStep({ state, dispatch }: StepProps) {
           onCoordinatesChange={updateCoordinates}
         />
       </div>
-      {profileSaveError && (
-        <div className="error-banner" role="alert">
-          {profileSaveError}
-        </div>
-      )}
       <StepActions
         back={() => dispatch({ type: "step", value: "service" })}
-        next={() => void next()}
-        busy={savingProfile}
+        next={next}
       />
     </>
   );
@@ -1441,7 +1426,6 @@ function PaymentStep({ state, dispatch }: StepProps) {
         )}
       </aside>
       <CompanyBillingFields state={state} dispatch={dispatch} />
-      <ServiceAreaNotice compact />
       <section className="form-section payment-options">
         <h2>{t("common.payment")}</h2>
         <div className="choice-list">
@@ -1496,6 +1480,7 @@ function PaymentStep({ state, dispatch }: StepProps) {
           {error}
         </div>
       )}
+      <ServiceAreaNotice compact />
       <StepActions
         back={() => dispatch({ type: "step", value: "review" })}
         next={submit}

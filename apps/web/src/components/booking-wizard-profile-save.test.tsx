@@ -165,11 +165,19 @@ afterEach(() => {
 });
 
 describe("booking profile save on Continue", () => {
-  it("saves editable personal information before advancing for a logged-in customer", async () => {
+  it("starts the authenticated profile save and advances without waiting", async () => {
+    let finishSave: (value: CustomerProfileBootstrap) => void = () => undefined;
+    api.updateCustomerProfile.mockReturnValue(
+      new Promise<CustomerProfileBootstrap>((resolve) => {
+        finishSave = resolve;
+      }),
+    );
     authState.user = { id: "customer-1" };
     render(<BookingWizard initialServiceId="" />);
-    expect((await screen.findByLabelText("Use a saved vehicle") as HTMLSelectElement).value)
-      .toBe("vehicle-1");
+    const savedVehicleSelect = (await screen.findByLabelText(
+      "Use a saved vehicle",
+    )) as HTMLSelectElement;
+    expect(savedVehicleSelect.value).toBe("vehicle-1");
     expect((screen.getByLabelText("Make") as HTMLInputElement).value).toBe(
       "Toyota",
     );
@@ -180,20 +188,24 @@ describe("booking profile save on Continue", () => {
     await userEvent.type(firstName, "Ahmed");
     await userEvent.click(screen.getByRole("button", { name: /Continue/ }));
 
-    await waitFor(() =>
-      expect(api.updateCustomerProfile).toHaveBeenCalledWith({
-        first_name: "Ahmed",
-        surname: "Awad",
-        phone: "+971501234567",
-      }),
-    );
-    expect(profileResource.setCachedCustomerProfile).toHaveBeenCalledWith(
-      "customer-1",
-      profile,
-    );
+    expect(api.updateCustomerProfile).toHaveBeenCalledWith({
+      first_name: "Ahmed",
+      surname: "Awad",
+      phone: "+971501234567",
+    });
     expect(
-      await screen.findByRole("heading", { name: "When should we come?" }),
+      screen.getByRole("heading", { name: "When should we come?" }),
     ).toBeTruthy();
+    expect(screen.queryByText("Please wait")).toBeNull();
+    expect(profileResource.setCachedCustomerProfile).not.toHaveBeenCalled();
+
+    finishSave(profile);
+    await waitFor(() =>
+      expect(profileResource.setCachedCustomerProfile).toHaveBeenCalledWith(
+        "customer-1",
+        profile,
+      ),
+    );
   });
 
   it("does not save a CustomerProfile for a guest", async () => {
@@ -223,16 +235,32 @@ describe("booking profile save on Continue", () => {
     ).toBeTruthy();
   });
 
-  it("shows an error and blocks progression when profile saving fails", async () => {
+  it("keeps progressing when the background profile save fails", async () => {
     authState.user = { id: "customer-1" };
     api.updateCustomerProfile.mockRejectedValue(new Error("offline"));
     render(<BookingWizard initialServiceId="" />);
     await continueFromVehiclesToDetails();
     await userEvent.click(screen.getByRole("button", { name: /Continue/ }));
 
-    expect((await screen.findByRole("alert")).textContent).toContain(
-      "We couldn't save your information",
-    );
+    expect(
+      await screen.findByRole("heading", { name: "When should we come?" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Please wait")).toBeNull();
+    expect(screen.queryByText(/couldn't save your information/i)).toBeNull();
+  });
+
+  it("still blocks progression when local required-field validation fails", async () => {
+    authState.user = { id: "customer-1" };
+    profileResource.loadCustomerProfile.mockResolvedValueOnce({
+      ...profile,
+      profile: { ...profile.profile!, first_name: "" },
+    });
+    render(<BookingWizard initialServiceId="" />);
+    await continueFromVehiclesToDetails();
+    await userEvent.click(screen.getByRole("button", { name: /Continue/ }));
+
+    expect(screen.getByText("First name is required.")).toBeTruthy();
+    expect(api.updateCustomerProfile).not.toHaveBeenCalled();
     expect(
       screen.getByRole("heading", { name: "Where should we meet you?" }),
     ).toBeTruthy();

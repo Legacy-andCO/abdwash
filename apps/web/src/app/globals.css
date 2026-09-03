@@ -406,20 +406,44 @@
 
 .service-area-notice.compact {
   border-inline-start-width: 3px;
-  font-size: 0.8rem;
-  gap: 10px;
-  margin-block: 1.5rem;
-  padding: 14px;
+  border-radius: 12px;
+  font-size: 0.74rem;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  line-height: 1.4;
+  margin-block: 1rem 0;
+  padding: 10px;
 }
 
 .service-area-notice.compact .service-area-notice-icon {
-  font-size: 0.75rem;
-  height: 26px;
-  width: 26px;
+  font-size: 0.68rem;
+  height: 22px;
+  width: 22px;
+}
+
+.service-area-notice.compact strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  margin-block-end: 3px;
+}
+
+.service-area-notice.compact p,
+.service-area-notice.compact ul {
+  margin-block-start: 3px;
 }
 
 .service-area-notice.compact ul {
-  columns: 1;
+  columns: 2;
+  padding-inline-start: 16px;
+}
+
+.service-area-notice.compact li {
+  margin-block: 2px;
+}
+
+.service-area-notice.compact + .step-actions {
+  margin-top: 0.75rem;
+  padding-top: 1rem;
 }
 
 .review-bonus-incentive,
@@ -449,6 +473,10 @@
   }
 
   .service-area-notice ul {
+    columns: 1;
+  }
+
+  .service-area-notice.compact ul {
     columns: 1;
   }
 }

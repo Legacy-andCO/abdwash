@@ -19,17 +19,20 @@ describe("booking final-step placement", () => {
     expect(details).not.toContain('t("booking.details.billing")');
     expect(payment).toContain("<CompanyBillingFields");
     expect(payment.indexOf("<CompanyBillingFields")).toBeLessThan(
-      payment.indexOf("<ServiceAreaNotice compact />"),
+      payment.indexOf('className="form-section payment-options"'),
     );
   });
 
-  it("shows the Mawaqif notice once, immediately before payment options", () => {
+  it("shows the Mawaqif notice once between payment options and final actions", () => {
     const home = source("../app/page.tsx");
     expect(home).not.toContain("ServiceAreaNotice");
     expect(details).not.toContain("ServiceAreaNotice");
     expect(wizard.match(/<ServiceAreaNotice compact \/>/g)).toHaveLength(1);
-    expect(payment.indexOf("<ServiceAreaNotice compact />")).toBeLessThan(
+    expect(
       payment.indexOf('className="form-section payment-options"'),
+    ).toBeLessThan(payment.indexOf("<ServiceAreaNotice compact />"));
+    expect(payment.indexOf("<ServiceAreaNotice compact />")).toBeLessThan(
+      payment.lastIndexOf("<StepActions"),
     );
   });
 
