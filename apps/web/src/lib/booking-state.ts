@@ -97,6 +97,7 @@ export const initialBookingState: BookingState = {
 export type BookingAction =
   | { type: "catalogue"; value: Catalogue }
   | { type: "customer_bootstrap"; value: CustomerProfileBootstrap }
+  | { type: "customer_profile_saved"; value: CustomerProfileBootstrap }
   | { type: "saved_location"; value: CustomerSavedAddress }
   | {
       type: "apply_saved_vehicle";
@@ -154,6 +155,14 @@ export function bookingReducer(
       const defaultAddress = action.value.addresses.find(
         (address) => address.is_default,
       );
+      const usedSavedVehicleIds = new Set(
+        state.vehicles
+          .map((vehicle) => vehicle.vehicle_id)
+          .filter((id): id is string => Boolean(id)),
+      );
+      const availableSavedVehicles = action.value.vehicles.filter(
+        (vehicle) => !usedSavedVehicleIds.has(vehicle.id),
+      );
       return {
         ...state,
         customerProfile: action.value,
@@ -175,6 +184,29 @@ export function bookingReducer(
               instructions: defaultAddress.location_instructions ?? "",
             }
           : state.location,
+        vehicles: state.vehicles.map((vehicle) => {
+          if (vehicle.vehicle_id || vehicleHasManualDetails(vehicle))
+            return vehicle;
+          const savedVehicle = availableSavedVehicles.shift();
+          if (!savedVehicle) return vehicle;
+          usedSavedVehicleIds.add(savedVehicle.id);
+          return populateSavedVehicle(vehicle, savedVehicle);
+        }),
+      };
+    }
+    case "customer_profile_saved": {
+      const profile = action.value.profile;
+      return {
+        ...state,
+        customerProfile: action.value,
+        contact: profile
+          ? {
+              ...state.contact,
+              first_name: profile.first_name,
+              surname: profile.surname,
+              phone: profile.phone,
+            }
+          : state.contact,
       };
     }
     case "saved_location":
@@ -202,17 +234,7 @@ export function bookingReducer(
         ...state,
         vehicles: state.vehicles.map((vehicle) =>
           vehicle.key === action.vehicleKey
-            ? {
-                ...vehicle,
-                vehicle_id: action.value.id,
-                make: action.value.make,
-                model: action.value.model,
-                year: action.value.year?.toString() ?? "",
-                vehicle_type: action.value.vehicle_type,
-                colour: action.value.colour ?? "",
-                plate_number: action.value.plate_number ?? "",
-                notes: action.value.notes ?? "",
-              }
+            ? populateSavedVehicle(vehicle, action.value)
             : vehicle,
         ),
         availability: null,
@@ -224,7 +246,17 @@ export function bookingReducer(
         ...state,
         vehicles: state.vehicles.map((vehicle) =>
           vehicle.key === action.vehicleKey
-            ? { ...vehicle, vehicle_id: undefined }
+            ? {
+                ...vehicle,
+                vehicle_id: undefined,
+                make: "",
+                model: "",
+                year: "",
+                vehicle_type: "",
+                colour: "",
+                plate_number: "",
+                notes: "",
+              }
             : vehicle,
         ),
         availability: null,
@@ -332,14 +364,27 @@ export function bookingReducer(
         selectedSlotTime: "",
         hold: null,
       };
-    case "add_vehicle":
+    case "add_vehicle": {
+      const nextSavedVehicle = state.customerProfile?.vehicles.find(
+        (savedVehicle) =>
+          !state.vehicles.some(
+            (vehicle) => vehicle.vehicle_id === savedVehicle.id,
+          ),
+      );
+      const nextVehicle = emptyVehicle(state.defaultServiceId);
       return {
         ...state,
-        vehicles: [...state.vehicles, emptyVehicle(state.defaultServiceId)],
+        vehicles: [
+          ...state.vehicles,
+          nextSavedVehicle
+            ? populateSavedVehicle(nextVehicle, nextSavedVehicle)
+            : nextVehicle,
+        ],
         availability: null,
         selectedSlotTime: "",
         hold: null,
       };
+    }
     case "remove_vehicle":
       return {
         ...state,
@@ -372,6 +417,35 @@ export function bookingReducer(
     case "booking":
       return { ...state, booking: action.value, step: "confirmation" };
   }
+}
+
+function vehicleHasManualDetails(vehicle: Vehicle): boolean {
+  return Boolean(
+    vehicle.make.trim() ||
+      vehicle.model.trim() ||
+      vehicle.year.trim() ||
+      vehicle.vehicle_type.trim() ||
+      vehicle.colour.trim() ||
+      vehicle.plate_number.trim() ||
+      vehicle.notes.trim(),
+  );
+}
+
+function populateSavedVehicle(
+  vehicle: Vehicle,
+  savedVehicle: CustomerSavedVehicle,
+): Vehicle {
+  return {
+    ...vehicle,
+    vehicle_id: savedVehicle.id,
+    make: savedVehicle.make,
+    model: savedVehicle.model,
+    year: savedVehicle.year?.toString() ?? "",
+    vehicle_type: savedVehicle.vehicle_type,
+    colour: savedVehicle.colour ?? "",
+    plate_number: savedVehicle.plate_number ?? "",
+    notes: savedVehicle.notes ?? "",
+  };
 }
 
 type ErrorTranslator = (key: TranslationKey) => string;

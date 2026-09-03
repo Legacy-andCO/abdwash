@@ -10,16 +10,14 @@ export function ServiceAreaNotice({ compact = false }: { compact?: boolean }) {
     <div>
       <strong>{t("serviceArea.title")}</strong>
       <p>{t("serviceArea.copy")}</p>
-      {!compact ? <>
-        <span>{t("serviceArea.availableIntro")}</span>
-        <ul>
-          <li>{t("serviceArea.villas")}</li>
-          <li>{t("serviceArea.compounds")}</li>
-          <li>{t("serviceArea.privateParking")}</li>
-          <li>{t("serviceArea.businessParking")}</li>
-          <li>{t("serviceArea.fmAccess")}</li>
-        </ul>
-      </> : null}
+      <span>{t("serviceArea.availableIntro")}</span>
+      <ul>
+        <li>{t("serviceArea.villas")}</li>
+        <li>{t("serviceArea.compounds")}</li>
+        <li>{t("serviceArea.privateParking")}</li>
+        <li>{t("serviceArea.businessParking")}</li>
+        <li>{t("serviceArea.fmAccess")}</li>
+      </ul>
       <p>{t("serviceArea.contact")} <Link href="/contact">{t("nav.contact")}</Link></p>
     </div>
   </aside>;

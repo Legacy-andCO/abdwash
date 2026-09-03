@@ -110,6 +110,42 @@ describe("booking state", () => {
     });
     expect(state.contact.first_name).toBe("Noor");
     expect(state.location.written_address).toContain("Al Reem");
+    expect(state.vehicles[0]).toMatchObject({
+      vehicle_id: "vehicle-1",
+      make: "BMW",
+      model: "X5",
+      plate_number: "ABC 123",
+    });
+  });
+  it("autofills multiple slots in saved-vehicle priority order without reuse", () => {
+    const slots = [
+      { ...emptyVehicle("basic"), key: "slot-1" },
+      { ...emptyVehicle("basic"), key: "slot-2" },
+      { ...emptyVehicle("basic"), key: "slot-3" },
+    ];
+    const state = bookingReducer(
+      { ...initialBookingState, vehicles: slots },
+      { type: "customer_bootstrap", value: customerProfile },
+    );
+    expect(state.vehicles.map((vehicle) => vehicle.vehicle_id)).toEqual([
+      "vehicle-1",
+      "vehicle-2",
+      undefined,
+    ]);
+    expect(state.vehicles[2].make).toBe("");
+  });
+  it("does not overwrite manual edits when saved details finish loading", () => {
+    const manual = {
+      ...emptyVehicle("basic"),
+      key: "manual-slot",
+      make: "Nissan",
+    };
+    const state = bookingReducer(
+      { ...initialBookingState, vehicles: [manual] },
+      { type: "customer_bootstrap", value: customerProfile },
+    );
+    expect(state.vehicles[0].vehicle_id).toBeUndefined();
+    expect(state.vehicles[0].make).toBe("Nissan");
   });
   it("selects another saved location without mutating the bootstrap data", () => {
     const state = bookingReducer(
@@ -204,7 +240,7 @@ describe("booking state", () => {
       }),
     ).toBe(selected);
   });
-  it("switches a saved-vehicle slot to manual entry without losing details", () => {
+  it("switches a saved-vehicle slot to a clean manual entry", () => {
     const selected = {
       ...initialBookingState.vehicles[0],
       vehicle_id: "vehicle-1",
@@ -217,7 +253,9 @@ describe("booking state", () => {
     );
     expect(state.vehicles[0]).toMatchObject({
       vehicle_id: undefined,
-      make: "BMW",
+      make: "",
+      model: "",
+      plate_number: "",
       service_id: "full",
     });
   });
@@ -247,6 +285,20 @@ describe("booking state", () => {
     expect(
       bookingReducer(state, { type: "add_vehicle" }).vehicles[1].service_id,
     ).toBe("full");
+  });
+  it("autofills each newly added slot with the next unused saved vehicle", () => {
+    const first = bookingReducer(initialBookingState, {
+      type: "customer_bootstrap",
+      value: customerProfile,
+    });
+    const second = bookingReducer(first, { type: "add_vehicle" });
+    const third = bookingReducer(second, { type: "add_vehicle" });
+    expect(second.vehicles.map((vehicle) => vehicle.vehicle_id)).toEqual([
+      "vehicle-1",
+      "vehicle-2",
+    ]);
+    expect(third.vehicles[2].vehicle_id).toBeUndefined();
+    expect(third.vehicles[2].make).toBe("");
   });
   it("removes only the requested vehicle", () => {
     const second = emptyVehicle("full");

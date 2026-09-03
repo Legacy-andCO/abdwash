@@ -352,10 +352,6 @@
   }
 }
 
-.service-area-notice-wrap {
-  margin-block: 32px;
-}
-
 .service-area-notice {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -409,8 +405,21 @@
 }
 
 .service-area-notice.compact {
-  margin-block: 8px 20px;
-  padding: 16px;
+  border-inline-start-width: 3px;
+  font-size: 0.8rem;
+  gap: 10px;
+  margin-block: 1.5rem;
+  padding: 14px;
+}
+
+.service-area-notice.compact .service-area-notice-icon {
+  font-size: 0.75rem;
+  height: 26px;
+  width: 26px;
+}
+
+.service-area-notice.compact ul {
+  columns: 1;
 }
 
 .review-bonus-incentive,
@@ -2700,8 +2709,14 @@
     border-color: var(--teal);
   }
   .choice-card input {
+    height: 1px;
     opacity: 0;
     position: absolute;
+    width: 1px;
+  }
+  .choice-card:focus-within {
+    outline: 3px solid rgba(12, 119, 117, 0.2);
+    outline-offset: 2px;
   }
   .choice-check {
     border: 1px solid #9aadaa;
@@ -3315,12 +3330,6 @@
   .hold-timer.urgent {
     background: #fff5e7;
   }
-  .payment-layout {
-    align-items: start;
-    display: grid;
-    gap: 1.3rem;
-    grid-template-columns: 1fr 210px;
-  }
   .payment-summary {
     background: #f4f7f3;
     border-radius: 14px;
@@ -3340,6 +3349,15 @@
   .payment-summary small {
     color: var(--muted);
     font-size: 0.72rem;
+  }
+  .payment-summary-final {
+    margin-bottom: 1.5rem;
+  }
+  .payment-billing,
+  .payment-options {
+    border-top: 1px solid var(--line);
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
   }
   .spinner {
     animation: spin 0.75s linear infinite;
@@ -3759,7 +3777,6 @@
     }
     .form-grid.two,
     .schedule-grid,
-    .payment-layout,
     .confirmation-grid {
       grid-template-columns: 1fr;
     }

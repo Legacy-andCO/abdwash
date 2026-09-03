@@ -3,10 +3,12 @@ import uuid
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import (
     Boolean,
+    DateTime,
     Integer,
     String,
     cast,
     delete,
+    func,
     literal,
     null,
     select,
@@ -17,8 +19,11 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.verifier import VerifiedIdentity
+from app.domain.enums import BookingStatus
 from app.domain.errors import DomainError
 from app.models.entities import (
+    Booking,
+    BookingVehicle,
     CustomerAddress,
     CustomerProfile,
     DeletedCustomerIdentity,
@@ -157,6 +162,20 @@ async def load_saved_customer_details(
 ) -> tuple[list[CustomerAddressResponse], list[CustomerVehicleResponse]]:
     """Load both saved-template collections with one bounded round trip."""
 
+    completed_vehicle_usage = (
+        select(
+            BookingVehicle.vehicle_id.label("vehicle_id"),
+            func.count(BookingVehicle.id).label("usage_count"),
+            func.max(Booking.scheduled_start).label("last_used_at"),
+        )
+        .join(Booking, Booking.id == BookingVehicle.booking_id)
+        .where(
+            BookingVehicle.vehicle_id.is_not(None),
+            Booking.status == BookingStatus.COMPLETED,
+        )
+        .group_by(BookingVehicle.vehicle_id)
+        .subquery()
+    )
     addresses = select(
         literal("address").label("kind"),
         CustomerAddress.id.label("record_id"),
@@ -171,6 +190,8 @@ async def load_saved_customer_details(
         CustomerAddress.longitude.label("longitude"),
         CustomerAddress.is_default.label("is_default"),
         CustomerAddress.created_at.label("created_at"),
+        literal(0).label("usage_count"),
+        cast(null(), DateTime(timezone=True)).label("last_used_at"),
     ).where(CustomerAddress.customer_id == customer_id)
     vehicles = select(
         literal("vehicle").label("kind"),
@@ -186,6 +207,11 @@ async def load_saved_customer_details(
         cast(null(), CustomerAddress.longitude.type).label("longitude"),
         cast(null(), Boolean).label("is_default"),
         Vehicle.created_at.label("created_at"),
+        func.coalesce(completed_vehicle_usage.c.usage_count, 0).label("usage_count"),
+        completed_vehicle_usage.c.last_used_at.label("last_used_at"),
+    ).outerjoin(
+        completed_vehicle_usage,
+        completed_vehicle_usage.c.vehicle_id == Vehicle.id,
     ).where(Vehicle.customer_id == customer_id, Vehicle.is_active.is_(True))
     saved = union_all(addresses, vehicles).subquery()
     rows = (
@@ -193,7 +219,9 @@ async def load_saved_customer_details(
             select(saved).order_by(
                 saved.c.kind,
                 saved.c.is_default.desc().nullslast(),
-                saved.c.created_at,
+                saved.c.usage_count.desc(),
+                saved.c.last_used_at.desc().nullslast(),
+                saved.c.created_at.desc(),
             )
         )
     ).mappings()

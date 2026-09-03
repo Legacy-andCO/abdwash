@@ -23,8 +23,12 @@ import {
   createHold,
   getAvailability,
   getCatalogue,
+  updateCustomerProfile,
 } from "@/lib/api";
-import { loadCustomerProfile } from "@/lib/customer-profile-resource";
+import {
+  loadCustomerProfile,
+  setCachedCustomerProfile,
+} from "@/lib/customer-profile-resource";
 import { localizedCustomerError } from "@/lib/customer-error";
 import {
   bookingReducer,
@@ -432,25 +436,47 @@ function ServiceStep({ state, dispatch }: StepProps) {
 
 function DetailsStep({ state, dispatch }: StepProps) {
   const { t } = useI18n();
+  const { user } = useAuth();
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const next = () => {
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState("");
+  const next = async () => {
+    if (savingProfile) return;
     const found = contactErrors(state.contact, state.location, t);
     setErrors(found);
-    if (!Object.keys(found).length) {
-      const normalizedPhone = normalizePhone(
-        state.contact.phone,
-        state.contact.phone_country,
-      );
-      if (normalizedPhone)
-        dispatch({ type: "contact", field: "phone", value: normalizedPhone });
-      dispatch({ type: "step", value: "schedule" });
-    } else {
+    setProfileSaveError("");
+    if (Object.keys(found).length) {
       setTimeout(
         () =>
           document.querySelector<HTMLElement>("[aria-invalid=true]")?.focus(),
         0,
       );
+      return;
     }
+    const normalizedPhone = normalizePhone(
+      state.contact.phone,
+      state.contact.phone_country,
+    );
+    if (!normalizedPhone) return;
+    dispatch({ type: "contact", field: "phone", value: normalizedPhone });
+    if (user) {
+      setSavingProfile(true);
+      try {
+        const nextProfile = await updateCustomerProfile({
+          first_name: state.contact.first_name,
+          surname: state.contact.surname,
+          phone: normalizedPhone,
+        });
+        setCachedCustomerProfile(user.id, nextProfile);
+        dispatch({ type: "customer_profile_saved", value: nextProfile });
+      } catch {
+        setProfileSaveError(t("booking.details.profileSaveError"));
+        return;
+      } finally {
+        setSavingProfile(false);
+      }
+    }
+    dispatch({ type: "step", value: "schedule" });
   };
   const contactField = (
     field: "first_name" | "surname" | "email",
@@ -571,38 +597,7 @@ function DetailsStep({ state, dispatch }: StepProps) {
         </div>
       </div>
       <div className="form-section">
-        <h2>{t("booking.details.billing")}</h2>
-        <div className="form-grid two">
-          <label>
-            <span>{t("booking.details.companyName")}</span>
-            <input
-              value={state.billing.company_name}
-              autoComplete="organization"
-              onChange={(event) => dispatch({ type: "billing", field: "company_name", value: event.target.value })}
-            />
-          </label>
-          <label>
-            <span>{t("booking.details.trn")}</span>
-            <input
-              value={state.billing.tax_registration_number}
-              className="bidi-ltr"
-              onChange={(event) => dispatch({ type: "billing", field: "tax_registration_number", value: event.target.value })}
-            />
-          </label>
-          <label className="full-span">
-            <span>{t("booking.details.billingAddress")}</span>
-            <textarea
-              rows={2}
-              value={state.billing.billing_address}
-              autoComplete="billing street-address"
-              onChange={(event) => dispatch({ type: "billing", field: "billing_address", value: event.target.value })}
-            />
-          </label>
-        </div>
-      </div>
-      <div className="form-section">
         <h2>{t("booking.details.serviceLocation")}</h2>
-        <ServiceAreaNotice compact />
         <LocationPicker
           location={state.location}
           errors={errors}
@@ -610,9 +605,15 @@ function DetailsStep({ state, dispatch }: StepProps) {
           onCoordinatesChange={updateCoordinates}
         />
       </div>
+      {profileSaveError && (
+        <div className="error-banner" role="alert">
+          {profileSaveError}
+        </div>
+      )}
       <StepActions
         back={() => dispatch({ type: "step", value: "service" })}
-        next={next}
+        next={() => void next()}
+        busy={savingProfile}
       />
     </>
   );
@@ -1275,6 +1276,60 @@ function SlotButton({
   );
 }
 
+function CompanyBillingFields({ state, dispatch }: StepProps) {
+  const { t } = useI18n();
+  return (
+    <section className="form-section payment-billing">
+      <h2>{t("booking.details.billing")}</h2>
+      <div className="form-grid two">
+        <label>
+          <span>{t("booking.details.companyName")}</span>
+          <input
+            value={state.billing.company_name}
+            autoComplete="organization"
+            onChange={(event) =>
+              dispatch({
+                type: "billing",
+                field: "company_name",
+                value: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>{t("booking.details.trn")}</span>
+          <input
+            value={state.billing.tax_registration_number}
+            className="bidi-ltr"
+            onChange={(event) =>
+              dispatch({
+                type: "billing",
+                field: "tax_registration_number",
+                value: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label className="full-span">
+          <span>{t("booking.details.billingAddress")}</span>
+          <textarea
+            rows={2}
+            value={state.billing.billing_address}
+            autoComplete="billing street-address"
+            onChange={(event) =>
+              dispatch({
+                type: "billing",
+                field: "billing_address",
+                value: event.target.value,
+              })
+            }
+          />
+        </label>
+      </div>
+    </section>
+  );
+}
+
 function PaymentStep({ state, dispatch }: StepProps) {
   const { language, locale, t } = useI18n();
   const [choice, setChoice] = useState<"pay_after_service" | "pay_now">(
@@ -1359,7 +1414,36 @@ function PaymentStep({ state, dispatch }: StepProps) {
           </strong>
         </div>
       )}
-      <div className="payment-layout">
+      <aside className="payment-summary payment-summary-final">
+        <span>{t("booking.payment.estimate")}</span>
+        <strong>
+          {formatMoney(
+            estimate,
+            state.catalogue!.settings.currency_code,
+            locale,
+          )}
+        </strong>
+        <p>
+          {state.vehicles.length}{" "}
+          {state.vehicles.length === 1
+            ? t("common.vehicle")
+            : t("common.vehicles")}
+        </p>
+        {state.hold && (
+          <small>
+            {formatSchedule(
+              state.hold.starts_at,
+              state.hold.ends_at,
+              state.catalogue!.settings.timezone,
+              locale,
+            )}
+          </small>
+        )}
+      </aside>
+      <CompanyBillingFields state={state} dispatch={dispatch} />
+      <ServiceAreaNotice compact />
+      <section className="form-section payment-options">
+        <h2>{t("common.payment")}</h2>
         <div className="choice-list">
           <label
             className={
@@ -1406,33 +1490,7 @@ function PaymentStep({ state, dispatch }: StepProps) {
             </div>
           )}
         </div>
-        <aside className="payment-summary">
-          <span>{t("booking.payment.estimate")}</span>
-          <strong>
-            {formatMoney(
-              estimate,
-              state.catalogue!.settings.currency_code,
-              locale,
-            )}
-          </strong>
-          <p>
-            {state.vehicles.length}{" "}
-            {state.vehicles.length === 1
-              ? t("common.vehicle")
-              : t("common.vehicles")}
-          </p>
-          {state.hold && (
-            <small>
-              {formatSchedule(
-                state.hold.starts_at,
-                state.hold.ends_at,
-                state.catalogue!.settings.timezone,
-                locale,
-              )}
-            </small>
-          )}
-        </aside>
-      </div>
+      </section>
       {error && (
         <div className="error-banner" role="alert">
           {error}

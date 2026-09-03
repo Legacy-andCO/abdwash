@@ -22,6 +22,13 @@ describe("service area notice", () => {
     expect(screen.getByText(/Facility Management grants access/)).toBeTruthy();
   });
 
+  it("keeps the complete location guidance in the compact payment variant", () => {
+    render(<I18nProvider><ServiceAreaNotice compact /></I18nProvider>);
+    expect(screen.getByText("Private villas")).toBeTruthy();
+    expect(screen.getByText("Compounds")).toBeTruthy();
+    expect(screen.getByText(/Facility Management grants access/)).toBeTruthy();
+  });
+
   it("renders the supplied Arabic translation in RTL", async () => {
     render(<I18nProvider><LanguageSwitcher /><ServiceAreaNotice /></I18nProvider>);
     await userEvent.click(screen.getByRole("button", { name: "العربية" }));

@@ -10,7 +10,6 @@ import { HomeReviews } from "@/components/home-reviews";
 import { AccountDeletedNotice } from "@/components/account-deleted-notice";
 import { useI18n } from "@/components/i18n-provider";
 import { ScrollReveal } from "@/components/scroll-reveal";
-import { ServiceAreaNotice } from "@/components/service-area-notice";
 
 export default function HomePage() {
   const { t } = useI18n();
@@ -26,7 +25,6 @@ export default function HomePage() {
         <div className="hero-art" aria-label={t("home.artLabel")}><Image className="hero-brand-logo" src="/brand/trifecta-emblem.png" alt="" width={223} height={223} priority /><div className="hero-stat"><span>{t("home.schedule")}</span><strong dir="ltr">09:00—21:00</strong><small>{t("home.daily")}</small></div></div>
       </div><div className="shell benefit-strip">{benefits.map(([number, title, copy]) => <div key={number}><span>{number}</span><p><strong>{title}</strong>{copy}</p></div>)}</div></section>
       <HomeLoyaltyStatus />
-      <ScrollReveal className="shell service-area-notice-wrap"><ServiceAreaNotice /></ScrollReveal>
       <ScrollReveal as="section" className="section shell" id="services"><div className="section-heading"><div><p className="eyebrow"><span /> {t("nav.services")}</p><h2>{t("home.servicesTitle")}</h2></div><p>{t("home.servicesCopy")}</p></div><ServicesPreview /></ScrollReveal>
       <ScrollReveal as="section" className="home-about"><div className="shell home-about-card"><div><p className="eyebrow light"><span /> {t("home.aboutEyebrow")}</p><h2>{t("home.aboutTitle")}</h2></div><div><p>{t("home.aboutCopy")}</p><Link className="button button-light" href="/about">{t("home.discoverTrifecta")} <span className="directional-icon" aria-hidden="true">→</span></Link></div></div></ScrollReveal>
       <ScrollReveal as="section" className="promo-section"><div className="shell promo-card"><div className="promo-visual" aria-hidden="true"><div className="promo-bubble">{t("home.extraCare")}</div><div className="promo-shine">✦</div></div><div className="promo-copy"><p className="eyebrow light"><span /> {t("home.seasonal")}</p><h2>{t("home.promoTitle")}</h2><p>{t("home.promoCopy")}</p><Link className="button button-light" href="/book">{t("home.findService")} <span className="directional-icon" aria-hidden="true">→</span></Link></div></div></ScrollReveal>
