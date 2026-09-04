@@ -588,6 +588,7 @@ function DetailsStep({ state, dispatch }: StepProps) {
             }
           />
         </div>
+        <CompanyBillingFields state={state} dispatch={dispatch} />
       </div>
       <div className="form-section">
         <h2>{t("booking.details.serviceLocation")}</h2>
@@ -1266,54 +1267,62 @@ function SlotButton({
 function CompanyBillingFields({ state, dispatch }: StepProps) {
   const { t } = useI18n();
   return (
-    <section className="form-section payment-billing">
-      <h2>{t("booking.details.billing")}</h2>
-      <div className="form-grid two">
-        <label>
-          <span>{t("booking.details.companyName")}</span>
-          <input
-            value={state.billing.company_name}
-            autoComplete="organization"
-            onChange={(event) =>
-              dispatch({
-                type: "billing",
-                field: "company_name",
-                value: event.target.value,
-              })
-            }
-          />
-        </label>
-        <label>
-          <span>{t("booking.details.trn")}</span>
-          <input
-            value={state.billing.tax_registration_number}
-            className="bidi-ltr"
-            onChange={(event) =>
-              dispatch({
-                type: "billing",
-                field: "tax_registration_number",
-                value: event.target.value,
-              })
-            }
-          />
-        </label>
-        <label className="full-span">
-          <span>{t("booking.details.billingAddress")}</span>
-          <textarea
-            rows={2}
-            value={state.billing.billing_address}
-            autoComplete="billing street-address"
-            onChange={(event) =>
-              dispatch({
-                type: "billing",
-                field: "billing_address",
-                value: event.target.value,
-              })
-            }
-          />
-        </label>
+    <details className="company-billing-disclosure">
+      <summary>
+        <span>{t("booking.details.billingToggle")}</span>
+        <span className="company-billing-chevron" aria-hidden="true">
+          ↓
+        </span>
+      </summary>
+      <div className="company-billing-fields">
+        <h3>{t("booking.details.billing")}</h3>
+        <div className="form-grid two">
+          <label>
+            <span>{t("booking.details.companyName")}</span>
+            <input
+              value={state.billing.company_name}
+              autoComplete="organization"
+              onChange={(event) =>
+                dispatch({
+                  type: "billing",
+                  field: "company_name",
+                  value: event.target.value,
+                })
+              }
+            />
+          </label>
+          <label>
+            <span>{t("booking.details.trn")}</span>
+            <input
+              value={state.billing.tax_registration_number}
+              className="bidi-ltr"
+              onChange={(event) =>
+                dispatch({
+                  type: "billing",
+                  field: "tax_registration_number",
+                  value: event.target.value,
+                })
+              }
+            />
+          </label>
+          <label className="full-span">
+            <span>{t("booking.details.billingAddress")}</span>
+            <textarea
+              rows={2}
+              value={state.billing.billing_address}
+              autoComplete="billing street-address"
+              onChange={(event) =>
+                dispatch({
+                  type: "billing",
+                  field: "billing_address",
+                  value: event.target.value,
+                })
+              }
+            />
+          </label>
+        </div>
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -1493,7 +1502,6 @@ function PaymentStep({ state, dispatch }: StepProps) {
           })}
         </div>
       </aside>
-      <CompanyBillingFields state={state} dispatch={dispatch} />
       <CouponCheckout state={state} dispatch={dispatch} />
       <section className="form-section payment-options">
         <h2>{t("common.payment")}</h2>
@@ -1661,7 +1669,7 @@ export function CouponCheckout({ state, dispatch }: StepProps) {
           />
         </label>
         <button
-          className="secondary-button coupon-apply"
+          className="button coupon-apply"
           disabled={checking || Boolean(candidate && selectedPosition == null)}
           type="submit"
         >

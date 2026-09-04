@@ -3381,7 +3381,6 @@
   .payment-summary-final {
     margin-bottom: 1.5rem;
   }
-  .payment-billing,
   .coupon-checkout,
   .payment-options {
     border-top: 1px solid var(--line);
@@ -3412,22 +3411,35 @@
   }
   .coupon-entry {
     align-items: end;
+    background: #f4f7f3;
+    border: 1px solid var(--line);
+    border-radius: 14px;
     display: grid;
-    gap: 0.75rem;
+    gap: 0.6rem;
     grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.55rem;
   }
   .coupon-entry label {
+    gap: 0.2rem;
     min-width: 0;
   }
+  .coupon-entry label > span {
+    color: var(--muted);
+    font-size: 0.68rem;
+    padding-inline: 0.3rem;
+  }
   .coupon-entry input {
+    background: white;
+    min-height: 48px;
     font-family: inherit;
     font-weight: 750;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
   .coupon-apply {
+    border-radius: 10px;
     min-height: 48px;
-    padding-inline: 1.25rem;
+    padding: 0.7rem 1.4rem;
   }
   .coupon-eligible {
     background: #f4f7f3;
@@ -3483,10 +3495,47 @@
   @media (max-width: 430px) {
     .coupon-entry {
       grid-template-columns: 1fr;
+      padding: 0.65rem;
     }
     .coupon-apply {
       width: 100%;
     }
+  }
+  .company-billing-disclosure {
+    border-top: 1px solid var(--line);
+    margin-top: 1.35rem;
+    padding-top: 1.1rem;
+  }
+  .company-billing-disclosure summary {
+    align-items: center;
+    color: var(--teal);
+    cursor: pointer;
+    display: flex;
+    font-size: 0.78rem;
+    font-weight: 750;
+    gap: 0.75rem;
+    justify-content: space-between;
+    list-style: none;
+    padding: 0.25rem 0;
+  }
+  .company-billing-disclosure summary::-webkit-details-marker {
+    display: none;
+  }
+  .company-billing-chevron {
+    display: inline-block;
+    transition: transform 160ms ease;
+  }
+  .company-billing-disclosure[open] .company-billing-chevron {
+    transform: rotate(180deg);
+  }
+  .company-billing-fields {
+    padding-top: 1.1rem;
+  }
+  .company-billing-fields h3 {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    margin: 0 0 0.9rem;
+    text-transform: uppercase;
   }
   .spinner {
     animation: spin 0.75s linear infinite;

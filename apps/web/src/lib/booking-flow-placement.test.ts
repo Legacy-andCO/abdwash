@@ -15,12 +15,17 @@ describe("booking final-step placement", () => {
     wizard.indexOf("function Confirmation"),
   );
 
-  it("shows company billing only on the final payment step", () => {
-    expect(details).not.toContain('t("booking.details.billing")');
-    expect(payment).toContain("<CompanyBillingFields");
-    expect(payment.indexOf("<CompanyBillingFields")).toBeLessThan(
-      payment.indexOf('className="form-section payment-options"'),
+  it("shows collapsed company billing within contact details only", () => {
+    expect(details).toContain("<CompanyBillingFields");
+    expect(details.indexOf("<CompanyBillingFields")).toBeGreaterThan(
+      details.indexOf('t("booking.details.contact")'),
     );
+    expect(payment).not.toContain("<CompanyBillingFields");
+    expect(wizard).toContain('className="company-billing-disclosure"');
+    expect(wizard).toContain('t("booking.details.billingToggle")');
+    expect(wizard).toContain("value={state.billing.company_name}");
+    expect(wizard).toContain("value={state.billing.tax_registration_number}");
+    expect(wizard).toContain("value={state.billing.billing_address}");
   });
 
   it("shows the Mawaqif notice once between payment options and final actions", () => {
