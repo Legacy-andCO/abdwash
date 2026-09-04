@@ -43,6 +43,8 @@ def vehicle_summaries_from_rows(
                 discount_minor=service.discount_minor or 0,
                 discount_type=service.discount_type,
                 loyalty_reward_id=service.loyalty_reward_id,
+                coupon_code=service.coupon_code_snapshot,
+                discount_percent=service.discount_percent_snapshot,
                 expected_duration_minutes=service.expected_duration_minutes or 120,
                 addons=addons,
             )

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from app.auth.dependencies import SessionDep, optional_identity
 from app.auth.verifier import VerifiedIdentity
 from app.domain.errors import DomainError
+from app.schemas.coupons import CouponValidationRequest, CouponValidationResponse
 from app.schemas.invoices import RevenueInvoiceView
 from app.schemas.public import (
     AvailabilityResponse,
@@ -35,6 +36,7 @@ from app.services.booking_management import (
 )
 from app.services.bookings import create_booking
 from app.services.catalogue import get_catalogue
+from app.services.coupons import validate_public_coupon
 from app.services.idempotency import (
     canonical_request_hash,
     find_idempotent_response,
@@ -61,6 +63,13 @@ router = APIRouter(prefix="/api/v1/public", tags=["public"])
 @router.get("/catalogue", response_model=CatalogueResponse)
 async def catalogue(session: SessionDep) -> CatalogueResponse:
     return await get_catalogue(session)
+
+
+@router.post("/coupons/validate", response_model=CouponValidationResponse)
+async def coupon_validate(
+    request: CouponValidationRequest, session: SessionDep
+) -> CouponValidationResponse:
+    return await validate_public_coupon(session, request)
 
 
 @router.get("/reviews/summary", response_model=PublicReviewSummary)

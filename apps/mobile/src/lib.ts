@@ -688,6 +688,26 @@ export type ManagedCatalogue = {
   vehicle_types: string[];
   services: ManagedService[];
 };
+export type Coupon = {
+  id: string;
+  code: string;
+  discount_percent: number;
+  minimum_vehicle_count: number | null;
+  is_active: boolean;
+  services: { id: string; name: string }[];
+  vehicle_types: string[];
+  created_at: string;
+  updated_at: string;
+};
+export type CouponList = { coupons: Coupon[] };
+export type CouponWrite = {
+  code: string;
+  discount_percent: number;
+  minimum_vehicle_count: number | null;
+  service_ids: string[];
+  vehicle_types: string[];
+  is_active: boolean;
+};
 export type OperatingHour = {
   weekday: number;
   is_open: boolean;
@@ -1216,6 +1236,11 @@ export const getServiceOptions = async () =>
     .services;
 export const getManagedCatalogue = () =>
   api<ManagedCatalogue>("/api/v1/staff/catalogue");
+export const getCoupons = () => api<CouponList>("/api/v1/staff/coupons");
+export const createCoupon = (body: CouponWrite) =>
+  api<Coupon>("/api/v1/staff/coupons", json("POST", body));
+export const updateCoupon = (id: string, body: CouponWrite) =>
+  api<Coupon>(`/api/v1/staff/coupons/${id}`, json("PATCH", body));
 export const createManagedService = (body: object) =>
   api<ManagedService>("/api/v1/staff/catalogue/services", json("POST", body));
 export const updateManagedService = (id: string, body: object) =>

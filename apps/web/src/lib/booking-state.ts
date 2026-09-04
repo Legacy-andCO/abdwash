@@ -4,6 +4,7 @@ import type {
   BillingDetails,
   Catalogue,
   Contact,
+  CouponValidation,
   CustomerProfileBootstrap,
   CustomerSavedAddress,
   CustomerSavedVehicle,
@@ -45,6 +46,7 @@ export type BookingState = {
   hold: Hold | null;
   booking: Booking | null;
   customerProfile: CustomerProfileBootstrap | null;
+  coupon: CouponValidation | null;
 };
 
 export const emptyVehicle = (serviceId = ""): Vehicle => ({
@@ -92,6 +94,7 @@ export const initialBookingState: BookingState = {
   hold: null,
   booking: null,
   customerProfile: null,
+  coupon: null,
 };
 
 export type BookingAction =
@@ -129,7 +132,8 @@ export type BookingAction =
   | { type: "availability"; value: Availability | null }
   | { type: "slot"; value: string }
   | { type: "hold"; value: Hold | null }
-  | { type: "booking"; value: Booking };
+  | { type: "booking"; value: Booking }
+  | { type: "coupon"; value: CouponValidation | null };
 
 export function bookingReducer(
   state: BookingState,
@@ -240,6 +244,7 @@ export function bookingReducer(
         availability: null,
         selectedSlotTime: "",
         hold: null,
+        coupon: null,
       };
     case "clear_saved_vehicle":
       return {
@@ -262,6 +267,7 @@ export function bookingReducer(
         availability: null,
         selectedSlotTime: "",
         hold: null,
+        coupon: null,
       };
     case "step":
       return { ...state, step: action.value };
@@ -279,6 +285,7 @@ export function bookingReducer(
               }
             : vehicle,
         ),
+        coupon: null,
       };
     case "contact":
       return {
@@ -334,6 +341,10 @@ export function bookingReducer(
         availability: null,
         selectedSlotTime: "",
         hold: null,
+        coupon:
+          action.field === "service_id" || action.field === "vehicle_type"
+            ? null
+            : state.coupon,
       };
     case "loyalty_reward":
       return {
@@ -346,6 +357,7 @@ export function bookingReducer(
         availability: null,
         selectedSlotTime: "",
         hold: null,
+        coupon: null,
       };
     case "toggle_addon":
       return {
@@ -383,6 +395,7 @@ export function bookingReducer(
         availability: null,
         selectedSlotTime: "",
         hold: null,
+        coupon: null,
       };
     }
     case "remove_vehicle":
@@ -394,6 +407,7 @@ export function bookingReducer(
         availability: null,
         selectedSlotTime: "",
         hold: null,
+        coupon: null,
       };
     case "date":
       return {
@@ -416,6 +430,8 @@ export function bookingReducer(
       return { ...state, hold: action.value };
     case "booking":
       return { ...state, booking: action.value, step: "confirmation" };
+    case "coupon":
+      return { ...state, coupon: action.value };
   }
 }
 

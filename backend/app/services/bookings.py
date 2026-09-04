@@ -38,6 +38,7 @@ from app.models.entities import (
     Vehicle,
 )
 from app.repositories.business import load_default_business
+from app.schemas.coupons import CouponCheckoutLine, CouponValidationResponse
 from app.schemas.public import (
     BookingAddonSummary,
     BookingCreate,
@@ -46,6 +47,7 @@ from app.schemas.public import (
     BookingVehicleSummary,
     CustomerContact,
 )
+from app.services.coupons import resolve_coupon
 from app.services.customer_communications import queue_customer_email_if_available
 from app.services.customer_profiles import provision_customer_profile
 from app.services.management_tokens import create_management_token, management_token_hash
@@ -298,16 +300,45 @@ async def create_booking(
                     status_code=422,
                 )
 
+    coupon_result: CouponValidationResponse | None = None
+    if request.coupon is not None:
+        coupon_result = await resolve_coupon(
+            session,
+            business_id=hold.business_id,
+            currency_code=configuration.settings.currency_code,
+            code=request.coupon.code,
+            lines=[
+                CouponCheckoutLine(
+                    position=position,
+                    service_id=item.service_id,
+                    vehicle_type=item.vehicle_type,
+                    make=item.make,
+                    model=item.model,
+                    loyalty_reward_id=item.loyalty_reward_id,
+                )
+                for position, item in enumerate(request.vehicles, start=1)
+            ],
+            selected_line_position=request.coupon.selected_line_position,
+            lock=True,
+        )
+
     booking_id = uuid.uuid4()
     reference = f"AW-{secrets.token_hex(5).upper()}"
     management_token = create_management_token(booking_id)
     confirmed = request.payment_choice == "pay_after_service"
     booking_status = BookingStatus.CONFIRMED if confirmed else BookingStatus.PENDING_PAYMENT
     payment_status = PaymentStatus.UNPAID if confirmed else PaymentStatus.PENDING
+    coupon_position = coupon_result.selected_line_position if coupon_result else None
+    coupon_discount_minor = coupon_result.discount_minor if coupon_result else 0
     total = sum(
-        (0 if item.loyalty_reward_id is not None else prices[(item.service_id, item.vehicle_type)])
+        (
+            0
+            if item.loyalty_reward_id is not None
+            else prices[(item.service_id, item.vehicle_type)]
+            - (coupon_discount_minor if position == coupon_position else 0)
+        )
         + sum(addons_by_id[addon_id].price_minor for addon_id in item.addon_ids)
-        for item in request.vehicles
+        for position, item in enumerate(request.vehicles, start=1)
     )
     if (
         configuration.settings.mobile_minimum_enabled
@@ -378,7 +409,14 @@ async def create_booking(
             else None
         )
         selected_price = prices[(service.id, requested_vehicle.vehicle_type)]
-        discount_minor = selected_price if selected_reward else 0
+        selected_coupon = coupon_result if position == coupon_position else None
+        discount_minor = (
+            selected_price
+            if selected_reward
+            else selected_coupon.discount_minor
+            if selected_coupon
+            else 0
+        )
         booking_service = BookingService(
             booking_id=booking.id,
             booking_vehicle_id=booking_vehicle.id,
@@ -387,8 +425,15 @@ async def create_booking(
             unit_price_minor=selected_price,
             list_price_minor=selected_price,
             discount_minor=discount_minor,
-            discount_type="loyalty_reward" if selected_reward else None,
+            discount_type=(
+                "loyalty_reward" if selected_reward else "coupon" if selected_coupon else None
+            ),
             loyalty_reward_id=selected_reward.id if selected_reward else None,
+            coupon_id=selected_coupon.coupon_id if selected_coupon else None,
+            coupon_code_snapshot=selected_coupon.code if selected_coupon else None,
+            discount_percent_snapshot=(
+                selected_coupon.discount_percent if selected_coupon else None
+            ),
             quantity=1,
             line_total_minor=selected_price - discount_minor,
             expected_duration_minutes=service.estimated_duration_minutes,
@@ -447,8 +492,14 @@ async def create_booking(
                 + sum(item.price_minor for item in addon_summaries),
                 list_price_minor=selected_price,
                 discount_minor=discount_minor,
-                discount_type="loyalty_reward" if selected_reward else None,
+                discount_type=(
+                    "loyalty_reward" if selected_reward else "coupon" if selected_coupon else None
+                ),
                 loyalty_reward_id=selected_reward.id if selected_reward else None,
+                coupon_code=selected_coupon.code if selected_coupon else None,
+                discount_percent=(
+                    selected_coupon.discount_percent if selected_coupon else None
+                ),
                 expected_duration_minutes=service.estimated_duration_minutes,
                 addons=addon_summaries,
             )
@@ -458,7 +509,7 @@ async def create_booking(
         Payment(
             booking_id=booking.id,
             status=payment_status,
-            method="loyalty" if total == 0 else None,
+            method=("coupon" if coupon_result else "loyalty") if total == 0 else None,
             provider=None,
             amount_minor=total,
             currency_code=configuration.settings.currency_code,

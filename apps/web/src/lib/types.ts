@@ -107,6 +107,27 @@ export type Vehicle = {
   loyalty_reward_id?: string;
 };
 
+export type CouponEligibleLine = {
+  position: number;
+  service_id: string;
+  service_name: string;
+  vehicle_type: string;
+  make: string;
+  model: string;
+  list_price_minor: number;
+  discount_minor: number;
+};
+
+export type CouponValidation = {
+  code: string;
+  discount_percent: number;
+  minimum_vehicle_count: number | null;
+  currency_code: string;
+  eligible_lines: CouponEligibleLine[];
+  selected_line_position: number | null;
+  discount_minor: number;
+};
+
 export type LoyaltyRewardService = { id: string; name: string };
 export type LoyaltySummary = {
   enabled: boolean;
@@ -188,6 +209,8 @@ export type BookingVehicleSummary = {
   discount_minor?: number;
   discount_type?: string | null;
   loyalty_reward_id?: string | null;
+  coupon_code?: string | null;
+  discount_percent?: number | null;
   expected_duration_minutes?: number | null;
   addons?: {
     id?: string | null;

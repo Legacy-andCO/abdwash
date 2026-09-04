@@ -30,6 +30,7 @@ from app.schemas.catalogue import (
     ServiceManagementView,
     ServicePatch,
 )
+from app.schemas.coupons import CouponList, CouponView, CouponWrite
 from app.schemas.customer import (
     CustomerAddressResponse,
     CustomerAddressWrite,
@@ -145,6 +146,7 @@ from app.schemas.staff import (
     TeamUpdate,
     TemporaryPasswordUpdate,
 )
+from app.services.coupons import create_coupon, list_coupons, update_coupon
 from app.services.customers import reschedule_managed_booking
 from app.services.finance import (
     confirm_expense_evidence,
@@ -275,6 +277,30 @@ from app.services.workforce import (
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 logger = structlog.get_logger()
 StaffDep = Annotated[StaffContext, Depends(staff_context)]
+
+
+@router.get("/coupons", response_model=CouponList)
+async def managed_coupons(session: SessionDep, context: ManagerContext) -> CouponList:
+    return await list_coupons(session, context)
+
+
+@router.post("/coupons", response_model=CouponView, status_code=201)
+async def managed_coupon_create(
+    payload: CouponWrite, session: SessionDep, context: ManagerContext
+) -> CouponView:
+    async with session.begin():
+        return await create_coupon(session, context, payload)
+
+
+@router.patch("/coupons/{coupon_id}", response_model=CouponView)
+async def managed_coupon_update(
+    coupon_id: uuid.UUID,
+    payload: CouponWrite,
+    session: SessionDep,
+    context: ManagerContext,
+) -> CouponView:
+    async with session.begin():
+        return await update_coupon(session, context, coupon_id, payload)
 
 
 @router.patch("/reviews/{review_id}", response_model=ReviewModerationView)

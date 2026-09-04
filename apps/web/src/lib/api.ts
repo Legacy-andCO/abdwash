@@ -3,6 +3,7 @@ import type {
   Booking,
   Catalogue,
   Contact,
+  CouponValidation,
   BillingDetails,
   CustomerBookingDetail,
   CustomerBookingSummary,
@@ -141,6 +142,7 @@ export function createBooking(input: {
   vehicles: Vehicle[];
   payment_choice: "pay_after_service";
   idempotencyKey: string;
+  coupon?: { code: string; selected_line_position: number };
 }): Promise<Booking> {
   const email = input.contact.email.trim();
   if (!email) {
@@ -181,12 +183,31 @@ export function createBooking(input: {
       year: year ? Number(year) : null,
     })),
     payment_choice: input.payment_choice,
+    coupon: input.coupon ?? null,
     source: "web",
   };
   return request<Booking>("/api/v1/public/bookings", {
     method: "POST",
     headers: { "Idempotency-Key": input.idempotencyKey },
     body: JSON.stringify(body),
+  });
+}
+
+export function validateCoupon(input: {
+  code: string;
+  lines: {
+    position: number;
+    service_id: string;
+    vehicle_type: string;
+    make: string;
+    model: string;
+    loyalty_reward_id?: string;
+  }[];
+  selected_line_position?: number;
+}): Promise<CouponValidation> {
+  return request<CouponValidation>("/api/v1/public/coupons/validate", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 

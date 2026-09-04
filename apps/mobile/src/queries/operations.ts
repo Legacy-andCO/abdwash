@@ -7,6 +7,7 @@ import {
   clockAttendance,
   createHold,
   createCashReconciliation,
+  createCoupon,
   createExpense,
   createInventoryItem,
   createInventoryLocation,
@@ -22,6 +23,7 @@ import {
   getAttendanceOverview,
   getAvailability,
   getCancellations,
+  getCoupons,
   getDashboard,
   getCashReconciliations,
   getExpenses,
@@ -80,6 +82,7 @@ import {
   updateLoyaltySettings,
   updateInventoryItem,
   updateBusinessBookingSettings,
+  updateCoupon,
   updateManagedAddon,
   updateManagedService,
   updateManagerCustomer,
@@ -98,6 +101,8 @@ import {
   type CalendarJob,
   type CashPendingDetail,
   type CommunicationHistoryItem,
+  type Coupon,
+  type CouponWrite,
   type BusinessBookingSettings,
   type Dashboard,
   type Expense,
@@ -780,6 +785,36 @@ export function useManagedCatalogueQuery(
     enabled,
     staleTime: cacheTimes.catalogue,
     meta: persistedQueryMeta(retentionTimes.catalogue),
+  });
+}
+
+export function useCouponsQuery(context: StaffContext, enabled = true) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: queryKeys.coupons(scope),
+    queryFn: getCoupons,
+    enabled,
+    staleTime: cacheTimes.catalogue,
+    meta: persistedQueryMeta(retentionTimes.catalogue),
+  });
+}
+
+export function useCouponMutation(context: StaffContext) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation<
+    Coupon,
+    Error,
+    | { action: "create"; body: CouponWrite }
+    | { action: "update"; couponId: string; body: CouponWrite }
+  >({
+    mutationFn: (input) =>
+      input.action === "create"
+        ? createCoupon(input.body)
+        : updateCoupon(input.couponId, input.body),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.coupons(scope) });
+    },
   });
 }
 

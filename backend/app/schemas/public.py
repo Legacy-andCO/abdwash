@@ -15,6 +15,7 @@ from pydantic import (
 
 from app.domain.locations import is_supported_google_maps_url
 from app.domain.phones import normalize_phone_number
+from app.schemas.coupons import BookingCouponSelection
 
 NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -182,6 +183,7 @@ class BookingCreate(StrictRequest):
     vehicles: list[BookingVehicleCreate] = Field(min_length=1, max_length=20)
     payment_choice: Literal["pay_now", "pay_after_service"]
     billing: BookingBillingDetails | None = None
+    coupon: BookingCouponSelection | None = None
     source: Literal["web", "mobile", "admin"] = "web"
 
 
@@ -199,6 +201,8 @@ class BookingVehicleSummary(BaseModel):
     discount_minor: int = 0
     discount_type: str | None = None
     loyalty_reward_id: uuid.UUID | None = None
+    coupon_code: str | None = None
+    discount_percent: int | None = None
     expected_duration_minutes: int | None = None
     addons: list[BookingAddonSummary] = Field(default_factory=list)
 

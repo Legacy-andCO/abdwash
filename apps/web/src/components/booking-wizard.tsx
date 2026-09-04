@@ -24,6 +24,7 @@ import {
   getAvailability,
   getCatalogue,
   updateCustomerProfile,
+  validateCoupon,
 } from "@/lib/api";
 import {
   loadCustomerProfile,
@@ -50,6 +51,7 @@ import {
 import { normalizePhone } from "@/lib/phone";
 import type {
   AvailabilitySlot,
+  CouponValidation,
   CustomerSavedVehicle,
   Vehicle,
 } from "@/lib/types";
@@ -1368,6 +1370,13 @@ function PaymentStep({ state, dispatch }: StepProps) {
           vehicles: state.vehicles,
           payment_choice: "pay_after_service",
           idempotencyKey: idempotencyKey.current,
+          coupon:
+            state.coupon?.selected_line_position != null
+              ? {
+                  code: state.coupon.code,
+                  selected_line_position: state.coupon.selected_line_position,
+                }
+              : undefined,
         }),
       });
     } catch (reason) {
@@ -1382,7 +1391,14 @@ function PaymentStep({ state, dispatch }: StepProps) {
       setSubmitting(false);
     }
   };
-  const estimate = calculateEstimate(state.vehicles, state.catalogue!);
+  const catalogueEstimate = calculateEstimate(state.vehicles, state.catalogue!);
+  const estimate = Math.max(
+    0,
+    catalogueEstimate - (state.coupon?.discount_minor ?? 0),
+  );
+  const services = new Map(
+    state.catalogue!.services.map((service) => [service.id, service]),
+  );
   return (
     <>
       <StepIntro
@@ -1424,8 +1440,61 @@ function PaymentStep({ state, dispatch }: StepProps) {
             )}
           </small>
         )}
+        <div className="payment-line-items">
+          {state.vehicles.map((vehicle, index) => {
+            const service = services.get(vehicle.service_id);
+            const basePrice =
+              service?.prices?.find(
+                (price) => price.vehicle_type === vehicle.vehicle_type,
+              )?.price_minor ?? service?.price_minor ?? 0;
+            const addons =
+              service?.addons
+                ?.filter((addon) =>
+                  (vehicle.addon_ids ?? []).includes(addon.id),
+                )
+                .reduce((sum, addon) => sum + addon.price_minor, 0) ?? 0;
+            const linePrice = vehicle.loyalty_reward_id
+              ? addons
+              : basePrice + addons;
+            const discounted = state.coupon?.selected_line_position === index + 1;
+            return (
+              <div className="payment-line-item" key={vehicle.key}>
+                <span>
+                  {vehicle.make} {vehicle.model} ·{" "}
+                  {localizeServiceName(language, service?.name ?? "")}
+                </span>
+                <b>
+                  {formatMoney(
+                    linePrice,
+                    state.catalogue!.settings.currency_code,
+                    locale,
+                  )}
+                </b>
+                {discounted && state.coupon ? (
+                  <span className="coupon-line-discount">
+                    <span>
+                      {t("booking.coupon.discount", {
+                        code: state.coupon.code,
+                        percent: state.coupon.discount_percent,
+                      })}
+                    </span>
+                    <b>
+                      −
+                      {formatMoney(
+                        state.coupon.discount_minor,
+                        state.coupon.currency_code,
+                        locale,
+                      )}
+                    </b>
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       </aside>
       <CompanyBillingFields state={state} dispatch={dispatch} />
+      <CouponCheckout state={state} dispatch={dispatch} />
       <section className="form-section payment-options">
         <h2>{t("common.payment")}</h2>
         <div className="choice-list">
@@ -1489,6 +1558,196 @@ function PaymentStep({ state, dispatch }: StepProps) {
         disabled={choice !== "pay_after_service" || seconds <= 0}
       />
     </>
+  );
+}
+
+export function CouponCheckout({ state, dispatch }: StepProps) {
+  const { language, locale, t } = useI18n();
+  const [code, setCode] = useState(state.coupon?.code ?? "");
+  const [candidate, setCandidate] = useState<CouponValidation | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<{
+    language: string;
+    message: string;
+  } | null>(null);
+  const visibleError = error?.language === language ? error.message : "";
+
+  const check = async (position?: number) => {
+    if (!/^[A-Z0-9]{3,6}$/.test(code)) {
+      setError({ language, message: t("booking.coupon.format") });
+      return;
+    }
+    setChecking(true);
+    setError(null);
+    try {
+      const result = await validateCoupon({
+        code,
+        lines: state.vehicles.map((vehicle, index) => ({
+          position: index + 1,
+          service_id: vehicle.service_id,
+          vehicle_type: vehicle.vehicle_type,
+          make: vehicle.make,
+          model: vehicle.model,
+          loyalty_reward_id: vehicle.loyalty_reward_id,
+        })),
+        selected_line_position: position,
+      });
+      if (result.selected_line_position == null) {
+        setCandidate(result);
+        setSelectedPosition(null);
+      } else {
+        dispatch({ type: "coupon", value: result });
+        setCandidate(null);
+        setSelectedPosition(null);
+      }
+    } catch (reason) {
+      const key =
+        reason instanceof ApiError
+          ? ({
+              COUPON_MINIMUM_VEHICLES: "booking.coupon.minimum",
+              COUPON_SERVICE_INELIGIBLE: "booking.coupon.service",
+              COUPON_VEHICLE_INELIGIBLE: "booking.coupon.vehicle",
+              COUPON_LOYALTY_CONFLICT: "booking.coupon.loyalty",
+              COUPON_LINE_INELIGIBLE: "booking.coupon.line",
+            } as const)[reason.code]
+          : undefined;
+      setError({
+        language,
+        message: key
+          ? t(key, {
+              count:
+                reason instanceof ApiError
+                  ? String(reason.details.minimum_vehicle_count ?? "")
+                  : "",
+            })
+          : t("booking.coupon.invalid"),
+      });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <section className="form-section coupon-checkout">
+      <h2>{t("booking.coupon.eyebrow")}</h2>
+      <form
+        className="coupon-entry"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void check(candidate ? (selectedPosition ?? undefined) : undefined);
+        }}
+      >
+        <label>
+          <span>{t("booking.coupon.code")}</span>
+          <input
+            aria-invalid={Boolean(visibleError)}
+            autoCapitalize="characters"
+            autoComplete="off"
+            inputMode="text"
+            maxLength={6}
+            value={code}
+            onChange={(event) => {
+              setCode(
+                event.target.value
+                  .replace(/[^A-Za-z0-9]/g, "")
+                  .toUpperCase()
+                  .slice(0, 6),
+              );
+              setCandidate(null);
+              setSelectedPosition(null);
+              setError(null);
+            }}
+          />
+        </label>
+        <button
+          className="secondary-button coupon-apply"
+          disabled={checking || Boolean(candidate && selectedPosition == null)}
+          type="submit"
+        >
+          {checking
+            ? t("booking.coupon.applying")
+            : t("booking.coupon.apply")}
+        </button>
+      </form>
+      {candidate ? (
+        <div className="coupon-eligible" role="group">
+          <strong>
+            {t("booking.coupon.valid", { code: candidate.code })}
+          </strong>
+          <p>
+            {t("booking.coupon.choose", {
+              percent: candidate.discount_percent,
+            })}
+          </p>
+          {candidate.eligible_lines.map((line) => (
+            <label key={line.position}>
+              <input
+                checked={selectedPosition === line.position}
+                name="coupon-line"
+                onChange={() => setSelectedPosition(line.position)}
+                type="radio"
+              />
+              <span>
+                {line.make} {line.model} ·{" "}
+                {localizeServiceName(language, line.service_name)} ·{" "}
+                {formatMoney(
+                  line.list_price_minor,
+                  candidate.currency_code,
+                  locale,
+                )}
+              </span>
+            </label>
+          ))}
+        </div>
+      ) : null}
+      {state.coupon?.selected_line_position != null ? (
+        <div className="coupon-applied" role="status">
+          <span aria-hidden="true">✓</span>
+          <span>
+            <strong>
+              {t("booking.coupon.applied", { code: state.coupon.code })}
+            </strong>
+            <small>
+              {t("booking.coupon.offService", {
+                percent: state.coupon.discount_percent,
+                service: localizeServiceName(
+                  language,
+                  state.coupon.eligible_lines.find(
+                    (line) =>
+                      line.position === state.coupon?.selected_line_position,
+                  )?.service_name ?? "",
+                ),
+              })}
+            </small>
+            <small>
+              {t("booking.coupon.saving", {
+                amount: formatMoney(
+                  state.coupon.discount_minor,
+                  state.coupon.currency_code,
+                  locale,
+                ),
+              })}
+            </small>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              dispatch({ type: "coupon", value: null });
+              setCandidate(null);
+              setCode("");
+            }}
+          >
+            {t("common.remove")}
+          </button>
+        </div>
+      ) : null}
+      {visibleError ? (
+        <p className="field-error" role="alert">
+          {visibleError}
+        </p>
+      ) : null}
+    </section>
   );
 }
 

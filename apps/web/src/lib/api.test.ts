@@ -15,6 +15,7 @@ import {
   requestCustomerCancellation,
   rescheduleCustomerBooking,
   submitGuestReview,
+  validateCoupon,
   verifyGuestReview,
 } from "./api";
 import { emptyVehicle } from "./booking-state";
@@ -152,6 +153,49 @@ describe("central API client", () => {
     expect(body.vehicles[0].loyalty_reward_id).toBe("reward-1");
     expect(body.vehicles[0].discount_minor).toBeUndefined();
     expect(body.vehicles[0].line_total_minor).toBeUndefined();
+  });
+  it("validates coupon lines without sending a client-computed discount", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        code: "VIP20",
+        discount_percent: 20,
+        eligible_lines: [],
+        selected_line_position: null,
+        discount_minor: 0,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await validateCoupon({
+      code: "VIP20",
+      lines: [
+        {
+          position: 1,
+          service_id: "premium",
+          vehicle_type: "suv",
+          make: "BMW",
+          model: "X5",
+        },
+      ],
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/public/coupons/validate");
+    expect(body).toMatchObject({ code: "VIP20", lines: [{ position: 1 }] });
+    expect(body.discount_minor).toBeUndefined();
+    expect(body.discount_percent).toBeUndefined();
+  });
+  it("submits only the coupon code and selected line with the booking", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    await createBooking({
+      ...bookingInput("coupon-key"),
+      coupon: { code: "VIP20", selected_line_position: 1 },
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.coupon).toEqual({
+      code: "VIP20",
+      selected_line_position: 1,
+    });
+    expect(body.coupon.discount_minor).toBeUndefined();
   });
   it("maps structured backend failures", async () => {
     vi.stubGlobal(

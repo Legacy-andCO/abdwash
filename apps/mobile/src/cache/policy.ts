@@ -69,6 +69,7 @@ export const queryKeys = {
   loyaltySettings: (scope: string) => ["loyalty-settings", scope] as const,
   serviceOptions: ["service-options"] as const,
   managedCatalogue: (scope: string) => ["managed-catalogue", scope] as const,
+  coupons: (scope: string) => ["coupons", scope] as const,
   businessSettings: (scope: string) => ["business-settings", scope] as const,
   serviceTemplate: (scope: string, serviceId: string) =>
     ["service-template", scope, serviceId] as const,

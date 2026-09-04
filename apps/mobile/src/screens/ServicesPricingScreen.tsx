@@ -36,8 +36,9 @@ import {
   useServiceTemplateQuery,
 } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
+import { CouponManager } from "./CouponManager";
 
-type ManagementTab = "services" | "settings" | "consumables";
+type ManagementTab = "services" | "coupons" | "settings" | "consumables";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export function ServicesPricingScreen({
@@ -102,6 +103,8 @@ export function ServicesPricingScreen({
           onCreate={() => setEditing("new")}
           onEdit={setEditing}
         />
+      ) : tab === "coupons" ? (
+        <CouponManager context={context} catalogue={catalogue.data ?? null} />
       ) : tab === "settings" ? (
         settings.isPending ? <Skeleton rows={4} /> : (
           <SettingsEditor
@@ -637,7 +640,7 @@ function ConsumablesEditor({ context, catalogue }: { context: StaffContext; cata
 function TabRow({ selected, onSelect }: { selected: ManagementTab; onSelect: (tab: ManagementTab) => void }) {
   return (
     <View style={styles.tabs}>
-      {(["services", "settings", "consumables"] as const).map((tab) => (
+      {(["services", "coupons", "settings", "consumables"] as const).map((tab) => (
         <Pressable
           key={tab}
           accessibilityRole="tab"

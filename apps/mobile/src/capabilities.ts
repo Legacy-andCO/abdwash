@@ -21,6 +21,7 @@ export function capabilities(role: Role) {
     canViewBusinessAttendance: management,
     canApproveLeave: management,
     canManageCustomers: management,
+    canManageCoupons: management,
     canManageManagers: role === "admin",
   };
 }

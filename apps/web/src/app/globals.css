@@ -554,7 +554,7 @@
   }
   body {
     background: var(--paper);
-    min-width: 320px;
+    min-width: 0;
     line-height: 1.6;
   }
   a {
@@ -3382,10 +3382,111 @@
     margin-bottom: 1.5rem;
   }
   .payment-billing,
+  .coupon-checkout,
   .payment-options {
     border-top: 1px solid var(--line);
     margin-top: 1.5rem;
     padding-top: 1.5rem;
+  }
+  .payment-line-items {
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 0.65rem;
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+  }
+  .payment-line-item {
+    display: grid;
+    font-size: 0.72rem;
+    gap: 0.2rem 0.75rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .payment-line-item > span:first-child {
+    min-width: 0;
+  }
+  .coupon-line-discount {
+    color: var(--teal);
+    display: flex;
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+  .coupon-entry {
+    align-items: end;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .coupon-entry label {
+    min-width: 0;
+  }
+  .coupon-entry input {
+    font-family: inherit;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .coupon-apply {
+    min-height: 48px;
+    padding-inline: 1.25rem;
+  }
+  .coupon-eligible {
+    background: #f4f7f3;
+    border-radius: 12px;
+    display: grid;
+    gap: 0.65rem;
+    margin-top: 0.9rem;
+    padding: 0.9rem;
+  }
+  .coupon-eligible p {
+    color: var(--muted);
+    font-size: 0.76rem;
+    margin: 0;
+  }
+  .coupon-eligible label {
+    align-items: start;
+    cursor: pointer;
+    display: flex;
+    font-size: 0.78rem;
+    gap: 0.6rem;
+  }
+  .coupon-eligible input {
+    flex: 0 0 auto;
+    margin-top: 0.15rem;
+  }
+  .coupon-applied {
+    align-items: center;
+    background: var(--mint);
+    border-radius: 12px;
+    color: var(--teal-dark);
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    margin-top: 0.9rem;
+    padding: 0.75rem 0.9rem;
+  }
+  .coupon-applied > span:nth-child(2) {
+    display: flex;
+    flex-direction: column;
+  }
+  .coupon-applied small {
+    color: var(--muted);
+  }
+  .coupon-applied button {
+    background: transparent;
+    border: 0;
+    color: var(--teal);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 750;
+  }
+  @media (max-width: 430px) {
+    .coupon-entry {
+      grid-template-columns: 1fr;
+    }
+    .coupon-apply {
+      width: 100%;
+    }
   }
   .spinner {
     animation: spin 0.75s linear infinite;

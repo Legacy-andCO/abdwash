@@ -329,6 +329,60 @@ class ServicePrice(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class Coupon(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "coupons"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    code: Mapped[str] = mapped_column(String(6), nullable=False)
+    discount_percent: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    minimum_vehicle_count: Mapped[int | None] = mapped_column(Integer)
+    created_by_staff_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_profiles.id", ondelete="RESTRICT"), nullable=False
+    )
+    __table_args__ = (
+        UniqueConstraint("business_id", "code", name="uq_coupon_business_code"),
+        CheckConstraint("code ~ '^[A-Z0-9]{3,6}$'", name="coupon_code_format"),
+        CheckConstraint("discount_percent BETWEEN 1 AND 100", name="coupon_discount_percent"),
+        CheckConstraint(
+            "minimum_vehicle_count IS NULL OR minimum_vehicle_count >= 1",
+            name="coupon_minimum_vehicle_count",
+        ),
+        Index("ix_coupons_business_active", "business_id", "is_active"),
+    )
+
+
+class CouponServiceEligibility(Base):
+    __tablename__ = "coupon_service_eligibility"
+
+    coupon_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("coupons.id", ondelete="CASCADE"), primary_key=True
+    )
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("services.id", ondelete="CASCADE"), primary_key=True
+    )
+    __table_args__ = (Index("ix_coupon_service_eligibility_service", "service_id"),)
+
+
+class CouponVehicleEligibility(Base):
+    __tablename__ = "coupon_vehicle_eligibility"
+
+    coupon_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("coupons.id", ondelete="CASCADE"), primary_key=True
+    )
+    vehicle_type: Mapped[str] = mapped_column(String(80), primary_key=True)
+    __table_args__ = (
+        CheckConstraint(
+            "vehicle_type IN ('sedan','suv','hatchback','coupe','pickup','van','other')",
+            name="coupon_vehicle_type",
+        ),
+    )
+
+
 class ServiceAddon(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "service_addons"
 
@@ -638,6 +692,11 @@ class BookingService(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     loyalty_reward_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("loyalty_rewards.id", ondelete="SET NULL")
     )
+    coupon_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("coupons.id", ondelete="SET NULL")
+    )
+    coupon_code_snapshot: Mapped[str | None] = mapped_column(String(6))
+    discount_percent_snapshot: Mapped[int | None] = mapped_column(Integer)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     line_total_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     expected_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=120)
@@ -650,10 +709,28 @@ class BookingService(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="booking_service_discount_within_list_price",
         ),
         CheckConstraint(
-            "discount_type IS NULL OR discount_type = 'loyalty_reward'",
+            "discount_type IS NULL OR discount_type IN ('loyalty_reward','coupon')",
             name="booking_service_discount_type",
         ),
+        CheckConstraint(
+            "(discount_type IS NULL AND loyalty_reward_id IS NULL AND coupon_id IS NULL "
+            "AND coupon_code_snapshot IS NULL AND discount_percent_snapshot IS NULL) OR "
+            "(discount_type = 'loyalty_reward' AND loyalty_reward_id IS NOT NULL "
+            "AND coupon_id IS NULL AND coupon_code_snapshot IS NULL "
+            "AND discount_percent_snapshot IS NULL) OR "
+            "(discount_type = 'coupon' AND loyalty_reward_id IS NULL "
+            "AND coupon_code_snapshot IS NOT NULL "
+            "AND discount_percent_snapshot BETWEEN 1 AND 100)",
+            name="booking_service_discount_source",
+        ),
         Index("ix_booking_services_booking_service", "booking_id", "service_id"),
+        Index("ix_booking_services_coupon", "coupon_id"),
+        Index(
+            "uq_booking_services_booking_coupon",
+            "booking_id",
+            unique=True,
+            postgresql_where=text("discount_type = 'coupon'"),
+        ),
         CheckConstraint(
             "expected_duration_minutes BETWEEN 15 AND 1440",
             name="valid_booking_service_duration",
