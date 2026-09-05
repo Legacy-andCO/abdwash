@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -38,23 +39,30 @@ def test_required_slots_rejects_empty_booking() -> None:
 def test_default_start_times_and_closing_boundary(policy: SchedulePolicy) -> None:
     windows = generate_slot_windows(date(2030, 1, 2), policy)
     local_times = [window.start.hour for window in windows]
-    # Asia/Dubai is UTC+4 in January: 09,11,13,15,17,19 local.
-    assert local_times == [5, 7, 9, 11, 13, 15]
-    assert windows[-1].end.hour == 17  # 21:00 local
-    assert len(windows) == 6
+    # Asia/Dubai is UTC+4 in January: 09,11,13,15,17,19,21 local.
+    assert local_times == [5, 7, 9, 11, 13, 15, 17]
+    assert windows[-1].end.hour == 19  # 23:00 local
+    assert len(windows) == 7
 
 
-def test_2100_is_not_a_start(policy: SchedulePolicy) -> None:
+def test_2100_is_the_latest_start(policy: SchedulePolicy) -> None:
+    windows = resolve_requested_windows(
+        date(2030, 1, 2), time(21), 1, policy, now=datetime(2029, 1, 1, tzinfo=UTC)
+    )
+    assert windows[0].start.astimezone(ZoneInfo(policy.timezone)).time() == time(21)
+
+
+def test_after_2100_is_not_a_start(policy: SchedulePolicy) -> None:
     with pytest.raises(DomainError, match="outside business hours"):
         resolve_requested_windows(
-            date(2030, 1, 2), time(21), 1, policy, now=datetime(2029, 1, 1, tzinfo=UTC)
+            date(2030, 1, 2), time(23), 1, policy, now=datetime(2029, 1, 1, tzinfo=UTC)
         )
 
 
-def test_three_vehicle_1900_cannot_fit_second_slot(policy: SchedulePolicy) -> None:
+def test_three_vehicle_2100_cannot_fit_second_slot(policy: SchedulePolicy) -> None:
     with pytest.raises(DomainError, match="outside business hours"):
         resolve_requested_windows(
-            date(2030, 1, 2), time(19), 3, policy, now=datetime(2029, 1, 1, tzinfo=UTC)
+            date(2030, 1, 2), time(21), 3, policy, now=datetime(2029, 1, 1, tzinfo=UTC)
         )
 
 

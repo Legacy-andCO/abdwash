@@ -3333,6 +3333,16 @@
     font-size: 0.75rem;
     padding: 1rem 0;
   }
+  .schedule-service-note {
+    background: #f4f7f3;
+    border-inline-start: 3px solid var(--teal);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    margin-top: 1rem;
+    padding: 0.65rem 0.75rem;
+  }
   .slot-loading {
     align-items: center;
     display: flex;

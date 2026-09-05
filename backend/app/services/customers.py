@@ -12,6 +12,7 @@ from app.auth.verifier import VerifiedIdentity
 from app.domain.enums import BookingStatus, HoldStatus, JobStatus, SlotStatus
 from app.domain.errors import ConflictError, DomainError
 from app.domain.scheduling import SlotWindow, cancellation_allowed
+from app.domain.service_scheduling import enforce_customer_start_time
 from app.models.entities import (
     Booking,
     BookingService,
@@ -705,13 +706,19 @@ async def _reschedule_booking(
         raise ConflictError(
             "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
         )
-    closing = datetime.combine(
-        day, day_policy.closing_time, ZoneInfo(day_policy.timezone)
-    ).astimezone(UTC)
-    if operational_end > closing:
-        raise ConflictError(
-            "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
-        )
+    service_names = list(
+        (
+            await session.scalars(
+                select(BookingService.service_name).where(
+                    BookingService.booking_id == booking.id
+                )
+            )
+        ).all()
+    )
+    enforce_customer_start_time(
+        service_names,
+        hold.slot_start.astimezone(ZoneInfo(settings.timezone)).time().replace(tzinfo=None),
+    )
     if job.assignment_source == "manual" and job.assigned_resource_id is None:
         raise ConflictError(
             "BOOKING_ASSIGNMENT_CHANGED",

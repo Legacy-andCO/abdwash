@@ -18,6 +18,7 @@ from app.domain.enums import (
     SlotStatus,
 )
 from app.domain.errors import ConflictError, DomainError
+from app.domain.service_scheduling import enforce_customer_start_time
 from app.domain.vehicle_identity import normalize_vehicle_plate
 from app.models.entities import (
     Booking,
@@ -113,6 +114,12 @@ async def create_booking(
             "This product requires package activation and cannot be booked as one ordinary wash.",
             status_code=422,
         )
+    enforce_customer_start_time(
+        (service.name for service in services),
+        hold.slot_start.astimezone(ZoneInfo(configuration.settings.timezone)).time().replace(
+            tzinfo=None
+        ),
+    )
     if any(not is_vehicle_type(vehicle.vehicle_type) for vehicle in request.vehicles):
         raise DomainError("INVALID_VEHICLE_TYPE", "Choose a supported vehicle type.")
     price_rows = list(
@@ -183,10 +190,7 @@ async def create_booking(
         raise ConflictError(
             "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
         )
-    closing = datetime.combine(
-        day, day_policy.closing_time, ZoneInfo(day_policy.timezone)
-    ).astimezone(UTC)
-    if expected_duration_minutes > 2880 or operational_end > closing:
+    if expected_duration_minutes > 2880:
         raise ConflictError(
             "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
         )

@@ -34,7 +34,9 @@ def generate_slot_windows(day: date, policy: SchedulePolicy) -> list[SlotWindow]
     closing = datetime.combine(day, policy.closing_time, tzinfo=zone)
     duration = timedelta(minutes=policy.slot_duration_minutes)
     windows: list[SlotWindow] = []
-    while cursor + duration <= closing:
+    # Business closing time is the latest customer-selectable start. The
+    # service's trusted duration continues to determine its operational end.
+    while cursor <= closing:
         windows.append(SlotWindow(cursor.astimezone(UTC), (cursor + duration).astimezone(UTC)))
         cursor += duration
     return windows

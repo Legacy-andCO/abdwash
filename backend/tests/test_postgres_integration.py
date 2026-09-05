@@ -1611,6 +1611,7 @@ async def test_public_api_guest_booking_and_query_count_guard(
             "15:00:00",
             "17:00:00",
             "19:00:00",
+            "21:00:00",
         ]
         assert all("resources" not in slot for slot in availability.json()["slots"])
         query_count.set(0)

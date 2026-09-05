@@ -423,12 +423,13 @@ async def test_reschedule_atomically_swaps_slots_and_updates_job() -> None:
     session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
-                scalar_result(one=settings),
-                scalar_result(one=job),
-                scalar_result(one=hold),
-                scalar_result(one=settings),
-                scalar_result(all_items=[old_slot, new_slot]),
-                scalar_result(one=settings),
+            scalar_result(one=settings),
+            scalar_result(one=job),
+            scalar_result(one=hold),
+            scalar_result(one=settings),
+            scalar_result(all_items=[service.service_name]),
+            scalar_result(all_items=[old_slot, new_slot]),
+            scalar_result(one=settings),
             scalar_result(one=None),
         ]
     )
@@ -539,10 +540,11 @@ async def test_confirmed_active_manager_reschedule_resets_operational_state() ->
     session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
-                scalar_result(one=job),
-                scalar_result(one=hold),
-                scalar_result(one=settings),
-                scalar_result(all_items=[old_slot, new_slot]),
+            scalar_result(one=job),
+            scalar_result(one=hold),
+            scalar_result(one=settings),
+            scalar_result(all_items=[service.service_name]),
+            scalar_result(all_items=[old_slot, new_slot]),
             scalar_result(one=settings),
             scalar_result(one=None),
         ]
@@ -592,10 +594,11 @@ async def test_overdue_assigned_job_can_be_rescheduled_by_manager() -> None:
     session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
-                scalar_result(one=job),
-                scalar_result(one=hold),
-                scalar_result(one=settings),
-                scalar_result(all_items=[old_slot, new_slot]),
+            scalar_result(one=job),
+            scalar_result(one=hold),
+            scalar_result(one=settings),
+            scalar_result(all_items=[service.service_name]),
+            scalar_result(all_items=[old_slot, new_slot]),
             scalar_result(one=settings),
             scalar_result(one=None),
         ]

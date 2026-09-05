@@ -174,6 +174,23 @@ def test_active_hold_consumes_capacity_but_expired_holds_are_not_input() -> None
     assert result.status == "time_conflict"
 
 
+def test_big_service_duration_does_not_block_later_same_day_capacity() -> None:
+    candidate = team("A")
+    big_service = item(
+        candidate,
+        START,
+        START + timedelta(hours=4),
+    )
+    result = evaluate_team(
+        candidate,
+        [big_service],
+        starts_at=START + timedelta(hours=6),
+        ends_at=START + timedelta(hours=8),
+        turnaround_minutes=60,
+    )
+    assert result.status == "available"
+
+
 def test_ranking_prefers_zero_jobs_then_minutes_then_deterministic_order() -> None:
     busy = team("Busy", identifier=2)
     free = team("Free", identifier=3)

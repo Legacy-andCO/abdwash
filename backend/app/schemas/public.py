@@ -90,6 +90,7 @@ class AvailabilityResponse(BaseModel):
     timezone: str
     vehicle_count: int
     required_slot_count: int
+    required_start_time: time | None = None
     slots: list[AvailabilitySlot]
 
 

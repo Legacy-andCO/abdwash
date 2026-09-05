@@ -382,6 +382,8 @@ const en = {
   "booking.schedule.noTimes":
     "No times are available on this date. Please try another day.",
   "booking.schedule.selectDate": "Select a date to see real-time availability.",
+  "booking.schedule.allDayNine":
+    "This service requires the day to complete, so appointments begin at 9:00 AM.",
   "booking.schedule.consecutive": "A consecutive window is included.",
   "booking.schedule.consecutiveCopy":
     "For {vehicles} vehicles, the selected start reserves {slots} back-to-back slots. The end time comes directly from live availability.",
@@ -1192,6 +1194,8 @@ const ar: Record<TranslationKey, string> = {
   "booking.schedule.noTimes":
     "لا توجد مواعيد متاحة في هذا التاريخ. جرّب يوماً آخر.",
   "booking.schedule.selectDate": "اختر تاريخاً لعرض المواعيد المتاحة مباشرة.",
+  "booking.schedule.allDayNine":
+    "تتطلب هذه الخدمة يوماً كاملاً، لذلك تبدأ المواعيد الساعة 9:00 صباحاً.",
   "booking.schedule.consecutive": "تم تضمين نافذة زمنية متتالية.",
   "booking.schedule.consecutiveCopy":
     "لعدد {vehicles} مركبات، يحجز وقت البدء المحدد {slots} فترات متتالية. يأتي وقت الانتهاء مباشرة من المواعيد المتاحة.",

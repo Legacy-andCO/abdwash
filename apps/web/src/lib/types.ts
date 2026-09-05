@@ -61,6 +61,7 @@ export type Availability = {
   timezone: string;
   vehicle_count: number;
   required_slot_count: number;
+  required_start_time?: string | null;
   slots: AvailabilitySlot[];
 };
 

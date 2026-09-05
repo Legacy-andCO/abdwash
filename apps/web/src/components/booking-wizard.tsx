@@ -1190,6 +1190,11 @@ function ScheduleStep({ state, dispatch }: StepProps) {
           {!state.selectedDate && (
             <p className="empty-copy">{t("booking.schedule.selectDate")}</p>
           )}
+          {state.availability?.required_start_time ? (
+            <div className="schedule-service-note" role="note">
+              {t("booking.schedule.allDayNine")}
+            </div>
+          ) : null}
         </div>
       </div>
       {state.availability?.required_slot_count &&

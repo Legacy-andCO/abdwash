@@ -17,10 +17,15 @@ from app.domain.scheduling import (
     required_slot_count,
     resolve_requested_windows,
 )
+from app.domain.service_scheduling import (
+    enforce_customer_start_time,
+    required_customer_start_time,
+)
 from app.models.entities import (
     BusinessOperatingHour,
     BusinessSettings,
     ScheduleSlot,
+    Service,
     SlotHoldGroup,
 )
 from app.repositories.business import load_default_business
@@ -103,6 +108,12 @@ async def availability_for_date(
             ),
             slots=[],
         )
+    selected_service_names = await _selected_service_names(
+        session,
+        business_id=configuration.business.id,
+        service_ids=service_ids or [],
+    )
+    required_start = required_customer_start_time(selected_service_names)
     windows = generate_slot_windows(day, policy)
     required = required_slot_count(
         vehicle_count, policy.multi_vehicle_threshold, policy.multi_vehicle_required_slots
@@ -123,6 +134,7 @@ async def availability_for_date(
             timezone=policy.timezone,
             vehicle_count=vehicle_count,
             required_slot_count=required,
+            required_start_time=required_start,
             slots=[],
         )
     starts = [window.start for window in windows]
@@ -147,12 +159,16 @@ async def availability_for_date(
     )
     output: list[AvailabilitySlot] = []
     zone = ZoneInfo(policy.timezone)
-    closing = datetime.combine(day, policy.closing_time, zone).astimezone(UTC)
     for index, window in enumerate(windows):
+        if (
+            required_start is not None
+            and window.start.astimezone(zone).time().replace(tzinfo=None) != required_start
+        ):
+            continue
         sequence_fits = index + required <= len(windows)
         operational_end = window.start + timedelta(minutes=expected_minutes)
         available = False
-        if sequence_fits and operational_end <= closing and window.start > now:
+        if sequence_fits and window.start > now:
             needed = windows[index : index + required]
             for team in teams:
                 if all(not occupancy.get((team.id, item.start), False) for item in needed):
@@ -171,8 +187,6 @@ async def availability_for_date(
             reason = "PAST_SLOT"
         elif not sequence_fits:
             reason = "CONSECUTIVE_SLOT_OUTSIDE_HOURS"
-        elif operational_end > closing:
-            reason = "BOOKING_OUTSIDE_OPERATING_HOURS"
         elif not available:
             reason = "NO_TEAM_CAPACITY"
         output.append(
@@ -190,6 +204,7 @@ async def availability_for_date(
         timezone=policy.timezone,
         vehicle_count=vehicle_count,
         required_slot_count=required,
+        required_start_time=required_start,
         slots=output,
     )
 
@@ -205,6 +220,12 @@ async def create_hold(session: AsyncSession, request: HoldCreate) -> HoldRespons
     policy = await policy_for_day(session, configuration.settings, request.date)
     if policy is None:
         raise DomainError("BUSINESS_CLOSED", "The business is closed on this day.")
+    selected_service_names = await _selected_service_names(
+        session,
+        business_id=configuration.business.id,
+        service_ids=request.service_ids,
+    )
+    enforce_customer_start_time(selected_service_names, request.start_time)
     windows = resolve_requested_windows(
         request.date, request.start_time, request.vehicle_count, policy
     )
@@ -219,13 +240,6 @@ async def create_hold(session: AsyncSession, request: HoldCreate) -> HoldRespons
         reserved_slot_floor_minutes=floor_minutes,
     )
     operational_end = windows[0].start + timedelta(minutes=expected_minutes)
-    closing = datetime.combine(
-        request.date, policy.closing_time, ZoneInfo(policy.timezone)
-    ).astimezone(UTC)
-    if operational_end > closing:
-        raise ConflictError(
-            "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
-        )
     await lock_schedule_day(session, business_id=configuration.business.id, day=request.date)
     # A candidate can pass operational capacity while a manually blocked grid
     # slot still prevents this exact start. Try ranked candidates in order by
@@ -306,6 +320,28 @@ async def create_hold(session: AsyncSession, request: HoldCreate) -> HoldRespons
     raise ConflictError(
         "NO_TEAM_CAPACITY",
         "This time is no longer available. Please choose another time.",
+    )
+
+
+async def _selected_service_names(
+    session: AsyncSession,
+    *,
+    business_id: uuid.UUID,
+    service_ids: list[uuid.UUID],
+) -> list[str]:
+    if not service_ids:
+        return []
+    return list(
+        (
+            await session.scalars(
+                select(Service.name).where(
+                    Service.business_id == business_id,
+                    Service.id.in_(set(service_ids)),
+                    Service.is_active.is_(True),
+                    Service.mobile_available.is_(True),
+                )
+            )
+        ).all()
     )
 
 
