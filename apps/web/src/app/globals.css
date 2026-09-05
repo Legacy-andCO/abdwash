@@ -1816,12 +1816,13 @@
     text-align: center;
   }
   .auth-otp-form {
+    align-items: center;
     border-top: 1px solid var(--line);
     display: grid;
     gap: 0.6rem;
     margin-top: 1.25rem;
     padding-top: 1.25rem;
-    text-align: start;
+    text-align: center;
   }
   .auth-otp-form > p {
     color: var(--muted);
@@ -1831,11 +1832,18 @@
   .auth-otp-form input {
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.35em;
-    max-width: 13rem;
+    max-width: 17.5rem;
     text-align: center;
+    width: 100%;
+  }
+  .auth-otp-form label {
+    align-items: center;
+    width: 100%;
   }
   .auth-otp-form .button {
-    justify-self: start;
+    justify-self: center;
+    max-width: 17.5rem;
+    width: 100%;
   }
   .auth-magic-sent .button {
     justify-self: center;
