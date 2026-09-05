@@ -17,6 +17,7 @@ vi.mock("./auth-provider", () => ({
   useAuth: () => ({
     login: vi.fn(),
     requestMagicLink,
+    verifyEmailOtp: vi.fn(),
     signUp: vi.fn(),
     available: true,
   }),

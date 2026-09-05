@@ -13,6 +13,7 @@ type AuthContextValue = {
   available: boolean;
   recoveryMode: boolean;
   requestMagicLink: (email: string, returnTo?: string | null) => Promise<void>;
+  verifyEmailOtp: (email: string, token: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ confirmationRequired: boolean }>;
   requestPasswordReset: (email: string) => Promise<void>;
@@ -97,6 +98,16 @@ export function AuthProvider({ children, client: clientOverride }: { children: R
         options: { emailRedirectTo: getAuthConfirmUrl(returnTo ?? null) },
       });
       if (error) throw new Error(error.message);
+    },
+    verifyEmailOtp: async (email, token) => {
+      if (!client) throw new Error("Customer login is not configured.");
+      const { data, error } = await client.auth.verifyOtp({
+        email,
+        token,
+        type: "email",
+      });
+      if (error) throw new Error(error.message);
+      if (data.session) setSession(data.session);
     },
     login: async (email, password) => {
       if (!client) throw new Error("Customer login is not configured.");

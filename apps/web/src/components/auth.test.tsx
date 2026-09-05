@@ -36,6 +36,7 @@ function authClient(initialSession: Session | null = null) {
     getSession: vi.fn().mockResolvedValue({ data: { session: initialSession }, error: null }),
     onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
     signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
+    verifyOtp: vi.fn().mockResolvedValue({ data: { session: session() }, error: null }),
     signInWithPassword: vi.fn().mockResolvedValue({ data: { session: session(), user: session().user }, error: null }),
     signUp: vi.fn().mockResolvedValue({ data: { session: null, user: session().user }, error: null }),
     signOut: vi.fn().mockResolvedValue({ error: null }),
@@ -116,7 +117,55 @@ describe("customer authentication", () => {
       },
     }));
     expect(await screen.findByRole("heading", { name: "Check your email" })).toBeTruthy();
+    expect(screen.getByText("We sent a sign-in email to:")).toBeTruthy();
+    expect(screen.getByText("noor@example.com")).toBeTruthy();
+    expect(screen.getByText("Open the email on this device and follow the sign-in link.")).toBeTruthy();
+    expect(screen.getByText("Accessing your email from another device?")).toBeTruthy();
+    expect(screen.getByText(/use the OTP code below to sign in on this device/i)).toBeTruthy();
     expect(screen.queryByText(/account exists/i)).toBeNull();
+  });
+
+  it("verifies a pasted six-digit code on the original device", async () => {
+    const { client, auth } = authClient();
+    render(<AuthProvider client={client}><LoginForm /></AuthProvider>);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Email address"), "noor@example.com");
+    await user.click(screen.getByRole("button", { name: "Email me a sign-in link" }));
+    await screen.findByRole("heading", { name: "Check your email" });
+    const code = screen.getByLabelText("6-digit code");
+    await user.click(code);
+    await user.paste(" 12a3456 ");
+    expect((code as HTMLInputElement).value).toBe("123456");
+    await user.clear(code);
+    await user.paste("12-34-56");
+    expect((code as HTMLInputElement).value).toBe("123456");
+    await user.clear(code);
+    await user.paste("123456789");
+    expect((code as HTMLInputElement).value).toBe("123456");
+    await user.click(screen.getByRole("button", { name: "Verify code" }));
+    await waitFor(() => expect(auth.verifyOtp).toHaveBeenCalledWith({
+      email: "noor@example.com",
+      token: "123456",
+      type: "email",
+    }));
+    expect(replace).toHaveBeenCalledWith("/book");
+  });
+
+  it("maps invalid and expired OTPs to safe customer messages", async () => {
+    const { client, auth } = authClient();
+    auth.verifyOtp
+      .mockResolvedValueOnce({ data: { session: null }, error: { message: "Token is invalid" } })
+      .mockResolvedValueOnce({ data: { session: null }, error: { message: "Token has expired" } });
+    render(<AuthProvider client={client}><LoginForm /></AuthProvider>);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Email address"), "noor@example.com");
+    await user.click(screen.getByRole("button", { name: "Email me a sign-in link" }));
+    await user.type(await screen.findByLabelText("6-digit code"), "123456");
+    await user.click(screen.getByRole("button", { name: "Verify code" }));
+    expect(await screen.findByText("The code is incorrect. Please try again.")).toBeTruthy();
+    await user.click(screen.getByLabelText("6-digit code"));
+    await user.click(screen.getByRole("button", { name: "Verify code" }));
+    expect(await screen.findByText("This code has expired. Request a new one.")).toBeTruthy();
   });
 
   it("prefers the saved customer profile first name over auth metadata", async () => {

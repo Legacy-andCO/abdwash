@@ -10,6 +10,10 @@ import { useI18n } from "./i18n-provider";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function sanitizeOtpCode(value: string) {
+  return value.replace(/\D/g, "").slice(0, 6);
+}
+
 function customerAuthError(
   error: unknown,
   t: (key: TranslationKey) => string,
@@ -23,11 +27,22 @@ function customerAuthError(
   return t("auth.checkDetails");
 }
 
+function customerOtpError(
+  error: unknown,
+  t: (key: TranslationKey) => string,
+) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("expired")) return t("auth.otpExpired");
+  if (message.includes("invalid") || message.includes("token"))
+    return t("auth.otpInvalid");
+  return t("auth.otpUnexpected");
+}
+
 export function LoginForm() {
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, requestMagicLink, signUp, available } = useAuth();
+  const { login, requestMagicLink, verifyEmailOtp, signUp, available } = useAuth();
   const [mode, setMode] = useState<"magic" | "password" | "signup">("magic");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +50,7 @@ export function LoginForm() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<"magic" | "signup" | null>(null);
   const [resendIn, setResendIn] = useState(0);
+  const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
   const [passwordResetNotice, setPasswordResetNotice] = useState(
     searchParams.get("passwordReset") === "success",
@@ -72,8 +88,24 @@ export function LoginForm() {
       setSent("magic");
       setPasswordResetNotice(false);
       setResendIn(60);
+      setOtpCode("");
     } catch (reason) {
       setError(customerAuthError(reason, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyMagicCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || otpCode.length !== 6) return;
+    setBusy(true);
+    setError("");
+    try {
+      await verifyEmailOtp(email.trim(), otpCode);
+      router.replace(returnTo);
+    } catch (reason) {
+      setError(customerOtpError(reason, t));
     } finally {
       setBusy(false);
     }
@@ -120,6 +152,7 @@ export function LoginForm() {
     setSent(null);
     setResendIn(0);
     setEmail("");
+    setOtpCode("");
     setError("");
   }
 
@@ -153,8 +186,47 @@ export function LoginForm() {
         <div className="auth-magic-sent" aria-live="polite">
           <div className="confirmation-burst" aria-hidden="true">✓</div>
           <h2>{t(sent === "magic" ? "auth.magicSentTitle" : "auth.signupSentTitle")}</h2>
-          <p>{t(sent === "magic" ? "auth.magicSentCopy" : "auth.signupSentCopy")}</p>
+          {sent === "magic" ? (
+            <div className="auth-delivery-copy">
+              <p>{t("auth.magicSentCopy")}</p>
+              <p className="auth-email-line">
+                <span>{t("auth.magicSentTo")}</span>
+                <strong dir="ltr">{email.trim()}</strong>
+              </p>
+              <p>{t("auth.magicSentDevice")}</p>
+            </div>
+          ) : <p>{t("auth.signupSentCopy")}</p>}
           {error && <div className="error-banner" role="alert">{error}</div>}
+          {sent === "magic" && (
+            <form className="auth-otp-form" onSubmit={(event) => void verifyMagicCode(event)}>
+              <p className="auth-otp-heading">{t("auth.magicOtpHeading")}</p>
+              <p>{t("auth.magicOtpPrompt")}</p>
+              <label>
+                <span>{t("auth.magicOtpCode")}</span>
+                <input
+                  aria-invalid={Boolean(error)}
+                  autoComplete="one-time-code"
+                  dir="ltr"
+                  inputMode="numeric"
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  value={otpCode}
+                  onChange={(event) => {
+                    setOtpCode(sanitizeOtpCode(event.target.value));
+                    setError("");
+                  }}
+                  onPaste={(event) => {
+                    event.preventDefault();
+                    setOtpCode(sanitizeOtpCode(event.clipboardData.getData("text")));
+                    setError("");
+                  }}
+                />
+              </label>
+              <button className="button" type="submit" disabled={!available || busy || otpCode.length !== 6}>
+                {busy ? t("auth.magicOtpVerifying") : t("auth.magicOtpVerify")}
+              </button>
+            </form>
+          )}
           {sent === "magic" && <button
               className="button"
               type="button"
