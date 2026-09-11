@@ -596,6 +596,8 @@ class ScheduleSlot(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "bookings"
 
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
     reference: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     customer_profile_id: Mapped[uuid.UUID | None] = mapped_column(

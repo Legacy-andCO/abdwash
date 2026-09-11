@@ -83,6 +83,29 @@ def _can_manage(context: StaffContext) -> bool:
     return context.role in {StaffRole.MANAGER, StaffRole.ADMIN}
 
 
+async def set_booking_archived(
+    session: AsyncSession, context: StaffContext, booking_id: uuid.UUID, *, archived: bool
+) -> Booking:
+    if not _can_manage(context):
+        raise DomainError("FORBIDDEN", "Manager access is required.", status_code=403)
+    booking = (
+        await session.scalars(
+            select(Booking)
+            .where(Booking.id == booking_id, Booking.business_id == context.business_id)
+            .with_for_update()
+        )
+    ).one_or_none()
+    if booking is None:
+        raise DomainError("BOOKING_NOT_FOUND", "Booking not found.", status_code=404)
+    if archived and booking.status not in {BookingStatus.COMPLETED, BookingStatus.CANCELLED}:
+        raise ConflictError(
+            "BOOKING_NOT_FINISHED", "Only completed or cancelled bookings can be archived."
+        )
+    booking.archived_at = (booking.archived_at or datetime.now(UTC)) if archived else None
+    await session.flush()
+    return booking
+
+
 async def _job_rows(
     session: AsyncSession,
     context: StaffContext,
@@ -102,7 +125,10 @@ async def _job_rows(
     offset: int = 0,
     limit: int = 50,
     lock: bool = False,
+    include_archived: bool = False,
 ) -> Any:
+    if include_archived and not _can_manage(context):
+        raise DomainError("FORBIDDEN", "Manager access is required.", status_code=403)
     statement = (
         select(
             Job,
@@ -119,6 +145,8 @@ async def _job_rows(
     )
     if job_id:
         statement = statement.where(Job.id == job_id)
+    elif not include_archived:
+        statement = statement.where(Booking.archived_at.is_(None))
     if not _can_manage(context) or scope != "all":
         team_job = exists(
             select(TeamMembership.id).where(
@@ -318,6 +346,7 @@ async def _serialize_jobs(
                     )
     return [
         StaffJob(
+            archived_at=getattr(booking, "archived_at", None),
             id=job.id,
             booking_id=booking.id,
             booking_reference=booking.reference,
@@ -442,8 +471,10 @@ async def list_job_calendar(
             service_label.label("service_label"),
         )
         .select_from(Job)
+        .join(Booking, Booking.id == Job.booking_id)
         .outerjoin(ScheduleResource, ScheduleResource.id == Job.assigned_resource_id)
         .where(
+            Booking.archived_at.is_(None),
             Job.business_id == context.business_id,
             Job.scheduled_start >= starts_at,
             Job.scheduled_start < ends_at,

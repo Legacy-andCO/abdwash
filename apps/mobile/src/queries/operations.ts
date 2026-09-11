@@ -1,4 +1,6 @@
 import { useRef } from "react";
+import { removeArchivedBookingFromCaches } from "../jobs/archiveCache";
+import { setBookingArchived } from "../lib";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   assignJob,
@@ -1322,6 +1324,18 @@ function updateJobCaches(
     localBusinessDate(job.scheduled_start, timezone),
     job.id,
   );
+}
+
+export function useArchiveBookingMutation(context: StaffContext, job: Job) {
+  const client = useQueryClient();
+  const scope = operationalScope(context);
+  return useMutation({
+    mutationFn: () => setBookingArchived(job.booking_id, true),
+    onSuccess: async (result) => {
+      await removeArchivedBookingFromCaches(client, scope, job);
+      client.setQueryData(queryKeys.job(scope, job.id), { ...job, archived_at: result.archived_at });
+    },
+  });
 }
 
 export function useJobActionMutation(context: StaffContext) {

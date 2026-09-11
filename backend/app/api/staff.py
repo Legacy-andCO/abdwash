@@ -100,6 +100,8 @@ from app.schemas.staff import (
     AttendanceList,
     AttendanceOverviewItem,
     AttendanceRecord,
+    BookingArchiveResult,
+    BookingArchiveUpdate,
     CancellationItem,
     CancellationReview,
     CashPaymentResult,
@@ -249,6 +251,7 @@ from app.services.staff_operations import (
     record_cash,
     report_summary,
     review_cancellation,
+    set_booking_archived,
     start_trip,
     transition_job,
 )
@@ -1228,6 +1231,7 @@ async def management_check(value: ManagerContext) -> dict[str, str]:
 async def jobs(
     session: SessionDep,
     context: Annotated[StaffContext, Depends(staff_context)],
+    include_archived: bool = False,
     day: Annotated[date | None, Query(alias="date")] = None,
     start_date: date | None = None,
     end_date: date | None = None,
@@ -1245,6 +1249,7 @@ async def jobs(
     return await list_jobs(
         session,
         context,
+        include_archived=include_archived,
         day=day,
         start_date=start_date,
         end_date=end_date,
@@ -1874,3 +1879,18 @@ async def manager_reschedule(
         elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
     )
     return result
+
+
+@router.patch("/bookings/{booking_id}/archive", response_model=BookingArchiveResult)
+async def booking_archive(
+    booking_id: uuid.UUID,
+    payload: BookingArchiveUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> BookingArchiveResult:
+    async with session.begin():
+        booking = await set_booking_archived(
+            session, context, booking_id, archived=payload.archived
+        )
+        await bump_sync_revisions(session, context.business_id, "jobs")
+        return BookingArchiveResult(booking_id=booking.id, archived_at=booking.archived_at)

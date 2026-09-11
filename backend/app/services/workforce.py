@@ -1106,6 +1106,7 @@ async def operations_dashboard(
         .join(Booking, Booking.id == CancellationRequest.booking_id)
         .where(
             Booking.business_id == context.business_id,
+            Booking.archived_at.is_(None),
             CancellationRequest.status == CancellationStatus.REQUESTED,
         )
         .correlate(None)
@@ -1138,6 +1139,7 @@ async def operations_dashboard(
             .join(Payment, Payment.booking_id == Booking.id)
             .where(
                 Job.business_id == context.business_id,
+                Booking.archived_at.is_(None),
                 Job.scheduled_start >= start,
                 Job.scheduled_start < end,
             )

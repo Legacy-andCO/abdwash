@@ -95,6 +95,7 @@ export type JobDirectExpense = {
   currency_code: string;
 };
 export type Job = {
+  archived_at?: string | null;
   id: string;
   booking_id: string;
   booking_reference: string;
@@ -1014,6 +1015,11 @@ export async function getJobs(
 }
 export const getJob = (jobId: string, signal?: AbortSignal) =>
   api<Job>(`/api/v1/staff/jobs/${jobId}`, { signal });
+export const setBookingArchived = (bookingId: string, archived: boolean) =>
+  api<{ booking_id: string; archived_at: string | null }>(
+    `/api/v1/staff/bookings/${bookingId}/archive`,
+    { method: "PATCH", body: JSON.stringify({ archived }) },
+  );
 export const getJobCalendar = (
   startDate: string,
   endDate: string,

@@ -38,6 +38,7 @@ class JobDirectExpense(BaseModel):
 
 
 class StaffJob(BaseModel):
+    archived_at: datetime | None = None
     id: uuid.UUID
     booking_id: uuid.UUID
     booking_reference: str
@@ -79,6 +80,15 @@ class StaffJob(BaseModel):
 class StaffJobList(BaseModel):
     jobs: list[StaffJob]
     next_offset: int | None
+
+
+class BookingArchiveUpdate(StrictRequest):
+    archived: bool
+
+
+class BookingArchiveResult(BaseModel):
+    booking_id: uuid.UUID
+    archived_at: datetime | None
 
 
 class CalendarJob(BaseModel):

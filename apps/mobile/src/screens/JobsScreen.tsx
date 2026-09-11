@@ -48,6 +48,7 @@ import type {
 } from "../lib";
 import { customerEmailUrl } from "../jobs/customerContact";
 import {
+  useArchiveBookingMutation,
   useAssignJobMutation,
   useAssignmentOptionsQuery,
   useBusinessSettingsQuery,
@@ -395,6 +396,7 @@ function JobDetail({
   const cashMutation = useCashPaymentMutation(context);
   const expenseMutation = useExpenseMutation(context);
   const canManageJob = capabilities(context.role).canAssignJobs;
+  const archiveMutation = useArchiveBookingMutation(context, job);
   const communications = useJobCommunicationsQuery(
     context,
     job.id,
@@ -985,6 +987,25 @@ function JobDetail({
             }}
           />
         </>
+      ) : null}
+      {canManageJob && !job.archived_at && ["completed", "cancelled"].includes(job.status) ? (
+        <AppButton
+          title="Archive booking"
+          loading={archiveMutation.isPending}
+          disabled={archiveMutation.isPending}
+          onPress={() => Alert.alert(
+            "Archive this booking?",
+            "It will be hidden from normal job and dashboard views but will remain in the database.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Archive booking", onPress: () => {
+                void archiveMutation.mutateAsync().then(onBack).catch((error) =>
+                  Alert.alert("Booking not archived", domainErrorMessage(error, "Please try again.")),
+                );
+              } },
+            ],
+          )}
+        />
       ) : null}
     </ScrollView>
   );
