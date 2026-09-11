@@ -39,6 +39,10 @@
         "projectId": "8ace044f-315e-40dc-955b-4bedcc350687"
       }
     },
-    "owner": "bboost"
+    "owner": "bboost",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
   }
 }

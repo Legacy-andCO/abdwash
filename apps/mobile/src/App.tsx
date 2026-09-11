@@ -1,8 +1,8 @@
+import { Alert } from "./alert";
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   TextInput,

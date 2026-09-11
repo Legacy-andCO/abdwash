@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import {
+  Platform,
   ActivityIndicator,
   Animated,
   Pressable,
@@ -157,6 +158,7 @@ export const uiStyles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: 100 },
   row: {
     flexDirection: "row",
+    ...(Platform.OS === "web" ? { flexWrap: "wrap" } as const : {}),
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,

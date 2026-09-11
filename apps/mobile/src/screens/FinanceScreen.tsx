@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+import { Alert } from "../alert";
 import {
   useDeferredValue,
   useEffect,
@@ -6,7 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -521,7 +522,7 @@ function ExpenseForm({
   const vatMinor = vatAmount.trim() ? expenseAmountMinor(vatAmount) : 0;
   const validBreakdown = minor !== null && vatMinor !== null && vatMinor <= minor;
   async function chooseEvidencePhoto() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission = Platform.OS === "web" ? { granted: true } : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
         "Permission needed",

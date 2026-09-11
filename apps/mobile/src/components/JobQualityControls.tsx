@@ -1,6 +1,7 @@
+import { Alert } from "../alert";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
+  Platform,
   Image,
   Linking,
   Pressable,
@@ -108,7 +109,7 @@ export function JobQualityControls({
   }, [categories, photoCategory]);
 
   async function choosePhoto(source: "camera" | "library") {
-    const permission =
+    const permission = Platform.OS === "web" ? { granted: true } :
       source === "camera"
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();

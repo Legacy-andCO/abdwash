@@ -1,6 +1,6 @@
+import { Alert } from "../alert";
 import { useState } from "react";
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Switch,

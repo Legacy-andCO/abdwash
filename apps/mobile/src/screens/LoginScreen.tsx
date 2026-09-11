@@ -99,6 +99,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   center: {
     flexGrow: 1,
+    ...(Platform.OS === "web" ? { width: "100%", maxWidth: 480, alignSelf: "center" } as const : {}),
     justifyContent: "center",
     padding: spacing.xl,
     gap: spacing.xxl,

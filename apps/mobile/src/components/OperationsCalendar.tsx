@@ -1,3 +1,4 @@
+import { webSheetStyle } from "./webSheetStyle";
 import { useMemo, useState } from "react";
 import {
   Modal,
@@ -183,6 +184,6 @@ const styles = StyleSheet.create({
   eventTime: { color: colors.textSecondary, fontSize: 8 },
   more: { color: colors.primary, fontSize: 8, fontWeight: "700", marginTop: 2 },
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(15,15,16,0.45)" },
-  sheet: { maxHeight: "75%", backgroundColor: colors.surface, padding: spacing.lg, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg, gap: spacing.md },
+  sheet: { ...webSheetStyle, maxHeight: "75%", backgroundColor: colors.surface, padding: spacing.lg, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg, gap: spacing.md },
   agendaRow: { paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.xs },
 });

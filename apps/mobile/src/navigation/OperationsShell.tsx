@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { useEffect, useRef } from "react";
-import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { queryClient } from "../cache/queryClient";
@@ -167,7 +167,7 @@ export function OperationsShell({ context }: { context: StaffContext }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: colors.background, ...(Platform.OS === "web" ? { width: "100%", maxWidth: 1200, alignSelf: "center" } as const : {}) },
   header: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  body: { flex: 1 },
+  body: { flex: 1, ...(Platform.OS === "web" ? { minHeight: 0 } : {}) },
   eyebrow: {
     color: colors.primary,
     fontWeight: "900",

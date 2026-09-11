@@ -1,4 +1,4 @@
-import * as SecureStore from "expo-secure-store";
+import { authStorage } from "./authStorage";
 import { createClient, type Session } from "@supabase/supabase-js";
 import "react-native-url-polyfill/auto";
 import type { Role } from "./capabilities";
@@ -19,11 +19,7 @@ export const supabase = createClient(
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
   {
     auth: {
-      storage: {
-        getItem: SecureStore.getItemAsync,
-        setItem: SecureStore.setItemAsync,
-        removeItem: SecureStore.deleteItemAsync,
-      },
+      storage: authStorage,
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,

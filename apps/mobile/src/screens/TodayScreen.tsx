@@ -1,6 +1,6 @@
+import { Alert } from "../alert";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,

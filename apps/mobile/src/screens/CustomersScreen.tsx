@@ -1,6 +1,7 @@
+import { webSheetStyle } from "../components/webSheetStyle";
+import { Alert } from "../alert";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Modal,
   Pressable,
   RefreshControl,
@@ -1148,7 +1149,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(36, 28, 26, 0.48)",
   },
-  sheet: {
+  sheet: { ...webSheetStyle,
     backgroundColor: colors.background,
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,

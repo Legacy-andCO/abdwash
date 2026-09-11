@@ -1,6 +1,7 @@
+import { webSheetStyle } from "../components/webSheetStyle";
+import { Alert } from "../alert";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Linking,
   Modal,
   Pressable,
@@ -1649,7 +1650,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(10,30,26,0.38)",
   },
-  sheet: {
+  sheet: { ...webSheetStyle,
     maxHeight: "86%",
     backgroundColor: colors.surface,
     borderTopLeftRadius: 26,

@@ -1,7 +1,7 @@
+import { Alert } from "../alert";
 import Constants from "expo-constants";
 import { useState } from "react";
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,

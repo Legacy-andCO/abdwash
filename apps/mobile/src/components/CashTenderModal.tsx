@@ -1,3 +1,4 @@
+import { webSheetStyle } from "./webSheetStyle";
 import { useEffect, useState } from "react";
 import {
   Modal,
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(36, 28, 26, 0.48)",
   },
-  sheet: {
+  sheet: { ...webSheetStyle,
     backgroundColor: colors.background,
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,

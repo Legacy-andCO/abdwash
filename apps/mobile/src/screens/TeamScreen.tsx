@@ -1,6 +1,6 @@
+import { Alert } from "../alert";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
