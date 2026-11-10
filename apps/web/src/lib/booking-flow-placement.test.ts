@@ -45,6 +45,7 @@ describe("booking final-step placement", () => {
     expect(payment).toContain('name="payment"');
     expect(payment).toContain('choice === "pay_after_service"');
     expect(payment).toContain('choice === "pay_now"');
-    expect(payment).toContain('disabled={choice !== "pay_after_service" || seconds <= 0}');
+    expect(payment).toContain('disabled={choice !== "pay_after_service" || seconds <= 0 || acceptanceLanguage === null}');
+    expect(payment).toContain("<BookingPolicyAcceptance");
   });
 });

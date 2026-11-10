@@ -19,6 +19,7 @@ import {
   verifyGuestReview,
 } from "./api";
 import { emptyVehicle } from "./booking-state";
+import { POLICY_REVISION } from "./policies";
 import * as supabaseClient from "./supabase-client";
 
 afterEach(() => {
@@ -59,6 +60,7 @@ function bookingInput(idempotencyKey: string) {
       },
     ],
     payment_choice: "pay_after_service" as const,
+    acceptanceLanguage: "en" as const,
     idempotencyKey,
   };
 }
@@ -120,6 +122,9 @@ describe("central API client", () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.total_amount_minor).toBeUndefined();
     expect(body.payment_status).toBeUndefined();
+    expect(body.policy_acceptance).toEqual({
+      accepted: true, revision: POLICY_REVISION, language: "en",
+    });
     expect(body.contact.phone).toBe("+971501234567");
     expect(body.contact.phone_country).toBeUndefined();
     expect(body.location).toMatchObject({ latitude: 24.45, longitude: 54.37 });

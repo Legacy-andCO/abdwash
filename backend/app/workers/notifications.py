@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.core.database import create_engine, create_session_factory
 from app.core.logging import configure_logging
-from app.domain.enums import OutboxStatus
+from app.domain.enums import BookingStatus, OutboxStatus
 from app.domain.timezones import TRIFECTA_TIMEZONE
 from app.integrations.notifications.base import NotificationProvider
 from app.integrations.notifications.factory import create_notification_provider
@@ -193,7 +193,7 @@ async def process_record(
                 payload,
             )
             await session.rollback()
-        if notification[2] == "appointment_reminder":
+        if notification[2] in {"appointment_reminder", "booking_displaced", "booking_rescheduled"}:
             await ensure_reminder_current(
                 factory,
                 record_id,
@@ -266,13 +266,46 @@ async def ensure_reminder_current(
             or record.locked_by != worker_id
         ):
             raise StaleNotification("Appointment reminder was withdrawn")
-        if record.notification_type != "appointment_reminder":
-            return
         booking = await session.get(Booking, record.booking_id)
-        queued_start = datetime.fromisoformat(str(record.payload.get("scheduled_start")))
+        if booking is None:
+            raise StaleNotification("Booking is no longer available")
+        _check_schedule_notice(record.notification_type, record.payload, booking)
+
+
+def _check_schedule_notice(
+    notification_type: str, payload: dict[str, object], booking: Booking
+) -> None:
+    if notification_type not in {
+        "booking_displaced",
+        "booking_confirmed",
+        "booking_rescheduled",
+        "appointment_reminder",
+    }:
+        return
+    displaced = booking.status == BookingStatus.RESCHEDULING_REQUIRED
+    if notification_type == "booking_displaced":
+        if not displaced or booking.version != payload.get("booking_version"):
+            raise StaleNotification("The displacement notice is no longer current")
+    elif notification_type == "booking_confirmed":
+        version = payload.get("booking_version")
+        if displaced or (version is not None and booking.version != version):
+            raise StaleNotification("The booking confirmation is no longer current")
+    elif notification_type == "booking_rescheduled":
+        expected_start = payload.get("scheduled_start")
+        version = payload.get("booking_version")
         if (
-            booking is None
-            or booking.status != "confirmed"
+            displaced
+            or (version is not None and booking.version != version)
+            or (
+                expected_start is not None
+                and datetime.fromisoformat(str(expected_start)) != booking.scheduled_start
+            )
+        ):
+            raise StaleNotification("The rescheduling notice is no longer current")
+    elif notification_type == "appointment_reminder":
+        queued_start = datetime.fromisoformat(str(payload.get("scheduled_start")))
+        if (
+            booking.status != BookingStatus.CONFIRMED
             or booking.scheduled_start != queued_start
             or booking.scheduled_start <= datetime.now(UTC)
         ):
@@ -286,10 +319,19 @@ async def delivery_payload(
     public_web_url: str | None,
 ) -> dict[str, object]:
     payload: dict[str, object] = dict(record.payload)
+    if record.notification_type == "booking_policies_provided":
+        if not public_web_url or record.booking_id is None:
+            raise RuntimeError("Booking policy email configuration is incomplete")
+        booking = await session.get(Booking, record.booking_id)
+        if booking is None or booking.customer_email != record.recipient:
+            raise StaleNotification("Booking policy recipient is no longer current")
+        payload["public_web_url"] = public_web_url
+        return payload
     if record.notification_type not in {
         "booking_confirmed",
         "driver_en_route",
         "booking_rescheduled",
+        "booking_displaced",
         "job_completed",
         "appointment_reminder",
         "team_arrived",
@@ -304,14 +346,13 @@ async def delivery_payload(
     booking = await session.get(Booking, record.booking_id)
     if booking is None:
         raise RuntimeError("Booking notification has no booking")
-    if record.notification_type == "appointment_reminder":
-        queued_start = datetime.fromisoformat(str(payload.get("scheduled_start")))
-        if (
-            booking.status != "confirmed"
-            or booking.scheduled_start != queued_start
-            or booking.scheduled_start <= datetime.now(UTC)
-        ):
-            raise StaleNotification("Appointment reminder is no longer current")
+    _check_schedule_notice(record.notification_type, payload, booking)
+    if record.notification_type == "booking_displaced":
+        token = create_management_token(booking.id)
+        return {
+            "booking_reference": booking.reference,
+            "management_url": f"{public_web_url.rstrip('/')}/manage#{token}",
+        }
     settings = (
         await session.scalars(
             select(BusinessSettings).where(BusinessSettings.business_id == booking.business_id)
@@ -343,6 +384,7 @@ async def delivery_payload(
             "payment_choice": booking.payment_choice,
             "payment_status": booking.payment_status,
             "management_url": f"{public_web_url.rstrip('/')}/manage#{token}",
+            "public_web_url": public_web_url,
             "cancellation_cutoff_hours": settings.cancellation_cutoff_hours,
         }
     )

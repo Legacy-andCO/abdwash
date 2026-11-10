@@ -99,6 +99,8 @@ export type Job = {
   id: string;
   booking_id: string;
   booking_reference: string;
+  version?: number | null;
+  payment_review_required?: boolean;
   assigned_staff_id: string | null;
   assigned_staff_name: string | null;
   assigned_team_id: string | null;
@@ -145,6 +147,8 @@ export type Job = {
 };
 export type CalendarJob = {
   job_id: string;
+  version?: number | null;
+  can_replace?: boolean;
   scheduled_start: string;
   scheduled_end: string;
   local_date: string;
@@ -983,7 +987,7 @@ export const resetStaffPassword = (
     json("POST", body),
   );
 export type JobFilters = {
-  view: "today" | "upcoming" | "history" | "unassigned" | "all";
+  view: "today" | "upcoming" | "history" | "unassigned" | "rescheduling" | "all";
   scope: "my" | "all";
   date?: string;
   start_date?: string;
@@ -1545,3 +1549,10 @@ export const rescheduleJob = (bookingId: string, body: object) =>
     `/api/v1/staff/bookings/${bookingId}/reschedule`,
     json("POST", body),
   );
+
+export function getRescheduleOptions(bookingId: string, date: string, time: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ date, time });
+  return api<TeamAssignmentOption[]>(
+    `/api/v1/staff/bookings/${bookingId}/reschedule-options?${params}`, { signal },
+  );
+}

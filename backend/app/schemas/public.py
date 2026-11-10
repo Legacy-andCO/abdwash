@@ -16,6 +16,7 @@ from pydantic import (
 from app.domain.locations import is_supported_google_maps_url
 from app.domain.phones import normalize_phone_number
 from app.schemas.coupons import BookingCouponSelection
+from app.schemas.policies import PolicyAcceptance
 
 NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -186,6 +187,7 @@ class BookingCreate(StrictRequest):
     billing: BookingBillingDetails | None = None
     coupon: BookingCouponSelection | None = None
     source: Literal["web", "mobile", "admin"] = "web"
+    policy_acceptance: PolicyAcceptance | None = None
 
 
 class BookingVehicleSummary(BaseModel):

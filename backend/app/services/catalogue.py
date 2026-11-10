@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entities import Service, ServiceAddon, ServicePrice
-from app.repositories.business import load_default_business
+from app.repositories.business import BusinessConfiguration, load_default_business
 from app.schemas.public import (
     CatalogueResponse,
     SafeBusinessSettings,
@@ -14,8 +14,10 @@ from app.schemas.public import (
 )
 
 
-async def get_catalogue(session: AsyncSession) -> CatalogueResponse:
-    configuration = await load_default_business(session)
+async def get_catalogue(
+    session: AsyncSession, configuration: BusinessConfiguration | None = None
+) -> CatalogueResponse:
+    configuration = configuration or await load_default_business(session)
     settings = configuration.settings
     rows = (
         await session.execute(

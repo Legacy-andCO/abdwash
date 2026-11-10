@@ -620,6 +620,10 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     total_amount_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     currency_code: Mapped[str] = mapped_column(String(3), nullable=False)
     source: Mapped[str] = mapped_column(String(30), nullable=False, default="web")
+    created_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    reschedule_payment_review_required: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     customer_first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     customer_surname: Mapped[str] = mapped_column(String(100), nullable=False)
     customer_email: Mapped[str | None] = mapped_column(String(320))
@@ -641,7 +645,7 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint("total_amount_minor >= 0", name="nonnegative_booking_total"),
         CheckConstraint(
             "status IN ('pending_payment','confirmed','cancellation_requested',"
-            "'cancelled','completed')",
+            "'cancelled','completed','rescheduling_required')",
             name="booking_status",
         ),
         CheckConstraint(
@@ -973,7 +977,7 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint(
             "status IN ('unassigned','assigned','en_route','arrived',"
-            "'in_progress','completed','cancelled')",
+            "'in_progress','completed','cancelled','rescheduling_required')",
             name="job_status",
         ),
         CheckConstraint(
@@ -1838,6 +1842,39 @@ class CancellationRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_cancellations_status_created", "status", "created_at"),
     )
+
+
+class CustomerComplaint(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "customer_complaints"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id"), nullable=False)
+    reference: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(254))
+    phone: Mapped[str | None] = mapped_column(String(20))
+    booking_reference: Mapped[str | None] = mapped_column(String(64))
+    service_date: Mapped[date | None]
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str] = mapped_column(String(2), nullable=False)
+    privacy_version: Mapped[str] = mapped_column(String(120), nullable=False)
+    attachment_paths: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    __table_args__ = (
+        CheckConstraint("email IS NOT NULL OR phone IS NOT NULL", name="contact_required"),
+        Index("ix_customer_complaints_business_created", "business_id", "created_at", "id"),
+    )
+
+
+class ComplaintRateWindow(Base):
+    __tablename__ = "complaint_rate_windows"
+
+    scope: Mapped[str] = mapped_column(String(64), primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (Index("ix_complaint_rate_windows_window_start", "window_start"),)
 
 
 class NotificationOutbox(UUIDPrimaryKeyMixin, TimestampMixin, Base):

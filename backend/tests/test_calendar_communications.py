@@ -41,6 +41,8 @@ async def test_calendar_uses_one_bounded_projection_and_business_date() -> None:
             "scheduled_start": scheduled,
             "scheduled_end": scheduled + timedelta(hours=2),
             "status": JobStatus.ASSIGNED,
+            "version": 1,
+            "can_replace": False,
             "team_id": None,
             "team_short_name": None,
             "vehicle_label": "Toyota Camry",
@@ -63,6 +65,7 @@ async def test_calendar_uses_one_bounded_projection_and_business_date() -> None:
     assert calendar.jobs[0].job_id == job_id
     assert calendar.jobs[0].local_date == date(2026, 8, 31)
     assert calendar.jobs[0].team_short_name is None
+    assert not calendar.jobs[0].can_replace
 
 
 @pytest.mark.asyncio
@@ -162,3 +165,26 @@ async def test_final_reminder_check_rejects_reschedule_after_payload_render() ->
 
     with pytest.raises(StaleNotification, match="no longer current"):
         await ensure_reminder_current(factory, record.id, worker_id="worker-a")
+
+
+@pytest.mark.asyncio
+async def test_later_team_change_supersedes_reschedule_notice_for_same_time() -> None:
+    scheduled_start = datetime(2026, 11, 20, 6, tzinfo=UTC)
+    record = NotificationOutbox(
+        booking_id=uuid.uuid4(),
+        business_id=uuid.uuid4(),
+        notification_type="booking_rescheduled",
+        recipient="customer@example.com",
+        payload={"booking_version": 2, "scheduled_start": scheduled_start.isoformat()},
+    )
+    booking = SimpleNamespace(
+        business_id=record.business_id,
+        status=BookingStatus.CONFIRMED,
+        version=3,
+        scheduled_start=scheduled_start,
+    )
+    session = MagicMock()
+    session.get = AsyncMock(return_value=booking)
+
+    with pytest.raises(StaleNotification, match="no longer current"):
+        await delivery_payload(session, record, public_web_url="https://trifecta.example")

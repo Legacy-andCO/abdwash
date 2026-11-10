@@ -44,6 +44,7 @@ from app.services.idempotency import (
 )
 from app.services.invoices import managed_invoice
 from app.services.management_tokens import create_management_token
+from app.services.policy_acceptance import record_checkout_acceptance, require_policy_acceptance
 from app.services.reviews import (
     clear_guest_review_submission_attempt,
     consume_guest_review_submission_attempt,
@@ -212,7 +213,9 @@ async def booking(
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=255)],
 ) -> BookingResponse:
     scope = str(identity.user_id) if identity else "public"
-    request_hash = canonical_request_hash(request.model_dump(mode="json"))
+    # Existing keys created before policy acceptance was introduced keep their original hash.
+    exclude = {"policy_acceptance"} if request.policy_acceptance is None else set()
+    request_hash = canonical_request_hash(request.model_dump(mode="json", exclude=exclude))
     async with session.begin():
         existing = await find_idempotent_response(
             session,
@@ -227,9 +230,17 @@ async def booking(
                 raise RuntimeError("Booking idempotency record is missing its resource id")
             retry_response["management_token"] = create_management_token(existing.resource_id)
             return BookingResponse.model_validate(retry_response)
+        acceptance = require_policy_acceptance(request.policy_acceptance)
         response = await create_booking(session, request, identity)
         if response.business_id is None:
             raise RuntimeError("Created booking is missing its business")
+        record_checkout_acceptance(
+            session,
+            booking_id=response.id,
+            business_id=response.business_id,
+            auth_user_id=identity.user_id if identity else None,
+            acceptance=acceptance,
+        )
         await bump_sync_revisions(
             session, response.business_id, "jobs", "schedule", "finance", "customers"
         )

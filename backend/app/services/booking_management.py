@@ -128,8 +128,9 @@ async def request_booking_cancellation(
         raise ConflictError(
             "CANCELLATION_CUTOFF_PASSED",
             (
-                "Cancellation requests close "
-                f"{settings.cancellation_cutoff_hours} hours before service."
+                "Online cancellation requests close "
+                f"{settings.cancellation_cutoff_hours} hours before service. "
+                "Contact Trifecta for help with a later request."
             ),
         )
     cancellation = CancellationRequest(

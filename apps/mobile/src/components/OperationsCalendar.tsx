@@ -1,4 +1,5 @@
 import { webSheetStyle } from "./webSheetStyle";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   Modal,
@@ -9,23 +10,29 @@ import {
   View,
 } from "react-native";
 import { calendarDays, jobsByDate, monthWindow, shiftMonth } from "../calendar/calendarState";
+import { operationalScope } from "../cache/policy";
 import { useJobCalendarQuery } from "../queries/operations";
 import type { CalendarJob, StaffContext } from "../lib";
 import { colors, radii, spacing } from "../theme";
 import { AppButton, EmptyState, Skeleton, StatusChip, uiStyles } from "./ui";
+import { CalendarBookingSheet } from "./CalendarBookingSheet";
 import { domainErrorMessage } from "../errors/domainErrors";
 import { formatUaeTime, uaeDateKey } from "../time/uaeTime";
 
 export function OperationsCalendar({
   context,
   onOpenJob,
+  onOpenRescheduling,
 }: {
   context: StaffContext;
   onOpenJob: (jobId: string) => void;
+  onOpenRescheduling?: () => void;
 }) {
   const today = uaeDateKey();
+  const client = useQueryClient();
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [booking, setBooking] = useState<{ date: string; replacement: CalendarJob | null } | null>(null);
   const range = useMemo(() => monthWindow(month), [month]);
   const query = useJobCalendarQuery(context, range.start, range.end);
   const jobs = query.data?.jobs ?? [];
@@ -41,8 +48,15 @@ export function OperationsCalendar({
     timeZone: "UTC",
   });
 
+  function openBooking(day: string, replacement: CalendarJob | null = null) {
+    setSelectedDate(null);
+    setBooking({ date: day < today ? today : day, replacement });
+  }
+
   return (
     <View>
+      <AppButton title="+ Book a Wash" onPress={() => openBooking(today)} />
+      {onOpenRescheduling && <AppButton title="Needs reschedule" tone="secondary" onPress={onOpenRescheduling} />}
       <View style={styles.toolbar}>
         <Pressable accessibilityLabel="Previous month" onPress={() => setMonth(shiftMonth(month, -1))}>
           <Text style={uiStyles.link}>←</Text>
@@ -134,16 +148,50 @@ export function OperationsCalendar({
               <Pressable onPress={() => setSelectedDate(null)}><Text style={uiStyles.link}>Close</Text></Pressable>
             </View>
             <ScrollView>
+              {selectedDate && selectedDate >= today && (
+                <AppButton title="+ Book a Wash on this date" tone="secondary" onPress={() => openBooking(selectedDate)} />
+              )}
               {agenda.length ? agenda.map((job) => (
-                <AgendaRow key={job.job_id} job={job} onPress={() => {
-                  setSelectedDate(null);
-                  onOpenJob(job.job_id);
-                }} />
+                <View key={job.job_id}>
+                  <AgendaRow job={job} onPress={() => {
+                    setSelectedDate(null);
+                    onOpenJob(job.job_id);
+                  }} />
+                  {job.can_replace && job.version && (
+                    <AppButton
+                      title={`Replace existing appointment · ${formatUaeTime(job.scheduled_start)}`}
+                      tone="secondary"
+                      onPress={() => openBooking(job.local_date, job)}
+                    />
+                  )}
+                </View>
               )) : <Text style={uiStyles.muted}>No scheduled jobs.</Text>}
             </ScrollView>
           </View>
         </View>
       </Modal>
+      {booking && (
+        <CalendarBookingSheet
+          context={context}
+          initialDate={booking.date}
+          replacement={booking.replacement}
+          onClose={() => setBooking(null)}
+          onBooked={(_jobId, date) => {
+            setMonth(date.slice(0, 7));
+            const scope = operationalScope(context);
+            if (booking.replacement && context.role === "employee") {
+              const displacedId = booking.replacement.job_id;
+              client.removeQueries({ queryKey: ["job", scope, displacedId] });
+              client.setQueriesData<{ jobs: { id: string }[] }>({ queryKey: ["jobs", scope] }, (cached) =>
+                cached ? { ...cached, jobs: cached.jobs.filter((item) => item.id !== displacedId) } : cached,
+              );
+            }
+            for (const key of ["calendar", "jobs", "dashboard", "calendar-booking-availability"]) {
+              void client.invalidateQueries({ queryKey: [key, scope] });
+            }
+          }}
+        />
+      )}
     </View>
   );
 }

@@ -24,6 +24,7 @@ import {
   getAttendance,
   getAttendanceOverview,
   getAvailability,
+  getRescheduleOptions,
   getCancellations,
   getCoupons,
   getDashboard,
@@ -127,7 +128,7 @@ import {
   type TeamAssignmentOption,
 } from "../lib";
 import { ApiError } from "../errors/domainErrors";
-import { uaeAppointmentParts, uaeDateKey } from "../time/uaeTime";
+import { uaeDateKey } from "../time/uaeTime";
 import {
   cacheTimes,
   operationalScope,
@@ -154,7 +155,7 @@ export function useJobsQuery(
     queryFn: ({ signal }) => getJobs(filters, signal),
     staleTime: cacheTimes.jobs,
     enabled,
-    meta: persistedQueryMeta(retentionTimes.jobs),
+    meta: filters.view === "rescheduling" ? undefined : persistedQueryMeta(retentionTimes.jobs),
   });
 }
 
@@ -1452,6 +1453,17 @@ export function useAssignJobMutation(context: StaffContext) {
   });
 }
 
+export function useRescheduleOptionsQuery(
+  context: StaffContext, bookingId: string, date: string, time: string, enabled: boolean,
+) {
+  const scope = operationalScope(context);
+  return useQuery({
+    queryKey: ["reschedule-options", scope, bookingId, date, time],
+    queryFn: ({ signal }) => getRescheduleOptions(bookingId, date, time, signal),
+    enabled: enabled && Boolean(date && time),
+  });
+}
+
 export function useRescheduleMutation(context: StaffContext, job: Job) {
   const client = useQueryClient();
   const scope = operationalScope(context);
@@ -1462,19 +1474,32 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
       startTime,
       confirmActiveReschedule,
       overrideTurnaround,
+      teamId,
+      expectedVersion,
+      reason,
     }: {
       selectedDay: string;
       startTime: string;
       confirmActiveReschedule: boolean;
       overrideTurnaround?: boolean;
+      teamId: string | null;
+      expectedVersion: number;
+      reason: string;
     }) => {
-      const key = `${job.id}:reschedule:${selectedDay}:${startTime}:${confirmActiveReschedule}:${Boolean(overrideTurnaround)}`;
+      const key = JSON.stringify([
+        job.id, selectedDay, startTime, confirmActiveReschedule, Boolean(overrideTurnaround),
+        teamId, expectedVersion, reason,
+      ]);
       try {
         const result = await rescheduleJob(job.booking_id, {
           date: selectedDay,
           time: startTime,
           confirm_active_reschedule: confirmActiveReschedule,
           override_turnaround: Boolean(overrideTurnaround),
+          team_id: teamId,
+          auto_assign: teamId === null,
+          expected_version: expectedVersion,
+          reason,
           client_event_id: eventIds.get(key),
         });
         eventIds.succeeded(key);
@@ -1482,16 +1507,6 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
       } catch (error) {
         eventIds.failed(key, error);
         if (isUncertainMutationFailure(error)) {
-          try {
-            const authoritative = await getJob(job.id);
-            const current = uaeAppointmentParts(authoritative.scheduled_start);
-            if (current.date === selectedDay && current.time === startTime) {
-              eventIds.succeeded(key);
-              return authoritative;
-            }
-          } catch {
-            // The original uncertain result remains authoritative until a retry.
-          }
           throw new ApiError(
             "RESCHEDULE_UNCONFIRMED",
             0,
@@ -1506,6 +1521,9 @@ export function useRescheduleMutation(context: StaffContext, job: Job) {
       updateJobCaches(client, scope, next, context.timezone);
       void client.invalidateQueries({ queryKey: ["jobs", scope] });
       void client.invalidateQueries({ queryKey: ["dashboard", scope] });
+      void client.invalidateQueries({ queryKey: ["calendar", scope] });
+      void client.invalidateQueries({ queryKey: ["communications", scope, next.id] });
+      void client.invalidateQueries({ queryKey: ["calendar-booking-availability", scope] });
       void client.invalidateQueries({
         queryKey: queryKeys.assignmentOptions(scope, next.id),
       });

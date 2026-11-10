@@ -1,7 +1,8 @@
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as WallTime
 from zoneinfo import ZoneInfo
 
 import structlog
@@ -14,6 +15,7 @@ from app.domain.errors import ConflictError, DomainError
 from app.domain.scheduling import SlotWindow, cancellation_allowed
 from app.domain.service_scheduling import enforce_customer_start_time
 from app.models.entities import (
+    AuditEvent,
     Booking,
     BookingService,
     BookingServiceAddon,
@@ -24,7 +26,6 @@ from app.models.entities import (
     Job,
     JobEvent,
     ScheduleSlot,
-    SlotHoldGroup,
 )
 from app.repositories.business import load_default_business
 from app.schemas.customer import (
@@ -38,14 +39,25 @@ from app.schemas.customer import (
     ManagerRescheduleCreate,
 )
 from app.schemas.public import BookingVehicleSummary
+from app.schemas.staff import TeamAssignmentOption
 from app.services.booking_snapshots import vehicle_summaries_from_rows
 from app.services.customer_communications import (
     discard_unsent_appointment_reminders,
     queue_customer_email_if_available,
 )
 from app.services.customer_profiles import load_customer_profile
-from app.services.scheduling import _lock_slot_sequence, hold_token_hash, policy_for_day
-from app.services.smart_scheduling import choose_team_for_booking, lock_schedule_day
+from app.services.idempotency import canonical_request_hash
+from app.services.scheduling import (
+    _lock_slot_sequence,
+    _slot_blocks,
+    lock_hold_for_confirmation,
+    policy_for_day,
+)
+from app.services.smart_scheduling import (
+    choose_team_for_booking,
+    evaluate_teams_for_interval,
+    lock_schedule_day,
+)
 
 logger = structlog.get_logger()
 
@@ -117,6 +129,13 @@ async def customer_context(
 
 
 def map_customer_status(booking_status: str, job_status: str | None) -> CustomerBookingStatus:
+    if booking_status == BookingStatus.RESCHEDULING_REQUIRED:
+        return CustomerBookingStatus(
+            key="rescheduling_required",
+            label="Rescheduling required",
+            stage=0,
+            job_status=job_status,
+        )
     if booking_status == BookingStatus.CANCELLED or job_status == JobStatus.CANCELLED:
         return CustomerBookingStatus(
             key="cancelled", label="Cancelled", stage=0, job_status=job_status
@@ -184,7 +203,9 @@ def _summary(
 ) -> CustomerBookingSummary:
     if booking.status == BookingStatus.CANCELLED:
         category = "cancelled"
-    elif booking.status == BookingStatus.COMPLETED or booking.scheduled_end < datetime.now(UTC):
+    elif booking.status != BookingStatus.RESCHEDULING_REQUIRED and (
+        booking.status == BookingStatus.COMPLETED or booking.scheduled_end < datetime.now(UTC)
+    ):
         category = "past"
     else:
         category = "upcoming"
@@ -231,10 +252,13 @@ async def list_customer_bookings(
             .order_by(
                 case(
                     (
-                        and_(
-                            Booking.scheduled_end >= datetime.now(UTC),
-                            Booking.status.notin_(
-                                [BookingStatus.CANCELLED, BookingStatus.COMPLETED]
+                        or_(
+                            Booking.status == BookingStatus.RESCHEDULING_REQUIRED,
+                            and_(
+                                Booking.scheduled_end >= datetime.now(UTC),
+                                Booking.status.notin_(
+                                    [BookingStatus.CANCELLED, BookingStatus.COMPLETED]
+                                ),
                             ),
                         ),
                         0,
@@ -388,9 +412,7 @@ async def reschedule_customer_booking(
             .with_for_update()
         )
     ).one()
-    job = (
-        await session.scalars(select(Job).where(Job.booking_id == booking.id).with_for_update())
-    ).one()
+    job = await _lock_reschedulable_job(session, booking.id)
     _cancellation_eligible, reschedule_eligible = _action_eligibility(booking, settings, job.status)
     if not reschedule_eligible:
         raise ConflictError(
@@ -414,13 +436,29 @@ async def reschedule_managed_booking(
     *,
     actor_staff_id: uuid.UUID,
     confirm_active_reschedule: bool,
+    actor_auth_user_id: uuid.UUID | None = None,
     request_id: str | None = None,
 ) -> CustomerBookingDetail:
-    job = (
-        await session.scalars(select(Job).where(Job.booking_id == booking.id).with_for_update())
-    ).one()
+    job = await _lock_reschedulable_job(session, booking.id)
     trace = _RescheduleTrace.start(request_id=request_id, booking_id=booking.id, job_id=job.id)
     trace.mark("job_locked")
+    if isinstance(request, ManagerRescheduleCreate) and request.client_event_id:
+        duplicate = await session.scalar(
+            select(JobEvent).where(
+                JobEvent.job_id == job.id,
+                JobEvent.client_event_id == request.client_event_id,
+            )
+        )
+        if duplicate is not None:
+            previous_hash = duplicate.metadata_json.get("request_hash")
+            if duplicate.event_type != "booking_rescheduled" or (
+                previous_hash
+                and previous_hash != canonical_request_hash(request.model_dump(mode="json"))
+            ):
+                raise ConflictError(
+                    "IDEMPOTENCY_CONFLICT", "This reschedule request has already been used."
+                )
+            return await customer_booking_detail_for_record(session, booking)
     if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED} or booking.status in {
         BookingStatus.COMPLETED,
         BookingStatus.CANCELLED,
@@ -442,9 +480,12 @@ async def reschedule_managed_booking(
             job,
             request,
             actor_staff_id=actor_staff_id,
+            actor_auth_user_id=actor_auth_user_id,
             reset_active_state=active,
             trace=trace,
         )
+    if booking.status == BookingStatus.RESCHEDULING_REQUIRED:
+        raise ConflictError("EXACT_RESCHEDULE_REQUIRED", "Select a new date, time and team.")
     legacy_request = (
         CustomerRescheduleCreate(hold_token=request.hold_token)
         if isinstance(request, ManagerRescheduleCreate)
@@ -459,6 +500,19 @@ async def reschedule_managed_booking(
         actor_staff_id=actor_staff_id,
         reset_active_state=active,
     )
+
+
+async def _lock_reschedulable_job(session: AsyncSession, booking_id: uuid.UUID) -> Job:
+    job = (
+        await session.scalars(
+            select(Job).where(Job.booking_id == booking_id).with_for_update(skip_locked=True)
+        )
+    ).one_or_none()
+    if job is None:
+        raise ConflictError(
+            "JOB_UNAVAILABLE", "The job is unavailable or changing. Refresh and retry."
+        )
+    return job
 
 
 def _queue_reschedule_notification(
@@ -479,6 +533,7 @@ def _queue_reschedule_notification(
         recipient=booking.customer_email,
         payload={
             "booking_reference": booking.reference,
+            "booking_version": booking.version,
             "previous_start": previous_start.isoformat(),
             "scheduled_start": scheduled_start.isoformat(),
         },
@@ -493,19 +548,16 @@ async def _reschedule_managed_exact(
     request: ManagerRescheduleCreate,
     *,
     actor_staff_id: uuid.UUID,
+    actor_auth_user_id: uuid.UUID | None,
     reset_active_state: bool,
     trace: _RescheduleTrace,
 ) -> CustomerBookingDetail:
     if request.date is None or request.time is None or request.client_event_id is None:
         raise DomainError("INVALID_RESCHEDULE_TIME", "Select a date and time.")
-    duplicate = await session.scalar(
-        select(JobEvent.id).where(
-            JobEvent.job_id == job.id,
-            JobEvent.client_event_id == request.client_event_id,
+    if request.expected_version is not None and job.version != request.expected_version:
+        raise ConflictError(
+            "JOB_VERSION_CONFLICT", "The appointment changed. Refresh and review it."
         )
-    )
-    if duplicate is not None:
-        return await customer_booking_detail_for_record(session, booking)
 
     settings = (
         await session.scalars(
@@ -514,30 +566,21 @@ async def _reschedule_managed_exact(
     ).one()
     trace.mark("settings_loaded")
     zone = ZoneInfo(settings.timezone)
-    scheduled_start = datetime.combine(request.date, request.time, zone).astimezone(UTC)
+    scheduled_start, scheduled_end, expected_minutes = await _manager_schedule_interval(
+        session, settings, job, request.date, request.time
+    )
     trace.mark("uae_wall_time_converted")
     now = datetime.now(UTC)
-    if scheduled_start <= now:
+    for day in sorted({request.date, booking.scheduled_start.astimezone(zone).date()}):
+        await lock_schedule_day(session, business_id=booking.business_id, day=day)
+    if scheduled_start <= datetime.now(UTC):
         raise ConflictError("RESCHEDULE_TIME_PASSED", "Choose a future appointment time.")
-    expected_minutes = job.expected_duration_minutes or max(
-        15, int((job.scheduled_end - job.scheduled_start).total_seconds() // 60)
-    )
-    scheduled_end = scheduled_start + timedelta(minutes=expected_minutes)
-    policy = await policy_for_day(session, settings, request.date)
-    if policy is None:
-        raise ConflictError("BUSINESS_CLOSED", "Trifecta is closed on that date.")
-    opening = datetime.combine(request.date, policy.opening_time, zone).astimezone(UTC)
-    closing = datetime.combine(request.date, policy.closing_time, zone).astimezone(UTC)
-    if scheduled_start < opening or scheduled_end > closing:
-        raise ConflictError(
-            "OUTSIDE_OPERATING_HOURS",
-            "Choose a time that fits within the configured operating hours.",
-        )
-
-    await lock_schedule_day(session, business_id=booking.business_id, day=request.date)
     trace.mark("schedule_day_lock_acquired")
-    manual = job.assignment_source == "manual"
-    if manual and job.assigned_resource_id is None:
+    manual = request.team_id is not None or (
+        job.assignment_source == "manual" and not request.auto_assign
+    )
+    preferred_team_id = request.team_id or (job.assigned_resource_id if manual else None)
+    if manual and preferred_team_id is None:
         raise ConflictError(
             "BOOKING_ASSIGNMENT_CHANGED",
             "The manual team assignment must be reviewed before rescheduling.",
@@ -552,10 +595,20 @@ async def _reschedule_managed_exact(
         ends_at=scheduled_end,
         turnaround_minutes=settings.default_team_turnaround_minutes,
         source="manual" if manual else "auto",
-        preferred_team_id=job.assigned_resource_id if manual else None,
+        preferred_team_id=preferred_team_id,
         override_turnaround=request.override_turnaround if manual else False,
         exclude_job_id=job.id,
+        include_blocked_slots=True,
     )
+    if (
+        request.expected_version is not None
+        and not reset_active_state
+        and booking.status != BookingStatus.RESCHEDULING_REQUIRED
+        and scheduled_start == booking.scheduled_start
+        and scheduled_end == booking.scheduled_end
+        and decision.team.id == job.assigned_resource_id
+    ):
+        raise ConflictError("RESCHEDULE_UNCHANGED", "Choose a different appointment time or team.")
     trace.mark("scheduler_completed")
     trace.mark("old_slots_started")
     old_slots = list(
@@ -568,7 +621,8 @@ async def _reschedule_managed_exact(
             )
         ).all()
     )
-    if not old_slots:
+    displaced = booking.status == BookingStatus.RESCHEDULING_REQUIRED
+    if (not old_slots and not displaced) or (old_slots and displaced):
         raise ConflictError(
             "BOOKING_SLOT_CONFLICT",
             "The existing booking schedule could not be changed safely.",
@@ -600,19 +654,29 @@ async def _reschedule_managed_exact(
 
     previous_start = booking.scheduled_start
     previous_end = booking.scheduled_end
+    previous_resource_id = booking.resource_id
+    previous_staff_id = job.assigned_staff_id
     trace.mark("stale_reminders_started")
     await discard_unsent_appointment_reminders(session, booking.id)
     trace.mark("stale_reminders_completed")
     booking.resource_id = decision.team.id
     booking.scheduled_start = scheduled_start
     booking.scheduled_end = scheduled_end
+    if displaced:
+        booking.status = BookingStatus.CONFIRMED
     booking.version += 1
     trace.mark("booking_updated")
     job.scheduled_start = scheduled_start
     job.scheduled_end = scheduled_end
     job.expected_duration_minutes = expected_minutes
+    if decision.team.id != job.assigned_resource_id or displaced:
+        job.assigned_staff_id = None
     job.assigned_resource_id = decision.team.id
-    if not manual:
+    if request.team_id is not None:
+        job.assignment_source = "manual"
+        job.assigned_at = now
+        job.assigned_by_staff_id = actor_staff_id
+    elif not manual:
         job.assignment_source = "auto"
         job.assigned_at = now
         job.assigned_by_staff_id = None
@@ -626,6 +690,21 @@ async def _reschedule_managed_exact(
     job.version += 1
     trace.mark("job_updated")
     event_id = uuid.uuid4()
+    metadata = {
+        "previous_start": previous_start.isoformat(),
+        "previous_end": previous_end.isoformat(),
+        "scheduled_start": scheduled_start.isoformat(),
+        "scheduled_end": scheduled_end.isoformat(),
+        "previous_team_id": str(previous_resource_id),
+        "team_id": str(decision.team.id),
+        "previous_staff_id": str(previous_staff_id) if previous_staff_id else None,
+        "source": "staff_override",
+        "assignment_source": job.assignment_source,
+        "active_state_reset": reset_active_state,
+        "turnaround_overridden": request.override_turnaround and manual,
+        "resolved_displacement": displaced,
+        "reason": request.reason,
+    }
     session.add(
         JobEvent(
             id=event_id,
@@ -635,14 +714,19 @@ async def _reschedule_managed_exact(
             event_type="booking_rescheduled",
             client_event_id=request.client_event_id,
             metadata_json={
-                "previous_start": previous_start.isoformat(),
-                "previous_end": previous_end.isoformat(),
-                "scheduled_start": scheduled_start.isoformat(),
-                "scheduled_end": scheduled_end.isoformat(),
-                "source": "staff_override",
-                "assignment_source": job.assignment_source,
-                "active_state_reset": reset_active_state,
+                **metadata,
+                "request_hash": canonical_request_hash(request.model_dump(mode="json")),
             },
+        )
+    )
+    session.add(
+        AuditEvent(
+            business_id=booking.business_id,
+            actor_auth_user_id=actor_auth_user_id,
+            event_type="manager_appointment_rescheduled",
+            entity_type="booking",
+            entity_id=booking.id,
+            metadata_json={**metadata, "actor_staff_id": str(actor_staff_id)},
         )
     )
     _queue_reschedule_notification(
@@ -661,6 +745,95 @@ async def _reschedule_managed_exact(
     return result
 
 
+async def _manager_schedule_interval(
+    session: AsyncSession, settings: BusinessSettings, job: Job, day: date, start_time: WallTime
+) -> tuple[datetime, datetime, int]:
+    if start_time.tzinfo is not None:
+        raise DomainError("INVALID_RESCHEDULE_TIME", "Enter a local appointment time.")
+    zone = ZoneInfo(settings.timezone)
+    start = datetime.combine(day, start_time, zone).astimezone(UTC)
+    if start <= datetime.now(UTC):
+        raise ConflictError("RESCHEDULE_TIME_PASSED", "Choose a future appointment time.")
+    minutes = job.expected_duration_minutes or max(
+        15, int((job.scheduled_end - job.scheduled_start).total_seconds() // 60)
+    )
+    end = start + timedelta(minutes=minutes)
+    policy = await policy_for_day(session, settings, day)
+    if policy is None:
+        raise ConflictError("BUSINESS_CLOSED", "Trifecta is closed on that date.")
+    if start < datetime.combine(day, policy.opening_time, zone) or end > datetime.combine(
+        day, policy.closing_time, zone
+    ):
+        raise ConflictError(
+            "OUTSIDE_OPERATING_HOURS", "Choose a time that fits within the operating hours."
+        )
+    return start, end, minutes
+
+
+async def manager_reschedule_options(
+    session: AsyncSession,
+    booking_id: uuid.UUID,
+    business_id: uuid.UUID,
+    day: date,
+    start_time: WallTime,
+) -> list[TeamAssignmentOption]:
+    job = await session.scalar(
+        select(Job)
+        .join(Booking, Booking.id == Job.booking_id)
+        .where(
+            Job.booking_id == booking_id,
+            Job.business_id == business_id,
+            Booking.business_id == business_id,
+        )
+    )
+    if job is None:
+        raise DomainError("BOOKING_NOT_FOUND", "Booking not found.", status_code=404)
+    if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED}:
+        raise ConflictError("RESCHEDULE_NOT_AVAILABLE", "This appointment cannot be rescheduled.")
+    settings = (
+        await session.scalars(
+            select(BusinessSettings).where(BusinessSettings.business_id == business_id)
+        )
+    ).one()
+    start, end, _ = await _manager_schedule_interval(session, settings, job, day, start_time)
+    evaluations = await evaluate_teams_for_interval(
+        session,
+        business_id=business_id,
+        day=day,
+        timezone=settings.timezone,
+        starts_at=start,
+        ends_at=end,
+        turnaround_minutes=settings.default_team_turnaround_minutes,
+        exclude_job_id=job.id,
+        include_blocked_slots=True,
+    )
+    slots = (
+        await session.scalars(
+            select(ScheduleSlot).where(
+                ScheduleSlot.business_id == business_id,
+                ScheduleSlot.slot_start == start,
+            )
+        )
+    ).all()
+    now = datetime.now(UTC)
+    blocked = {
+        slot.resource_id
+        for slot in slots
+        if slot.booking_id != booking_id and _slot_blocks(slot, now)
+    }
+    return [
+        TeamAssignmentOption(
+            team_id=item.team.id,
+            team_name=item.team.name,
+            status="time_conflict" if item.team.id in blocked else item.status,
+            reason="This slot is reserved or blocked." if item.team.id in blocked else item.reason,
+            same_day_job_count=item.same_day_job_count,
+            assigned_minutes=item.assigned_minutes,
+        )
+        for item in evaluations
+    ]
+
+
 async def _reschedule_booking(
     session: AsyncSession,
     booking: Booking,
@@ -671,16 +844,22 @@ async def _reschedule_booking(
     actor_staff_id: uuid.UUID | None,
     reset_active_state: bool,
 ) -> CustomerBookingDetail:
-    now = datetime.now(UTC)
-    hold = (
+    settings = (
         await session.scalars(
-            select(SlotHoldGroup)
-            .where(SlotHoldGroup.token_hash == hold_token_hash(request.hold_token))
-            .with_for_update()
+            select(BusinessSettings).where(BusinessSettings.business_id == booking.business_id)
         )
-    ).one_or_none()
-    if hold is None or hold.business_id != booking.business_id:
+    ).one()
+    zone = ZoneInfo(settings.timezone)
+    hold = await lock_hold_for_confirmation(
+        session,
+        request.hold_token,
+        business_id=booking.business_id,
+        timezone=settings.timezone,
+        previous_day=booking.scheduled_start.astimezone(zone).date(),
+    )
+    if hold is None:
         raise DomainError("INVALID_HOLD", "The booking hold is invalid.")
+    now = datetime.now(UTC)
     if hold.status != HoldStatus.ACTIVE or hold.expires_at <= now:
         if hold.status == HoldStatus.ACTIVE:
             hold.status = HoldStatus.EXPIRED
@@ -690,13 +869,7 @@ async def _reschedule_booking(
             "HOLD_VEHICLE_COUNT_MISMATCH",
             "The hold was acquired for a different number of vehicles.",
         )
-    settings = (
-        await session.scalars(
-            select(BusinessSettings).where(BusinessSettings.business_id == booking.business_id)
-        )
-    ).one()
-    day = hold.slot_start.astimezone(ZoneInfo(settings.timezone)).date()
-    await lock_schedule_day(session, business_id=booking.business_id, day=day)
+    day = hold.slot_start.astimezone(zone).date()
     expected_minutes = job.expected_duration_minutes or max(
         15, int((job.scheduled_end - job.scheduled_start).total_seconds() // 60)
     )
@@ -709,9 +882,7 @@ async def _reschedule_booking(
     service_names = list(
         (
             await session.scalars(
-                select(BookingService.service_name).where(
-                    BookingService.booking_id == booking.id
-                )
+                select(BookingService.service_name).where(BookingService.booking_id == booking.id)
             )
         ).all()
     )

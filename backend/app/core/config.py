@@ -2,7 +2,7 @@ from email.utils import parseaddr
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import EmailStr, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     booking_management_signing_key: str = "development-only-trifecta-management-key"
     resend_api_key: str | None = None
     email_from: str | None = None
+    verified_complaints_inbox: EmailStr | None = None
     public_web_url: str | None = None
     outbox_dispatch_secret: str | None = None
     google_routes_api_key: str | None = None

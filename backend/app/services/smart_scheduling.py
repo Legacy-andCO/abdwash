@@ -21,7 +21,7 @@ import structlog
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import HoldStatus, JobStatus, LeaveStatus
+from app.domain.enums import HoldStatus, JobStatus, LeaveStatus, SlotStatus
 from app.domain.errors import ConflictError, DomainError
 from app.models.entities import (
     BookingService,
@@ -29,6 +29,7 @@ from app.models.entities import (
     Job,
     LeaveRequest,
     ScheduleResource,
+    ScheduleSlot,
     Service,
     ServiceAddon,
     SlotHoldGroup,
@@ -51,7 +52,7 @@ class CapacityItem:
     resource_id: uuid.UUID
     starts_at: datetime
     ends_at: datetime
-    source: Literal["job", "hold"]
+    source: Literal["job", "hold", "blocked"]
     source_id: uuid.UUID
 
     @property
@@ -294,6 +295,7 @@ async def load_capacity_items(
     timezone: str,
     exclude_job_id: uuid.UUID | None = None,
     exclude_hold_id: uuid.UUID | None = None,
+    include_blocked_slots: bool = False,
 ) -> list[CapacityItem]:
     if not resource_ids:
         return []
@@ -320,26 +322,54 @@ async def load_capacity_items(
     if exclude_hold_id is not None:
         hold_statement = hold_statement.where(SlotHoldGroup.id != exclude_hold_id)
     holds = list((await session.scalars(hold_statement)).all())
-    return [
-        CapacityItem(
-            resource_id=job.assigned_resource_id,
-            starts_at=job.scheduled_start,
-            ends_at=job.scheduled_end,
-            source="job",
-            source_id=job.id,
-        )
-        for job in jobs
-        if job.assigned_resource_id is not None
-    ] + [
-        CapacityItem(
-            resource_id=hold.resource_id,
-            starts_at=hold.slot_start,
-            ends_at=hold.slot_end,
-            source="hold",
-            source_id=hold.id,
-        )
-        for hold in holds
-    ]
+    blocks = (
+        (
+            await session.scalars(
+                select(ScheduleSlot).where(
+                    ScheduleSlot.business_id == business_id,
+                    ScheduleSlot.resource_id.in_(resource_ids),
+                    ScheduleSlot.status == SlotStatus.BLOCKED,
+                    ScheduleSlot.slot_start < day_end,
+                    ScheduleSlot.slot_end > day_start,
+                )
+            )
+        ).all()
+        if include_blocked_slots
+        else []
+    )
+    return (
+        [
+            CapacityItem(
+                resource_id=job.assigned_resource_id,
+                starts_at=job.scheduled_start,
+                ends_at=job.scheduled_end,
+                source="job",
+                source_id=job.id,
+            )
+            for job in jobs
+            if job.assigned_resource_id is not None
+        ]
+        + [
+            CapacityItem(
+                resource_id=hold.resource_id,
+                starts_at=hold.slot_start,
+                ends_at=hold.slot_end,
+                source="hold",
+                source_id=hold.id,
+            )
+            for hold in holds
+        ]
+        + [
+            CapacityItem(
+                resource_id=slot.resource_id,
+                starts_at=slot.slot_start,
+                ends_at=slot.slot_end,
+                source="blocked",
+                source_id=slot.id,
+            )
+            for slot in blocks
+        ]
+    )
 
 
 def evaluate_team(
@@ -355,11 +385,16 @@ def evaluate_team(
     )
     same_day_job_count = sum(item.source == "job" for item in own)
     assigned_minutes = sum(item.duration_minutes for item in own if item.source == "job")
-    if any(item.starts_at < ends_at and item.ends_at > starts_at for item in own):
+    overlap = next(
+        (item for item in own if item.starts_at < ends_at and item.ends_at > starts_at), None
+    )
+    if overlap is not None:
         return TeamEvaluation(
             team,
             "time_conflict",
-            "Conflicting job or active hold",
+            "Blocked schedule interval"
+            if overlap.source == "blocked"
+            else "Conflicting job or active hold",
             same_day_job_count,
             assigned_minutes,
             0,
@@ -432,6 +467,7 @@ async def evaluate_teams_for_interval(
     turnaround_minutes: int,
     exclude_job_id: uuid.UUID | None = None,
     exclude_hold_id: uuid.UUID | None = None,
+    include_blocked_slots: bool = False,
 ) -> list[TeamEvaluation]:
     teams = await get_eligible_teams(session, business_id=business_id, day=day)
     items = await load_capacity_items(
@@ -442,6 +478,7 @@ async def evaluate_teams_for_interval(
         timezone=timezone,
         exclude_job_id=exclude_job_id,
         exclude_hold_id=exclude_hold_id,
+        include_blocked_slots=include_blocked_slots,
     )
     return [
         evaluate_team(
@@ -469,6 +506,7 @@ async def choose_team_for_booking(
     override_turnaround: bool = False,
     exclude_job_id: uuid.UUID | None = None,
     exclude_hold_id: uuid.UUID | None = None,
+    include_blocked_slots: bool = False,
 ) -> AssignmentDecision:
     started = time.perf_counter()
     evaluations = await evaluate_teams_for_interval(
@@ -481,6 +519,7 @@ async def choose_team_for_booking(
         turnaround_minutes=turnaround_minutes,
         exclude_job_id=exclude_job_id,
         exclude_hold_id=exclude_hold_id,
+        include_blocked_slots=include_blocked_slots,
     )
     chosen: TeamEvaluation | None = None
     if preferred_team_id is not None:

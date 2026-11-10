@@ -25,6 +25,7 @@ import {
 import { DatePickerField, TimePickerField, toIsoDate } from "../components/pickers";
 import { ElapsedTimer } from "../components/ElapsedTimer";
 import { JobQualityControls } from "../components/JobQualityControls";
+import { BookingPolicyProvision } from "../components/BookingPolicyProvision";
 import { CashTenderModal } from "../components/CashTenderModal";
 import { OperationsCalendar } from "../components/OperationsCalendar";
 import { ApiError, domainErrorMessage } from "../errors/domainErrors";
@@ -61,6 +62,7 @@ import {
   useJobsQuery,
   useNotifyCustomerDelayMutation,
   useRescheduleMutation,
+  useRescheduleOptionsQuery,
   useStaffQuery,
 } from "../queries/operations";
 import {
@@ -86,6 +88,7 @@ export type JobView =
   | "upcoming"
   | "history"
   | "unassigned"
+  | "rescheduling"
   | "all"
   | "calendar";
 export type JobsNavigationState = { view: JobView; offset: number };
@@ -108,7 +111,7 @@ export function JobsScreen({
 }) {
   const canManage = capabilities(context.role).canViewAllJobs;
   const views: JobView[] = canManage
-    ? ["today", "upcoming", "unassigned", "history", "all", "calendar"]
+    ? ["today", "upcoming", "unassigned", "rescheduling", "history", "all", "calendar"]
     : ["today", "upcoming", "history", "calendar"];
   const [view, setView] = useState<JobView>(navigationState.view);
   const [offset, setOffset] = useState(navigationState.offset);
@@ -205,6 +208,7 @@ export function JobsScreen({
         <OperationsCalendar
           context={context}
           onOpenJob={setSelectedCalendarJobId}
+          onOpenRescheduling={canManage ? () => updateNavigation({ view: "rescheduling", offset: 0 }) : undefined}
         />
       </ScrollView>
     );
@@ -359,12 +363,15 @@ function JobCard({ job }: { job: Job }) {
   return (
     <Card>
       <View style={uiStyles.row}>
-        <Text style={styles.time}>{formatTime(job.scheduled_start)}</Text>
+        <Text style={styles.time}>
+          {job.status === "rescheduling_required" ? "Previous · " : ""}
+          {formatTime(job.scheduled_start)}
+        </Text>
         <StatusChip value={job.status} />
       </View>
       <Text style={styles.vehicle}>
         {job.vehicles[0]
-          ? `${job.vehicles[0].make} ${job.vehicles[0].model}`
+          ? `${job.vehicles[0].make} ${job.vehicles[0].model}`.trim() || "Vehicle"
           : job.customer_name}
       </Text>
       <Text style={uiStyles.body}>
@@ -542,6 +549,10 @@ function JobDetail({
       );
     }
   }
+  if (query.error instanceof ApiError && [403, 404].includes(query.error.status)) {
+    return <EmptyState title="Job unavailable" body="This appointment is no longer available to you."
+      action={<AppButton title="Back" onPress={onBack} />} />;
+  }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <Pressable onPress={onBack}>
@@ -568,7 +579,7 @@ function JobDetail({
       </View>
       <Text style={styles.heroVehicle}>
         {job.vehicles[0]
-          ? `${job.vehicles[0].make} ${job.vehicles[0].model}`
+          ? `${job.vehicles[0].make} ${job.vehicles[0].model}`.trim() || job.booking_reference
           : job.booking_reference}
       </Text>
       <Text style={uiStyles.muted}>{job.vehicles[0]?.service_name}</Text>
@@ -577,6 +588,7 @@ function JobDetail({
           <AppButton
             title="Navigate"
             tone="secondary"
+            disabled={job.status === "rescheduling_required"}
             onPress={() => void Linking.openURL(job.location_url)}
           />
         </View>
@@ -591,10 +603,12 @@ function JobDetail({
           <AppButton
             title="Email"
             tone="secondary"
+            disabled={!job.customer_email}
             onPress={() => void Linking.openURL(customerEmailUrl(job.customer_email))}
           />
         </View>
       </View>
+      {canManageJob && <BookingPolicyProvision key={job.booking_id} context={context} job={job} />}
       {qualityEnabled ? (
         <JobQualityControls
           context={context}
@@ -745,6 +759,12 @@ function JobDetail({
       />
       {canManageJob ? (
         <Card>
+          {job.status === "rescheduling_required" && (
+            <Text style={uiStyles.error}>The original time was released. Contact the customer and agree on a new time.</Text>
+          )}
+          {job.payment_review_required && (
+            <Text style={uiStyles.error}>Payment review flagged on displacement. Review the original payment or deposit with the customer.</Text>
+          )}
           <View style={uiStyles.row}>
             <View>
               <Text style={styles.sectionTitle}>ASSIGNMENT</Text>
@@ -759,13 +779,16 @@ function JobDetail({
                 </Text>
               ) : null}
             </View>
-            <Pressable onPress={() => setAssignment(true)}>
-              <Text style={uiStyles.link}>Change</Text>
-            </Pressable>
+            {job.status !== "rescheduling_required" && (
+              <Pressable onPress={() => setAssignment(true)}>
+                <Text style={uiStyles.link}>Change</Text>
+              </Pressable>
+            )}
           </View>
           <AppButton
             title="Reschedule appointment"
             tone="secondary"
+            disabled={!job.version || ["completed", "cancelled"].includes(job.status)}
             onPress={() => setReschedule(true)}
           />
           {job.status === "assigned" || job.status === "en_route" ? (
@@ -949,12 +972,12 @@ function JobDetail({
             job={job}
             onClose={() => setAssignment(false)}
           />
-          <RescheduleSheet
+          {reschedule && <RescheduleSheet
             context={context}
-            visible={reschedule}
+            visible
             job={job}
             onClose={() => setReschedule(false)}
-          />
+          />}
           <DelayNotificationSheet
             visible={delayNotice}
             pending={delayMutation.isPending}
@@ -1302,8 +1325,21 @@ function RescheduleSheet({
   const [selectedDay, setSelectedDay] = useState(currentAppointment.date);
   const [selectedTime, setSelectedTime] = useState(currentAppointment.time);
   const [showCustomTime, setShowCustomTime] = useState(false);
+  const [expectedVersion] = useState(job.version);
+  const [teamId, setTeamId] = useState<string | null | undefined>(undefined);
+  const [reason, setReason] = useState("");
+  const [uncertain, setUncertain] = useState<{ active: boolean; override: boolean } | null>(null);
+  const submitting = useRef(false);
   const settings = useBusinessSettingsQuery(context, visible);
   const mutation = useRescheduleMutation(context, job);
+  const options = useRescheduleOptionsQuery(
+    context, job.booking_id, selectedDay, selectedTime, visible && !uncertain,
+  );
+  const selectedTeam = options.data?.find((team) => team.team_id === teamId);
+  const canAuto = Boolean(options.data?.some((team) => team.status === "available"));
+  const canConfirm = !options.isFetching && !options.isError && (
+    teamId === null ? canAuto : selectedTeam?.status === "available" || selectedTeam?.status === "turnaround_conflict"
+  );
   const dateChoices = upcomingDates(10);
   const weekday = (new Date(`${selectedDay}T12:00:00`).getDay() + 6) % 7;
   const operatingHour = settings.data?.operating_hours.find(
@@ -1326,22 +1362,37 @@ function RescheduleSheet({
     setSelectedDay(value);
     setSelectedTime("");
     setShowCustomTime(false);
+    setTeamId(undefined);
+  }
+  function changeTime(value: string) {
+    setSelectedTime(value);
+    setTeamId(undefined);
   }
   async function submit(
     confirmActiveReschedule: boolean,
     overrideTurnaround = false,
   ) {
-    if (!selectedTime || mutation.isPending) return;
+    if (!selectedTime || submitting.current || !expectedVersion || teamId === undefined) return;
+    submitting.current = true;
     try {
       await mutation.mutateAsync({
         selectedDay,
         startTime: selectedTime,
         confirmActiveReschedule,
         overrideTurnaround,
+        teamId,
+        expectedVersion,
+        reason,
       });
       await successHaptic();
       onClose();
     } catch (error) {
+      if (error instanceof ApiError && error.code === "RESCHEDULE_UNCONFIRMED") {
+        setUncertain({ active: confirmActiveReschedule, override: overrideTurnaround });
+        return;
+      }
+      setUncertain(null);
+      void options.refetch();
       if (
         error instanceof ApiError &&
         error.code === "TEAM_TURNAROUND_CONFLICT" &&
@@ -1368,6 +1419,8 @@ function RescheduleSheet({
           "That exact time is no longer operationally available. Choose another time and retry.",
         ),
       );
+    } finally {
+      submitting.current = false;
     }
   }
   function confirm() {
@@ -1375,19 +1428,25 @@ function RescheduleSheet({
       job.status === "en_route" ||
       job.status === "arrived" ||
       job.status === "in_progress";
-    if (!active) {
-      void submit(false);
-      return;
-    }
     Alert.alert(
-      "Reset active job?",
-      "This job has already started operationally. Rescheduling will reset its trip, ETA, and work timestamps.",
+      active ? "Reset and reschedule active job?" : "Confirm new appointment?",
+      `${selectedDay} · ${formatClockTime(selectedTime)} Abu Dhabi · ${selectedTeam?.team_name ?? "Auto-assign"}. ${active ? "The trip, ETA and work timestamps will reset. " : ""}The customer will receive an updated email if an address is on file.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Reset and reschedule",
-          style: "destructive",
-          onPress: () => void submit(true),
+          text: "Confirm reschedule",
+          onPress: () => {
+            if (selectedTeam?.status === "turnaround_conflict") {
+              Alert.alert(
+                "Override team turnaround?",
+                "This appointment leaves less than the configured travel or preparation time.",
+                [
+                  { text: "Go back", style: "cancel" },
+                  { text: "Override turnaround", style: "destructive", onPress: () => void submit(active, true) },
+                ],
+              );
+            } else void submit(active);
+          },
         },
       ],
     );
@@ -1397,7 +1456,7 @@ function RescheduleSheet({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={() => { if (!uncertain && !mutation.isPending) onClose(); }}
     >
       <View style={styles.backdrop}>
         <ScrollView
@@ -1406,13 +1465,19 @@ function RescheduleSheet({
         >
           <View style={uiStyles.row}>
             <Text style={styles.heroVehicle}>Reschedule</Text>
-            <Pressable onPress={onClose}>
-              <Text style={uiStyles.link}>Close</Text>
-            </Pressable>
+            {!uncertain && !mutation.isPending && (
+              <Pressable onPress={onClose}><Text style={uiStyles.link}>Close</Text></Pressable>
+            )}
           </View>
           <Text style={uiStyles.muted}>
-            Current · {formatUaeDateTime(job.scheduled_start)}
+            {job.status === "rescheduling_required" ? "Previous" : "Current"} · {formatUaeDateTime(job.scheduled_start)}
           </Text>
+          {uncertain ? (
+            <>
+              <Text style={uiStyles.error}>The result is unknown. Retry to recover the same reschedule.</Text>
+              <AppButton title="Retry safely" loading={mutation.isPending} onPress={() => void submit(uncertain.active, uncertain.override)} />
+            </>
+          ) : <>
           <Text style={styles.sectionTitle}>CHOOSE DATE</Text>
           <ScrollView
             horizontal
@@ -1496,7 +1561,7 @@ function RescheduleSheet({
                         selected ? styles.slotSelected : undefined,
                       ]}
                       onPress={() => {
-                        setSelectedTime(time);
+                        changeTime(time);
                         setShowCustomTime(false);
                       }}
                     >
@@ -1521,22 +1586,45 @@ function RescheduleSheet({
                 <TimePickerField
                   label="Exact appointment time"
                   value={selectedTime || operatingHour?.opening_time?.slice(0, 5) || "09:00"}
-                  onChange={setSelectedTime}
+                  onChange={changeTime}
                 />
               ) : null}
               <Text style={uiStyles.muted}>
                 The server validates the full service duration, team overlap, and turnaround before saving.
               </Text>
+              {selectedTime && (
+                <>
+                  <Text style={styles.sectionTitle}>TEAM AT THIS TIME</Text>
+                  {options.isFetching && <Text style={uiStyles.muted}>Checking teams…</Text>}
+                  {options.isError && (
+                    <Text style={uiStyles.error}>{domainErrorMessage(options.error, "Could not check availability.")}</Text>
+                  )}
+                  {canAuto && (
+                    <Choice selected={teamId === null} title="Auto-assign" detail="Choose an available team" onPress={() => setTeamId(null)} />
+                  )}
+                  {options.data?.map((team) => (
+                    <Choice key={team.team_id} title={team.team_name}
+                      selected={teamId === team.team_id} detail={team.reason ?? "Available"}
+                      disabled={team.status === "time_conflict" || team.status === "unavailable"}
+                      onPress={() => setTeamId(team.team_id)} />
+                  ))}
+                  {options.data?.length === 0 && <Text style={uiStyles.muted}>No eligible teams on this date.</Text>}
+                  <Text style={styles.sectionTitle}>REASON FOR RESCHEDULING</Text>
+                  <TextInput accessibilityLabel="Reason for rescheduling" style={uiStyles.field}
+                    maxLength={500} multiline value={reason} onChangeText={setReason} />
+                </>
+              )}
               <AppButton
                 title={
                   mutation.isPending ? "Rescheduling…" : "Confirm reschedule"
                 }
-                disabled={mutation.isPending || !selectedTime}
+                disabled={mutation.isPending || !selectedTime || !canConfirm || reason.trim().length < 3}
                 loading={mutation.isPending}
                 onPress={confirm}
               />
             </>
           )}
+          </>}
         </ScrollView>
       </View>
     </Modal>
@@ -1584,7 +1672,7 @@ function upcomingDates(count: number): Date[] {
     wallDate(addUaeDays(start, index)),
   );
 }
-const label = (value: JobView) => value[0].toUpperCase() + value.slice(1);
+const label = (value: JobView) => value === "rescheduling" ? "Needs reschedule" : value[0].toUpperCase() + value.slice(1);
 const styles = StyleSheet.create({
   segment: {
     backgroundColor: colors.secondary,

@@ -4,7 +4,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import structlog
-from sqlalchemy import case, exists, func, or_, select, update
+from sqlalchemy import case, exists, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import StaffContext
@@ -129,6 +129,8 @@ async def _job_rows(
 ) -> Any:
     if include_archived and not _can_manage(context):
         raise DomainError("FORBIDDEN", "Manager access is required.", status_code=403)
+    if view == "rescheduling" and not _can_manage(context):
+        raise DomainError("FORBIDDEN", "Manager access is required.", status_code=403)
     statement = (
         select(
             Job,
@@ -169,10 +171,14 @@ async def _job_rows(
         if end_date:
             end = datetime.combine(end_date + timedelta(days=1), time.min, zone).astimezone(UTC)
             statement = statement.where(Job.scheduled_start < end)
-    if view == "upcoming":
+    if view == "today":
+        statement = statement.where(Job.status != JobStatus.RESCHEDULING_REQUIRED)
+    elif view == "upcoming":
         statement = statement.where(
             Job.scheduled_start >= datetime.now(UTC),
-            Job.status.not_in([JobStatus.COMPLETED, JobStatus.CANCELLED]),
+            Job.status.not_in([
+                JobStatus.COMPLETED, JobStatus.CANCELLED, JobStatus.RESCHEDULING_REQUIRED
+            ]),
         )
     elif view == "history":
         statement = statement.where(Job.status.in_([JobStatus.COMPLETED, JobStatus.CANCELLED]))
@@ -180,8 +186,12 @@ async def _job_rows(
         statement = statement.where(
             Job.assigned_resource_id.is_(None),
             Job.assigned_staff_id.is_(None),
-            Job.status.not_in([JobStatus.COMPLETED, JobStatus.CANCELLED]),
+            Job.status.not_in([
+                JobStatus.COMPLETED, JobStatus.CANCELLED, JobStatus.RESCHEDULING_REQUIRED
+            ]),
         )
+    elif view == "rescheduling":
+        statement = statement.where(Job.status == JobStatus.RESCHEDULING_REQUIRED)
     if status:
         statement = statement.where(Job.status == status)
     if team_id:
@@ -228,6 +238,9 @@ _EVENT_LABELS = {
     "job_completed": "Wash completed",
     "cash_payment_recorded": "Cash payment recorded",
     "booking_rescheduled_by_staff": "Appointment rescheduled",
+    "booking_rescheduled": "Appointment rescheduled",
+    "appointment_displaced": "New appointment time required",
+    "replacement_appointment_created": "Replacement appointment created",
     "customer_delay_notified": "Customer delay update queued",
     "inspection_completed": "Vehicle inspection completed",
     "checklist_updated": "Service checklist updated",
@@ -350,6 +363,11 @@ async def _serialize_jobs(
             id=job.id,
             booking_id=booking.id,
             booking_reference=booking.reference,
+            version=getattr(job, "version", None),
+            payment_review_required=(
+                getattr(booking, "reschedule_payment_review_required", False)
+                if context is not None and _can_manage(context) else False
+            ),
             assigned_staff_id=job.assigned_staff_id,
             assigned_staff_name=staff_name,
             assigned_team_id=job.assigned_resource_id,
@@ -369,7 +387,7 @@ async def _serialize_jobs(
             arrived_at=job.arrived_at,
             started_at=job.started_at,
             completed_at=job.completed_at,
-            customer_name=f"{booking.customer_first_name} {booking.customer_surname}",
+            customer_name=f"{booking.customer_first_name} {booking.customer_surname}".strip(),
             customer_phone=booking.customer_phone,
             customer_email=booking.customer_email,
             written_address=booking.written_address,
@@ -459,9 +477,18 @@ async def list_job_calendar(
         .limit(1)
         .scalar_subquery()
     )
+    manager = _can_manage(context)
+    team_job = exists(
+        select(TeamMembership.id).where(
+            TeamMembership.resource_id == Job.assigned_resource_id,
+            TeamMembership.staff_profile_id == context.staff_id,
+            TeamMembership.is_active.is_(True),
+        )
+    )
     statement = (
         select(
             Job.id.label("job_id"),
+            Job.version,
             Job.scheduled_start,
             Job.scheduled_end,
             Job.status,
@@ -469,6 +496,16 @@ async def list_job_calendar(
             ScheduleResource.name.label("team_short_name"),
             vehicle_label.label("vehicle_label"),
             service_label.label("service_label"),
+            (
+                (Job.status == JobStatus.ASSIGNED)
+                & (Booking.status == BookingStatus.CONFIRMED)
+                & (Job.assigned_resource_id == Booking.resource_id)
+                & Job.en_route_at.is_(None)
+                & Job.started_at.is_(None)
+                & Job.completed_at.is_(None)
+                & (Job.scheduled_start > datetime.now(UTC))
+                & (literal(True) if manager else team_job)
+            ).label("can_replace"),
         )
         .select_from(Job)
         .join(Booking, Booking.id == Job.booking_id)
@@ -478,31 +515,26 @@ async def list_job_calendar(
             Job.business_id == context.business_id,
             Job.scheduled_start >= starts_at,
             Job.scheduled_start < ends_at,
-            Job.status != JobStatus.CANCELLED,
+            Job.status.not_in([JobStatus.CANCELLED, JobStatus.RESCHEDULING_REQUIRED]),
         )
         .order_by(Job.scheduled_start, Job.id)
     )
-    if not _can_manage(context):
-        team_job = exists(
-            select(TeamMembership.id).where(
-                TeamMembership.resource_id == Job.assigned_resource_id,
-                TeamMembership.staff_profile_id == context.staff_id,
-                TeamMembership.is_active.is_(True),
-            )
-        )
+    if not manager:
         statement = statement.where(or_(Job.assigned_staff_id == context.staff_id, team_job))
     rows = (await session.execute(statement)).mappings().all()
     return StaffCalendar(
         jobs=[
             CalendarJob(
                 job_id=row["job_id"],
+                version=row["version"],
+                can_replace=bool(row["can_replace"]),
                 scheduled_start=row["scheduled_start"],
                 scheduled_end=row["scheduled_end"],
                 local_date=row["scheduled_start"].astimezone(zone).date(),
                 status=row["status"],
                 team_id=row["team_id"],
                 team_short_name=row["team_short_name"],
-                vehicle_label=row["vehicle_label"] or "Vehicle",
+                vehicle_label=(row["vehicle_label"] or "").strip() or "Vehicle",
                 service_label=row["service_label"] or "Service",
             )
             for row in rows
@@ -512,11 +544,13 @@ async def list_job_calendar(
 
 _COMMUNICATION_LABELS = {
     "booking_confirmed": "Booking confirmation",
+    "booking_policies_provided": "Booking policies",
     "appointment_reminder": "Appointment reminder",
     "driver_en_route": "Team en route",
     "team_arrived": "Team arrived",
     "team_delayed": "Delay update",
     "booking_rescheduled": "Appointment rescheduled",
+    "booking_displaced": "New appointment time required",
     "cancellation_requested": "Cancellation request received",
     "booking_cancelled": "Cancellation confirmed",
     "job_completed": "Service completed",
@@ -950,6 +984,10 @@ async def assign_job(
         return await get_job(session, context, job.id)
     if request.expected_version and request.expected_version != job.version:
         raise ConflictError("JOB_VERSION_CONFLICT", "The job was changed by another user.")
+    if job.status == JobStatus.RESCHEDULING_REQUIRED:
+        raise ConflictError(
+            "RESCHEDULE_REQUIRED", "Choose a new appointment time before assigning."
+        )
     if (
         job.status not in {JobStatus.UNASSIGNED, JobStatus.ASSIGNED}
         and not request.confirm_active_reassignment

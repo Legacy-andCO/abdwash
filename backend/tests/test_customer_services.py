@@ -417,15 +417,19 @@ def reschedule_records() -> tuple[
 
 
 @pytest.mark.asyncio
-async def test_reschedule_atomically_swaps_slots_and_updates_job() -> None:
+async def test_reschedule_atomically_swaps_slots_and_updates_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     booking, settings, job, hold, old_slot, new_slot, vehicle, service, token = reschedule_records()
+    monkeypatch.setattr(
+        customer_service, "lock_hold_for_confirmation", AsyncMock(return_value=hold)
+    )
     session = MagicMock()
     session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
             scalar_result(one=settings),
             scalar_result(one=job),
-            scalar_result(one=hold),
             scalar_result(one=settings),
             scalar_result(all_items=[service.service_name]),
             scalar_result(all_items=[old_slot, new_slot]),
@@ -459,18 +463,23 @@ async def test_reschedule_atomically_swaps_slots_and_updates_job() -> None:
 
 
 @pytest.mark.asyncio
-async def test_expired_reschedule_hold_keeps_original_booking_unchanged() -> None:
+async def test_expired_reschedule_hold_keeps_original_booking_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     booking, settings, job, hold, old_slot, _new_slot, _vehicle, _service, token = (
         reschedule_records()
     )
     original_start = booking.scheduled_start
     hold.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    monkeypatch.setattr(
+        customer_service, "lock_hold_for_confirmation", AsyncMock(return_value=hold)
+    )
     session = MagicMock()
     session.scalars = AsyncMock(
         side_effect=[
             scalar_result(one=settings),
             scalar_result(one=job),
-            scalar_result(one=hold),
+            scalar_result(one=settings),
         ]
     )
 
@@ -528,7 +537,9 @@ async def test_active_manager_reschedule_requires_explicit_confirmation() -> Non
 
 
 @pytest.mark.asyncio
-async def test_confirmed_active_manager_reschedule_resets_operational_state() -> None:
+async def test_confirmed_active_manager_reschedule_resets_operational_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     booking, settings, job, hold, old_slot, new_slot, vehicle, service, token = (
         reschedule_records()
     )
@@ -536,12 +547,14 @@ async def test_confirmed_active_manager_reschedule_resets_operational_state() ->
     job.en_route_at = datetime.now(UTC)
     job.estimated_arrival_at = datetime.now(UTC)
     job.started_at = datetime.now(UTC)
+    monkeypatch.setattr(
+        customer_service, "lock_hold_for_confirmation", AsyncMock(return_value=hold)
+    )
     session = MagicMock()
     session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
             scalar_result(one=job),
-            scalar_result(one=hold),
             scalar_result(one=settings),
             scalar_result(all_items=[service.service_name]),
             scalar_result(all_items=[old_slot, new_slot]),
@@ -579,7 +592,9 @@ async def test_confirmed_active_manager_reschedule_resets_operational_state() ->
 
 
 @pytest.mark.asyncio
-async def test_overdue_assigned_job_can_be_rescheduled_by_manager() -> None:
+async def test_overdue_assigned_job_can_be_rescheduled_by_manager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     booking, settings, job, hold, old_slot, new_slot, vehicle, service, token = (
         reschedule_records()
     )
@@ -590,12 +605,14 @@ async def test_overdue_assigned_job_can_be_rescheduled_by_manager() -> None:
     old_slot.slot_start = booking.scheduled_start
     old_slot.slot_end = booking.scheduled_end
     job.status = JobStatus.ASSIGNED
+    monkeypatch.setattr(
+        customer_service, "lock_hold_for_confirmation", AsyncMock(return_value=hold)
+    )
     session = MagicMock()
     session.scalar = AsyncMock(return_value=None)
     session.scalars = AsyncMock(
         side_effect=[
             scalar_result(one=job),
-            scalar_result(one=hold),
             scalar_result(one=settings),
             scalar_result(all_items=[service.service_name]),
             scalar_result(all_items=[old_slot, new_slot]),

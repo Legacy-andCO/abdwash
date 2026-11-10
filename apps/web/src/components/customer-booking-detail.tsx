@@ -133,16 +133,18 @@ export function CustomerBookingDetail({ bookingId }: { bookingId: string }) {
 
   if (authLoading || loading || !user) return <main className="account-page"><div className="loading-panel"><span className="spinner dark" /><strong>{t("account.loadingBooking")}</strong></div></main>;
   if (!booking) return <main className="account-page"><div className="shell account-empty"><h1>{t("account.bookingUnavailable")}</h1><p>{error}</p><Link className="button" href="/account">{t("account.back")}</Link></div></main>;
+  const displaced = booking.status.key === "rescheduling_required";
 
   return <main className="account-page"><div className="shell customer-detail-shell">
     <Link className="quiet-link" href="/account"><span className="directional-icon" aria-hidden="true">←</span> {t("account.allBookings")}</Link>
     <section className="customer-detail-card">
       <header className="customer-detail-heading"><div><p className="eyebrow"><span /> {t("account.booking")}</p><h1>{booking.reference}</h1></div><CustomerStatus status={booking.status} compact /></header>
       <CustomerStatus status={booking.status} />
+      {displaced && <div className="inline-notice warning"><span>{t("status.reschedulingNotice")}</span><Link href="/contact">{t("nav.contact")}</Link></div>}
       {booking.estimated_arrival_at && <div className="inline-notice"><strong>{t("account.estimatedArrival")}</strong><span>{new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: booking.timezone }).format(new Date(booking.estimated_arrival_at))}</span></div>}
       {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="customer-detail-grid">
-        <div><span>{t("common.dateTime")}</span><strong>{formatSchedule(booking.scheduled_start, booking.scheduled_end, booking.timezone, locale)}</strong></div>
+        <div><span>{t(displaced ? "status.previousAppointment" : "common.dateTime")}</span><strong>{formatSchedule(booking.scheduled_start, booking.scheduled_end, booking.timezone, locale)}</strong></div>
         <div><span>{t("common.payment")}</span><strong>{booking.payment_choice === "pay_after_service" ? t("booking.payment.payAfter") : t("booking.payment.payNow")} · {localizePaymentStatus(language, booking.payment_status)}</strong></div>
         <div><span>{t("common.location")}</span><strong>{booking.written_address}</strong><a href={booking.location_url} target="_blank" rel="noreferrer">{t("account.openMaps")} ↗</a></div>
         <div><span>{t("common.total")}</span><strong>{formatMoney(booking.total_amount_minor, booking.currency_code, locale)}</strong></div>

@@ -98,7 +98,7 @@ export function AppButton({
 export function StatusChip({ value }: { value: string }) {
   const normalized = value.toLowerCase();
   const danger = normalized.includes("cancel") || normalized.includes("reject");
-  const warning = normalized.includes("late") || normalized.includes("unpaid") || normalized.includes("pending") || normalized.includes("arrived");
+  const warning = normalized.includes("late") || normalized.includes("unpaid") || normalized.includes("pending") || normalized.includes("arrived") || normalized === "rescheduling_required";
   const active = normalized.includes("en_route") || normalized.includes("in_progress");
   const neutral = normalized.includes("assigned");
   return (

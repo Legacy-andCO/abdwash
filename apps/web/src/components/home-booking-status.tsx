@@ -16,9 +16,9 @@ export function HomeBookingStatus() {
     .filter((booking) => booking.category === "upcoming")
     .sort((left, right) => Date.parse(left.scheduled_start) - Date.parse(right.scheduled_start))[0];
   if (!active) return null;
-  const statusLabels: Partial<Record<string, string>> = { confirmed: t("status.confirmed"), en_route: t("status.driverEnRoute"), arrived: t("status.driverArrived"), in_progress: t("status.inProgress"), completed: t("status.completed"), cancelled: t("status.cancelled"), cancellation_requested: t("status.cancellationRequested") };
+  const statusLabels: Partial<Record<string, string>> = { confirmed: t("status.confirmed"), en_route: t("status.driverEnRoute"), arrived: t("status.driverArrived"), in_progress: t("status.inProgress"), completed: t("status.completed"), cancelled: t("status.cancelled"), cancellation_requested: t("status.cancellationRequested"), rescheduling_required: t("status.reschedulingRequired") };
   return <section className="shell home-status-card" aria-label={t("account.upcomingStatus")}>
-    <div><CustomerStatus status={active.status} compact /><h2>{statusLabels[active.status.key] ?? active.status.label}</h2><p>{formatSchedule(active.scheduled_start, active.scheduled_end, TRIFECTA_TIME_ZONE, locale)}</p>{active.estimated_arrival_at && <strong>{t("account.estimatedArrival")}: {new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: TRIFECTA_TIME_ZONE }).format(new Date(active.estimated_arrival_at))}</strong>}</div>
+    <div><CustomerStatus status={active.status} compact /><h2>{statusLabels[active.status.key] ?? active.status.label}</h2><p>{active.status.key === "rescheduling_required" ? t("status.reschedulingNotice") : formatSchedule(active.scheduled_start, active.scheduled_end, TRIFECTA_TIME_ZONE, locale)}</p>{active.estimated_arrival_at && <strong>{t("account.estimatedArrival")}: {new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: TRIFECTA_TIME_ZONE }).format(new Date(active.estimated_arrival_at))}</strong>}</div>
     <Link className="button button-ghost" href={`/account/bookings/${active.id}`}>{t("account.view")}</Link>
   </section>;
 }

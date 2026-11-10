@@ -43,6 +43,7 @@ const en = {
   "footer.description": "Premium mobile car care, wherever your day takes you.",
   "footer.explore": "Explore",
   "footer.support": "Support",
+  "footer.policies": "Policies and complaints",
   "footer.bookNow": "Book now",
   "footer.location": "Abu Dhabi, UAE",
   "footer.copyright": "© {year} Trifecta",
@@ -125,6 +126,7 @@ const en = {
   "contact.preparing": "Support details are being prepared.",
   "contact.privacy": "No contact form data is collected on this page.",
   "contact.phone": "WhatsApp",
+  "contact.call": "Telephone",
   "contact.email": "Email",
   "contact.coverageLabel": "Coverage",
   "contact.coverage": "Abu Dhabi, UAE",
@@ -641,7 +643,7 @@ const en = {
   "manage.cancellationCopy":
     "Requests can be made until {cutoff}. A request does not cancel the booking until it is approved.",
   "manage.cancellationUnavailable":
-    "A new cancellation request isn’t available for this booking. The cutoff is 24 hours before the service start, and all requests require review.",
+    "A new online cancellation request isn’t available for this booking. Contact Trifecta for help.",
   "status.driverEnRoute": "Driver on the way",
   "status.driverArrived": "Driver has arrived",
   "status.inProgress": "Wash in progress",
@@ -650,6 +652,9 @@ const en = {
   "status.teamAssigned": "Team assigned",
   "status.cancelled": "Cancelled",
   "status.cancellationRequested": "Cancellation requested",
+  "status.reschedulingRequired": "Rescheduling required",
+  "status.previousAppointment": "Previous appointment",
+  "status.reschedulingNotice": "The previous time is no longer reserved. Trifecta will contact you to discuss a new time. You can also contact us with your booking reference.",
   "status.pending": "Pending",
   "auth.email": "Email address",
   "auth.customerAccess": "Customer access",
@@ -834,6 +839,7 @@ const en = {
   "errors.timeUnavailable":
     "That time is no longer available. Please choose another.",
   "errors.generic": "Something unexpected happened. Please try again.",
+  "errors.policyChanged": "The booking policies have changed. Reload this page and review them again.",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -878,6 +884,7 @@ const ar: Record<TranslationKey, string> = {
   "footer.description": "عناية متنقلة فاخرة بسيارتك أينما كان يومك.",
   "footer.explore": "استكشف",
   "footer.support": "الدعم",
+  "footer.policies": "السياسات والشكاوى",
   "footer.bookNow": "احجز الآن",
   "footer.location": "أبوظبي، الإمارات",
   "footer.copyright": "© {year} ترايفكتا",
@@ -956,6 +963,7 @@ const ar: Record<TranslationKey, string> = {
   "contact.preparing": "نعمل على تجهيز تفاصيل الدعم.",
   "contact.privacy": "لا يتم جمع بيانات نموذج تواصل في هذه الصفحة.",
   "contact.phone": "واتساب",
+  "contact.call": "الهاتف",
   "contact.email": "البريد الإلكتروني",
   "contact.coverageLabel": "نطاق الخدمة",
   "contact.coverage": "أبوظبي، الإمارات",
@@ -1456,7 +1464,7 @@ const ar: Record<TranslationKey, string> = {
   "manage.cancellationCopy":
     "يمكن تقديم الطلبات حتى {cutoff}. لا يُلغى الحجز إلا بعد الموافقة على الطلب.",
   "manage.cancellationUnavailable":
-    "لا يتوفر طلب إلغاء جديد لهذا الحجز. ينتهي الموعد قبل بدء الخدمة بـ24 ساعة، وتخضع كل الطلبات للمراجعة.",
+    "لا يمكن تقديم طلب إلغاء جديد لهذا الحجز عبر الموقع. تواصل مع تريفيكتا للمساعدة.",
   "status.driverEnRoute": "السائق في الطريق",
   "status.driverArrived": "وصل السائق",
   "status.inProgress": "جاري تنظيف المركبة",
@@ -1465,6 +1473,9 @@ const ar: Record<TranslationKey, string> = {
   "status.teamAssigned": "تم تعيين الفريق",
   "status.cancelled": "ملغى",
   "status.cancellationRequested": "تم طلب الإلغاء",
+  "status.reschedulingRequired": "يتطلب إعادة الجدولة",
+  "status.previousAppointment": "الموعد السابق",
+  "status.reschedulingNotice": "لم يعد الموعد السابق محجوزاً. ستتواصل معك تريفيكتا لمناقشة موعد جديد. يمكنك أيضاً التواصل معنا وذكر مرجع الحجز.",
   "status.pending": "قيد الانتظار",
   "auth.email": "البريد الإلكتروني",
   "auth.customerAccess": "دخول العملاء",
@@ -1642,6 +1653,7 @@ const ar: Record<TranslationKey, string> = {
     "لم تعد الخدمة أو فئة السعر أو الإضافة المحددة متاحة. راجع اختياراتك وحاول مرة أخرى.",
   "errors.timeUnavailable": "هذا الموعد لم يعد متاحاً. اختر موعداً آخر.",
   "errors.generic": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
+  "errors.policyChanged": "تم تحديث سياسات الحجز. أعد تحميل الصفحة وراجعها من جديد.",
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

@@ -35,6 +35,42 @@ class SupabaseStorageAdminClient:
     def _object_path(self, path: str) -> str:
         return f"{quote(self.bucket, safe='')}/{quote(path, safe='/')}"
 
+    async def upload_private(self, path: str, content: bytes, content_type: str) -> None:
+        try:
+            response = await observe_provider_call(
+                "supabase_storage",
+                "upload_private",
+                lambda: self.client.post(
+                    f"{self.base_url}/storage/v1/object/{self._object_path(path)}",
+                    headers={
+                        **self.headers,
+                        "Content-Type": content_type,
+                        "Cache-Control": "no-store",
+                        "x-upsert": "false",
+                    },
+                    content=content,
+                ),
+            )
+        except httpx.HTTPError as exc:
+            raise self._unavailable() from exc
+        self._raise(response, "COMPLAINT_EVIDENCE_UPLOAD_FAILED")
+
+    async def remove_private(self, paths: list[str]) -> None:
+        try:
+            response = await observe_provider_call(
+                "supabase_storage",
+                "remove_private",
+                lambda: self.client.request(
+                    "DELETE",
+                    f"{self.base_url}/storage/v1/object/{quote(self.bucket, safe='')}",
+                    headers=self.headers,
+                    json={"prefixes": paths},
+                ),
+            )
+        except httpx.HTTPError as exc:
+            raise self._unavailable() from exc
+        self._raise(response, "COMPLAINT_EVIDENCE_REMOVE_FAILED")
+
     async def create_signed_upload(self, path: str, *, upsert: bool = True) -> str:
         try:
             response = await observe_provider_call(

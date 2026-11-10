@@ -23,6 +23,8 @@ import type {
   Vehicle,
 } from "./types";
 import { normalizePhone } from "./phone";
+import { POLICY_REVISION } from "./policies";
+import type { Language } from "./i18n";
 import { getSupabaseAccessToken } from "./supabase-client";
 
 const API_URL = (
@@ -59,10 +61,10 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, authenticate = true): Promise<T> {
   let response: Response;
   const headers = new Headers(init?.headers);
-  const accessToken = await getSupabaseAccessToken();
+  const accessToken = authenticate ? await getSupabaseAccessToken() : undefined;
   if (accessToken && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
@@ -142,6 +144,7 @@ export function createBooking(input: {
   vehicles: Vehicle[];
   payment_choice: "pay_after_service";
   idempotencyKey: string;
+  acceptanceLanguage: Language;
   coupon?: { code: string; selected_line_position: number };
 }): Promise<Booking> {
   const email = input.contact.email.trim();
@@ -185,12 +188,25 @@ export function createBooking(input: {
     payment_choice: input.payment_choice,
     coupon: input.coupon ?? null,
     source: "web",
+    policy_acceptance: {
+      accepted: true,
+      revision: POLICY_REVISION,
+      language: input.acceptanceLanguage,
+    },
   };
   return request<Booking>("/api/v1/public/bookings", {
     method: "POST",
     headers: { "Idempotency-Key": input.idempotencyKey },
     body: JSON.stringify(body),
   });
+}
+
+export function createComplaint(body: string, idempotencyKey: string) {
+  return request<{ reference: string }>("/api/v1/public/complaints", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body,
+  }, false);
 }
 
 export function validateCoupon(input: {

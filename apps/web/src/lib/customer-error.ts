@@ -8,6 +8,8 @@ export function localizedCustomerError(
   language: Language,
   t: Translator,
 ): string {
+  if (error instanceof ApiError && error.code === "POLICY_VERSION_CHANGED")
+    return t("errors.policyChanged");
   if (error instanceof ApiError && error.code === "MOBILE_MINIMUM_NOT_MET")
     return t("errors.mobileMinimum");
   if (

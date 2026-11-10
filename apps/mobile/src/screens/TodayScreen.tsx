@@ -37,11 +37,13 @@ const today = uaeDateKey;
 export function TodayScreen({
   context,
   onOpenCustomers,
+  onOpenComplaints,
   onOpenInventory,
   onOpenServices,
 }: {
   context: StaffContext;
   onOpenCustomers?: () => void;
+  onOpenComplaints?: () => void;
   onOpenInventory?: () => void;
   onOpenServices?: () => void;
 }) {
@@ -145,11 +147,10 @@ export function TodayScreen({
         onPress={() => onOpenInventory?.()}
       />
       {management ? (
-        <AppButton
-          title="Services & pricing"
-          tone="secondary"
-          onPress={() => onOpenServices?.()}
-        />
+        <>
+          <AppButton title="Services & pricing" tone="secondary" onPress={() => onOpenServices?.()} />
+          <AppButton title="Customer complaints" tone="secondary" onPress={() => onOpenComplaints?.()} />
+        </>
       ) : null}
       {personalCash.data ? (
         <Card>

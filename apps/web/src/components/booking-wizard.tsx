@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { BrandMark } from "./brand-mark";
+import { BookingPolicyAcceptance } from "./booking-policy-acceptance";
 import { LocationPicker } from "./location-picker";
 import { PhoneInput } from "./phone-input";
 import { ServiceAreaNotice } from "./service-area-notice";
@@ -59,6 +60,7 @@ import {
   localizePaymentStatus,
   localizeServiceDescription,
   localizeServiceName,
+  type Language,
 } from "@/lib/i18n";
 import { VEHICLE_TYPES } from "@/lib/vehicle-types";
 
@@ -1338,6 +1340,8 @@ function PaymentStep({ state, dispatch }: StepProps) {
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [acceptanceLanguage, setAcceptanceLanguage] = useState<Language | null>(null);
+  const submittedLanguage = useRef<Language | null>(null);
   const idempotencyKey = useRef("");
   const expiresAt = state.hold?.expires_at;
   const maxHoldSeconds = state.catalogue!.settings.hold_duration_minutes * 60;
@@ -1369,10 +1373,11 @@ function PaymentStep({ state, dispatch }: StepProps) {
     return () => window.clearInterval(timer);
   }, [expiresAt, maxHoldSeconds]);
   const submit = async () => {
-    if (!state.hold || choice !== "pay_after_service") return;
+    if (!state.hold || choice !== "pay_after_service" || !acceptanceLanguage || submitting) return;
     setSubmitting(true);
     setError("");
     idempotencyKey.current ||= crypto.randomUUID();
+    submittedLanguage.current ??= acceptanceLanguage;
     try {
       dispatch({
         type: "booking",
@@ -1384,6 +1389,7 @@ function PaymentStep({ state, dispatch }: StepProps) {
           vehicles: state.vehicles,
           payment_choice: "pay_after_service",
           idempotencyKey: idempotencyKey.current,
+          acceptanceLanguage: submittedLanguage.current,
           coupon:
             state.coupon?.selected_line_position != null
               ? {
@@ -1563,12 +1569,17 @@ function PaymentStep({ state, dispatch }: StepProps) {
         </div>
       )}
       <ServiceAreaNotice compact />
+      <BookingPolicyAcceptance
+        checked={acceptanceLanguage !== null}
+        disabled={submitting}
+        onChange={(checked) => setAcceptanceLanguage(checked ? language : null)}
+      />
       <StepActions
         back={() => dispatch({ type: "step", value: "review" })}
         next={submit}
         nextLabel={t("booking.payment.confirm")}
         busy={submitting}
-        disabled={choice !== "pay_after_service" || seconds <= 0}
+        disabled={choice !== "pay_after_service" || seconds <= 0 || acceptanceLanguage === null}
       />
     </>
   );

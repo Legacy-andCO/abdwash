@@ -67,7 +67,7 @@ ALLOWED_BY_PATH: dict[str, tuple[str, ...]] = {
     "backend/app/cli/seed_demo_staff.py": ('Business.slug == "abdwash"',),
     "backend/app/core/config.py": ("/abdwash",),
     "backend/app/domain/staff_usernames.py": ("staff.abdwash.local",),
-    "backend/app/repositories/business.py": ('Business.slug == "abdwash"',),
+    "backend/app/repositories/business.py": ('DEFAULT_BUSINESS_SLUG = "abdwash"',),
     "backend/migrations/versions/5e2c8f7a1b4d_provision_main_shop_and_rebrand.py": (
         "slug = 'abdwash'",
         "lower(name) IN ('abdwash', 'abd wash', 'adb wash')",

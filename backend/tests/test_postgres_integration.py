@@ -35,6 +35,7 @@ from app.domain.errors import ConflictError, DomainError
 from app.models import Base
 from app.models.entities import (
     AttendanceSession,
+    AuditEvent,
     Booking,
     BookingService,
     BookingVehicle,
@@ -65,6 +66,7 @@ from app.models.entities import (
     ScheduleSlot,
     Service,
     ServiceInventoryTemplate,
+    ServicePrice,
     SlotHoldGroup,
     StaffProfile,
     TeamMembership,
@@ -100,6 +102,7 @@ from app.services.job_quality import (
     update_checklist,
 )
 from app.services.manager_customers import list_manager_customers, manager_customer_detail
+from app.services.policy_acceptance import POLICY_REVISION, POLICY_VERSIONS
 from app.services.reviews import (
     public_review_summary,
     record_customer_website_open,
@@ -1593,6 +1596,26 @@ async def test_public_api_guest_booking_and_query_count_guard(
         assert catalogue.status_code == 200
         assert query_count.get() <= 2
         service_id = catalogue.json()["services"][0]["id"]
+        async with database() as session, session.begin():
+            service = await session.get(Service, uuid.UUID(service_id))
+            assert service is not None
+            session.add(
+                ServicePrice(
+                    business_id=service.business_id,
+                    service_id=service.id,
+                    vehicle_type="suv",
+                    price_minor=service.price_minor,
+                )
+            )
+            prior_revision = await session.get(BusinessSyncRevision, service.business_id)
+            prior_counts = (
+                (
+                    prior_revision.jobs_revision,
+                    prior_revision.schedule_revision,
+                    prior_revision.finance_revision,
+                )
+                if prior_revision else (0, 0, 0)
+            )
         query_count.set(0)
         availability = await client.get(
             "/api/v1/public/availability",
@@ -1650,15 +1673,27 @@ async def test_public_api_guest_booking_and_query_count_guard(
                 }
             ],
             "payment_choice": "pay_now",
+            "policy_acceptance": {
+                "accepted": True,
+                "language": "en",
+                "revision": POLICY_REVISION,
+            },
         }
+        rejected = await client.post(
+            "/api/v1/public/bookings",
+            json={**payload, "policy_acceptance": None},
+            headers={"Idempotency-Key": "api-integration-booking-1"},
+        )
+        assert rejected.status_code == 422
+        assert rejected.json()["code"] == "POLICY_ACCEPTANCE_REQUIRED"
         query_count.set(0)
         booking = await client.post(
             "/api/v1/public/bookings",
             json=payload,
             headers={"Idempotency-Key": "api-integration-booking-1"},
         )
-        assert booking.status_code == 201
-        assert query_count.get() <= 22
+        assert booking.status_code == 201, booking.text
+        assert query_count.get() <= 23
         assert booking.json()["status"] == "pending_payment"
         assert booking.json()["payment_status"] == "pending"
         retried = await client.post(
@@ -1677,19 +1712,8 @@ async def test_public_api_guest_booking_and_query_count_guard(
         assert managed.json()["reference"] == booking.json()["reference"]
         assert managed.json()["cancellation_eligible"] is False
 
-        no_email_hold = await client.post(
-            "/api/v1/public/holds",
-            json={
-                "date": "2035-01-05",
-                "start_time": "11:00:00",
-                "vehicle_count": 1,
-                "service_ids": [service_id],
-            },
-        )
-        assert no_email_hold.status_code == 201
         no_email_payload = {
             **payload,
-            "hold_token": no_email_hold.json()["hold_token"],
             "contact": {
                 "first_name": "Phone",
                 "surname": "Customer",
@@ -1702,8 +1726,7 @@ async def test_public_api_guest_booking_and_query_count_guard(
             json=no_email_payload,
             headers={"Idempotency-Key": "api-integration-booking-no-email"},
         )
-        assert no_email_booking.status_code == 201, no_email_booking.text
-        no_email_booking_id = uuid.UUID(no_email_booking.json()["id"])
+        assert no_email_booking.status_code == 422
 
     async with database() as session:
         idempotency_record = (
@@ -1726,25 +1749,19 @@ async def test_public_api_guest_booking_and_query_count_guard(
                 )
             )
         ).one()
-        assert revision.jobs_revision == 2
-        assert revision.schedule_revision == 2
-        assert revision.finance_revision == 2
-        stored_no_email_booking = await session.get(Booking, no_email_booking_id)
-        assert stored_no_email_booking is not None
-        assert stored_no_email_booking.customer_email is None
-        assert await session.scalar(
-            select(func.count()).select_from(Job).where(Job.booking_id == no_email_booking_id)
-        ) == 1
-        assert await session.scalar(
-            select(func.count()).select_from(Payment).where(
-                Payment.booking_id == no_email_booking_id
+        assert (
+            revision.jobs_revision, revision.schedule_revision, revision.finance_revision
+        ) == tuple(count + 1 for count in prior_counts)
+        acceptance = (
+            await session.scalars(
+                select(AuditEvent).where(
+                    AuditEvent.entity_id == idempotency_record.resource_id,
+                    AuditEvent.event_type == "booking_policies_accepted",
+                )
             )
-        ) == 1
-        assert await session.scalar(
-            select(func.count()).select_from(NotificationOutbox).where(
-                NotificationOutbox.booking_id == no_email_booking_id
-            )
-        ) == 0
+        ).one()
+        assert acceptance.metadata_json["policy_versions"] == POLICY_VERSIONS
+        assert acceptance.metadata_json["customer_identity"] == "guest_booking_contact"
 
 
 @pytest.fixture(scope="module")

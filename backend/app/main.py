@@ -11,6 +11,9 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
+from app.api.calendar_bookings import router as calendar_bookings_router
+from app.api.complaints import manager_router as manager_complaints_router
+from app.api.complaints import public_router as public_complaints_router
 from app.api.customer import router as customer_router
 from app.api.internal import router as internal_router
 from app.api.public import router as public_router
@@ -189,5 +192,8 @@ async def database_error_handler(
 app.include_router(system_router)
 app.include_router(internal_router)
 app.include_router(public_router)
+app.include_router(public_complaints_router)
 app.include_router(customer_router)
 app.include_router(staff_router)
+app.include_router(calendar_bookings_router)
+app.include_router(manager_complaints_router)

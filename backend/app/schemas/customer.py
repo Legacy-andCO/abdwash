@@ -152,6 +152,13 @@ class ManagerRescheduleCreate(StrictRequest):
     time: time_type | None = None
     confirm_active_reschedule: bool = False
     override_turnaround: bool = False
+    team_id: uuid.UUID | None = None
+    auto_assign: bool = False
+    expected_version: int | None = Field(default=None, ge=1)
+    reason: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)]
+        | None
+    ) = None
     client_event_id: str | None = Field(default=None, min_length=8, max_length=160)
 
     @model_validator(mode="after")
@@ -163,4 +170,17 @@ class ManagerRescheduleCreate(StrictRequest):
             raise ValueError("Provide either a booking hold or an exact manager date/time.")
         if exact and not self.client_event_id:
             raise ValueError("Exact manager rescheduling requires a client event ID.")
+        if self.auto_assign and self.team_id is not None:
+            raise ValueError("Select a team or automatic assignment.")
+        if not exact and (
+            self.team_id is not None or self.expected_version is not None or self.auto_assign
+        ):
+            raise ValueError("Team selection requires an exact date and time.")
+        if exact and (
+            self.team_id is not None or self.expected_version is not None or self.auto_assign
+        ):
+            if self.expected_version is None or self.reason is None:
+                raise ValueError("Review the current job version and enter a reason.")
+        if self.time is not None and self.time.tzinfo is not None:
+            raise ValueError("Enter a local appointment time.")
         return self

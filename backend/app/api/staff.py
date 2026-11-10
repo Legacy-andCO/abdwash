@@ -2,12 +2,13 @@ import asyncio
 import time
 import uuid
 from datetime import date, datetime
+from datetime import time as WallTime
 from typing import Annotated, cast
 from zoneinfo import ZoneInfo
 
 import httpx
 import structlog
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 
@@ -93,6 +94,7 @@ from app.schemas.manager_customers import (
     ManagerCustomerList,
     ManagerCustomerUpdate,
 )
+from app.schemas.policies import StaffPolicyProvision
 from app.schemas.reviews import ReviewModerationUpdate, ReviewModerationView
 from app.schemas.staff import (
     AssignmentAction,
@@ -149,7 +151,7 @@ from app.schemas.staff import (
     TemporaryPasswordUpdate,
 )
 from app.services.coupons import create_coupon, list_coupons, update_coupon
-from app.services.customers import reschedule_managed_booking
+from app.services.customers import manager_reschedule_options, reschedule_managed_booking
 from app.services.finance import (
     confirm_expense_evidence,
     create_expense,
@@ -168,6 +170,11 @@ from app.services.finance import (
     prepare_expense_evidence_upload,
     void_expense,
     void_reconciliation,
+)
+from app.services.idempotency import (
+    canonical_request_hash,
+    find_idempotent_response,
+    store_idempotent_response,
 )
 from app.services.inventory import (
     create_item,
@@ -219,6 +226,7 @@ from app.services.manager_customers import (
     update_manager_customer,
     update_manager_vehicle,
 )
+from app.services.policy_acceptance import POLICY_REVISION, record_staff_provision
 from app.services.reviews import hide_customer_review
 from app.services.service_catalogue import (
     create_addon,
@@ -1235,7 +1243,9 @@ async def jobs(
     day: Annotated[date | None, Query(alias="date")] = None,
     start_date: date | None = None,
     end_date: date | None = None,
-    view: Annotated[str | None, Query(pattern="^(today|upcoming|history|unassigned|all)$")] = None,
+    view: Annotated[
+        str | None, Query(pattern="^(today|upcoming|history|unassigned|rescheduling|all)$")
+    ] = None,
     status: str | None = None,
     scope: Annotated[str, Query(pattern="^(my|all)$")] = "my",
     team_id: uuid.UUID | None = None,
@@ -1791,6 +1801,19 @@ async def loyalty_settings_update(
         return result
 
 
+@router.get("/bookings/{booking_id}/reschedule-options", response_model=list[TeamAssignmentOption])
+async def reschedule_options(
+    booking_id: uuid.UUID,
+    session: SessionDep,
+    context: ManagerContext,
+    day: Annotated[date, Query(alias="date")],
+    start_time: Annotated[WallTime, Query(alias="time")],
+) -> list[TeamAssignmentOption]:
+    return await manager_reschedule_options(
+        session, booking_id, context.business_id, day, start_time
+    )
+
+
 @router.post("/bookings/{booking_id}/reschedule", response_model=StaffJob)
 async def manager_reschedule(
     booking_id: uuid.UUID,
@@ -1823,6 +1846,7 @@ async def manager_reschedule(
             booking,
             payload,
             actor_staff_id=context.staff_id,
+            actor_auth_user_id=context.auth_user_id,
             confirm_active_reschedule=payload.confirm_active_reschedule,
             request_id=request_id,
         )
@@ -1879,6 +1903,40 @@ async def manager_reschedule(
         elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
     )
     return result
+
+
+@router.get("/customer-policies")
+async def current_customer_policies(context: ManagerContext) -> dict[str, str | None]:
+    return {"revision": POLICY_REVISION, "public_web_url": get_settings().public_web_url}
+
+
+@router.post("/bookings/{booking_id}/policy-provision", status_code=201)
+async def booking_policy_provision(
+    booking_id: uuid.UUID,
+    payload: StaffPolicyProvision,
+    session: SessionDep,
+    context: ManagerContext,
+    idempotency_key: Annotated[uuid.UUID, Header(alias="Idempotency-Key")],
+) -> dict[str, bool]:
+    scope = f"{context.business_id}:{context.staff_id}"
+    request_hash = canonical_request_hash(
+        {"booking_id": str(booking_id), **payload.model_dump(mode="json")}
+    )
+    async with session.begin():
+        existing = await find_idempotent_response(
+            session, scope=scope, operation="booking_policy_provision",
+            key=str(idempotency_key), request_hash=request_hash,
+        )
+        if existing is not None:
+            return {"email_queued": bool(existing.response_json["email_queued"])}
+        email_queued = await record_staff_provision(session, context, booking_id, payload)
+        result = {"email_queued": email_queued}
+        store_idempotent_response(
+            session, scope=scope, operation="booking_policy_provision",
+            key=str(idempotency_key), request_hash=request_hash, response_status=201,
+            response_json=result, resource_id=booking_id,
+        )
+        return result
 
 
 @router.patch("/bookings/{booking_id}/archive", response_model=BookingArchiveResult)

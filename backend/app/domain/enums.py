@@ -4,6 +4,7 @@ from enum import StrEnum
 class BookingStatus(StrEnum):
     PENDING_PAYMENT = "pending_payment"
     CONFIRMED = "confirmed"
+    RESCHEDULING_REQUIRED = "rescheduling_required"
     CANCELLATION_REQUESTED = "cancellation_requested"
     CANCELLED = "cancelled"
     COMPLETED = "completed"
@@ -12,6 +13,7 @@ class BookingStatus(StrEnum):
 class JobStatus(StrEnum):
     UNASSIGNED = "unassigned"
     ASSIGNED = "assigned"
+    RESCHEDULING_REQUIRED = "rescheduling_required"
     EN_ROUTE = "en_route"
     ARRIVED = "arrived"
     IN_PROGRESS = "in_progress"

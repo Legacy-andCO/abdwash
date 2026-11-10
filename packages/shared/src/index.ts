@@ -1,6 +1,7 @@
 export const BOOKING_STATES = [
   "pending_payment",
   "confirmed",
+  "rescheduling_required",
   "cancellation_requested",
   "cancelled",
   "completed",

@@ -42,6 +42,8 @@ class StaffJob(BaseModel):
     id: uuid.UUID
     booking_id: uuid.UUID
     booking_reference: str
+    version: int | None = None
+    payment_review_required: bool = False
     assigned_staff_id: uuid.UUID | None
     assigned_staff_name: str | None
     assigned_team_id: uuid.UUID | None = None
@@ -93,6 +95,8 @@ class BookingArchiveResult(BaseModel):
 
 class CalendarJob(BaseModel):
     job_id: uuid.UUID
+    version: int | None = None
+    can_replace: bool = False
     scheduled_start: datetime
     scheduled_end: datetime
     local_date: date

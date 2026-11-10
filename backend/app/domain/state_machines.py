@@ -8,15 +8,23 @@ BOOKING_TRANSITIONS: dict[BookingStatus, set[BookingStatus]] = {
     BookingStatus.CONFIRMED: {
         BookingStatus.CANCELLATION_REQUESTED,
         BookingStatus.COMPLETED,
+        BookingStatus.RESCHEDULING_REQUIRED,
     },
+    BookingStatus.RESCHEDULING_REQUIRED: {BookingStatus.CONFIRMED},
     BookingStatus.CANCELLATION_REQUESTED: {BookingStatus.CONFIRMED, BookingStatus.CANCELLED},
     BookingStatus.CANCELLED: set(),
     BookingStatus.COMPLETED: set(),
 }
 
 JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
-    JobStatus.UNASSIGNED: {JobStatus.ASSIGNED, JobStatus.CANCELLED},
-    JobStatus.ASSIGNED: {JobStatus.UNASSIGNED, JobStatus.EN_ROUTE, JobStatus.CANCELLED},
+    JobStatus.UNASSIGNED: {
+        JobStatus.ASSIGNED, JobStatus.CANCELLED, JobStatus.RESCHEDULING_REQUIRED,
+    },
+    JobStatus.ASSIGNED: {
+        JobStatus.UNASSIGNED, JobStatus.EN_ROUTE, JobStatus.CANCELLED,
+        JobStatus.RESCHEDULING_REQUIRED,
+    },
+    JobStatus.RESCHEDULING_REQUIRED: {JobStatus.ASSIGNED},
     JobStatus.EN_ROUTE: {JobStatus.ARRIVED, JobStatus.CANCELLED},
     JobStatus.ARRIVED: {JobStatus.IN_PROGRESS, JobStatus.CANCELLED},
     JobStatus.IN_PROGRESS: {JobStatus.COMPLETED, JobStatus.CANCELLED},

@@ -1,11 +1,14 @@
 import secrets
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import StaffContext
 from app.auth.verifier import VerifiedIdentity
 from app.domain.catalogue import is_vehicle_type
 from app.domain.enums import (
@@ -35,10 +38,10 @@ from app.models.entities import (
     Service,
     ServiceAddon,
     ServicePrice,
-    SlotHoldGroup,
     Vehicle,
 )
-from app.repositories.business import load_default_business
+from app.repositories.business import BusinessConfiguration, load_default_business
+from app.schemas.calendar_bookings import AssistedContact, StaffBookingCreate
 from app.schemas.coupons import CouponCheckoutLine, CouponValidationResponse
 from app.schemas.public import (
     BookingAddonSummary,
@@ -52,29 +55,61 @@ from app.services.coupons import resolve_coupon
 from app.services.customer_communications import queue_customer_email_if_available
 from app.services.customer_profiles import provision_customer_profile
 from app.services.management_tokens import create_management_token, management_token_hash
-from app.services.scheduling import hold_token_hash, policy_for_day
+from app.services.scheduling import lock_hold_for_confirmation, policy_for_day
 from app.services.smart_scheduling import (
     choose_team_for_booking,
-    lock_schedule_day,
     operational_duration_minutes,
 )
 
 
 async def create_booking(
     session: AsyncSession,
-    request: BookingCreate,
+    request: BookingCreate | StaffBookingCreate,
     identity: VerifiedIdentity | None,
+    *,
+    staff_context: StaffContext | None = None,
+    staff_hold_token: str | None = None,
+    configuration: BusinessConfiguration | None = None,
 ) -> BookingResponse:
-    now = datetime.now(UTC)
-    hold = (
-        await session.scalars(
-            select(SlotHoldGroup)
-            .where(SlotHoldGroup.token_hash == hold_token_hash(request.hold_token))
-            .with_for_update()
+    if isinstance(request, StaffBookingCreate):
+        if (
+            staff_context is None
+            or staff_hold_token is None
+            or configuration is None
+            or staff_context.business_id != configuration.business.id
+        ):
+            raise RuntimeError("Staff booking requires a scoped staff hold.")
+        hold_token = staff_hold_token
+        payment_choice = "pay_after_service"
+        source = "staff_calendar"
+        coupon = billing = None
+        location = request.location
+        map_query = (
+            location.written_address
+            if location.latitude is None
+            else f"{location.latitude},{location.longitude}"
         )
-    ).one_or_none()
+        location_url = "https://www.google.com/maps/search/?" + urlencode(
+            {"api": 1, "query": map_query}
+        )
+    else:
+        hold_token = request.hold_token
+        payment_choice = request.payment_choice
+        source = request.source
+        coupon, billing = request.coupon, request.billing
+        location_url = str(request.location.location_url)
+    configuration = configuration or await load_default_business(session)
+    hold = await lock_hold_for_confirmation(
+        session,
+        hold_token,
+        business_id=configuration.business.id,
+        timezone=configuration.settings.timezone,
+    )
     if hold is None:
         raise DomainError("INVALID_HOLD", "The booking hold is invalid.")
+    now = datetime.now(UTC)
+    if isinstance(request, StaffBookingCreate) and hold.slot_start <= now:
+        raise ConflictError("PAST_SLOT", "Appointments cannot be booked in the past.")
     if hold.status != HoldStatus.ACTIVE or hold.expires_at <= now:
         if hold.status == HoldStatus.ACTIVE:
             hold.status = HoldStatus.EXPIRED
@@ -85,9 +120,6 @@ async def create_booking(
             "The hold was acquired for a different number of vehicles.",
         )
 
-    configuration = await load_default_business(session)
-    if configuration.business.id != hold.business_id:
-        raise DomainError("INVALID_HOLD", "The booking hold is invalid.")
     service_ids = {vehicle.service_id for vehicle in request.vehicles}
     services = list(
         (
@@ -116,9 +148,9 @@ async def create_booking(
         )
     enforce_customer_start_time(
         (service.name for service in services),
-        hold.slot_start.astimezone(ZoneInfo(configuration.settings.timezone)).time().replace(
-            tzinfo=None
-        ),
+        hold.slot_start.astimezone(ZoneInfo(configuration.settings.timezone))
+        .time()
+        .replace(tzinfo=None),
     )
     if any(not is_vehicle_type(vehicle.vehicle_type) for vehicle in request.vehicles):
         raise DomainError("INVALID_VEHICLE_TYPE", "Choose a supported vehicle type.")
@@ -183,7 +215,6 @@ async def create_booking(
         reserved_slot_floor_minutes=reserved_floor_minutes,
     )
     day = hold.slot_start.astimezone(ZoneInfo(configuration.settings.timezone)).date()
-    await lock_schedule_day(session, business_id=hold.business_id, day=day)
     operational_end = hold.slot_start + timedelta(minutes=expected_duration_minutes)
     day_policy = await policy_for_day(session, configuration.settings, day)
     if day_policy is None:
@@ -225,15 +256,17 @@ async def create_booking(
         source="auto",
         preferred_team_id=hold.resource_id,
         exclude_hold_id=hold.id,
+        include_blocked_slots=isinstance(request, StaffBookingCreate),
     )
     hold.expected_duration_minutes = expected_duration_minutes
     hold.slot_end = operational_end
 
-    customer_profile_id = await _resolve_customer_profile(
-        session,
-        identity=identity,
-        business_id=hold.business_id,
-        contact=request.contact,
+    customer_profile_id = (
+        await _match_assisted_customer(session, hold.business_id, request.contact)
+        if isinstance(request, StaffBookingCreate)
+        else await _resolve_customer_profile(
+            session, identity=identity, business_id=hold.business_id, contact=request.contact
+        )
     )
     await _validate_saved_vehicles(
         session,
@@ -258,7 +291,7 @@ async def create_booking(
             "LOYALTY_DISABLED",
             "Loyalty rewards are temporarily unavailable.",
         )
-    if reward_ids and request.payment_choice != "pay_after_service":
+    if reward_ids and payment_choice != "pay_after_service":
         raise DomainError(
             "LOYALTY_REWARD_PAYMENT_CHOICE",
             "Loyalty rewards currently require Pay After Service.",
@@ -305,12 +338,12 @@ async def create_booking(
                 )
 
     coupon_result: CouponValidationResponse | None = None
-    if request.coupon is not None:
+    if coupon is not None:
         coupon_result = await resolve_coupon(
             session,
             business_id=hold.business_id,
             currency_code=configuration.settings.currency_code,
-            code=request.coupon.code,
+            code=coupon.code,
             lines=[
                 CouponCheckoutLine(
                     position=position,
@@ -322,14 +355,14 @@ async def create_booking(
                 )
                 for position, item in enumerate(request.vehicles, start=1)
             ],
-            selected_line_position=request.coupon.selected_line_position,
+            selected_line_position=coupon.selected_line_position,
             lock=True,
         )
 
     booking_id = uuid.uuid4()
     reference = f"AW-{secrets.token_hex(5).upper()}"
     management_token = create_management_token(booking_id)
-    confirmed = request.payment_choice == "pay_after_service"
+    confirmed = payment_choice == "pay_after_service"
     booking_status = BookingStatus.CONFIRMED if confirmed else BookingStatus.PENDING_PAYMENT
     payment_status = PaymentStatus.UNPAID if confirmed else PaymentStatus.PENDING
     coupon_position = coupon_result.selected_line_position if coupon_result else None
@@ -344,6 +377,10 @@ async def create_booking(
         + sum(addons_by_id[addon_id].price_minor for addon_id in item.addon_ids)
         for position, item in enumerate(request.vehicles, start=1)
     )
+    if isinstance(request, StaffBookingCreate) and total != request.expected_amount_minor:
+        raise ConflictError(
+            "BOOKING_PRICE_CHANGED", "Refresh the catalogue and review the new price."
+        )
     if (
         configuration.settings.mobile_minimum_enabled
         and total < configuration.settings.mobile_minimum_minor
@@ -363,28 +400,27 @@ async def create_booking(
         hold_group_id=hold.id,
         resource_id=hold.resource_id,
         status=booking_status,
-        payment_choice=request.payment_choice,
+        payment_choice=payment_choice,
         payment_status=payment_status,
         scheduled_start=hold.slot_start,
         scheduled_end=hold.slot_end,
         vehicle_count=len(request.vehicles),
         total_amount_minor=total,
         currency_code=configuration.settings.currency_code,
-        source=request.source,
+        source=source,
+        created_by_staff_id=staff_context.staff_id if staff_context else None,
         customer_first_name=request.contact.first_name,
         customer_surname=request.contact.surname,
-        customer_email=str(request.contact.email),
+        customer_email=str(request.contact.email) if request.contact.email else None,
         customer_phone=request.contact.phone,
         written_address=request.location.written_address,
-        location_url=str(request.location.location_url),
+        location_url=location_url,
         latitude=request.location.latitude,
         longitude=request.location.longitude,
         location_instructions=request.location.instructions,
-        billing_company_name=request.billing.company_name if request.billing else None,
-        billing_address=request.billing.billing_address if request.billing else None,
-        billing_tax_registration_number=(
-            request.billing.tax_registration_number if request.billing else None
-        ),
+        billing_company_name=billing.company_name if billing else None,
+        billing_address=billing.billing_address if billing else None,
+        billing_tax_registration_number=billing.tax_registration_number if billing else None,
         management_token_hash=management_token_hash(management_token),
     )
     session.add(booking)
@@ -401,7 +437,7 @@ async def create_booking(
             year=requested_vehicle.year,
             vehicle_type=requested_vehicle.vehicle_type,
             colour=requested_vehicle.colour,
-            plate_number=requested_vehicle.plate_number,
+            plate_number=requested_vehicle.plate_number or None,
             notes=requested_vehicle.notes,
         )
         session.add(booking_vehicle)
@@ -489,7 +525,7 @@ async def create_booking(
                 year=requested_vehicle.year,
                 vehicle_type=requested_vehicle.vehicle_type,
                 colour=requested_vehicle.colour,
-                plate_number=requested_vehicle.plate_number,
+                plate_number=requested_vehicle.plate_number or None,
                 service_name=service.name,
                 service_id=service.id,
                 line_total_minor=(selected_price - discount_minor)
@@ -501,9 +537,7 @@ async def create_booking(
                 ),
                 loyalty_reward_id=selected_reward.id if selected_reward else None,
                 coupon_code=selected_coupon.code if selected_coupon else None,
-                discount_percent=(
-                    selected_coupon.discount_percent if selected_coupon else None
-                ),
+                discount_percent=(selected_coupon.discount_percent if selected_coupon else None),
                 expected_duration_minutes=service.estimated_duration_minutes,
                 addons=addon_summaries,
             )
@@ -549,9 +583,10 @@ async def create_booking(
             JobEvent(
                 job_id=job.id,
                 booking_id=booking.id,
+                actor_staff_id=staff_context.staff_id if staff_context else None,
                 event_type="booking_confirmed",
                 metadata_json={
-                    "source": request.source,
+                    "source": source,
                     "assignment_source": "auto",
                     "expected_duration_minutes": expected_duration_minutes,
                 },
@@ -564,7 +599,14 @@ async def create_booking(
             notification_type="booking_confirmed",
             dedupe_key=f"booking-confirmed:{booking.id}",
             recipient=booking.customer_email,
-            payload={"booking_reference": booking.reference},
+            payload={
+                "booking_reference": booking.reference,
+                **(
+                    {"policy_language": request.language, "booking_version": booking.version}
+                    if isinstance(request, StaffBookingCreate)
+                    else {}
+                ),
+            },
             next_attempt_at=now,
         )
     else:
@@ -614,6 +656,28 @@ async def _resolve_customer_profile(
     )
 
 
+async def _match_assisted_customer(
+    session: AsyncSession, business_id: uuid.UUID, contact: AssistedContact
+) -> uuid.UUID | None:
+    if not contact.email:
+        return None
+    # A phone number alone can be shared or reassigned. Only attach a booking to
+    # an existing account on an unambiguous same-tenant match of both contacts.
+    matches = (
+        await session.scalars(
+            select(CustomerProfile.id)
+            .where(
+                CustomerProfile.business_id == business_id,
+                CustomerProfile.is_active.is_(True),
+                CustomerProfile.phone == contact.phone,
+                func.lower(CustomerProfile.email) == contact.email.lower(),
+            )
+            .limit(2)
+        )
+    ).all()
+    return matches[0] if len(matches) == 1 else None
+
+
 async def _validate_saved_vehicles(
     session: AsyncSession,
     *,
@@ -642,7 +706,7 @@ async def _validate_saved_vehicles(
 async def _save_new_customer_vehicles(
     session: AsyncSession,
     *,
-    requested_vehicles: list[BookingVehicleCreate],
+    requested_vehicles: Sequence[BookingVehicleCreate],
     customer_profile_id: uuid.UUID | None,
 ) -> dict[int, uuid.UUID]:
     if customer_profile_id is None:

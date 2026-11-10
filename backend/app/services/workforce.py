@@ -1112,15 +1112,25 @@ async def operations_dashboard(
         .correlate(None)
         .scalar_subquery()
     )
+    rescheduling_query = (
+        select(func.count(Job.id))
+        .where(
+            Job.business_id == context.business_id,
+            Job.status == JobStatus.RESCHEDULING_REQUIRED,
+        )
+        .correlate(None)
+        .scalar_subquery()
+    )
+    scheduled = Job.status != JobStatus.RESCHEDULING_REQUIRED
     financial = (
         await session.execute(
             select(
-                func.count(Job.id),
+                func.count(Job.id).filter(scheduled),
                 func.count(Job.id).filter(Job.status == JobStatus.COMPLETED),
                 func.count(Job.id).filter(Job.status == JobStatus.UNASSIGNED),
                 func.count(Job.id).filter(Job.status == JobStatus.EN_ROUTE),
                 func.count(Job.id).filter(Job.status == JobStatus.IN_PROGRESS),
-                func.coalesce(func.sum(Booking.total_amount_minor), 0),
+                func.coalesce(func.sum(Booking.total_amount_minor).filter(scheduled), 0),
                 func.coalesce(
                     func.sum(
                         case(
@@ -1133,6 +1143,7 @@ async def operations_dashboard(
                 func.max(Booking.currency_code),
                 pending_leave_query,
                 cancellations_query,
+                rescheduling_query,
             )
             .select_from(Job)
             .join(Booking, Booking.id == Job.booking_id)
@@ -1156,6 +1167,7 @@ async def operations_dashboard(
         currency,
         pending_leave,
         cancellations,
+        rescheduling,
     ) = financial
     attendance_snapshot = await attendance_overview(session, context, day=day)
     clocked_in = sum(item.status in {"working", "late"} for item in attendance_snapshot)
@@ -1166,6 +1178,7 @@ async def operations_dashboard(
         ("unassigned_jobs", unassigned, "unassigned jobs"),
         ("leave_requests", pending_leave, "pending leave requests"),
         ("cancellations", cancellations, "cancellation requests"),
+        ("rescheduling_required", rescheduling, "appointments needing a new time"),
         ("late_staff", late_staff, "employees late"),
         ("missed_shifts", missed_staff, "missed shifts"),
     ):

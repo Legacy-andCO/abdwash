@@ -32,6 +32,8 @@ const domainPrefixes: Record<SyncDomain, string[]> = {
   ],
   schedule: [
     "availability",
+    "calendar-booking-availability",
+    "reschedule-options",
     "jobs",
     "job",
     "calendar",
@@ -39,6 +41,7 @@ const domainPrefixes: Record<SyncDomain, string[]> = {
     "teams",
     "team",
     "managed-catalogue",
+    "calendar-booking-catalogue",
     "business-settings",
   ],
   finance: [

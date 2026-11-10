@@ -1663,8 +1663,9 @@
   }
   .footer-grid {
     display: grid;
-    gap: 5rem;
-    grid-template-columns: 2fr 1fr 1fr;
+    gap: clamp(1.5rem, 4vw, 4rem);
+    grid-template-columns: 1.5fr 1fr 1.1fr 1.3fr;
+    overflow-wrap: anywhere;
   }
   .brand-footer {
     color: white;
@@ -1713,6 +1714,85 @@
   }
   .narrow-card > p:not(.eyebrow) {
     color: var(--muted);
+  }
+  .policy-page h1 {
+    font-size: clamp(2rem, 5vw, 3.6rem);
+  }
+  .policy-page section {
+    margin-block: 1.75rem;
+  }
+  .policy-page h2 {
+    font-size: 1.25rem;
+    margin-block-end: 0.55rem;
+  }
+  .policy-page p {
+    line-height: 1.7;
+  }
+  .policy-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem 1.15rem;
+    margin-block-start: 0.8rem;
+    overflow-wrap: anywhere;
+  }
+  .policy-links a,
+  .policy-checkbox a {
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+  .policy-checkbox {
+    align-items: start;
+    display: flex;
+    gap: 0.65rem;
+    line-height: 1.6;
+    margin-block: 1rem;
+  }
+  .policy-checkbox input {
+    accent-color: var(--brand-primary);
+    flex: none;
+    block-size: 1.35rem;
+    inline-size: 1.35rem;
+    margin-block-start: 0.14rem;
+  }
+  .policy-checkbox label {
+    cursor: pointer;
+  }
+  .complaint-form fieldset,
+  .complaint-fields {
+    display: grid;
+    gap: 0.85rem;
+    min-inline-size: 0;
+  }
+  .complaint-form fieldset {
+    border: 0;
+    padding: 0;
+  }
+  .complaint-fields {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  }
+  .complaint-form label:has(input:not([type="checkbox"])),
+  .complaint-form label:has(textarea, select) {
+    display: grid;
+    gap: 0.35rem;
+    min-inline-size: 0;
+  }
+  .complaint-form input:not([type="checkbox"]),
+  .complaint-form select,
+  .complaint-form textarea {
+    background: var(--brand-surface);
+    border: 1px solid var(--brand-border);
+    border-radius: 0.5rem;
+    color: var(--brand-text);
+    font: inherit;
+    min-inline-size: 0;
+    padding: 0.65rem;
+    width: 100%;
+  }
+  .complaint-form button {
+    justify-self: start;
+  }
+  #complaint-form [role="status"] {
+    overflow-wrap: anywhere;
   }
   .contact-placeholder {
     background: var(--mint);
@@ -3787,7 +3867,8 @@
     padding: 0.4rem 0.7rem;
     text-transform: uppercase;
   }
-  .status-cancellation_requested {
+  .status-cancellation_requested,
+  .status-rescheduling_required {
     background: #fff4dd;
     color: #8b6417;
   }

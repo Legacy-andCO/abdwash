@@ -85,12 +85,35 @@ class ResendNotificationProvider:
 
 
 def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, str]:
+    if notification_type == "customer_complaint_received":
+        reference = escape(str(payload["reference"]))
+        title = f"New customer complaint — {reference}"
+        return title, _email_shell(
+            title, "<p>Open the complaint in the authorised staff system using this reference.</p>"
+        )
+    if notification_type == "booking_policies_provided":
+        return render_booking_policies(payload)
     if notification_type == "booking_confirmed":
         return render_booking_confirmation(payload)
     if notification_type == "driver_en_route":
         return render_driver_en_route(payload)
     if notification_type == "booking_rescheduled":
         return render_booking_rescheduled(payload)
+    if notification_type == "booking_displaced":
+        reference = escape(str(payload["booking_reference"]))
+        manage_url = escape(str(payload["management_url"]), quote=True)
+        return (
+            f"New appointment time needed — {reference}",
+            _email_shell(
+                "Your appointment needs a new time",
+                f"<p>The original time for booking <strong>{reference}</strong> is no longer "
+                "reserved. Trifecta will contact you to discuss a new time and any applicable "
+                "payment options.</p>"
+                f'<p><a href="{manage_url}">View your booking</a> or contact '
+                '<a href="mailto:contact@trifecta-wash.com">contact@trifecta-wash.com</a> '
+                'or <a href="tel:+971564204954">+971 56 420 4954</a>.</p>',
+            ),
+        )
     if notification_type == "job_completed":
         return render_job_completed(payload)
     if notification_type == "cancellation_requested":
@@ -339,6 +362,16 @@ def render_booking_confirmation(payload: dict[str, Any]) -> tuple[str, str]:
     manage_url = escape(str(payload["management_url"]), quote=True)
     address = escape(str(payload["written_address"]))
     cutoff = int(payload["cancellation_cutoff_hours"])
+    policy_link = (
+        f'<a href="{escape(str(payload["public_web_url"]).rstrip("/"), quote=True)}'
+        '/cancellation-and-refund-policy">Cancellation &amp; Refund Policy</a>.'
+        if payload.get("public_web_url") else ""
+    )
+    assisted_policy_links = ""
+    if payload.get("policy_language") and payload.get("public_web_url"):
+        arabic = payload["policy_language"] == "ar"
+        links = _booking_policy_links(str(payload["public_web_url"]), arabic=arabic)
+        assisted_policy_links = f'<div dir="{"rtl" if arabic else "ltr"}">{links}</div>'
     vehicle_rows = "".join(
         "<li style='margin:0 0 8px'>"
         f"<strong>{escape(str(vehicle['make']))} {escape(str(vehicle['model']))}</strong>"
@@ -363,13 +396,47 @@ def render_booking_confirmation(payload: dict[str, Any]) -> tuple[str, str]:
         </a>
       </p>
       <p style="color:#8A8A88;font-size:14px;line-height:1.6;margin:0">
-        Need to make a change? Cancellation requests can be submitted until {cutoff} hours
-        before the appointment.
+        Online cancellation requests are available until {cutoff} hours before the appointment.
+        If the online request window has closed, contact
+        <a href="mailto:contact@trifecta-wash.com">contact@trifecta-wash.com</a>
+        or <a href="tel:+971564204954">+971 56 420 4954</a>.
+        {policy_link}
       </p>
+      {assisted_policy_links}
     """
     return f"Your Trifecta booking is confirmed — {reference}", _email_shell(
         "Your Trifecta booking is confirmed", content
     )
+
+
+def render_booking_policies(payload: dict[str, Any]) -> tuple[str, str]:
+    reference = escape(str(payload["booking_reference"]))
+    arabic = payload.get("language") == "ar"
+    title = "سياسات حجز تريفيكتا" if arabic else "Your Trifecta booking policies"
+    introduction = (
+        "يرجى مراجعة سياسات الحجز" if arabic else "Please review the policies for booking"
+    )
+    links = _booking_policy_links(str(payload["public_web_url"]), arabic=arabic)
+    content = f'<p>{introduction} <bdi>{reference}</bdi>.</p>{links}'
+    if arabic:
+        content = f'<div lang="ar" dir="rtl">{content}</div>'
+    return f"{title} — {reference}", _email_shell(title, content)
+
+
+def _booking_policy_links(public_web_url: str, *, arabic: bool) -> str:
+    base = escape(public_web_url.rstrip("/"), quote=True)
+    links = (
+        ("terms-and-conditions", "الشروط والأحكام" if arabic else "Terms & Conditions"),
+        (
+            "cancellation-and-refund-policy",
+            "سياسة الإلغاء والاسترداد" if arabic else "Cancellation & Refund Policy",
+        ),
+        ("privacy-policy", "سياسة الخصوصية" if arabic else "Privacy Policy"),
+    )
+    items = "".join(
+        f'<li><a href="{base}/{path}">{escape(label)}</a></li>' for path, label in links
+    )
+    return f"<ul>{items}</ul>"
 
 
 def _detail(label: str, value: str) -> str:
