@@ -11,6 +11,9 @@ import {
   CONTACT_EMAIL,
   CONTACT_PHONE,
   CONTACT_TEL,
+  POLICY_EFFECTIVE_DATE,
+  POLICY_LAST_UPDATED,
+  POLICY_REVISION,
   policySlugs,
   policyTitles,
   type PolicySlug,
@@ -30,11 +33,16 @@ export function PolicyPage({ slug }: { slug: PolicySlug }) {
             {ar ? "تريفيكتا لغسل وتلميع السيارات" : "Trifecta Car Washing & Polishing"}
           </p>
           <h1>{title}</h1>
-          <p className="inline-notice warning">
-            {ar
-              ? "مسودة للمراجعة. تاريخ النفاذ المقترح 1 ديسمبر 2026، رهناً بالاعتماد والنشر."
-              : "Review draft. Proposed effective date 1 December 2026, subject to approval and publication."}
-          </p>
+          <dl className="policy-metadata">
+            <dt>{ar ? "تاريخ النفاذ" : "Effective date"}</dt>
+            <dd>{POLICY_EFFECTIVE_DATE
+              ? <time dateTime={POLICY_EFFECTIVE_DATE}>{POLICY_EFFECTIVE_DATE}</time>
+              : ar ? "لم يُحدَّد بعد" : "Pending publication approval"}</dd>
+            <dt>{ar ? "آخر تحديث" : "Last updated"}</dt>
+            <dd><time dateTime={POLICY_LAST_UPDATED}>{POLICY_LAST_UPDATED}</time></dd>
+            <dt>{ar ? "إصدار السياسة" : "Policy version"}</dt>
+            <dd><bdi>{POLICY_REVISION}</bdi></dd>
+          </dl>
           {slug === "complaints" && (
             <a className="button" href="#complaint-form">
               {ar ? "انتقل إلى نموذج الشكوى" : "Go to the complaint form"}

@@ -812,6 +812,7 @@ async def manager_reschedule_options(
             select(ScheduleSlot).where(
                 ScheduleSlot.business_id == business_id,
                 ScheduleSlot.slot_start == start,
+                ScheduleSlot.capacity_exception.is_(False),
             )
         )
     ).all()

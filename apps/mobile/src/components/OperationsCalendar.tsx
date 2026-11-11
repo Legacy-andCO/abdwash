@@ -32,7 +32,7 @@ export function OperationsCalendar({
   const client = useQueryClient();
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [booking, setBooking] = useState<{ date: string; replacement: CalendarJob | null } | null>(null);
+  const [booking, setBooking] = useState<{ date: string; overlap: CalendarJob | null } | null>(null);
   const range = useMemo(() => monthWindow(month), [month]);
   const query = useJobCalendarQuery(context, range.start, range.end);
   const jobs = query.data?.jobs ?? [];
@@ -48,9 +48,9 @@ export function OperationsCalendar({
     timeZone: "UTC",
   });
 
-  function openBooking(day: string, replacement: CalendarJob | null = null) {
+  function openBooking(day: string, overlap: CalendarJob | null = null) {
     setSelectedDate(null);
-    setBooking({ date: day < today ? today : day, replacement });
+    setBooking({ date: day < today ? today : day, overlap });
   }
 
   return (
@@ -157,9 +157,9 @@ export function OperationsCalendar({
                     setSelectedDate(null);
                     onOpenJob(job.job_id);
                   }} />
-                  {job.can_replace && job.version && (
+                  {job.can_double_book && job.team_id && (
                     <AppButton
-                      title={`Replace existing appointment · ${formatUaeTime(job.scheduled_start)}`}
+                      title={`Double-book this time · احجز موعداً متداخلاً · ${formatUaeTime(job.scheduled_start)}`}
                       tone="secondary"
                       onPress={() => openBooking(job.local_date, job)}
                     />
@@ -174,18 +174,11 @@ export function OperationsCalendar({
         <CalendarBookingSheet
           context={context}
           initialDate={booking.date}
-          replacement={booking.replacement}
+          overlap={booking.overlap}
           onClose={() => setBooking(null)}
           onBooked={(_jobId, date) => {
             setMonth(date.slice(0, 7));
             const scope = operationalScope(context);
-            if (booking.replacement && context.role === "employee") {
-              const displacedId = booking.replacement.job_id;
-              client.removeQueries({ queryKey: ["job", scope, displacedId] });
-              client.setQueriesData<{ jobs: { id: string }[] }>({ queryKey: ["jobs", scope] }, (cached) =>
-                cached ? { ...cached, jobs: cached.jobs.filter((item) => item.id !== displacedId) } : cached,
-              );
-            }
             for (const key of ["calendar", "jobs", "dashboard", "calendar-booking-availability"]) {
               void client.invalidateQueries({ queryKey: [key, scope] });
             }

@@ -148,7 +148,7 @@ export type Job = {
 export type CalendarJob = {
   job_id: string;
   version?: number | null;
-  can_replace?: boolean;
+  can_double_book?: boolean;
   scheduled_start: string;
   scheduled_end: string;
   local_date: string;

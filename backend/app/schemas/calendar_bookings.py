@@ -61,10 +61,8 @@ class AssistedVehicle(BookingVehicleCreate):
         return self
 
 
-class AppointmentReplacement(StrictRequest):
-    job_id: uuid.UUID
-    expected_version: int = Field(ge=1)
-    reason: Reason
+class AppointmentOverlap(StrictRequest):
+    team_id: uuid.UUID
     confirmed: StrictBool
 
 
@@ -78,7 +76,7 @@ class StaffBookingCreate(StrictRequest):
     policy_revision: str = Field(min_length=1, max_length=80)
     policy_delivery: Literal["provided", "email"]
     language: Literal["en", "ar"] = "en"
-    replacement: AppointmentReplacement | None = None
+    overlap: AppointmentOverlap | None = None
 
     @model_validator(mode="after")
     def validate_confirmation(self) -> "StaffBookingCreate":
@@ -86,8 +84,8 @@ class StaffBookingCreate(StrictRequest):
             raise ValueError("Enter a local appointment time.")
         if self.policy_delivery == "email" and not self.contact.email:
             raise ValueError("Enter an email address to send the policies.")
-        if self.replacement and not self.replacement.confirmed:
-            raise ValueError("Explicitly confirm replacement of the occupied appointment.")
+        if self.overlap and not self.overlap.confirmed:
+            raise ValueError("Explicitly confirm the overlapping appointment.")
         return self
 
 
@@ -103,4 +101,4 @@ class StaffBookingReceipt(StrictRequest):
     scheduled_start: datetime
     scheduled_end: datetime
     total_amount_minor: int
-    replaced_appointment: bool
+    capacity_exception: bool

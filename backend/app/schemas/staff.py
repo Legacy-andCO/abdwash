@@ -96,7 +96,7 @@ class BookingArchiveResult(BaseModel):
 class CalendarJob(BaseModel):
     job_id: uuid.UUID
     version: int | None = None
-    can_replace: bool = False
+    can_double_book: bool = False
     scheduled_start: datetime
     scheduled_end: datetime
     local_date: date

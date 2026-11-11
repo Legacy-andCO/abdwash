@@ -55,7 +55,7 @@ from app.services.coupons import resolve_coupon
 from app.services.customer_communications import queue_customer_email_if_available
 from app.services.customer_profiles import provision_customer_profile
 from app.services.management_tokens import create_management_token, management_token_hash
-from app.services.scheduling import lock_hold_for_confirmation, policy_for_day
+from app.services.scheduling import lock_hold_for_confirmation, policy_for_day, validate_overlap
 from app.services.smart_scheduling import (
     choose_team_for_booking,
     operational_duration_minutes,
@@ -245,19 +245,31 @@ async def create_booking(
         for slot in slots
     ):
         raise ConflictError("HOLD_EXPIRED", "The booking hold is no longer valid.")
-    await choose_team_for_booking(
-        session,
-        business_id=hold.business_id,
-        day=day,
-        timezone=configuration.settings.timezone,
-        starts_at=hold.slot_start,
-        ends_at=operational_end,
-        turnaround_minutes=configuration.settings.default_team_turnaround_minutes,
-        source="auto",
-        preferred_team_id=hold.resource_id,
-        exclude_hold_id=hold.id,
-        include_blocked_slots=isinstance(request, StaffBookingCreate),
-    )
+    if isinstance(request, StaffBookingCreate) and request.overlap:
+        if request.overlap.team_id != hold.resource_id or not all(
+            slot.capacity_exception for slot in slots
+        ):
+            raise ConflictError("INVALID_HOLD", "The overlap booking hold is invalid.")
+        await validate_overlap(
+            session, configuration, day_policy, day, hold.resource_id,
+            hold.slot_start, operational_end, exclude_hold_id=hold.id,
+        )
+    else:
+        if any(slot.capacity_exception for slot in slots):
+            raise ConflictError("INVALID_HOLD", "The booking hold is invalid.")
+        await choose_team_for_booking(
+            session,
+            business_id=hold.business_id,
+            day=day,
+            timezone=configuration.settings.timezone,
+            starts_at=hold.slot_start,
+            ends_at=operational_end,
+            turnaround_minutes=configuration.settings.default_team_turnaround_minutes,
+            source="auto",
+            preferred_team_id=hold.resource_id,
+            exclude_hold_id=hold.id,
+            include_blocked_slots=isinstance(request, StaffBookingCreate),
+        )
     hold.expected_duration_minutes = expected_duration_minutes
     hold.slot_end = operational_end
 
@@ -604,7 +616,11 @@ async def create_booking(
                 **(
                     {"policy_language": request.language, "booking_version": booking.version}
                     if isinstance(request, StaffBookingCreate)
-                    else {}
+                    else (
+                        {"policy_language": request.policy_acceptance.language}
+                        if request.policy_acceptance
+                        else {}
+                    )
                 ),
             },
             next_attempt_at=now,

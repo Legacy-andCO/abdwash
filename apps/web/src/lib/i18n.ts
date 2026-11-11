@@ -641,9 +641,11 @@ const en = {
   "manage.visitDetails": "Visit details",
   "manage.plansChanged": "Plans changed?",
   "manage.cancellationCopy":
-    "Requests can be made until {cutoff}. A request does not cancel the booking until it is approved.",
+    "Online cancellation requests close at {cutoff}. Contact Trifecta after the cutoff. The booking remains in place until the request is approved.",
   "manage.cancellationUnavailable":
-    "A new online cancellation request isn’t available for this booking. Contact Trifecta for help.",
+    "Online cancellation is unavailable for this booking. Contact Trifecta for help. The online cutoff does not determine refund or rescheduling rights.",
+  "booking.onlineChangeCutoff":
+    "Online cancellation and rescheduling close {hours} hours before the appointment. Contact Trifecta after that. The cutoff does not remove any refund or rescheduling rights.",
   "status.driverEnRoute": "Driver on the way",
   "status.driverArrived": "Driver has arrived",
   "status.inProgress": "Wash in progress",
@@ -1462,9 +1464,11 @@ const ar: Record<TranslationKey, string> = {
   "manage.visitDetails": "تفاصيل الزيارة",
   "manage.plansChanged": "هل تغيرت خططك؟",
   "manage.cancellationCopy":
-    "يمكن تقديم الطلبات حتى {cutoff}. لا يُلغى الحجز إلا بعد الموافقة على الطلب.",
+    "تُغلق طلبات الإلغاء عبر الموقع عند {cutoff}. تواصل مع تريفيكتا بعد انتهاء المهلة. يبقى الحجز قائماً إلى حين الموافقة على الطلب.",
   "manage.cancellationUnavailable":
-    "لا يمكن تقديم طلب إلغاء جديد لهذا الحجز عبر الموقع. تواصل مع تريفيكتا للمساعدة.",
+    "لا يمكن إلغاء هذا الحجز عبر الموقع. تواصل مع تريفيكتا للمساعدة. لا تحدد المهلة الإلكترونية حقوق الاسترداد أو إعادة الجدولة.",
+  "booking.onlineChangeCutoff":
+    "تُغلق خدمة الإلغاء وإعادة الجدولة عبر الموقع قبل الموعد بـ{hours} ساعة. تواصل مع تريفيكتا بعد ذلك. لا تسقط هذه المهلة حقوق الاسترداد أو إعادة الجدولة.",
   "status.driverEnRoute": "السائق في الطريق",
   "status.driverArrived": "وصل السائق",
   "status.inProgress": "جاري تنظيف المركبة",

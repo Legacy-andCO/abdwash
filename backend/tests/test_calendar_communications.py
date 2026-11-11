@@ -42,7 +42,7 @@ async def test_calendar_uses_one_bounded_projection_and_business_date() -> None:
             "scheduled_end": scheduled + timedelta(hours=2),
             "status": JobStatus.ASSIGNED,
             "version": 1,
-            "can_replace": False,
+            "can_double_book": False,
             "team_id": None,
             "team_short_name": None,
             "vehicle_label": "Toyota Camry",
@@ -65,7 +65,7 @@ async def test_calendar_uses_one_bounded_projection_and_business_date() -> None:
     assert calendar.jobs[0].job_id == job_id
     assert calendar.jobs[0].local_date == date(2026, 8, 31)
     assert calendar.jobs[0].team_short_name is None
-    assert not calendar.jobs[0].can_replace
+    assert not calendar.jobs[0].can_double_book
 
 
 @pytest.mark.asyncio

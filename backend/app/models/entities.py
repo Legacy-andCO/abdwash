@@ -581,12 +581,21 @@ class ScheduleSlot(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     hold_group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("slot_hold_groups.id"))
     hold_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     booking_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("bookings.id"))
+    capacity_exception: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     blocked_reason: Mapped[str | None] = mapped_column(String(240))
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default=text("1")
     )
     __table_args__ = (
-        UniqueConstraint("resource_id", "slot_start", name="uq_schedule_slot_resource_start"),
+        Index(
+            "uq_schedule_slot_resource_start",
+            "resource_id",
+            "slot_start",
+            unique=True,
+            postgresql_where=text("NOT capacity_exception"),
+        ),
         CheckConstraint("status IN ('free','held','reserved','blocked')", name="slot_status"),
         Index("ix_schedule_slots_resource_start_status", "resource_id", "slot_start", "status"),
         Index("ix_schedule_slots_active_hold", "status", "hold_expires_at"),

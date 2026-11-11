@@ -45,7 +45,7 @@ type BookingReceipt = {
   job_id: string;
   reference: string;
   scheduled_start: string;
-  replaced_appointment: boolean;
+  capacity_exception: boolean;
 };
 
 function newVehicle(): VehicleInput {
@@ -78,19 +78,19 @@ function Entry({
 }
 
 export function CalendarBookingSheet({
-  context, initialDate, replacement, onClose, onBooked,
+  context, initialDate, overlap, onClose, onBooked,
 }: {
   context: StaffContext;
   initialDate: string;
-  replacement: CalendarJob | null;
+  overlap: CalendarJob | null;
   onClose: () => void;
   onBooked: (jobId: string, date: string) => void;
 }) {
-  const [day, setDay] = useState(replacement?.local_date ?? initialDate);
-  const [start, setStart] = useState(() => replacement
+  const [day, setDay] = useState(overlap?.local_date ?? initialDate);
+  const [start, setStart] = useState(() => overlap
     ? new Intl.DateTimeFormat("en-GB", {
         timeZone: UAE_TIME_ZONE, hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit",
-      }).format(new Date(replacement.scheduled_start))
+      }).format(new Date(overlap.scheduled_start))
     : "");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -101,7 +101,6 @@ export function CalendarBookingSheet({
   const [showGps, setShowGps] = useState(false);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  const [reason, setReason] = useState("");
   const [delivery, setDelivery] = useState<"provided" | "email" | null>(null);
   const [language, setLanguage] = useState<"en" | "ar">("en");
   const [review, setReview] = useState(false);
@@ -126,19 +125,19 @@ export function CalendarBookingSheet({
       serviceIds.forEach((id) => query.append("service_id", id));
       return api<Availability>(`${path}/availability?${query}`, { signal });
     },
-    enabled: !replacement && serviceIds.every(Boolean),
+    enabled: !overlap && serviceIds.every(Boolean),
   });
   const prices = vehicles.map((vehicle) =>
     services.find((service) => service.id === vehicle.service_id)
       ?.prices.find((price) => price.vehicle_type === vehicle.vehicle_type)?.price_minor,
   );
   const total = prices.reduce<number>((sum, price) => sum + (price ?? 0), 0);
-  const selectedSlot = replacement || availability.data?.slots.some((slot) => slot.time === start && slot.available);
+  const selectedSlot = overlap || availability.data?.slots.some((slot) => slot.time === start && slot.available);
   const policyUrl = catalogue.data?.public_web_url?.replace(/\/$/, "");
 
   function updateVehicle(index: number, fields: Partial<VehicleInput>) {
     setVehicles((items) => items.map((item, i) => i === index ? { ...item, ...fields } : item));
-    if ("service_id" in fields && !replacement) setStart("");
+    if ("service_id" in fields && !overlap) setStart("");
   }
 
   function prepareReview() {
@@ -149,8 +148,8 @@ export function CalendarBookingSheet({
       setError("Select a service and vehicle type for each car and an available appointment time.");
     } else if (!delivery || (delivery === "email" && (!email.trim() || !policyUrl))) {
       setError("Record how the customer will receive the policies.");
-    } else if (replacement && (!replacement.version || reason.trim().length < 3)) {
-      setError("Enter a reason for displacing the appointment.");
+    } else if (overlap && (!overlap.team_id || !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(start))) {
+      setError("Enter a valid Abu Dhabi time in 24-hour format (HH:MM).");
     } else if (showGps && coordinates.some(Boolean) && (
       !coordinates.every(Boolean) || coordinates.some((coordinate) => !Number.isFinite(Number(coordinate)))
       || Math.abs(Number(coordinates[0])) > 90 || Math.abs(Number(coordinates[1])) > 180
@@ -180,9 +179,8 @@ export function CalendarBookingSheet({
           policy_revision: catalogue.data.policy_revision,
           policy_delivery: delivery,
           language,
-          replacement: replacement ? {
-            job_id: replacement.job_id, expected_version: replacement.version,
-            reason, confirmed: true,
+          overlap: overlap ? {
+            team_id: overlap.team_id, confirmed: true,
           } : null,
         }),
       };
@@ -205,7 +203,7 @@ export function CalendarBookingSheet({
       if (!uncertainResult) {
         attempt.current = null;
         setReview(false);
-        if (!replacement) void availability.refetch();
+        if (!overlap) void availability.refetch();
         void catalogue.refetch();
       }
       setError(uncertainResult
@@ -218,16 +216,16 @@ export function CalendarBookingSheet({
   }
 
   function confirm() {
-    if (!replacement || uncertain) {
+    if (!overlap || uncertain) {
       void submit();
       return;
     }
     Alert.alert(
-      "Replace this appointment?",
-      "The original customer will need a new time. Their booking and payment records will be kept.",
+      "Double-book this time? / تأكيد حجز موعد متداخل؟",
+      "This adds another appointment for the same team during an occupied time. Both appointments remain confirmed. سيبقى الموعدان مؤكدين للفريق نفسه في وقت متداخل.",
       [
         { text: "Go back", style: "cancel" },
-        { text: "Replace appointment", style: "destructive", onPress: () => void submit() },
+        { text: "Double-book this time / احجز موعداً متداخلاً", style: "destructive", onPress: () => void submit() },
       ],
     );
   }
@@ -239,14 +237,14 @@ export function CalendarBookingSheet({
       <View style={styles.backdrop}>
         <ScrollView keyboardShouldPersistTaps="handled" style={styles.sheet} contentContainerStyle={styles.content}>
           <Text accessibilityRole="header" style={styles.title}>
-            {replacement ? "Replace existing appointment" : "Book a Wash"}
+            {overlap ? "Double-book a wash / حجز غسيل في وقت متداخل" : "Book a Wash"}
           </Text>
           {receipt ? (
             <>
               <Text style={uiStyles.success}>
                 Appointment booked · {receipt.reference} · {formatUaeDateTime(receipt.scheduled_start)}
               </Text>
-              {receipt.replaced_appointment && <Text style={uiStyles.body}>The original appointment is in the manager follow-up queue.</Text>}
+              {receipt.capacity_exception && <Text style={uiStyles.body}>The original appointment is in the manager follow-up queue.</Text>}
             </>
           ) : review ? (
             <>
@@ -260,14 +258,17 @@ export function CalendarBookingSheet({
                 </Text>
               ))}
               <Text style={uiStyles.label}>{catalogue.data?.settings.currency_code} {(total / 100).toFixed(2)} · Pay after service</Text>
-              {replacement && <Text style={uiStyles.error}>This will displace the {formatUaeDateTime(replacement.scheduled_start)} appointment for {replacement.team_short_name ?? "the assigned team"}. Reason · {reason}</Text>}
-              <AppButton title={uncertain ? "Retry safely" : replacement ? "Continue to replacement confirmation" : "Confirm booking"} loading={busy} disabled={busy} onPress={confirm} />
+              {overlap && <Text style={uiStyles.error}>This adds an overlapping appointment for {overlap.team_short_name ?? "the assigned team"}. Both bookings stay confirmed. سيبقى الحجزان مؤكدين.</Text>}
+              <AppButton title={uncertain ? "Retry safely" : overlap ? "Double-book this time / احجز موعداً متداخلاً" : "Confirm booking"} loading={busy} disabled={busy} onPress={confirm} />
               {!uncertain && <AppButton title="Edit details" tone="secondary" disabled={busy} onPress={() => setReview(false)} />}
             </>
           ) : (
             <>
-              {replacement ? (
-                <Text style={uiStyles.body}>Occupied · {formatUaeDateTime(replacement.scheduled_start)} · {replacement.team_short_name ?? "Assigned team"}</Text>
+              {overlap ? (
+                <>
+                  <Text style={uiStyles.body}>Occupied / الوقت مشغول · {formatUaeDateTime(overlap.scheduled_start)} · {overlap.team_short_name ?? "Assigned team"}</Text>
+                  <Entry label="New appointment time (HH:MM) / وقت الموعد الجديد" value={start} onChange={setStart} />
+                </>
               ) : (
                 <DatePickerField label="Appointment date" value={day} minimumDate={wallDate(uaeDateKey())} onChange={(date) => { setDay(date); setStart(""); }} />
               )}
@@ -297,18 +298,18 @@ export function CalendarBookingSheet({
                     <Entry label="Make (optional)" value={vehicle.make} onChange={(make) => updateVehicle(index, { make })} />
                     <Entry label="Model (optional)" value={vehicle.model} onChange={(model) => updateVehicle(index, { model })} />
                     <Entry label="Plate (optional)" value={vehicle.plate_number} onChange={(plate_number) => updateVehicle(index, { plate_number })} />
-                    {vehicles.length > 1 && <AppButton title="Remove vehicle" tone="secondary" onPress={() => { setVehicles((items) => items.filter((_, i) => i !== index)); if (!replacement) setStart(""); }} />}
+                    {vehicles.length > 1 && <AppButton title="Remove vehicle" tone="secondary" onPress={() => { setVehicles((items) => items.filter((_, i) => i !== index)); if (!overlap) setStart(""); }} />}
                   </Card>
                 );
               })}
-              {vehicles.length < 20 && <AppButton title="Add another vehicle" tone="secondary" onPress={() => { setVehicles((items) => [...items, newVehicle()]); if (!replacement) setStart(""); }} />}
-              {!replacement && (
+              {vehicles.length < 20 && <AppButton title="Add another vehicle" tone="secondary" onPress={() => { setVehicles((items) => [...items, newVehicle()]); if (!overlap) setStart(""); }} />}
+              {!overlap && (
                 <>
                   <Text style={uiStyles.label}>Available times · Abu Dhabi</Text>
                   {availability.isFetching && <Text style={uiStyles.muted}>Checking team capacity…</Text>}
                   {availability.isError && <AppButton title="Retry checking times" tone="secondary" onPress={() => void availability.refetch()} />}
                   {availability.data && !availability.data.slots.some((slot) => slot.available) && (
-                    <Text style={uiStyles.muted}>No capacity for this selection. Choose another date or select an eligible appointment to replace in the calendar agenda.</Text>
+                    <Text style={uiStyles.muted}>No capacity for this selection. Choose another date or open an occupied appointment in the agenda to intentionally double-book the team.</Text>
                   )}
                   <View style={styles.choices}>
                     {availability.data?.slots.filter((slot) => slot.available).map((slot) => (
@@ -330,7 +331,6 @@ export function CalendarBookingSheet({
                   <Entry label="Longitude" value={longitude} onChange={setLongitude} keyboardType="numbers-and-punctuation" />
                 </>
               )}
-              {replacement && <Entry label="Reason for replacement" value={reason} onChange={setReason} multiline />}
               <Text style={uiStyles.label}>Provide the booking policies</Text>
               {policyUrl && Object.entries(policyLinks).map(([slug, title]) => (
                 <AppButton key={slug} title={title} tone="secondary" onPress={() => void Linking.openURL(`${policyUrl}/${slug}`).catch(() => setError("Could not open the policy link."))} />

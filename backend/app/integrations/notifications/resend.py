@@ -362,14 +362,23 @@ def render_booking_confirmation(payload: dict[str, Any]) -> tuple[str, str]:
     manage_url = escape(str(payload["management_url"]), quote=True)
     address = escape(str(payload["written_address"]))
     cutoff = int(payload["cancellation_cutoff_hours"])
+    arabic = payload.get("policy_language") == "ar"
+    cutoff_notice = (
+        f"تُغلق خدمة الإلغاء وإعادة الجدولة عبر الموقع قبل الموعد بـ{cutoff} ساعة. "
+        "يمكنك التواصل مع تريفيكتا بعد ذلك. لا تسقط هذه المهلة حقوق الاسترداد أو إعادة الجدولة."
+        if arabic else
+        f"Online cancellation and rescheduling close {cutoff} hours before the appointment. "
+        "You can contact Trifecta after that. The cutoff does not remove any refund or "
+        "rescheduling rights."
+    )
     policy_link = (
         f'<a href="{escape(str(payload["public_web_url"]).rstrip("/"), quote=True)}'
-        '/cancellation-and-refund-policy">Cancellation &amp; Refund Policy</a>.'
+        '/cancellation-and-refund-policy">'
+        f'{"سياسة الإلغاء والاسترداد" if arabic else "Cancellation &amp; Refund Policy"}</a>'
         if payload.get("public_web_url") else ""
     )
     assisted_policy_links = ""
     if payload.get("policy_language") and payload.get("public_web_url"):
-        arabic = payload["policy_language"] == "ar"
         links = _booking_policy_links(str(payload["public_web_url"]), arabic=arabic)
         assisted_policy_links = f'<div dir="{"rtl" if arabic else "ltr"}">{links}</div>'
     vehicle_rows = "".join(
@@ -395,11 +404,11 @@ def render_booking_confirmation(payload: dict[str, Any]) -> tuple[str, str]:
           Manage booking
         </a>
       </p>
-      <p style="color:#8A8A88;font-size:14px;line-height:1.6;margin:0">
-        Online cancellation requests are available until {cutoff} hours before the appointment.
-        If the online request window has closed, contact
-        <a href="mailto:contact@trifecta-wash.com">contact@trifecta-wash.com</a>
-        or <a href="tel:+971564204954">+971 56 420 4954</a>.
+      <p dir="{"rtl" if arabic else "ltr"}"
+         style="color:#8A8A88;font-size:14px;line-height:1.6;margin:0">
+        {cutoff_notice}
+        <a dir="ltr" href="mailto:contact@trifecta-wash.com">contact@trifecta-wash.com</a> ·
+        <a dir="ltr" href="tel:+971564204954">+971 56 420 4954</a>
         {policy_link}
       </p>
       {assisted_policy_links}

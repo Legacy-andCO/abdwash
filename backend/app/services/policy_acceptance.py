@@ -10,7 +10,7 @@ from app.models.entities import AuditEvent, Booking
 from app.schemas.policies import PolicyAcceptance, StaffPolicyProvision
 from app.services.customer_communications import queue_customer_email_if_available
 
-POLICY_REVISION = "2026-11-09-review.1"
+POLICY_REVISION = "2026-11-10.2"
 POLICY_VERSIONS = {
     slug: f"{slug}@{POLICY_REVISION}"
     for slug in ("terms-and-conditions", "cancellation-and-refund-policy", "privacy-policy")

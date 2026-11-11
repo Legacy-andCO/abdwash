@@ -5,11 +5,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import { BookingPolicyAcceptance } from "./booking-policy-acceptance";
 import { ComplaintForm } from "./complaint-form";
 import { I18nProvider } from "./i18n-provider";
+import { PolicyPage } from "./policy-page";
 import { SiteFooter } from "./site-footer";
 import { createComplaint } from "@/lib/api";
-import { policySlugs, policyTitles } from "@/lib/policies";
+import { POLICY_REVISION, policyMetadata, policySlugs, policyTitles } from "@/lib/policies";
 
 vi.mock("@/lib/api", () => ({ createComplaint: vi.fn(), ApiError: Error }));
+vi.mock("./site-header", () => ({ SiteHeader: () => null }));
 
 afterEach(() => {
   cleanup();
@@ -24,6 +26,25 @@ it.each(["en", "ar"] as const)("links all six policies in the %s footer", async 
     expect((await screen.findByRole("link", { name: policyTitles[slug][language] })).getAttribute("href")).toBe(`/${slug}`);
   }
   expect(document.documentElement.dir).toBe(language === "ar" ? "rtl" : "ltr");
+});
+
+it.each(policySlugs.flatMap((slug) => (["en", "ar"] as const).map((language) => ({
+  slug, language,
+}))))("renders $slug in $language with versioned metadata", async ({ slug, language }) => {
+  localStorage.setItem("trifecta-language", language);
+  render(<I18nProvider><PolicyPage slug={slug} /></I18nProvider>);
+  await screen.findByRole("heading", { level: 1, name: policyTitles[slug][language] });
+  const article = screen.getByRole("article");
+  expect(article.closest("main")?.dir).toBe(language === "ar" ? "rtl" : "ltr");
+  expect(article.textContent).toContain(POLICY_REVISION);
+  expect(article.textContent).not.toMatch(/Review draft|مسودة للمراجعة|1 December 2026|1 ديسمبر 2026/);
+  expect(policyMetadata(slug).robots.index).toBe(false);
+  if (slug === "cancellation-and-refund-policy") {
+    const boundaries = language === "ar"
+      ? ["تمام الأربع ساعات", "ساعتين بالضبط", "25 درهماً", "العربون", "24 ساعة"]
+      : ["exactly 4 hours", "exactly 2 hours", "AED 25", "eligible prepaid deposit", "24 hours"];
+    for (const boundary of boundaries) expect(article.textContent).toContain(boundary);
+  }
 });
 
 it("renders an unchecked required booking control with three linked policies", () => {

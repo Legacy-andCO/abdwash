@@ -14,7 +14,7 @@
     ],
     [
       "Appointments, cancellations and rescheduling",
-      "Customers should provide accurate name, contact number, service location, vehicle type and booking details, and ensure reasonable access to the vehicle at the agreed time. Cancellation and rescheduling arrangements are explained in our Cancellation & Refund Policy. If we need to move or cancel an appointment, we will notify the customer and explain the available alternatives. Trifecta will not substitute another booking without addressing the affected customer’s rights and any applicable advance payment."
+      "Please provide accurate contact, vehicle and location details and ensure reasonable access at the agreed time. See the Cancellation & Refund Policy for the timing, refund and fee rules. Online self-service generally closes 24 hours before the appointment. You can still contact Trifecta after it closes, and the online cutoff does not determine your refund or rescheduling rights. If we need to change or cancel your appointment, we will notify you, explain the available alternatives and provide any refund or other remedy required by law."
     ],
     [
       "Vehicle condition and belongings",
@@ -30,7 +30,7 @@
     ],
     [
       "Personal information",
-      "We use personal information for bookings, service delivery, customer support, transactions, legal compliance and other disclosed lawful purposes. Customer names, addresses and location details are confidential personal information. We do not sell customer data or disclose identifiable information for unrelated third-party marketing. See our Privacy Policy and Data Protection & Confidentiality Policy for details of authorised access, necessary service providers, retention, customer rights and lawful disclosures."
+      "We use personal information for bookings, service delivery, support, transactions and other disclosed lawful purposes. Customer names, phone numbers, addresses, vehicle information and GPS data are confidential. A written service address is sufficient for staff-assisted bookings. GPS is optional. We do not sell personal data or provide it for unrelated third-party marketing. See the Privacy Policy and Data Protection & Confidentiality Policy for access, processors, retention and rights."
     ],
     [
       "Governing law",
@@ -44,11 +44,15 @@
     ],
     [
       "Customer cancellations",
-      "For customer-initiated cancellation at least four (4) hours before the scheduled start, an eligible prepaid service amount will ordinarily be refunded in full. For cancellation more than two (2) hours but fewer than four (4) hours before the start, Trifecta may retain 50% of the booked service amount and ordinarily refund 50% of a prepaid amount, provided the condition was disclosed and is lawful and proportionate in the circumstances. For cancellation at or within two (2) hours before the start, a refund is not ordinarily available where Trifecta was ready to provide the agreed service and the retention is lawful and proportionate. We may waive charges or offer alternatives at our discretion."
+      "For a voluntary cancellation more than 4 hours before the scheduled start, eligible amounts prepaid are ordinarily refunded in full. For a cancellation more than 2 hours and up to and including exactly 4 hours before the start, the ordinary arrangement is to refund 50% and retain 50% of the eligible amount actually prepaid, where disclosed in advance, lawful and proportionate. If only a deposit was paid, this percentage applies to the eligible prepaid deposit, rather than the full service price. For a cancellation exactly 2 hours or less before the start, prepaid amounts are ordinarily not refundable where that retention was disclosed, lawful and proportionate. This policy does not create an additional cancellation charge or liability beyond what was prepaid. These rules do not limit statutory remedies."
     ],
     [
       "Customer rescheduling",
-      "A request made more than two (2) hours before the appointment may ordinarily be accommodated without a rescheduling fee, subject to availability. For a request at or within two (2) hours before the start, a disclosed AED 25 rescheduling fee may apply, where legally permissible. No additional work or charge is imposed without the applicable customer approval. Customers must be informed of the revised appointment details."
+      "More than 2 hours before the appointment, rescheduling is free, subject to availability. Exactly 2 hours or less before the appointment, an AED 25 rescheduling fee may apply if disclosed before booking and permitted by law. We will explain any applicable fee and confirm the revised appointment details."
+    ],
+    [
+      "Online self-service cutoff",
+      "Online self-service cancellation and rescheduling generally close 24 hours before the appointment. After that, contact Trifecta by phone or email with your booking reference. The online cutoff is a technical restriction and does not by itself remove any refund, rescheduling or statutory entitlement."
     ],
     [
       "Missed appointments and exceptional circumstances",
@@ -56,7 +60,7 @@
     ],
     [
       "Cancellations or changes by Trifecta",
-      "If Trifecta cancels, materially delays or cannot provide the booked service, we will inform the customer as soon as reasonably practicable. For prepaid services not performed, the customer will be offered the appropriate legally required remedy, including a refund of the applicable unperformed amount or a new appointment accepted by the customer. If an existing booking must be moved to make room for another booking, the affected customer will not simply be erased from the schedule."
+      "If Trifecta needs to change or cancel a booking, or cannot provide the agreed service, we will notify the customer as soon as reasonably practicable and explain available alternatives. We will provide any refund or other remedy required by law. A new appointment may be arranged with the customer’s agreement."
     ],
     [
       "Service deficiencies and refunds",
@@ -64,7 +68,7 @@
     ],
     [
       "Refund processing",
-      "Approved refunds will normally use the original payment method where practicable, unless another lawful arrangement is agreed. Trifecta will communicate the intended processing timeframe when approving the refund. The date funds appear may depend on the payment provider or bank. A cancellation or refund request can be submitted using the relevant booking channel or by contacting us with the booking reference and registered contact details. If the online request window has closed, contact Trifecta directly. That window is separate from the refund conditions in this policy."
+      "Approved refunds are normally returned through the original payment method where practicable, unless another lawful arrangement is agreed. We will explain any available processing estimate once the refund is approved. The time for funds to appear can depend on the payment provider or bank."
     ]
   ],
   "service-warranty-and-aftercare": [
@@ -100,7 +104,7 @@
     ],
     [
       "Information collected",
-      "Depending on the service, we may collect the customer’s name, telephone number, email if supplied, written service address, optional GPS coordinates if specifically provided or enabled, booking and service history, vehicle make/model/type, service instructions, payment status and transaction references, customer communications, feedback and complaints, and relevant before-and-after vehicle records. Website technical data and cookies may also be processed where applicable. We seek only the information reasonably required for these purposes. Online booking asks for a written address and a map link. An address-based map link can be used without sharing device GPS."
+      "Depending on the service, we may collect the customer’s name, telephone number, email if supplied, written service address, optional GPS coordinates if specifically provided or enabled, booking and service history, vehicle make/model/type, service instructions, payment status and transaction references, customer communications, feedback and complaints, and relevant before-and-after vehicle records. Website technical data and cookies may also be processed where applicable. We seek only the information reasonably required for these purposes. Online booking asks for a written address and a map link. An address-based map link can be used without sharing device GPS. For employee-assisted bookings, a written address is sufficient and GPS is optional."
     ],
     [
       "Purposes for using data",
@@ -112,7 +116,7 @@
     ],
     [
       "Confidentiality and authorised access",
-      "Customer names, written addresses, location details, booking history, service notes and vehicle images are treated as private information. Access is limited to people with a legitimate role-related need, such as the assigned service team for a booked visit or an authorised manager responding to a problem. We use appropriate technical and organisational safeguards and limit the information shown to employees. We do not sell, rent or publish identifiable customer data or use customer names, written addresses or precise locations for unrelated marketing."
+      "Customer names, phone numbers, written addresses, GPS data, booking history, service notes and vehicle information are treated as private information. Access is limited to people with a legitimate role-related need, such as the assigned service team for a booked visit or an authorised manager responding to a problem. We use appropriate technical and organisational safeguards and limit the information shown to employees. We do not sell, rent or publish identifiable customer data or use customer names, written addresses or precise locations for unrelated marketing."
     ],
     [
       "Service providers and required disclosure",
@@ -124,11 +128,11 @@
     ],
     [
       "Photos, videos and location",
-      "Vehicle photographs and inspection records may be used for service performance, documentation and complaint handling. They are not to be published for social media, testimonials or advertisements without a separate lawful basis and necessary permissions. Employees should not download or share customer photos and locations outside authorised work channels. You can provide an address-based map link instead of using device GPS. When you share your precise location, we use it only to locate and deliver the booked service."
+      "Vehicle photographs and inspection records may be used for service performance, documentation and complaint handling. They are not to be published for social media, testimonials or advertisements without a separate lawful basis and necessary permissions. Employees should not download or share customer photos and locations outside authorised work channels. You can provide an address-based map link instead of using device GPS. When you share your precise location, we use it only to locate and deliver the booked service. When staff open a navigation link, the maps provider receives the written address or coordinates used for directions."
     ],
     [
       "Retention and security",
-      "We keep data for no longer than reasonably necessary for the disclosed purpose, subject to lawful accounting, transaction, complaint, fraud-prevention or legal-claim requirements. Different records may have different retention periods. We maintain proportionate access restrictions, account-security measures and secure processing procedures, and review suspected unauthorised access or disclosure. No system can be described as entirely risk-free."
+      "We keep data for no longer than reasonably necessary for the disclosed purpose, subject to lawful accounting, transaction, complaint, fraud-prevention or legal-claim requirements. Different records may have different retention periods. The staff app can temporarily cache job details on staff devices for operational access, including during connection interruptions. Access in the app is scoped by staff role and work assignment. We maintain account-security measures and review suspected unauthorised access or disclosure."
     ],
     [
       "Individual rights",
@@ -162,7 +166,7 @@
     ],
     [
       "Location protection",
-      "You can use a written service address and an address-based map link for online bookings. Precise GPS coordinates will be requested or used only where helpful and authorised, and will not be mandatory merely to schedule a wash. Customer address or GPS data is used to attend or manage the appointment and must not be published, sold, used to track a customer beyond the service or displayed to unrelated employees."
+      "You can use a written service address and an address-based map link for online bookings. Precise GPS coordinates will be requested or used only where helpful and authorised, and will not be mandatory merely to schedule a wash. Customer address or GPS data is used to attend or manage the appointment and must not be published, sold, used to track a customer beyond the service or displayed to unrelated employees. For bookings made with staff, a written address is sufficient."
     ],
     [
       "Safeguards, retention and incidents",

@@ -8,36 +8,41 @@ export function BookingPolicyAcceptance({
   checked,
   disabled,
   onChange,
+  cutoffHours = 24,
 }: {
   checked: boolean;
   disabled: boolean;
   onChange: (checked: boolean) => void;
+  cutoffHours?: number;
 }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ar = language === "ar";
   const link = (slug: PolicySlug) => (
     <Link href={`/${slug}`} target="_blank" rel="noopener">{policyTitles[slug][language]}</Link>
   );
   return (
-    <div className="policy-checkbox">
-      <input
-        id="booking-policy-acceptance"
-        type="checkbox"
-        required
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-        aria-labelledby="booking-policy-acceptance-text"
-      />
-      <span id="booking-policy-acceptance-text">
-        <label htmlFor="booking-policy-acceptance">
-          {ar ? "قرأتُ وأوافق على" : "I have read and agree to the"}
-        </label>{" "}
-        {link("terms-and-conditions")}{ar ? " و" : " and "}
-        {link("cancellation-and-refund-policy")}
-        {ar ? "، وأقرّ بالاطلاع على " : ", and I acknowledge the "}
-        {link("privacy-policy")}.
-      </span>
+    <div>
+      <p>{t("booking.onlineChangeCutoff", { hours: String(cutoffHours) })}</p>
+      <div className="policy-checkbox">
+        <input
+          id="booking-policy-acceptance"
+          type="checkbox"
+          required
+          checked={checked}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.checked)}
+          aria-labelledby="booking-policy-acceptance-text"
+        />
+        <span id="booking-policy-acceptance-text">
+          <label htmlFor="booking-policy-acceptance">
+            {ar ? "قرأتُ وأوافق على" : "I have read and agree to the"}
+          </label>{" "}
+          {link("terms-and-conditions")}{ar ? " و" : " and "}
+          {link("cancellation-and-refund-policy")}
+          {ar ? "، وأقرّ بالاطلاع على " : ", and I acknowledge the "}
+          {link("privacy-policy")}.
+        </span>
+      </div>
     </div>
   );
 }

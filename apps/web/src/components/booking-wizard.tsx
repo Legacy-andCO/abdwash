@@ -1572,6 +1572,7 @@ function PaymentStep({ state, dispatch }: StepProps) {
       <BookingPolicyAcceptance
         checked={acceptanceLanguage !== null}
         disabled={submitting}
+        cutoffHours={state.catalogue!.settings.cancellation_cutoff_hours}
         onChange={(checked) => setAcceptanceLanguage(checked ? language : null)}
       />
       <StepActions
@@ -1875,6 +1876,11 @@ function Confirmation({ state }: { state: typeof initialBookingState }) {
             {t("booking.confirmation.backHome")}
           </Link>
         </div>
+        <p className="confirmation-note">
+          {t("booking.onlineChangeCutoff", {
+            hours: String(state.catalogue!.settings.cancellation_cutoff_hours),
+          })}
+        </p>
         <p className="confirmation-note">
           {state.contact.email.trim()
             ? t("booking.confirmation.notification", {

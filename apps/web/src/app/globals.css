@@ -1728,6 +1728,19 @@
   .policy-page p {
     line-height: 1.7;
   }
+  .policy-metadata {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.35rem 0.9rem;
+    margin-block: 1rem 1.5rem;
+    font-size: 0.9rem;
+  }
+  .policy-metadata dt {
+    font-weight: 600;
+  }
+  .policy-metadata dd {
+    margin: 0;
+  }
   .policy-links {
     display: flex;
     flex-wrap: wrap;

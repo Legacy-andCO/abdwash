@@ -8,6 +8,8 @@ import { POLICY_REVISION, policyTitles } from "@/lib/policies";
 import { useI18n } from "./i18n-provider";
 
 const imageTypes = ["image/jpeg", "image/png", "image/webp"];
+const uploadLimit = 1024 * 1024;
+const sourceLimit = 15 * uploadLimit;
 const categories = {
   service: { en: "Service quality or incomplete work", ar: "جودة الخدمة أو عدم اكتمالها" },
   damage: { en: "Vehicle damage", ar: "ضرر بالمركبة" },
@@ -34,7 +36,8 @@ const copy = {
     choose: "Choose a category",
     description: "Describe what happened",
     evidence: "Photos (optional)",
-    evidenceHelp: "Attach up to two JPEG, PNG or WebP images of 1 MB each.",
+    evidenceHelp: "Attach up to two JPEG, PNG or WebP images. Images up to 15 MB can be resized on your device to fit the 1 MB upload limit.",
+    evidenceResize: "This photo could not be resized. Try a smaller JPEG, PNG or WebP image.",
     sensitive: "Leave out identity documents, card numbers and other sensitive details unrelated to your complaint.",
     acknowledge: "I acknowledge the",
     submit: "Submit complaint",
@@ -59,7 +62,8 @@ const copy = {
     choose: "اختر فئة",
     description: "اشرح ما حدث",
     evidence: "صور (اختياري)",
-    evidenceHelp: "أرفق صورتين على الأكثر بصيغة JPEG أو PNG أو WebP، بحجم لا يتجاوز 1 ميغابايت لكل صورة.",
+    evidenceHelp: "أرفق صورتين على الأكثر بصيغة JPEG أو PNG أو WebP. يمكن تصغير الصور التي لا تتجاوز 15 ميغابايت على جهازك لتناسب حد الرفع البالغ 1 ميغابايت.",
+    evidenceResize: "تعذّر تصغير هذه الصورة. جرّب صورة أصغر بصيغة JPEG أو PNG أو WebP.",
     sensitive: "يرجى تجنب إرفاق وثائق الهوية أو أرقام البطاقات أو تفاصيل حساسة لا تتعلق بالشكوى.",
     acknowledge: "أقرّ بالاطلاع على",
     submit: "إرسال الشكوى",
@@ -72,16 +76,42 @@ const copy = {
   },
 };
 
-function encodePhoto(file: File): Promise<{ content_type: string; data: string }> {
+async function resizePhoto(file: File): Promise<Blob> {
+  if (file.size <= uploadLimit) return file;
+  const image = await createImageBitmap(file);
+  try {
+    if (image.width * image.height > 64_000_000) throw new Error("Image dimensions exceed limit");
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("Image conversion unavailable");
+    for (const edge of [1920, 1280, 800]) {
+      const scale = Math.min(1, edge / Math.max(image.width, image.height));
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      context.fillStyle = "#fff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const resized = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.82));
+      if (resized && resized.size <= uploadLimit && resized.type === "image/jpeg") return resized;
+    }
+    throw new Error("Image could not fit the upload limit");
+  } finally {
+    image.close();
+  }
+}
+
+async function encodePhoto(file: File): Promise<{ content_type: string; data: string }> {
+  const photo = await resizePhoto(file);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = reject;
     reader.onload = () => {
       const data = String(reader.result).split(",", 2)[1];
-      if (data) resolve({ content_type: file.type, data });
+      if (data) resolve({ content_type: photo.type, data });
       else reject(new Error("Image could not be read"));
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(photo);
   });
 }
 
@@ -110,13 +140,20 @@ export function ComplaintForm() {
       return;
     }
     const files = form.getAll("evidence").filter((file): file is File => file instanceof File && file.size > 0);
-    if (files.length > 2 || files.some((file) => file.size > 1024 * 1024 || !imageTypes.includes(file.type))) {
+    if (files.length > 2 || files.some((file) => file.size > sourceLimit || !imageTypes.includes(file.type))) {
       setError(labels.evidenceHelp);
       return;
     }
     setError("");
     setBusy(true);
     try {
+      const evidence = [];
+      try {
+        for (const file of files) evidence.push(await encodePhoto(file));
+      } catch {
+        setError(labels.evidenceResize);
+        return;
+      }
       const payload = {
         name: field("name"),
         email: email || null,
@@ -128,7 +165,7 @@ export function ComplaintForm() {
         privacy_acknowledged: form.get("privacy") === "on",
         revision: POLICY_REVISION,
         website: field("website"),
-        evidence: await Promise.all(files.map(encodePhoto)),
+        evidence,
       };
       const fingerprint = JSON.stringify(payload);
       if (lastSubmission.current?.fingerprint !== fingerprint) {

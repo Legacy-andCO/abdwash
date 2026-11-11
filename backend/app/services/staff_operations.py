@@ -499,13 +499,10 @@ async def list_job_calendar(
             (
                 (Job.status == JobStatus.ASSIGNED)
                 & (Booking.status == BookingStatus.CONFIRMED)
-                & (Job.assigned_resource_id == Booking.resource_id)
-                & Job.en_route_at.is_(None)
-                & Job.started_at.is_(None)
-                & Job.completed_at.is_(None)
-                & (Job.scheduled_start > datetime.now(UTC))
+                & Job.assigned_resource_id.is_not(None)
+                & (Job.scheduled_end > datetime.now(UTC))
                 & (literal(True) if manager else team_job)
-            ).label("can_replace"),
+            ).label("can_double_book"),
         )
         .select_from(Job)
         .join(Booking, Booking.id == Job.booking_id)
@@ -527,7 +524,7 @@ async def list_job_calendar(
             CalendarJob(
                 job_id=row["job_id"],
                 version=row["version"],
-                can_replace=bool(row["can_replace"]),
+                can_double_book=bool(row["can_double_book"]),
                 scheduled_start=row["scheduled_start"],
                 scheduled_end=row["scheduled_end"],
                 local_date=row["scheduled_start"].astimezone(zone).date(),

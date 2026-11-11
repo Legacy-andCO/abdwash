@@ -149,6 +149,7 @@ async def availability_for_date(
                 select(ScheduleSlot).where(
                     ScheduleSlot.resource_id.in_([team.id for team in teams]),
                     ScheduleSlot.slot_start.in_(starts),
+                    ScheduleSlot.capacity_exception.is_(False),
                 )
             )
         ).all()
@@ -227,7 +228,7 @@ async def create_hold(
     *,
     configuration: BusinessConfiguration | None = None,
     allowed_team_ids: set[uuid.UUID] | None = None,
-    replacement_start: datetime | None = None,
+    overlap_team_id: uuid.UUID | None = None,
 ) -> HoldResponse:
     staff_booking = configuration is not None
     configuration = configuration or await load_default_business(session)
@@ -240,19 +241,12 @@ async def create_hold(
         service_ids=request.service_ids,
     )
     enforce_customer_start_time(selected_service_names, request.start_time)
-    if replacement_start is None:
+    if overlap_team_id is None:
         windows = resolve_requested_windows(
             request.date, request.start_time, request.vehicle_count, policy
         )
     else:
-        zone = ZoneInfo(policy.timezone)
-        local_start = replacement_start.astimezone(zone)
-        if (
-            replacement_start <= datetime.now(UTC)
-            or local_start.date() != request.date
-            or local_start.time() != request.start_time
-        ):
-            raise ConflictError("REPLACEMENT_TIME_CHANGED", "Refresh the occupied appointment.")
+        start = datetime.combine(request.date, request.start_time, ZoneInfo(policy.timezone))
         count = required_slot_count(
             request.vehicle_count,
             policy.multi_vehicle_threshold,
@@ -260,15 +254,8 @@ async def create_hold(
         )
         duration = timedelta(minutes=policy.slot_duration_minutes)
         windows = [
-            SlotWindow(replacement_start + i * duration, replacement_start + (i + 1) * duration)
-            for i in range(count)
+            SlotWindow(start + i * duration, start + (i + 1) * duration) for i in range(count)
         ]
-        if local_start.time() < policy.opening_time or windows[-1].start > datetime.combine(
-            request.date, policy.closing_time, zone
-        ):
-            raise ConflictError(
-                "OUTSIDE_OPERATING_HOURS", "The requested slots do not fit business hours."
-            )
     required = len(windows)
     floor_minutes = required * policy.slot_duration_minutes
     expected_minutes = await current_selection_duration_minutes(
@@ -289,6 +276,36 @@ async def create_hold(
     await lock_schedule_day(session, business_id=configuration.business.id, day=request.date)
     if staff_booking and windows[0].start <= datetime.now(UTC):
         raise ConflictError("PAST_SLOT", "Appointments cannot be booked in the past.")
+    if overlap_team_id is not None:
+        await validate_overlap(
+            session,
+            configuration,
+            policy,
+            request.date,
+            overlap_team_id,
+            windows[0].start,
+            operational_end,
+        )
+        return await _store_hold(
+            session,
+            configuration,
+            policy,
+            request,
+            windows,
+            operational_end,
+            overlap_team_id,
+            slots=[
+                ScheduleSlot(
+                    business_id=configuration.business.id,
+                    resource_id=overlap_team_id,
+                    slot_start=window.start,
+                    slot_end=window.end,
+                    capacity_exception=True,
+                    version=1,
+                )
+                for window in windows
+            ],
+        )
     # A candidate can pass operational capacity while a manually blocked grid
     # slot still prevents this exact start. Try ranked candidates in order by
     # excluding each blocked candidate from the local attempt.
@@ -313,6 +330,7 @@ async def create_hold(
                     select(ScheduleSlot).where(
                         ScheduleSlot.resource_id.in_([item.team.id for item in ranked]),
                         ScheduleSlot.slot_start.in_([window.start for window in windows]),
+                        ScheduleSlot.capacity_exception.is_(False),
                     )
                 )
             ).all()
@@ -338,39 +356,93 @@ async def create_hold(
         )
         if slots is None:
             continue
-        raw_token = secrets.token_urlsafe(32)
-        expires_at = datetime.now(UTC) + timedelta(minutes=policy.hold_duration_minutes)
-        group = SlotHoldGroup(
-            business_id=configuration.business.id,
-            resource_id=resource.id,
-            token_hash=hold_token_hash(raw_token),
-            status=HoldStatus.ACTIVE,
-            vehicle_count=request.vehicle_count,
-            required_slot_count=len(windows),
-            expected_duration_minutes=expected_minutes,
-            slot_start=windows[0].start,
-            slot_end=operational_end,
-            expires_at=expires_at,
-        )
-        session.add(group)
-        await session.flush()
-        for slot in slots:
-            slot.status = SlotStatus.HELD
-            slot.hold_group_id = group.id
-            slot.hold_expires_at = expires_at
-            slot.booking_id = None
-            slot.version += 1
-        return HoldResponse(
-            hold_token=raw_token,
-            starts_at=windows[0].start,
-            ends_at=operational_end,
-            expires_at=expires_at,
-            required_slot_count=len(windows),
+        return await _store_hold(
+            session, configuration, policy, request, windows, operational_end, resource.id, slots
         )
 
     raise ConflictError(
         "NO_TEAM_CAPACITY",
         "This time is no longer available. Please choose another time.",
+    )
+
+
+async def validate_overlap(
+    session: AsyncSession,
+    configuration: BusinessConfiguration,
+    policy: SchedulePolicy,
+    day: date,
+    team_id: uuid.UUID,
+    start: datetime,
+    end: datetime,
+    *,
+    exclude_hold_id: uuid.UUID | None = None,
+) -> None:
+    zone = ZoneInfo(policy.timezone)
+    if start < datetime.combine(day, policy.opening_time, zone) or end > datetime.combine(
+        day, policy.closing_time, zone
+    ):
+        raise ConflictError("OUTSIDE_OPERATING_HOURS", "Choose a time within business hours.")
+    business_id = configuration.business.id
+    teams = await get_eligible_teams(session, business_id=business_id, day=day)
+    if not any(team.id == team_id for team in teams):
+        raise DomainError("TEAM_NOT_FOUND", "Team not available.", status_code=404)
+    items = await load_capacity_items(
+        session,
+        business_id=business_id,
+        resource_ids=[team_id],
+        day=day,
+        timezone=policy.timezone,
+        exclude_hold_id=exclude_hold_id,
+        include_blocked_slots=True,
+    )
+    overlaps = [item for item in items if item.starts_at < end and item.ends_at > start]
+    if any(item.source != "job" for item in overlaps):
+        raise ConflictError("TEAM_TIME_CONFLICT", "This time is blocked or has an active hold.")
+    if not overlaps:
+        raise ConflictError(
+            "NO_APPOINTMENT_OVERLAP", "No appointment overlaps this time. Book normally."
+        )
+
+
+async def _store_hold(
+    session: AsyncSession,
+    configuration: BusinessConfiguration,
+    policy: SchedulePolicy,
+    request: HoldCreate,
+    windows: list[SlotWindow],
+    operational_end: datetime,
+    resource_id: uuid.UUID,
+    slots: list[ScheduleSlot],
+) -> HoldResponse:
+    session.add_all(slots)
+    raw_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + timedelta(minutes=policy.hold_duration_minutes)
+    group = SlotHoldGroup(
+        business_id=configuration.business.id,
+        resource_id=resource_id,
+        token_hash=hold_token_hash(raw_token),
+        status=HoldStatus.ACTIVE,
+        vehicle_count=request.vehicle_count,
+        required_slot_count=len(windows),
+        expected_duration_minutes=int((operational_end - windows[0].start).total_seconds() // 60),
+        slot_start=windows[0].start,
+        slot_end=operational_end,
+        expires_at=expires_at,
+    )
+    session.add(group)
+    await session.flush()
+    for slot in slots:
+        slot.status = SlotStatus.HELD
+        slot.hold_group_id = group.id
+        slot.hold_expires_at = expires_at
+        slot.booking_id = None
+        slot.version += 1
+    return HoldResponse(
+        hold_token=raw_token,
+        starts_at=windows[0].start,
+        ends_at=operational_end,
+        expires_at=expires_at,
+        required_slot_count=len(windows),
     )
 
 
@@ -447,7 +519,10 @@ async def _lock_slot_sequence(
                 slot_end=window.end,
                 status=SlotStatus.FREE,
             )
-            .on_conflict_do_nothing(index_elements=["resource_id", "slot_start"])
+            .on_conflict_do_nothing(
+                index_elements=["resource_id", "slot_start"],
+                index_where=text("NOT capacity_exception"),
+            )
         )
     starts = [window.start for window in ordered]
     slots = list(
@@ -457,6 +532,7 @@ async def _lock_slot_sequence(
                 .where(
                     ScheduleSlot.resource_id == resource_id,
                     ScheduleSlot.slot_start.in_(starts),
+                    ScheduleSlot.capacity_exception.is_(False),
                 )
                 .order_by(ScheduleSlot.slot_start)
                 .with_for_update()
