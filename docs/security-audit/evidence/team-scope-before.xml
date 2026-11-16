@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="3.132" timestamp="2026-11-11T15:21:57.312188+03:00" hostname="DESKTOP-VPIRRDM"><testcase classname="tests.test_security_postgres" name="test_employee_cannot_read_another_teams_member_directory" time="1.424"><failure message="assert 200 == 404&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">boundary = namespace(client=&lt;httpx.AsyncClient object at 0x0000023B327A02D0&gt;, owner=async_sessionmaker(class_='AsyncSession', bin...p.models.entities.Business object at 0x0000023B323A86E0&gt;, &lt;app.models.entities.Business object at 0x0000023B32579450&gt;])
+
+    async def test_employee_cannot_read_another_teams_member_directory(boundary):
+        f = boundary
+        own = await f.client.get(f"/api/v1/staff/teams/{f.teams[0].id}", headers=headers(f, "employee"))
+        assert own.status_code == 200
+        denied = await f.client.get(f"/api/v1/staff/teams/{f.teams[1].id}", headers=headers(f, "employee"))
+&gt;       assert denied.status_code == 404
+E       assert 200 == 404
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+tests\test_security_postgres.py:362: AssertionError</failure></testcase></testsuite></testsuites>

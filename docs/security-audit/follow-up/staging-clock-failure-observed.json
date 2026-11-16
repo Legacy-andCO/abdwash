@@ -1,0 +1,23 @@
+{
+  "evidence_source": "Redacted transcription of the executed pre-fix real-provider trace in this audit; no token values retained",
+  "project_ref": "mgfzfgvlrxwyyftwukwf",
+  "observed_date": "2026-11-11",
+  "tests": [
+    {
+      "actor": "manager",
+      "before_refresh_api": 200,
+      "native_refresh": 200,
+      "immediate_verifier": "AuthenticationError",
+      "cause": "ImmatureSignatureError",
+      "after_refresh_api": 401
+    },
+    {
+      "actor": "admin_two",
+      "before_refresh_api": 200,
+      "native_refresh": 200,
+      "immediate_verifier": "PASS",
+      "after_refresh_api": 200
+    }
+  ],
+  "final_fix": "Five seconds maximum iat/AMR skew; strict exp; final native API and regression evidence in linked report"
+}

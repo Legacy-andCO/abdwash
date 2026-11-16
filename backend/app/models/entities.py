@@ -1922,6 +1922,14 @@ class NotificationOutbox(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class ApiRateWindow(Base):
+    __tablename__ = "api_rate_windows"
+    scope: Mapped[str] = mapped_column(String(100), primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (Index("ix_api_rate_windows_expiry", "window_start"),)
+
+
 class IdempotencyRecord(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "idempotency_records"
 

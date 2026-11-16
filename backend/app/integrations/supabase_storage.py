@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 from urllib.parse import parse_qs, quote, urljoin, urlparse
 
@@ -5,6 +6,9 @@ import httpx
 
 from app.core.providers import observe_provider_call
 from app.domain.errors import DomainError
+from app.services.image_validation import validate_image
+
+_image_validation_slots = asyncio.Semaphore(2)
 
 
 class SupabaseStorageAdminClient:
@@ -71,7 +75,7 @@ class SupabaseStorageAdminClient:
             raise self._unavailable() from exc
         self._raise(response, "COMPLAINT_EVIDENCE_REMOVE_FAILED")
 
-    async def create_signed_upload(self, path: str, *, upsert: bool = True) -> str:
+    async def create_signed_upload(self, path: str, *, upsert: bool = False) -> str:
         try:
             response = await observe_provider_call(
                 "supabase_storage",
@@ -110,6 +114,37 @@ class SupabaseStorageAdminClient:
             raise self._unavailable() from exc
         self._raise(response, "JOB_PHOTO_UPLOAD_NOT_FOUND")
         return dict(response.json())
+
+    async def validate_uploaded_content(self, path: str, content_type: str, max_bytes: int) -> None:
+        async with _image_validation_slots:
+            content = bytearray()
+            try:
+                async with self.client.stream(
+                    "GET",
+                    f"{self.base_url}/storage/v1/object/authenticated/{self._object_path(path)}",
+                    headers=self.headers,
+                ) as response:
+                    self._raise(response, "EVIDENCE_READ_FAILED")
+                    async for chunk in response.aiter_bytes():
+                        if len(content) + len(chunk) > max_bytes:
+                            raise DomainError(
+                                "INVALID_EVIDENCE",
+                                "Uploaded evidence is too large.",
+                                status_code=422,
+                            )
+                        content.extend(chunk)
+            except httpx.HTTPError as exc:
+                raise self._unavailable() from exc
+            if content_type == "application/pdf":
+                # A magic-byte or string blacklist cannot safely sanitize active PDFs.
+                # Keep pending objects private until a real scan/CDR integration exists.
+                raise DomainError(
+                    "PDF_EVIDENCE_REQUIRES_SCAN",
+                    "Upload the receipt as a JPEG, PNG or WebP image.",
+                    status_code=422,
+                )
+            else:
+                await asyncio.to_thread(validate_image, bytes(content), content_type, max_bytes)
 
     async def create_signed_download(self, path: str, expires_in: int) -> str:
         try:

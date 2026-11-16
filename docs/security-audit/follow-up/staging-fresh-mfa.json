@@ -1,0 +1,26 @@
+{
+  "project_ref": "mgfzfgvlrxwyyftwukwf",
+  "executed_at": "2026-11-11T15:22:38.596581+00:00",
+  "tests": [
+    {
+      "test": "fresh native MFA manager",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "fresh native MFA admin",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "fresh native MFA admin_two",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "fresh native MFA foreign_manager",
+      "status": "PASS",
+      "http_status": 200
+    }
+  ]
+}

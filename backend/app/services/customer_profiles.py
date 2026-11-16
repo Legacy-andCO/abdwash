@@ -96,7 +96,6 @@ async def provision_customer_profile(
             "surname": surname,
             "email": verified_identity_email(identity),
             "phone": phone,
-            "is_active": True,
         }
         if update_existing
         else {"auth_user_id": identity.user_id}
@@ -107,7 +106,8 @@ async def provision_customer_profile(
         .on_conflict_do_update(
             index_elements=[CustomerProfile.auth_user_id],
             set_=updates,
-            where=CustomerProfile.business_id == business_id,
+            where=(CustomerProfile.business_id == business_id)
+            & CustomerProfile.is_active.is_(True),
         )
         .returning(CustomerProfile.id)
     )

@@ -40,6 +40,8 @@ def test_production_rejects_development_management_key() -> None:
 
 def test_production_accepts_a_strong_management_key() -> None:
     settings = Settings(
+        _env_file=None,
+        cors_origins=["https://audit.example.com"],
         app_env="production",
         database_url="postgresql://localhost/abdwash",
         booking_management_signing_key="x" * 48,

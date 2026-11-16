@@ -1,0 +1,32 @@
+[
+  {
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.162
+  },
+  {
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.318
+  },
+  {
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.39
+  },
+  {
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.458
+  },
+  {
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.528
+  },
+  {
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.603
+  }
+]

@@ -187,8 +187,8 @@ async def availability(
     session: SessionDep,
     day: Annotated[date, Query(alias="date")],
     vehicle_count: Annotated[int, Query(ge=1, le=20)],
-    service_id: Annotated[list[uuid.UUID] | None, Query()] = None,
-    addon_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    service_id: Annotated[list[uuid.UUID] | None, Query(max_length=20)] = None,
+    addon_id: Annotated[list[uuid.UUID] | None, Query(max_length=400)] = None,
 ) -> AvailabilityResponse:
     return await availability_for_date(
         session,

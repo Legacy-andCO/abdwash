@@ -17,7 +17,7 @@ describe("multi-account operational persistence", () => {
     ]);
   });
 
-  it("logout cancels activity without clearing read-query storage", async () => {
+  it("logout cancels activity and removes cached personal data from memory and disk", async () => {
     const clearQueries = vi.fn();
     const cancelQueries = vi.fn(async () => undefined);
     const clearMutations = vi.fn();
@@ -25,12 +25,24 @@ describe("multi-account operational persistence", () => {
       {
         cancelQueries,
         getMutationCache: () => ({ clear: clearMutations }),
+        clear: clearMutations,
       },
       clearQueries,
+      async () => { clearQueries(); },
     );
-    expect(clearQueries).toHaveBeenCalledOnce();
+    expect(clearQueries).toHaveBeenCalledTimes(2);
     expect(cancelQueries).toHaveBeenCalledOnce();
     expect(clearMutations).toHaveBeenCalledOnce();
+  });
+
+  it("removes sensitive queries on logout even when cancellation fails", async () => {
+    const client = new QueryClient();
+    client.setQueryData(["customer", "synthetic"], { address: "Private synthetic address" });
+    const clearStorage = vi.fn(async () => undefined);
+    client.cancelQueries = vi.fn(async () => { throw new Error("Synthetic cancellation failure"); });
+    await expect(prepareCachePreservingLogout(client, vi.fn(), clearStorage)).rejects.toThrow();
+    expect(client.getQueryData(["customer", "synthetic"])).toBeUndefined();
+    expect(clearStorage).toHaveBeenCalledOnce();
   });
 
   it("serves a fresh revisit from memory with single-flight fetch behavior", async () => {

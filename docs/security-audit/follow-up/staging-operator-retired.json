@@ -1,0 +1,19 @@
+{
+  "id": "7f0aaaa7-acc7-489c-9aa9-9a8a02a46ea8",
+  "slug": "security-staging-operator",
+  "name": "security-staging-operator",
+  "status": "ACTIVE",
+  "version": 4,
+  "created_at": 1794409605351,
+  "updated_at": 1794426984483,
+  "verify_jwt": false,
+  "import_map": false,
+  "entrypoint_path": "/tmp/user_fn_mgfzfgvlrxwyyftwukwf_7f0aaaa7-acc7-489c-9aa9-9a8a02a46ea8_4/source/index.ts",
+  "ezbr_sha256": "c3d48e324f232f4ef6cdfa41bbdae5d50fa27703d510a860e63481d6be07a270",
+  "files": [
+    {
+      "name": "index.ts",
+      "content": "// Retired staging operator: no credentials, imports, data access or privileged operations.\nDeno.serve(() => new Response(JSON.stringify({error:\"operator_permanently_disabled\"}),{status:410,headers:{\"Content-Type\":\"application/json\",\"Cache-Control\":\"no-store\"}}));\n"
+    }
+  ]
+}

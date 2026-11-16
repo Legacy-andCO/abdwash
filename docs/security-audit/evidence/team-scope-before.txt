@@ -1,0 +1,55 @@
+C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\pytest_asyncio\plugin.py:299: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_employee_cannot_read_another_teams_member_directory ___________
+
+boundary = namespace(client=<httpx.AsyncClient object at 0x0000023B327A02D0>, owner=async_sessionmaker(class_='AsyncSession', bin...p.models.entities.Business object at 0x0000023B323A86E0>, <app.models.entities.Business object at 0x0000023B32579450>])
+
+    async def test_employee_cannot_read_another_teams_member_directory(boundary):
+        f = boundary
+        own = await f.client.get(f"/api/v1/staff/teams/{f.teams[0].id}", headers=headers(f, "employee"))
+        assert own.status_code == 200
+        denied = await f.client.get(f"/api/v1/staff/teams/{f.teams[1].id}", headers=headers(f, "employee"))
+>       assert denied.status_code == 404
+E       assert 200 == 404
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_security_postgres.py:362: AssertionError
+---------------------------- Captured stderr setup ----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 86770d7ef2e1, initial_foundation
+INFO  [alembic.runtime.migration] Running upgrade 86770d7ef2e1 -> d8cc0a1bf349, add en route job operations
+INFO  [alembic.runtime.migration] Running upgrade d8cc0a1bf349 -> ebd1ffb1e908, add staff usernames
+INFO  [alembic.runtime.migration] Running upgrade ebd1ffb1e908 -> 96493956784a, add operations management v2
+INFO  [alembic.runtime.migration] Running upgrade 96493956784a -> a41f3b7820d6, Harden Operations V2 query indexes.
+INFO  [alembic.runtime.migration] Running upgrade a41f3b7820d6 -> c52e9d1a40b7, Add scoped sync revisions and repair operational assignments.
+INFO  [alembic.runtime.migration] Running upgrade c52e9d1a40b7 -> f73b2c96a145, add arrived job state
+INFO  [alembic.runtime.migration] Running upgrade f73b2c96a145 -> 6409bd6c4eec, add staff password change requirement
+INFO  [alembic.runtime.migration] Running upgrade 6409bd6c4eec -> 80826dfc3c2d, add job quality controls
+INFO  [alembic.runtime.migration] Running upgrade 80826dfc3c2d -> 7d3f2a9c8e41, Add loyalty ledger, reward reservations, and cash tender accounting.
+INFO  [alembic.runtime.migration] Running upgrade 7d3f2a9c8e41 -> 63973a3319dd, add operational finance ledger
+INFO  [alembic.runtime.migration] Running upgrade 63973a3319dd -> f29a61e82c45, add inventory and team stock
+INFO  [alembic.runtime.migration] Running upgrade f29a61e82c45 -> 5e2c8f7a1b4d, provision main shop inventory location and Trifecta business name
+INFO  [alembic.runtime.migration] Running upgrade 5e2c8f7a1b4d -> 9d5f551c26e5, add service catalogue management
+INFO  [alembic.runtime.migration] Running upgrade 9d5f551c26e5 -> e7441de34e33, add smart scheduling assignment metadata
+INFO  [alembic.runtime.migration] Running upgrade e7441de34e33 -> b91c2d7e4f60, add immutable job inventory consumption snapshots
+INFO  [alembic.runtime.migration] Running upgrade b91c2d7e4f60 -> 61343828bd05, startup inventory and notification dedupe
+INFO  [alembic.runtime.migration] Running upgrade 61343828bd05 -> 8a72c1d4e6f0, add appointment reminder settings
+INFO  [alembic.runtime.migration] Running upgrade 8a72c1d4e6f0 -> c18f4a7b2d91, add catalogue invoicing and expense evidence
+INFO  [alembic.runtime.migration] Running upgrade c18f4a7b2d91 -> c6c7c3026e63, make booking customer email optional
+INFO  [alembic.runtime.migration] Running upgrade c6c7c3026e63 -> d4a9e7c31f26, add verified customer reviews and account-deletion guard
+INFO  [alembic.runtime.migration] Running upgrade d4a9e7c31f26 -> e5b17c9d2a40, Repair customer-facing catalogue and loyalty service identity.
+INFO  [alembic.runtime.migration] Running upgrade e5b17c9d2a40 -> f6c28a4e1b73, Add the one-time first-review loyalty bonus event.
+INFO  [alembic.runtime.migration] Running upgrade f6c28a4e1b73 -> bb30898caab6, Add business-scoped coupon codes and booking-line snapshots.
+INFO  [alembic.runtime.migration] Running upgrade bb30898caab6 -> dbd74a2d3de9, add booking archived at
+INFO  [alembic.runtime.migration] Running upgrade dbd74a2d3de9 -> ed0f361bae21, Add customer complaints and protect policy audit records.
+INFO  [alembic.runtime.migration] Running upgrade ed0f361bae21 -> f84d20b7c13a, Support staff-created bookings and displaced appointments.
+INFO  [alembic.runtime.migration] Running upgrade f84d20b7c13a -> a83b97c41d62, Allow separately reserved slots for confirmed staff overlaps.
+INFO  [alembic.runtime.migration] Running upgrade a83b97c41d62 -> c7e833583da3, harden public grants and session boundaries
+=========================== short test summary info ===========================
+FAILED tests/test_security_postgres.py::test_employee_cannot_read_another_teams_member_directory
+1 failed, 7 deselected in 3.13s

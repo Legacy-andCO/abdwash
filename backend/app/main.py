@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
@@ -29,9 +30,11 @@ from app.core.database import (
     query_duration_ms,
     request_database_metrics,
 )
+from app.core.http_security import SecurityBoundaryMiddleware
 from app.core.logging import configure_logging
 from app.domain.errors import DomainError
 from app.integrations.notifications.factory import create_notification_provider
+from app.services.api_rate_limits import consume_api_attempt
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -57,12 +60,19 @@ async def lifespan(app: FastAPI) -> Any:
     await engine.dispose()
 
 
-app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title=settings.app_name,
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None if settings.is_deployed else "/docs",
+    redoc_url=None if settings.is_deployed else "/redoc",
+    openapi_url=None if settings.is_deployed else "/openapi.json",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
         "Authorization",
         "Content-Type",
@@ -71,6 +81,38 @@ app.add_middleware(
         "X-Request-ID",
     ],
 )
+
+
+async def public_rate_check(scope: Any) -> None:
+    if not settings.is_deployed or not scope.get("path", "").startswith("/api/v1/public/"):
+        return
+    if scope.get("method") == "OPTIONS":
+        return
+    peer = (scope.get("client") or ("unknown", 0))[0]
+    async with app.state.session_factory() as session, session.begin():
+        await consume_api_attempt(
+            session,
+            settings.booking_management_signing_key,
+            peer,
+            write=scope.get("method") not in {"GET", "HEAD"},
+        )
+
+
+app.add_middleware(SecurityBoundaryMiddleware, rate_check=public_rate_check)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    # Pydantic's default 'input' and 'ctx' can contain passwords, tokens and PII.
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": [
+                {"type": error["type"], "loc": error["loc"], "msg": "Invalid value."}
+                for error in exc.errors()
+            ]
+        },
+    )
 
 
 @app.middleware("http")
@@ -97,6 +139,13 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
         response_start_ms = (time.perf_counter() - started) * 1000
         status_code = response.status_code
         response.headers["X-Request-ID"] = request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Frame-Options"] = "DENY"
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        if settings.is_deployed:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         auth_ms = float(getattr(request.state, "auth_ms", 0.0))
         staff_context_ms = float(getattr(request.state, "staff_context_ms", 0.0))
         application_ms = max(
@@ -120,7 +169,7 @@ async def request_metrics(request: Request, call_next: Any) -> Any:
         return response
     finally:
         route = request.scope.get("route")
-        safe_route = getattr(route, "path", request.url.path)
+        safe_route = getattr(route, "path", "<unmatched>")
         logger.info(
             "http_request",
             request_id=request_id,

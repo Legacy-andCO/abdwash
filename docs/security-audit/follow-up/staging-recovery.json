@@ -1,0 +1,131 @@
+{
+  "project_ref": "mgfzfgvlrxwyyftwukwf",
+  "executed_at": "2026-11-11T15:25:59.997604+00:00",
+  "tests": [
+    {
+      "test": "real aged TOTP denies privileged mutation",
+      "status": "NOT TESTED",
+      "reason": "native AMR not five minutes old"
+    },
+    {
+      "test": "user-editable metadata cannot promote staff",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "customer JWT cannot invoke operator recovery",
+      "status": "PASS",
+      "http_status": 401
+    },
+    {
+      "test": "native password login admin",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "native fresh recovery approver MFA admin",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "recovery approver is authoritative admin admin",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "native password login admin_two",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "native fresh recovery approver MFA admin_two",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "recovery approver is authoritative admin admin_two",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "recovery approvers are distinct",
+      "status": "PASS"
+    },
+    {
+      "test": "recovery suspends staff before factor removal",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "stolen old aal2 token denied after global signout",
+      "status": "PASS",
+      "http_status": 401
+    },
+    {
+      "test": "revoked refresh token cannot replay",
+      "status": "PASS",
+      "http_status": 400,
+      "error_code": 400
+    },
+    {
+      "test": "native password login manager",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "password-only recovery never grants manager access",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "recovery enrolls new native factor",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "recovery verifies new native TOTP",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "verified factor alone cannot bypass recovery suspension",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "recovered manager resumes only with aal2",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "fresh native MFA privileged mutation works",
+      "status": "PASS",
+      "http_status": 204
+    },
+    {
+      "test": "recovery audit sequence recorded",
+      "status": "PASS",
+      "audit_events": 3
+    },
+    {
+      "test": "native aal2 factor removal allowed",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "unchanged old aal2 JWT cannot outlive factor removal",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native password login manager",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "synthetic manager restored with mandatory MFA",
+      "status": "PASS",
+      "http_status": 200
+    }
+  ]
+}

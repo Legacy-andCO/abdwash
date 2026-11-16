@@ -1,0 +1,24 @@
+{
+  "project_ref": "mgfzfgvlrxwyyftwukwf",
+  "tests": [
+    {
+      "test": "retired operator denies anonymous",
+      "status": "PASS",
+      "http_status": 410
+    },
+    {
+      "test": "retired operator denies revoked_operator",
+      "status": "PASS",
+      "http_status": 410
+    },
+    {
+      "test": "retired operator denies customer_jwt",
+      "status": "PASS",
+      "http_status": 410
+    },
+    {
+      "test": "operator capability removed from local secret file",
+      "status": "PASS"
+    }
+  ]
+}

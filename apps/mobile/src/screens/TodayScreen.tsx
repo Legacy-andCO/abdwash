@@ -2,6 +2,7 @@ import { Alert } from "../alert";
 import { useEffect, useState } from "react";
 import {
   RefreshControl,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import {
   AppButton,
   Card,
   EmptyState,
+  Disclosure,
   MetricCard,
   ScreenTitle,
   Skeleton,
@@ -40,12 +42,20 @@ export function TodayScreen({
   onOpenComplaints,
   onOpenInventory,
   onOpenServices,
+  onBook,
+  onOpenJob,
+  onOpenJobs,
+  onOpenTeam,
 }: {
   context: StaffContext;
   onOpenCustomers?: () => void;
   onOpenComplaints?: () => void;
   onOpenInventory?: () => void;
   onOpenServices?: () => void;
+  onBook?: () => void;
+  onOpenJob?: (id: string) => void;
+  onOpenJobs?: (view?: import("./JobsScreen").JobView) => void;
+  onOpenTeam?: (section?: import("./TeamScreen").TeamSection) => void;
 }) {
   const management = capabilities(context.role).canViewAllJobs;
   const dashboard = useDashboardQuery(context, today(), management);
@@ -70,7 +80,7 @@ export function TodayScreen({
   const ownShift = shifts.data?.find(
     (item) => item.staff_id === context.staff_id,
   );
-  const jobItems = jobs.data?.jobs ?? [];
+  const jobItems = [...(jobs.data?.jobs ?? [])].sort((a, b) => Date.parse(a.scheduled_start) - Date.parse(b.scheduled_start));
   const active = jobItems.find((job) =>
     ["en_route", "arrived", "in_progress"].includes(job.status),
   );
@@ -117,79 +127,9 @@ export function TodayScreen({
       );
     }
   }
-  return (
-    <ScrollView
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => void refresh()}
-        />
-      }
-      contentContainerStyle={uiStyles.content}
-    >
-      <ScreenTitle
-        eyebrow={formatUaeDate(new Date(), undefined, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })
-          .toUpperCase()}
-        title={`Good ${greeting()}, ${firstName(context.display_name)}`}
-        subtitle={
-          management
-            ? "Live business operations"
-            : "Everything you need for today's work"
-        }
-      />
-      <AppButton
-        title="Open Inventory"
-        tone="secondary"
-        onPress={() => onOpenInventory?.()}
-      />
-      {management ? (
-        <>
-          <AppButton title="Services & pricing" tone="secondary" onPress={() => onOpenServices?.()} />
-          <AppButton title="Customer complaints" tone="secondary" onPress={() => onOpenComplaints?.()} />
-        </>
-      ) : null}
-      {personalCash.data ? (
-        <Card>
-          <Text style={styles.kicker}>MY CASH</Text>
-          <View style={styles.cashMetrics}>
-            <MetricCard
-              label="Collected today"
-              value={`${personalCash.data.currency_code} ${(
-                personalCash.data.collected_today_minor / 100
-              ).toLocaleString()}`}
-            />
-            <MetricCard
-              label="Awaiting handover"
-              value={`${personalCash.data.currency_code} ${(
-                personalCash.data.awaiting_handover_minor / 100
-              ).toLocaleString()}`}
-            />
-          </View>
-        </Card>
-      ) : null}
-      {error ? (
-        <Text style={uiStyles.error}>
-          {domainErrorMessage(
-            error,
-            "We couldn't refresh operations. Pull down to retry.",
-          )}
-        </Text>
-      ) : null}
-      {loading ? (
-        <Skeleton rows={4} />
-      ) : management ? (
-        <ManagerDashboard
-          value={dashboard.data ?? null}
-          attendance={attendance.data ?? []}
-          onOpenCustomers={onOpenCustomers}
-        />
-      ) : (
-        <>
-          <Card>
+  const attendanceNeedsAction = !attendance.isPending && !attendance.error && !ownAttendance?.clock_in_at && ownAttendance?.status !== "approved_leave";
+  const attendanceSection = (
+    <Disclosure title="Attendance & shift" initiallyOpen={attendanceNeedsAction}>
             <View style={uiStyles.row}>
               <View>
                 <Text style={styles.kicker}>ATTENDANCE</Text>
@@ -217,10 +157,7 @@ export function TodayScreen({
             {ownAttendance?.clock_in_at && !ownAttendance.clock_out_at ? (
               <Text style={styles.time}>
                 Started{" "}
-                {new Date(ownAttendance.clock_in_at).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}{" "}
+                {formatUaeTime(ownAttendance.clock_in_at)}{" "}
                 ·{" "}
                 {formatMinutes(
                   Math.floor(
@@ -241,11 +178,58 @@ export function TodayScreen({
                 clock.isPending || ownAttendance?.status === "approved_leave"
               }
               loading={clock.isPending}
+              tone="secondary"
               onPress={() => void toggleClock()}
             />
-          </Card>
+          </Disclosure>
+  );
+  return (
+    <ScrollView
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void refresh()}
+        />
+      }
+      contentContainerStyle={uiStyles.content}
+    >
+      <ScreenTitle
+        subtitle={formatUaeDate(new Date(), undefined, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })
+          + " · Abu Dhabi time"}
+        title="Today"
+      />
+      <View style={styles.actions}>
+        <View style={styles.action}><AppButton title="Book a wash" onPress={() => onBook?.()} /></View>
+        <View style={styles.action}><AppButton title="View schedule" tone="secondary" onPress={() => onOpenJobs?.("today")} /></View>
+      </View>
+      {error ? (
+        <Text style={uiStyles.error}>
+          {domainErrorMessage(
+            error,
+            "We couldn't refresh operations. Pull down to retry.",
+          )}
+        </Text>
+      ) : null}
+      {loading ? (
+        <Skeleton rows={4} />
+      ) : management ? (
+        <ManagerDashboard
+          value={dashboard.data ?? null}
+          attendance={attendance.data ?? []}
+          onOpenJob={onOpenJob}
+          onOpenJobs={onOpenJobs}
+          onOpenTeam={onOpenTeam}
+        />
+      ) : (
+        <>
+
+          {attendanceNeedsAction ? attendanceSection : null}
           {next ? (
-            <Card>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open job ${next.booking_reference}, ${next.customer_name}`} onPress={() => onOpenJob?.(next.id)}><Card>
               <Text style={styles.kicker}>
                 {active ? "ACTIVE NOW" : "NEXT JOB"}
               </Text>
@@ -253,20 +237,19 @@ export function TodayScreen({
                 {formatUaeTime(next.scheduled_start)}
               </Text>
               <Text style={styles.cardTitle}>
-                {next.vehicles[0]
-                  ? `${next.vehicles[0].make} ${next.vehicles[0].model}`
-                  : next.customer_name}
+                {next.customer_name}
               </Text>
               <Text style={uiStyles.body}>
-                {next.vehicles[0]?.service_name}
+                {next.vehicles[0] ? `${next.vehicles[0].make} ${next.vehicles[0].model} · ${next.vehicles[0].service_name}` : next.booking_reference}
               </Text>
               <Text style={uiStyles.muted}>{next.written_address}</Text>
               <StatusChip value={next.status} />
-            </Card>
+              <Text style={styles.link}>View job details</Text>
+            </Card></Pressable>
           ) : (
             <EmptyState
               title="No jobs today"
-              body="Your next assigned or team job will appear here."
+              body="Assigned jobs will appear here. Use Book a wash to create a new appointment."
             />
           )}
           {jobItems
@@ -276,7 +259,7 @@ export function TodayScreen({
                 !["completed", "cancelled"].includes(job.status),
             )
             .map((job) => (
-              <Card key={job.id}>
+              <Pressable key={job.id} accessibilityRole="button" accessibilityLabel={`Open job ${job.booking_reference}, ${job.customer_name}`} onPress={() => onOpenJob?.(job.id)}><Card>
                 <View style={uiStyles.row}>
                   <Text style={styles.cardTitle}>
                     {formatUaeTime(job.scheduled_start)}
@@ -286,10 +269,29 @@ export function TodayScreen({
                 <Text style={uiStyles.muted}>
                   {job.customer_name} · {job.vehicles[0]?.service_name}
                 </Text>
-              </Card>
+                <Text style={styles.link}>View job details</Text>
+              </Card></Pressable>
             ))}
+          {!attendanceNeedsAction ? attendanceSection : null}
         </>
       )}
+      {management ? (
+        <Disclosure title="Customers & management tools">
+        <Text style={uiStyles.muted}>Customer follow-ups, stock and business settings.</Text>
+        <AppButton title="Customers" tone="secondary" onPress={() => onOpenCustomers?.()} />
+        <AppButton title="Customer complaints" tone="secondary" onPress={() => onOpenComplaints?.()} />
+        <AppButton title="Inventory" tone="secondary" onPress={() => onOpenInventory?.()} />
+        <AppButton title="Services & pricing" tone="secondary" onPress={() => onOpenServices?.()} />
+        <Text style={uiStyles.muted}>Financial reports and cash handovers are in Reports → Open Finance.</Text>
+        </Disclosure>
+      ) : null}
+      <Disclosure title={management ? "My cash" : "My cash & inventory"}>
+        {personalCash.data ? <View style={styles.cashMetrics}>
+          <MetricCard label="Collected today" value={`${personalCash.data.currency_code} ${(personalCash.data.collected_today_minor / 100).toLocaleString()}`} />
+          <MetricCard label="Awaiting handover" value={`${personalCash.data.currency_code} ${(personalCash.data.awaiting_handover_minor / 100).toLocaleString()}`} />
+        </View> : <Text style={uiStyles.muted}>{personalCash.isPending ? "Loading cash summary…" : "Cash summary couldn't load. Pull down to retry."}</Text>}
+        {!management ? <AppButton title="Open Inventory" tone="secondary" onPress={() => onOpenInventory?.()} /> : null}
+      </Disclosure>
     </ScrollView>
   );
 }
@@ -297,27 +299,21 @@ export function TodayScreen({
 function ManagerDashboard({
   value,
   attendance,
-  onOpenCustomers,
+  onOpenJob,
+  onOpenJobs,
+  onOpenTeam,
 }: {
   value: Dashboard | null;
   attendance: AttendanceOverview[];
-  onOpenCustomers?: () => void;
+  onOpenJob?: (id: string) => void;
+  onOpenJobs?: (view?: import("./JobsScreen").JobView) => void;
+  onOpenTeam?: (section?: import("./TeamScreen").TeamSection) => void;
 }) {
   if (!value) return <EmptyState title="Dashboard unavailable" />;
   return (
     <>
-      {onOpenCustomers ? (
-        <Card>
-          <Text style={styles.kicker}>CUSTOMER MANAGEMENT</Text>
-          <Text style={styles.cardTitle}>Customers</Text>
-          <Text style={uiStyles.muted}>
-            Search profiles, saved details, booking history and loyalty.
-          </Text>
-          <AppButton title="Open customers" onPress={onOpenCustomers} />
-        </Card>
-      ) : null}
       <View style={styles.metrics}>
-        {value.metrics.slice(0, 4).map((metric) => (
+        {[...value.metrics].sort((a, b) => Number(["booked", "collected"].includes(a.key)) - Number(["booked", "collected"].includes(b.key))).slice(0, 4).map((metric) => (
           <MetricCard
             key={metric.key}
             label={metric.label}
@@ -337,6 +333,10 @@ function ManagerDashboard({
               <Text style={styles.cardTitle}>{item.count}</Text>
               <Text style={[uiStyles.body, styles.flex]}>{item.label}</Text>
             </View>
+            <AppButton title="Review outstanding work" tone="secondary" onPress={() =>
+              ["leave_requests", "cancellations", "late_staff", "missed_shifts"].includes(item.kind)
+                ? onOpenTeam?.("attendance")
+                : onOpenJobs?.(item.kind.includes("unassigned") ? "unassigned" : item.kind.includes("reschedul") ? "rescheduling" : "today")} />
           </Card>
         ))
       ) : (
@@ -348,7 +348,7 @@ function ManagerDashboard({
       <Text style={styles.section}>ACTIVE NOW</Text>
       {value.active_jobs.length ? (
         value.active_jobs.map((job: Job) => (
-          <Card key={job.id}>
+          <Pressable key={job.id} accessibilityRole="button" accessibilityLabel={`Open job ${job.booking_reference}, ${job.customer_name}`} onPress={() => onOpenJob?.(job.id)}><Card>
             <View style={uiStyles.row}>
               <View>
                 <Text style={styles.cardTitle}>
@@ -364,12 +364,14 @@ function ManagerDashboard({
               </View>
               <StatusChip value={job.status} />
             </View>
-          </Card>
+            <Text style={uiStyles.body}>{job.customer_name} · {formatUaeTime(job.scheduled_start)}</Text>
+            <Text style={styles.link}>View job details</Text>
+          </Card></Pressable>
         ))
       ) : (
         <EmptyState title="No active jobs" />
       )}
-      <Text style={styles.section}>TEAM</Text>
+      <Disclosure title={`Team attendance · ${attendance.filter(item => item.clock_in_at && !item.clock_out_at).length} clocked in`}>
       {attendance.length ? (
         attendance.map((item) => (
           <Card key={item.staff_id}>
@@ -388,26 +390,26 @@ function ManagerDashboard({
       ) : (
         <EmptyState title="No active staff" />
       )}
+      <AppButton title="View teams" tone="secondary" onPress={() => onOpenTeam?.()} />
+      </Disclosure>
     </>
   );
 }
-const greeting = () => {
-  const hour = new Date().getHours();
-  return hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
-};
-const firstName = (name: string) => name.trim().split(/\s+/)[0] || "team";
 const formatMinutes = (value: number) =>
   `${String(Math.floor(value / 60)).padStart(2, "0")}h ${String(Math.max(0, value) % 60).padStart(2, "0")}m`;
 const styles = StyleSheet.create({
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  action: { flex: 1, minWidth: 140 },
+  link: { color: colors.primaryPressed, fontSize: 14, fontWeight: "600" },
   kicker: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: "900",
+    color: colors.primaryPressed,
+    fontSize: 12,
+    fontWeight: "700",
     letterSpacing: 1.2,
   },
-  cardTitle: { color: colors.text, fontSize: 18, fontWeight: "900" },
+  cardTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
   time: { color: colors.text, fontSize: 16, fontWeight: "800" },
-  nextTime: { color: colors.text, fontSize: 30, fontWeight: "900" },
+  nextTime: { color: colors.text, fontSize: 28, fontWeight: "700" },
   metrics: {
     flexDirection: "row",
     flexWrap: "wrap",

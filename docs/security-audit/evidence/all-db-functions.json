@@ -1,0 +1,1194 @@
+{
+  "functions": [
+    {
+      "schema": "auth",
+      "name": "email",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_auth_admin,supabase_auth_admin=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+      "owner": "supabase_auth_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "auth",
+      "name": "jwt",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_auth_admin,postgres=X/supabase_auth_admin,supabase_auth_admin=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+      "owner": "supabase_auth_admin",
+      "returns": "jsonb"
+    },
+    {
+      "schema": "auth",
+      "name": "role",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_auth_admin,supabase_auth_admin=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+      "owner": "supabase_auth_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "auth",
+      "name": "uid",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_auth_admin,supabase_auth_admin=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+      "owner": "supabase_auth_admin",
+      "returns": "uuid"
+    },
+    {
+      "schema": "cron",
+      "name": "alter_job",
+      "arguments": "job_id bigint, schedule text, command text, database text, username text, active boolean",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "void"
+    },
+    {
+      "schema": "cron",
+      "name": "job_cache_invalidate",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "trigger"
+    },
+    {
+      "schema": "cron",
+      "name": "schedule",
+      "arguments": "job_name text, schedule text, command text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "bigint"
+    },
+    {
+      "schema": "cron",
+      "name": "schedule",
+      "arguments": "schedule text, command text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "bigint"
+    },
+    {
+      "schema": "cron",
+      "name": "schedule_in_database",
+      "arguments": "job_name text, schedule text, command text, database text, username text, active boolean",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "bigint"
+    },
+    {
+      "schema": "cron",
+      "name": "unschedule",
+      "arguments": "job_id bigint",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "cron",
+      "name": "unschedule",
+      "arguments": "job_name text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "extensions",
+      "name": "armor",
+      "arguments": "bytea",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "armor",
+      "arguments": "bytea, text[], text[]",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "crypt",
+      "arguments": "text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "dearmor",
+      "arguments": "text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "decrypt",
+      "arguments": "bytea, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "decrypt_iv",
+      "arguments": "bytea, bytea, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "digest",
+      "arguments": "bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "digest",
+      "arguments": "text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "encrypt",
+      "arguments": "bytea, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "encrypt_iv",
+      "arguments": "bytea, bytea, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "gen_random_bytes",
+      "arguments": "integer",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "gen_random_uuid",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "gen_salt",
+      "arguments": "text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "gen_salt",
+      "arguments": "text, integer",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "grant_pg_cron_access",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "acl": "{=X/supabase_admin,supabase_admin=X*/supabase_admin,dashboard_user=X/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "event_trigger"
+    },
+    {
+      "schema": "extensions",
+      "name": "grant_pg_graphql_access",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "event_trigger"
+    },
+    {
+      "schema": "extensions",
+      "name": "grant_pg_net_access",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "acl": "{=X/supabase_admin,supabase_admin=X*/supabase_admin,dashboard_user=X/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "event_trigger"
+    },
+    {
+      "schema": "extensions",
+      "name": "hmac",
+      "arguments": "bytea, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "hmac",
+      "arguments": "text, text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pg_stat_statements",
+      "arguments": "showtext boolean, OUT userid oid, OUT dbid oid, OUT toplevel boolean, OUT queryid bigint, OUT query text, OUT plans bigint, OUT total_plan_time double precision, OUT min_plan_time double precision, OUT max_plan_time double precision, OUT mean_plan_time double precision, OUT stddev_plan_time double precision, OUT calls bigint, OUT total_exec_time double precision, OUT min_exec_time double precision, OUT max_exec_time double precision, OUT mean_exec_time double precision, OUT stddev_exec_time double precision, OUT rows bigint, OUT shared_blks_hit bigint, OUT shared_blks_read bigint, OUT shared_blks_dirtied bigint, OUT shared_blks_written bigint, OUT local_blks_hit bigint, OUT local_blks_read bigint, OUT local_blks_dirtied bigint, OUT local_blks_written bigint, OUT temp_blks_read bigint, OUT temp_blks_written bigint, OUT shared_blk_read_time double precision, OUT shared_blk_write_time double precision, OUT local_blk_read_time double precision, OUT local_blk_write_time double precision, OUT temp_blk_read_time double precision, OUT temp_blk_write_time double precision, OUT wal_records bigint, OUT wal_fpi bigint, OUT wal_bytes numeric, OUT jit_functions bigint, OUT jit_generation_time double precision, OUT jit_inlining_count bigint, OUT jit_inlining_time double precision, OUT jit_optimization_count bigint, OUT jit_optimization_time double precision, OUT jit_emission_count bigint, OUT jit_emission_time double precision, OUT jit_deform_count bigint, OUT jit_deform_time double precision, OUT stats_since timestamp with time zone, OUT minmax_stats_since timestamp with time zone",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "record"
+    },
+    {
+      "schema": "extensions",
+      "name": "pg_stat_statements_info",
+      "arguments": "OUT dealloc bigint, OUT stats_reset timestamp with time zone",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "record"
+    },
+    {
+      "schema": "extensions",
+      "name": "pg_stat_statements_reset",
+      "arguments": "userid oid, dbid oid, queryid bigint, minmax_only boolean",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "timestamp with time zone"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_armor_headers",
+      "arguments": "text, OUT key text, OUT value text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "record"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_key_id",
+      "arguments": "bytea",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_decrypt",
+      "arguments": "bytea, bytea",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_decrypt",
+      "arguments": "bytea, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_decrypt",
+      "arguments": "bytea, bytea, text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_decrypt_bytea",
+      "arguments": "bytea, bytea",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_decrypt_bytea",
+      "arguments": "bytea, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_decrypt_bytea",
+      "arguments": "bytea, bytea, text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_encrypt",
+      "arguments": "text, bytea",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_encrypt",
+      "arguments": "text, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_encrypt_bytea",
+      "arguments": "bytea, bytea",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_pub_encrypt_bytea",
+      "arguments": "bytea, bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_sym_decrypt",
+      "arguments": "bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_sym_decrypt",
+      "arguments": "bytea, text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "text"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_sym_decrypt_bytea",
+      "arguments": "bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_sym_decrypt_bytea",
+      "arguments": "bytea, text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_sym_encrypt",
+      "arguments": "text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_sym_encrypt",
+      "arguments": "text, text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_sym_encrypt_bytea",
+      "arguments": "bytea, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgp_sym_encrypt_bytea",
+      "arguments": "bytea, text, text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "bytea"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgrst_ddl_watch",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "event_trigger"
+    },
+    {
+      "schema": "extensions",
+      "name": "pgrst_drop_watch",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "event_trigger"
+    },
+    {
+      "schema": "extensions",
+      "name": "set_graphql_placeholder",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X*/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "event_trigger"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_generate_v1",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_generate_v1mc",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_generate_v3",
+      "arguments": "namespace uuid, name text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_generate_v4",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_generate_v5",
+      "arguments": "namespace uuid, name text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_nil",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_ns_dns",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_ns_oid",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_ns_url",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "extensions",
+      "name": "uuid_ns_x500",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/postgres,postgres=X*/postgres,dashboard_user=X/postgres}",
+      "owner": "postgres",
+      "returns": "uuid"
+    },
+    {
+      "schema": "graphql_public",
+      "name": "graphql",
+      "arguments": "\"operationName\" text, query text, variables jsonb, extensions jsonb",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_admin,supabase_admin=X/supabase_admin,postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "jsonb"
+    },
+    {
+      "schema": "net",
+      "name": "_await_response",
+      "arguments": "request_id bigint",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "net",
+      "name": "_encode_url_with_params_array",
+      "arguments": "url text, params_array text[]",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "net",
+      "name": "_http_collect_response",
+      "arguments": "request_id bigint, async boolean",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "net.http_response_result"
+    },
+    {
+      "schema": "net",
+      "name": "_urlencode_string",
+      "arguments": "string character varying",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "net",
+      "name": "check_worker_is_up",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "void"
+    },
+    {
+      "schema": "net",
+      "name": "http_collect_response",
+      "arguments": "request_id bigint, async boolean",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "net.http_response_result"
+    },
+    {
+      "schema": "net",
+      "name": "http_delete",
+      "arguments": "url text, params jsonb, headers jsonb, timeout_milliseconds integer, body jsonb",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "bigint"
+    },
+    {
+      "schema": "net",
+      "name": "http_get",
+      "arguments": "url text, params jsonb, headers jsonb, timeout_milliseconds integer",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "bigint"
+    },
+    {
+      "schema": "net",
+      "name": "http_post",
+      "arguments": "url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "bigint"
+    },
+    {
+      "schema": "net",
+      "name": "wait_until_running",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "void"
+    },
+    {
+      "schema": "net",
+      "name": "wake",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "void"
+    },
+    {
+      "schema": "net",
+      "name": "worker_restart",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "public",
+      "name": "rls_auto_enable",
+      "arguments": "",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "owner": "postgres",
+      "returns": "event_trigger"
+    },
+    {
+      "schema": "realtime",
+      "name": "apply_rls",
+      "arguments": "wal jsonb, max_record_bytes integer",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "realtime.wal_rls"
+    },
+    {
+      "schema": "realtime",
+      "name": "broadcast_changes",
+      "arguments": "topic_name text, event_name text, operation text, table_name text, table_schema text, new record, old record, level text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "void"
+    },
+    {
+      "schema": "realtime",
+      "name": "build_prepared_statement_sql",
+      "arguments": "prepared_statement_name text, entity regclass, columns realtime.wal_column[]",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "realtime",
+      "name": "cast",
+      "arguments": "val text, type_ regtype",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "jsonb"
+    },
+    {
+      "schema": "realtime",
+      "name": "check_equality_op",
+      "arguments": "op realtime.equality_op, type_ regtype, val_1 text, val_2 text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "realtime",
+      "name": "check_equality_op",
+      "arguments": "op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "realtime",
+      "name": "is_visible_through_filters",
+      "arguments": "columns realtime.wal_column[], filters realtime.user_defined_filter[]",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "realtime",
+      "name": "list_changes",
+      "arguments": "publication name, slot_name name, max_changes integer, max_record_bytes integer",
+      "security_definer": false,
+      "proconfig": [
+        "log_min_messages=fatal"
+      ],
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "record"
+    },
+    {
+      "schema": "realtime",
+      "name": "quote_wal2json",
+      "arguments": "entity regclass",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "realtime",
+      "name": "send",
+      "arguments": "payload jsonb, event text, topic text, private boolean",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "void"
+    },
+    {
+      "schema": "realtime",
+      "name": "send_binary",
+      "arguments": "payload bytea, event text, topic text, private boolean",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "void"
+    },
+    {
+      "schema": "realtime",
+      "name": "subscription_check_filters",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "trigger"
+    },
+    {
+      "schema": "realtime",
+      "name": "to_regrole",
+      "arguments": "role_name text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin,anon=X/supabase_realtime_admin,authenticated=X/supabase_realtime_admin,service_role=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "regrole"
+    },
+    {
+      "schema": "realtime",
+      "name": "topic",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "realtime",
+      "name": "wal2json_escape_identifier",
+      "arguments": "name text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{=X/supabase_realtime_admin,supabase_realtime_admin=X/supabase_realtime_admin,postgres=X/supabase_realtime_admin,dashboard_user=X/supabase_realtime_admin}",
+      "owner": "supabase_realtime_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "storage",
+      "name": "allow_any_operation",
+      "arguments": "expected_operations text[]",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "storage",
+      "name": "allow_only_operation",
+      "arguments": "expected_operation text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "boolean"
+    },
+    {
+      "schema": "storage",
+      "name": "can_insert_object",
+      "arguments": "bucketid text, name text, owner uuid, metadata jsonb",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "void"
+    },
+    {
+      "schema": "storage",
+      "name": "enforce_bucket_name_length",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "trigger"
+    },
+    {
+      "schema": "storage",
+      "name": "extension",
+      "arguments": "name text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "storage",
+      "name": "filename",
+      "arguments": "name text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "storage",
+      "name": "foldername",
+      "arguments": "name text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "text[]"
+    },
+    {
+      "schema": "storage",
+      "name": "get_common_prefix",
+      "arguments": "p_key text, p_prefix text, p_delimiter text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "storage",
+      "name": "get_size_by_bucket",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "record"
+    },
+    {
+      "schema": "storage",
+      "name": "list_multipart_uploads_with_delimiter",
+      "arguments": "bucket_id text, prefix_param text, delimiter_param text, max_keys integer, next_key_token text, next_upload_token text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "record"
+    },
+    {
+      "schema": "storage",
+      "name": "list_objects_with_delimiter",
+      "arguments": "_bucket_id text, prefix_param text, delimiter_param text, max_keys integer, start_after text, next_token text, sort_order text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "record"
+    },
+    {
+      "schema": "storage",
+      "name": "operation",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "text"
+    },
+    {
+      "schema": "storage",
+      "name": "protect_delete",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "trigger"
+    },
+    {
+      "schema": "storage",
+      "name": "search",
+      "arguments": "prefix text, bucketname text, limits integer, levels integer, offsets integer, search text, sortcolumn text, sortorder text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "record"
+    },
+    {
+      "schema": "storage",
+      "name": "search_by_timestamp",
+      "arguments": "p_prefix text, p_bucket_id text, p_limit integer, p_level integer, p_start_after text, p_sort_order text, p_sort_column text, p_sort_column_after text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "record"
+    },
+    {
+      "schema": "storage",
+      "name": "search_v2",
+      "arguments": "prefix text, bucket_name text, limits integer, levels integer, start_after text, sort_order text, sort_column text, sort_column_after text",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "record"
+    },
+    {
+      "schema": "storage",
+      "name": "update_updated_at_column",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": null,
+      "owner": "supabase_storage_admin",
+      "returns": "trigger"
+    },
+    {
+      "schema": "vault",
+      "name": "_crypto_aead_det_decrypt",
+      "arguments": "message bytea, additional bytea, key_id bigint, context bytea, nonce bytea",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{supabase_admin=X/supabase_admin,postgres=X*/supabase_admin,service_role=X/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "bytea"
+    },
+    {
+      "schema": "vault",
+      "name": "_crypto_aead_det_encrypt",
+      "arguments": "message bytea, additional bytea, key_id bigint, context bytea, nonce bytea",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{supabase_admin=X/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "bytea"
+    },
+    {
+      "schema": "vault",
+      "name": "_crypto_aead_det_noncegen",
+      "arguments": "",
+      "security_definer": false,
+      "proconfig": null,
+      "acl": "{supabase_admin=X/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "bytea"
+    },
+    {
+      "schema": "vault",
+      "name": "create_secret",
+      "arguments": "new_secret text, new_name text, new_description text, new_key_id uuid",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "acl": "{supabase_admin=X/supabase_admin,postgres=X*/supabase_admin,service_role=X/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "uuid"
+    },
+    {
+      "schema": "vault",
+      "name": "update_secret",
+      "arguments": "secret_id uuid, new_secret text, new_name text, new_description text, new_key_id uuid",
+      "security_definer": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "acl": "{supabase_admin=X/supabase_admin,postgres=X*/supabase_admin,service_role=X/supabase_admin}",
+      "owner": "supabase_admin",
+      "returns": "void"
+    }
+  ]
+}

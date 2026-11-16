@@ -1,0 +1,21 @@
+{'test': 'native password login customer_a', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login customer_b', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login employee', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login foreign_manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'another customer cannot cancel booking', 'status': 'PASS', 'http_status': 404}
+{'test': 'owned booking cancellation works', 'status': 'FAIL', 'http_status': 201}
+{'test': 'cancellation retry is idempotent', 'status': 'FAIL'}
+{'test': 'complaint creation without attachments', 'status': 'PASS', 'http_status': 201}
+{'test': 'complaint idempotency', 'status': 'PASS'}
+{'test': 'complaint authorization customer_a', 'status': 'PASS', 'http_status': 403}
+{'test': 'complaint authorization employee', 'status': 'PASS', 'http_status': 403}
+{'test': 'complaint authorization foreign_manager', 'status': 'PASS', 'http_status': 404}
+{'test': 'complaint authorization manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'bounded complaint abuse reaches rate limit', 'status': 'PASS', 'observed': [201, 201, 201, 201, 429]}
+{'test': 'unsafe/unbounded API parameter rejected -1', 'status': 'PASS', 'http_status': 422}
+{'test': 'unsafe/unbounded API parameter rejected 10000000', 'status': 'PASS', 'http_status': 422}
+{'test': "unsafe/unbounded API parameter rejected ' OR '1'='1", 'status': 'PASS', 'http_status': 422}
+{'test': 'concurrent holds respect two-team capacity', 'status': 'PASS', 'observed': [201, 201, 409]}
+{'test': 'staging notification delivery is log-only', 'status': 'PASS'}
+{'test': 'synthetic notification worker processes safely', 'status': 'PASS', 'outcomes': ['sent', 'sent', 'sent', 'sent', 'sent', 'sent', 'sent', 'sent', 'sent', 'sent']}

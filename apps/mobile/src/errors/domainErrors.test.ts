@@ -30,6 +30,7 @@ describe("mobile API error presentation", () => {
     ["STAFF_AUTH_UNAVAILABLE", "temporarily"],
     ["STAFF_AUTH_CREATE_FAILED", "could not be created"],
     ["REQUEST_TIMEOUT", "too long"],
+    ["REAUTHENTICATION_REQUIRED", "Sign out and sign in again"],
   ])("maps Add Staff error %s", (code, copy) => {
     expect(domainErrorMessage(new ApiError(code, 422), "fallback")).toContain(
       copy,

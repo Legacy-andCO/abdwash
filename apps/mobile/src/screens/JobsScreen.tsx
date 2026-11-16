@@ -11,12 +11,14 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { capabilities } from "../capabilities";
 import {
   AppButton,
   Card,
   EmptyState,
+  Disclosure,
   ScreenTitle,
   Skeleton,
   StatusChip,
@@ -102,14 +104,17 @@ export function JobsScreen({
   onNavigationStateChange,
   initialJobId,
   onInitialJobClosed,
+  onBook,
 }: {
   context: StaffContext;
   navigationState?: JobsNavigationState;
   onNavigationStateChange?: (value: JobsNavigationState) => void;
   initialJobId?: string | null;
   onInitialJobClosed?: () => void;
+  onBook?: () => void;
 }) {
   const canManage = capabilities(context.role).canViewAllJobs;
+  const narrowCalendar = useWindowDimensions().width <= 360;
   const views: JobView[] = canManage
     ? ["today", "upcoming", "unassigned", "rescheduling", "history", "all", "calendar"]
     : ["today", "upcoming", "history", "calendar"];
@@ -178,13 +183,7 @@ export function JobsScreen({
         onBack={() => setSelected(null)}
       />
     );
-  const tabs = (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.segment}
-    >
-      {views.map((item) => (
+  const viewButton = (item: JobView) => (
         <Pressable
           accessibilityRole="tab"
           accessibilityState={{ selected: view === item }}
@@ -195,15 +194,23 @@ export function JobsScreen({
           ]}
           onPress={() => updateNavigation({ view: item, offset: 0 })}
         >
-          <Text style={styles.segmentText}>{label(item)}</Text>
+          <Text style={styles.segmentText}>{item === "all" ? "All jobs & customer search" : label(item)}</Text>
         </Pressable>
-      ))}
-    </ScrollView>
+  );
+  const tabs = (
+    <View style={{ gap: spacing.sm }}>
+      <View style={styles.segment}>
+        {views.filter(item => ["today", "upcoming", "calendar"].includes(item)).map(viewButton)}
+      </View>
+      <Disclosure title={!["today", "upcoming", "calendar"].includes(view) ? `More job views · ${label(view)}` : "More job views"}>
+        <View style={styles.segment}>{views.filter(item => !["today", "upcoming", "calendar"].includes(item)).map(viewButton)}</View>
+      </Disclosure>
+    </View>
   );
   if (view === "calendar")
     return (
-      <ScrollView contentContainerStyle={uiStyles.content}>
-        <ScreenTitle title="Jobs" subtitle="Monthly operations calendar" />
+      <ScrollView contentContainerStyle={[uiStyles.content, narrowCalendar ? styles.narrowContent : undefined]}>
+        <ScreenTitle title="Jobs" subtitle="Choose a date to view appointments or double-book a team." />
         {tabs}
         <OperationsCalendar
           context={context}
@@ -222,7 +229,8 @@ export function JobsScreen({
       }
       contentContainerStyle={uiStyles.content}
     >
-      <ScreenTitle title="Jobs" subtitle="Server-filtered operational work" />
+      <ScreenTitle title="Jobs" subtitle="Appointments, customer details and job progress." />
+      {onBook ? <AppButton title="Book a wash" onPress={onBook} /> : null}
       {tabs}
       {view === "all" ? (
         <View style={styles.searchRow}>
@@ -314,7 +322,7 @@ export function JobsScreen({
           body={
             search
               ? `No jobs matched “${search}”. Try another customer name.`
-              : "Pull to refresh or choose another view."
+              : view === "today" ? "New appointments will appear here. Use Book a wash to create one, or choose Upcoming to see future work." : "There are no appointments in this view. Choose Today or Calendar to see other work."
           }
         />
       )}
@@ -609,16 +617,6 @@ function JobDetail({
         </View>
       </View>
       {canManageJob && <BookingPolicyProvision key={job.booking_id} context={context} job={job} />}
-      {qualityEnabled ? (
-        <JobQualityControls
-          context={context}
-          job={job}
-          quality={qualityQuery.data}
-          pending={qualityQuery.isPending}
-          error={qualityQuery.error}
-          onRetry={() => void qualityQuery.refetch()}
-        />
-      ) : null}
       <Card style={styles.primaryActionCard}>
         {job.status === "assigned" ? (
           <>
@@ -737,6 +735,16 @@ function JobDetail({
           </>
         )}
       </Card>
+      {qualityEnabled ? (
+        <JobQualityControls
+          context={context}
+          job={job}
+          quality={qualityQuery.data}
+          pending={qualityQuery.isPending}
+          error={qualityQuery.error}
+          onRetry={() => void qualityQuery.refetch()}
+        />
+      ) : null}
       <CashTenderModal
         visible={cashTender}
         dueMinor={job.total_amount_minor}
@@ -1590,7 +1598,7 @@ function RescheduleSheet({
                 />
               ) : null}
               <Text style={uiStyles.muted}>
-                The server validates the full service duration, team overlap, and turnaround before saving.
+                We check team availability, the full service time and travel time before saving.
               </Text>
               {selectedTime && (
                 <>
@@ -1674,19 +1682,24 @@ function upcomingDates(count: number): Date[] {
 }
 const label = (value: JobView) => value === "rescheduling" ? "Needs reschedule" : value[0].toUpperCase() + value.slice(1);
 const styles = StyleSheet.create({
+  narrowContent: { paddingHorizontal: 4 },
   segment: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     backgroundColor: colors.secondary,
     padding: 3,
     borderRadius: radii.sm,
     gap: 3,
   },
   segmentItem: {
+    minHeight: 48,
+    justifyContent: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 8,
   },
   segmentActive: { backgroundColor: colors.surface },
-  segmentText: { color: colors.text, fontWeight: "800" },
+    segmentText: { color: colors.text, fontWeight: "600", fontSize: 14 },
   searchRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -1706,15 +1719,15 @@ const styles = StyleSheet.create({
   },
   time: { color: colors.text, fontSize: 20, fontWeight: "900" },
   vehicle: { color: colors.text, fontSize: 17, fontWeight: "900" },
-  assignment: { color: colors.primary, fontSize: 11, fontWeight: "900" },
+  assignment: { color: colors.primaryPressed, fontSize: 11, fontWeight: "900" },
   detailTime: { color: colors.text, fontSize: 24, fontWeight: "900" },
-  eta: { color: colors.primary, fontWeight: "900" },
+  eta: { color: colors.primaryPressed, fontWeight: "900" },
   primaryActionCard: { borderColor: colors.primary, borderWidth: 2 },
   heroVehicle: { color: colors.text, fontSize: 28, fontWeight: "900" },
   actions: { flexDirection: "row", gap: spacing.sm },
   action: { flex: 1 },
   sectionTitle: {
-    color: colors.primary,
+    color: colors.primaryPressed,
     fontWeight: "900",
     fontSize: 11,
     letterSpacing: 1,
@@ -1730,7 +1743,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   dateChipSelected: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryPressed,
     borderColor: colors.primary,
   },
   dateWeekday: { color: colors.textSecondary, fontSize: 11, fontWeight: "800" },
@@ -1748,7 +1761,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   slotSelected: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryPressed,
     borderColor: colors.primary,
   },
   slotUnavailable: { opacity: 0.35, backgroundColor: colors.surfaceElevated },
@@ -1790,7 +1803,7 @@ const styles = StyleSheet.create({
   },
   radioSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryPressed,
   },
   timelineRow: {
     flexDirection: "row",

@@ -1,6 +1,7 @@
 from email.utils import parseaddr
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import EmailStr, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,6 +13,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
+        hide_input_in_errors=True,
     )
 
     app_name: str = "Trifecta API"
@@ -24,6 +26,7 @@ class Settings(BaseSettings):
     db_pool_recycle_seconds: int = Field(default=300, ge=30, le=3600)
     db_pool_pre_ping: bool = True
     db_disable_prepared_statements: bool = False
+    db_require_tls: bool = True
     log_level: str = "INFO"
     booking_management_signing_key: str = "development-only-trifecta-management-key"
     resend_api_key: str | None = None
@@ -69,11 +72,35 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def require_production_management_key(self) -> "Settings":
-        if self.is_production and self.booking_management_signing_key.startswith("development-"):
-            raise ValueError("BOOKING_MANAGEMENT_SIGNING_KEY must be set in production")
+        if self.is_deployed and self.booking_management_signing_key.startswith("development-"):
+            raise ValueError("BOOKING_MANAGEMENT_SIGNING_KEY must be set in deployed environments")
         if len(self.booking_management_signing_key) < 32:
             raise ValueError("BOOKING_MANAGEMENT_SIGNING_KEY must be at least 32 characters")
+        if self.is_deployed:
+            if self.supabase_jwt_secret and not self.supabase_url:
+                raise ValueError("SUPABASE_URL is required when using legacy JWT verification")
+            for origin in self.cors_origins:
+                parsed = urlsplit(origin)
+                if (
+                    parsed.scheme != "https"
+                    or not parsed.netloc
+                    or "*" in origin
+                    or parsed.path
+                    or parsed.query
+                    or parsed.fragment
+                    or parsed.username
+                ):
+                    raise ValueError("Deployed CORS origins must be exact HTTPS origins")
+            for value in (self.supabase_url, self.public_web_url):
+                if value and (urlsplit(value).scheme != "https" or urlsplit(value).username):
+                    raise ValueError("Deployed provider and public URLs must use HTTPS")
+            if not self.db_require_tls:
+                raise ValueError("Database TLS is required in deployed environments")
         return self
+
+    @property
+    def is_deployed(self) -> bool:
+        return self.app_env in {"staging", "production"}
 
     @property
     def is_production(self) -> bool:

@@ -187,6 +187,16 @@ async def list_teams(
             .where(
                 ScheduleResource.business_id == context.business_id,
                 ScheduleResource.resource_type == "mobile_team",
+                True
+                if context.role in {"manager", "admin"}
+                else ScheduleResource.id.in_(
+                    select(TeamMembership.resource_id)
+                    .where(
+                        TeamMembership.staff_profile_id == context.staff_id,
+                        TeamMembership.is_active.is_(True),
+                    )
+                    .correlate(None)
+                ),
             )
             .group_by(ScheduleResource.id)
             .order_by(ScheduleResource.is_active.desc(), ScheduleResource.sort_order)

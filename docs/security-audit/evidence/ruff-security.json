@@ -1,0 +1,40 @@
+[
+  {
+    "cell": null,
+    "code": "S101",
+    "end_location": {
+      "column": 23,
+      "row": 72
+    },
+    "filename": "C:\\Users\\Lenovo\\Desktop\\abdwash\\backend\\app\\auth\\verifier.py",
+    "fix": null,
+    "location": {
+      "column": 17,
+      "row": 72
+    },
+    "message": "Use of `assert` detected",
+    "name": "assert",
+    "noqa_row": 72,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/assert"
+  },
+  {
+    "cell": null,
+    "code": "S101",
+    "end_location": {
+      "column": 11,
+      "row": 964
+    },
+    "filename": "C:\\Users\\Lenovo\\Desktop\\abdwash\\backend\\app\\services\\inventory.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 964
+    },
+    "message": "Use of `assert` detected",
+    "name": "assert",
+    "noqa_row": 964,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/assert"
+  }
+]

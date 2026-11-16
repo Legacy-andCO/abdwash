@@ -461,7 +461,7 @@ async def test_private_storage_adapter_uses_signed_upload_and_download_urls() ->
         request.headers["authorization"] == "Bearer server-only-test-key" for request in seen
     )
     assert all("server-only-test-key" not in str(request.url) for request in seen)
-    assert seen[0].content == b'{"upsert":true}'
+    assert seen[0].content == b'{"upsert":false}'
 
 
 @pytest.mark.asyncio

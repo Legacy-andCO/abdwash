@@ -1,0 +1,866 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/calendar-bookings/catalogue",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/calendar-bookings/availability",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/calendar-bookings",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/complaints",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/complaints/{reference}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/complaints/{reference}/evidence/{index}/download",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/context",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/profile",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/customer/profile",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/addresses",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/addresses",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/customer/addresses/{address_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/customer/addresses/{address_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/vehicles",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/vehicles",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/customer/vehicles/{vehicle_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/customer/vehicles/{vehicle_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/reviews/eligibility",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/bookings/{booking_id}/review",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/reviews",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/review-prompt/open",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/customer/account",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/bookings",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/bookings/{booking_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/bookings/{booking_id}/invoices/{invoice_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/bookings/{booking_id}/cancellation-requests",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/bookings/{booking_id}/reschedule",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/coupons",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/coupons",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/coupons/{coupon_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/reviews/{review_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/catalogue",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/catalogue/services",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/catalogue/services/{service_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/catalogue/services/{service_id}/addons",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/catalogue/addons/{addon_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/business-settings",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/business-settings",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/context",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/sync-state",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/profile",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/profile",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/users",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/users",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/users/{staff_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/users/{staff_id}/temporary-password",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/users/{staff_id}/password",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/teams",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/teams",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/teams/{team_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/teams/{team_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/teams/{team_id}/members",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/attendance",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/attendance/overview",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/attendance/clock-in",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/attendance/clock-out",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/shifts",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/shifts",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/shift-assignments",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/shift-assignments",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/leave",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/leave",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/leave/{leave_id}/review",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/dashboard",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/reports/v2",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/overview",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/expenses",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/expenses",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}/voucher",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}/evidence/upload",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}/evidence/{evidence_id}/complete",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}/void",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/pending",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/pending/{staff_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/reconciliations",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/cash/reconciliations",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/reconciliations/{reconciliation_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/cash/reconciliations/{reconciliation_id}/void",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/mine",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/overview",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/consumption/attention",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/consumption/{run_id}/review",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/items",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/items",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/items/{item_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/inventory/items/{item_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/locations",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/locations",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/inventory/locations/{location_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/stock",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/inventory/locations/{location_id}/items/{item_id}/threshold",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/receipts",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/transfers",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/usage",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/wastage",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/stock-counts",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/movements",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/reports/usage",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/teams/{team_id}/summary",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/services/{service_id}/template",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/inventory/services/{service_id}/template",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/management-check",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/calendar",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/{job_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/{job_id}/communications",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/notifications/delay",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/{job_id}/quality",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/inspection",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/checklist",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/issues",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/photos/upload",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/photos/{photo_id}/complete",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/complaints",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/complaints/{complaint_id}/review",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/start-trip",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/start",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/arrive",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/complete",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/cash-payment",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/jobs/{job_id}/assignment",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/{job_id}/assignment-options",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/team",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/reports/summary",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/cancellations",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/cancellations/{cancellation_id}/review",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/customers",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/customers/{customer_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/customers/{customer_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/customers/{customer_id}/addresses",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/customers/{customer_id}/addresses/{address_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/staff/customers/{customer_id}/addresses/{address_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/customers/{customer_id}/vehicles",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/customers/{customer_id}/vehicles/{vehicle_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/staff/customers/{customer_id}/vehicles/{vehicle_id}",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/customers/{customer_id}/loyalty/adjustments",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/loyalty/settings",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/loyalty/settings",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/bookings/{booking_id}/reschedule-options",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/bookings/{booking_id}/reschedule",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/customer-policies",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/bookings/{booking_id}/policy-provision",
+    "anonymous_status": 401,
+    "result": "PASS"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/bookings/{booking_id}/archive",
+    "anonymous_status": 401,
+    "result": "PASS"
+  }
+]

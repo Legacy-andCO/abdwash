@@ -20,6 +20,6 @@ describe("passwordless cross-device OTP", () => {
     const i18n = source("i18n.ts");
     expect(i18n).toContain("Accessing your email from another device?");
     expect(i18n).toContain("If you're accessing your email from a different device");
-    expect(i18n).toContain("هل فتحت البريد الإلكتروني على جهاز آخر؟");
+    expect(i18n).toContain("هل تفتح بريدك الإلكتروني من جهاز آخر؟");
   });
 });

@@ -1,0 +1,104 @@
+{
+  "errors": [],
+  "consoleErrors": [],
+  "unknown": [],
+  "computed": {
+    "font": "system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "box": {
+      "x": 16,
+      "y": -115,
+      "width": 175,
+      "height": 52,
+      "top": -115,
+      "right": 191,
+      "bottom": -63,
+      "left": 16
+    }
+  },
+  "mutations": [
+    {
+      "method": "POST",
+      "path": "/api/v1/staff/calendar-bookings",
+      "body": {
+        "date": "2026-11-16",
+        "time": "15:00:00",
+        "contact": {
+          "first_name": "ليلى Test",
+          "phone": "+971500000000",
+          "email": null
+        },
+        "location": {
+          "written_address": "Villa 12, Abu Dhabi",
+          "instructions": null,
+          "latitude": null,
+          "longitude": null
+        },
+        "vehicles": [
+          {
+            "make": "",
+            "model": "",
+            "plate_number": "",
+            "service_id": "service-1",
+            "vehicle_type": "sedan"
+          }
+        ],
+        "expected_amount_minor": 7000,
+        "policy_revision": "ux-fixture-v1",
+        "policy_delivery": "provided",
+        "language": "en",
+        "overlap": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/staff/calendar-bookings",
+      "body": {
+        "date": "2026-11-16",
+        "time": "10:00:00",
+        "contact": {
+          "first_name": "Overlap Test",
+          "phone": "+971500000000",
+          "email": null
+        },
+        "location": {
+          "written_address": "Villa 99, Abu Dhabi",
+          "instructions": null,
+          "latitude": null,
+          "longitude": null
+        },
+        "vehicles": [
+          {
+            "make": "",
+            "model": "",
+            "plate_number": "",
+            "service_id": "service-1",
+            "vehicle_type": "sedan"
+          }
+        ],
+        "expected_amount_minor": 7000,
+        "policy_revision": "ux-fixture-v1",
+        "policy_delivery": "provided",
+        "language": "en",
+        "overlap": {
+          "team_id": "team-1",
+          "confirmed": true
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/staff/bookings/booking-1/reschedule",
+      "body": {
+        "date": "2026-11-16",
+        "time": "15:00",
+        "confirm_active_reschedule": false,
+        "override_turnaround": false,
+        "team_id": null,
+        "auto_assign": true,
+        "expected_version": 1,
+        "reason": "Customer requested a later time",
+        "client_event_id": "67f7771b-d7cd-4b05-a832-c100a77964e7"
+      }
+    }
+  ]
+}

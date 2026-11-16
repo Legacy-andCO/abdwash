@@ -1,0 +1,559 @@
+C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\pytest_asyncio\plugin.py:299: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+...........FF......                                                      [100%]
+================================== FAILURES ===================================
+_ test_staff_write_workflow_uses_real_context_dependency_without_leaking_transaction _
+
+database = async_sessionmaker(class_='AsyncSession', bind=<sqlalchemy.ext.asyncio.engine.AsyncEngine object at 0x0000021E40F80790>, autoflush=True, expire_on_commit=False)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021E42F6D850>
+
+    @pytest.mark.asyncio(loop_scope="module")
+    async def test_staff_write_workflow_uses_real_context_dependency_without_leaking_transaction(
+        database: async_sessionmaker[AsyncSession],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        manager_auth_id = uuid.uuid4()
+        employee_auth_id = uuid.uuid4()
+        async with database() as session, session.begin():
+            business = (await session.scalars(select(Business))).one()
+            manager = StaffProfile(
+                business_id=business.id,
+                auth_user_id=manager_auth_id,
+                username=f"workflow-manager-{uuid.uuid4().hex[:6]}",
+                display_name="Workflow Manager",
+                role=StaffRole.MANAGER,
+                is_active=True,
+            )
+            session.add(manager)
+    
+        initial_hold = await _attempt_hold(
+            database,
+            HoldCreate(date=date(2035, 2, 1), start_time=time(9), vehicle_count=1),
+        )
+        async with database() as session:
+            service_id = (await session.scalars(select(Service.id))).one()
+        booking_request = BookingCreate.model_validate(
+            {
+                "hold_token": initial_hold.hold_token,
+                "contact": {
+                    "first_name": "Write",
+                    "surname": "Workflow",
+                    "email": "write-workflow@example.com",
+                    "phone": "+971500000002",
+                },
+                "location": {
+                    "written_address": "Yas Island, Abu Dhabi",
+                    "location_url": "https://maps.google.com/?q=Yas+Island",
+                    "instructions": "Use the visitor parking entrance",
+                },
+                "vehicles": [
+                    {
+                        "make": "Toyota",
+                        "model": "Land Cruiser",
+                        "vehicle_type": "suv",
+                        "plate_number": "B 67890",
+                        "service_id": service_id,
+                    }
+                ],
+                "payment_choice": "pay_after_service",
+            }
+        )
+        async with database() as session, session.begin():
+            booking = await create_booking(session, booking_request, None)
+        async with database() as session:
+            job_id = (await session.scalars(select(Job.id).where(Job.booking_id == booking.id))).one()
+    
+        cancellation_hold = await _attempt_hold(
+            database,
+            HoldCreate(date=date(2035, 2, 3), start_time=time(13), vehicle_count=1),
+        )
+        cancellation_booking_request = booking_request.model_copy(
+            update={"hold_token": cancellation_hold.hold_token}
+        )
+        async with database() as session, session.begin():
+            cancellation_booking = await create_booking(session, cancellation_booking_request, None)
+            rejected_cancellation = CancellationRequest(
+                booking_id=cancellation_booking.id,
+                requester_type="customer",
+                reason="Reject this integration request",
+                status="requested",
+                requested_at=datetime.now(UTC),
+            )
+            approved_cancellation = CancellationRequest(
+                booking_id=cancellation_booking.id,
+                requester_type="customer",
+                reason="Approve this integration request",
+                status="requested",
+                requested_at=datetime.now(UTC),
+            )
+            session.add_all([rejected_cancellation, approved_cancellation])
+            await session.flush()
+            rejected_cancellation_id = rejected_cancellation.id
+            approved_cancellation_id = approved_cancellation.id
+    
+        test_app = FastAPI()
+        test_app.include_router(staff_router)
+    
+        async def sessions() -> AsyncIterator[AsyncSession]:
+            async with database() as session:
+                yield session
+    
+        test_app.dependency_overrides[session_dependency] = sessions
+        test_app.state.auth_verifier = StubAuthVerifier(
+            {"manager-token": manager_auth_id, "employee-token": employee_auth_id}
+        )
+        test_app.state.http_client = httpx.AsyncClient()
+        monkeypatch.setattr(staff_api, "_admin", lambda _request: StubSupabaseAdmin(employee_auth_id))
+        monkeypatch.setattr(
+            staff_api,
+            "get_settings",
+            lambda: SimpleNamespace(google_routes_api_key=None),
+        )
+    
+        @test_app.exception_handler(DomainError)
+        async def error_handler(_request: Request, exc: DomainError) -> JSONResponse:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"code": exc.code, "message": exc.message},
+            )
+    
+        @test_app.get("/_staff-transaction-state")
+        async def transaction_state(
+            session: Annotated[AsyncSession, Depends(session_dependency)],
+            _context: Annotated[StaffContext, Depends(staff_context)],
+        ) -> dict[str, bool]:
+            return {"in_transaction": session.in_transaction()}
+    
+        manager_headers = {"Authorization": "Bearer manager-token"}
+        employee_headers = {"Authorization": "Bearer employee-token"}
+        transport = httpx.ASGITransport(app=test_app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            context_metrics = RequestDatabaseMetrics(request_started=perf_counter())
+            context_token = request_database_metrics.set(context_metrics)
+            try:
+                context_response = await client.get(
+                    "/api/v1/staff/context", headers=manager_headers
+                )
+            finally:
+                request_database_metrics.reset(context_token)
+            assert context_response.status_code == 200
+            assert context_metrics.query_count == 1
+            transaction_response = await client.get(
+                "/_staff-transaction-state", headers=manager_headers
+            )
+            assert transaction_response.json() == {"in_transaction": False}
+    
+            employee_response = await client.post(
+                "/api/v1/staff/users",
+                headers=manager_headers,
+                json={
+                    "display_name": "Workflow Employee",
+                    "username": f"workflow-employee-{uuid.uuid4().hex[:6]}",
+                    "phone": "+971501234567",
+                    "role": "employee",
+                    "temporary_password": "Integration-Only-123!",
+                },
+            )
+            assert employee_response.status_code == 201, employee_response.text
+            employee_id = employee_response.json()["id"]
+    
+            updated_employee = await client.patch(
+                f"/api/v1/staff/users/{employee_id}",
+                headers=manager_headers,
+                json={"display_name": "Workflow Employee Updated"},
+            )
+            assert updated_employee.status_code == 200, updated_employee.text
+            assert updated_employee.json()["display_name"] == "Workflow Employee Updated"
+            deactivated_employee = await client.patch(
+                f"/api/v1/staff/users/{employee_id}",
+                headers=manager_headers,
+                json={"is_active": False},
+            )
+            assert deactivated_employee.status_code == 200, deactivated_employee.text
+            assert deactivated_employee.json()["is_active"] is False
+            reactivated_employee = await client.patch(
+                f"/api/v1/staff/users/{employee_id}",
+                headers=manager_headers,
+                json={"is_active": True},
+            )
+            assert reactivated_employee.status_code == 200, reactivated_employee.text
+            temporary_password = await client.post(
+                f"/api/v1/staff/users/{employee_id}/password",
+                headers=manager_headers,
+                json={"mode": "temporary"},
+            )
+            assert temporary_password.status_code == 200, temporary_password.text
+            assert temporary_password.json()["must_change_password"] is True
+            assert len(temporary_password.json()["temporary_password"]) >= 8
+            forced_change = await client.get(
+                "/api/v1/staff/jobs",
+                headers=employee_headers,
+                params={"view": "today", "scope": "my"},
+            )
+            assert forced_change.status_code == 403, forced_change.text
+            assert forced_change.json()["detail"]["code"] == "PASSWORD_CHANGE_REQUIRED"
+            employee_password_change = await client.patch(
+                "/api/v1/staff/profile",
+                headers=employee_headers,
+                json={"password": "Employee-Replacement-123!"},
+            )
+            assert employee_password_change.status_code == 200, employee_password_change.text
+            assert employee_password_change.json()["must_change_password"] is False
+    
+            manual_password = await client.post(
+                f"/api/v1/staff/users/{employee_id}/password",
+                headers=manager_headers,
+                json={"mode": "manual", "new_password": "Manager-Selected-123!"},
+            )
+            assert manual_password.status_code == 200, manual_password.text
+            assert manual_password.json() == {
+                "must_change_password": False,
+                "temporary_password": None,
+            }
+    
+            team_response = await client.post(
+                "/api/v1/staff/teams",
+                headers=manager_headers,
+                json={"name": f"Workflow Team {uuid.uuid4().hex[:6]}"},
+            )
+            assert team_response.status_code == 201, team_response.text
+            team_id = team_response.json()["id"]
+    
+            renamed_team = await client.patch(
+                f"/api/v1/staff/teams/{team_id}",
+                headers=manager_headers,
+                json={"name": f"Renamed Workflow Team {uuid.uuid4().hex[:6]}"},
+            )
+            assert renamed_team.status_code == 200, renamed_team.text
+    
+            members_response = await client.put(
+                f"/api/v1/staff/teams/{team_id}/members",
+                headers=manager_headers,
+                json={"staff_ids": [employee_id]},
+            )
+            assert members_response.status_code == 200, members_response.text
+            assert [member["id"] for member in members_response.json()["members"]] == [employee_id]
+            removed_response = await client.put(
+                f"/api/v1/staff/teams/{team_id}/members",
+                headers=manager_headers,
+                json={"staff_ids": []},
+            )
+            assert removed_response.status_code == 200
+            restored_response = await client.put(
+                f"/api/v1/staff/teams/{team_id}/members",
+                headers=manager_headers,
+                json={"staff_ids": [employee_id]},
+            )
+            assert restored_response.status_code == 200
+            deactivated_team = await client.patch(
+                f"/api/v1/staff/teams/{team_id}",
+                headers=manager_headers,
+                json={"is_active": False},
+            )
+            assert deactivated_team.status_code == 200, deactivated_team.text
+            assert deactivated_team.json()["is_active"] is False
+            reactivated_team = await client.patch(
+                f"/api/v1/staff/teams/{team_id}",
+                headers=manager_headers,
+                json={"is_active": True},
+            )
+            assert reactivated_team.status_code == 200, reactivated_team.text
+    
+            shift_response = await client.post(
+                "/api/v1/staff/shifts",
+                headers=manager_headers,
+                json={
+                    "name": f"Workflow Morning {uuid.uuid4().hex[:6]}",
+                    "start_time": "09:00:00",
+                    "end_time": "18:00:00",
+                },
+            )
+            assert shift_response.status_code == 201, shift_response.text
+            assignment_response = await client.put(
+                "/api/v1/staff/shift-assignments",
+                headers=manager_headers,
+                json={
+                    "staff_id": employee_id,
+                    "shift_id": shift_response.json()["id"],
+                    "work_date": "2035-02-05",
+                    "team_id": team_id,
+                },
+            )
+            assert assignment_response.status_code == 200, assignment_response.text
+    
+            leave_response = await client.post(
+                "/api/v1/staff/leave",
+                headers=employee_headers,
+                json={
+                    "start_date": "2035-03-01",
+                    "end_date": "2035-03-01",
+                    "reason": "Integration workflow",
+                },
+            )
+            assert leave_response.status_code == 201, leave_response.text
+            review_response = await client.post(
+                f"/api/v1/staff/leave/{leave_response.json()['id']}/review",
+                headers=manager_headers,
+                json={"decision": "approved"},
+            )
+            assert review_response.status_code == 200, review_response.text
+    
+            second_leave_response = await client.post(
+                "/api/v1/staff/leave",
+                headers=employee_headers,
+                json={
+                    "start_date": "2035-03-02",
+                    "end_date": "2035-03-02",
+                    "reason": "Rejected integration workflow",
+                },
+            )
+            assert second_leave_response.status_code == 201, second_leave_response.text
+            rejected_leave_response = await client.post(
+                f"/api/v1/staff/leave/{second_leave_response.json()['id']}/review",
+                headers=manager_headers,
+                json={"decision": "rejected"},
+            )
+            assert rejected_leave_response.status_code == 200, rejected_leave_response.text
+    
+            manager_profile = await client.patch(
+                "/api/v1/staff/profile",
+                headers=manager_headers,
+                json={"display_name": "Workflow Manager Updated"},
+            )
+            assert manager_profile.status_code == 200, manager_profile.text
+    
+            employee_profile = await client.patch(
+                "/api/v1/staff/profile",
+                headers=employee_headers,
+                json={
+                    "display_name": "Workflow Employee Self Updated",
+                },
+            )
+            assert employee_profile.status_code == 200, employee_profile.text
+    
+            clock_in_response = await client.post(
+                "/api/v1/staff/attendance/clock-in",
+                headers=employee_headers,
+                json={},
+            )
+            assert clock_in_response.status_code == 200, clock_in_response.text
+            clock_out_response = await client.post(
+                "/api/v1/staff/attendance/clock-out",
+                headers=employee_headers,
+                json={},
+            )
+            assert clock_out_response.status_code == 200, clock_out_response.text
+            assert clock_out_response.json()["clock_out_at"] is not None
+    
+            job_assignment_response = await client.patch(
+                f"/api/v1/staff/jobs/{job_id}/assignment",
+                headers=manager_headers,
+                json={"team_id": team_id, "client_event_id": str(uuid.uuid4())},
+            )
+            assert job_assignment_response.status_code == 200, job_assignment_response.text
+            assert job_assignment_response.json()["assigned_team_id"] == team_id
+            assert job_assignment_response.json()["assigned_team_name"] == renamed_team.json()["name"]
+    
+            for customer_search in ("Write", "workflow", "wri"):
+                searched_jobs = await client.get(
+                    "/api/v1/staff/jobs",
+                    headers=manager_headers,
+                    params={
+                        "view": "all",
+                        "scope": "all",
+                        "search": customer_search,
+                    },
+                )
+                assert searched_jobs.status_code == 200, searched_jobs.text
+                assert job_id in {uuid.UUID(item["id"]) for item in searched_jobs.json()["jobs"]}
+            unrelated_search = await client.get(
+                "/api/v1/staff/jobs",
+                headers=manager_headers,
+                params={"view": "all", "scope": "all", "search": "NoSuchCustomer"},
+            )
+            assert unrelated_search.status_code == 200, unrelated_search.text
+            assert job_id not in {uuid.UUID(item["id"]) for item in unrelated_search.json()["jobs"]}
+    
+            unassigned_jobs = await client.get(
+                "/api/v1/staff/jobs",
+                headers=manager_headers,
+                params={"view": "unassigned", "scope": "all"},
+            )
+            assert job_id not in {uuid.UUID(item["id"]) for item in unassigned_jobs.json()["jobs"]}
+    
+            reassignment_response = await client.patch(
+                f"/api/v1/staff/jobs/{job_id}/assignment",
+                headers=manager_headers,
+                json={"staff_id": employee_id, "client_event_id": str(uuid.uuid4())},
+            )
+            assert reassignment_response.status_code == 200, reassignment_response.text
+            assert reassignment_response.json()["assigned_staff_id"] == employee_id
+>           assert reassignment_response.json()["assigned_staff_name"] == "Workflow Employee Updated"
+E           AssertionError: assert 'Workflow Emp... Self Updated' == 'Workflow Employee Updated'
+E             
+E             - Workflow Employee Updated
+E             + Workflow Employee Self Updated
+E             ?                   +++++
+
+tests\test_postgres_integration.py:1430: AssertionError
+---------------------------- Captured stdout call -----------------------------
+2026-11-11 15:17:55 [info     ] smart_scheduler_decision       assignment_source=auto result=selected scheduler_candidate_count=2 scheduler_duration_ms=3.9 scheduler_feasible_count=2
+2026-11-11 15:17:55 [info     ] smart_scheduler_decision       assignment_source=auto result=selected scheduler_candidate_count=2 scheduler_duration_ms=5.23 scheduler_feasible_count=2
+2026-11-11 15:17:55 [info     ] smart_scheduler_decision       assignment_source=manual result=selected scheduler_candidate_count=3 scheduler_duration_ms=3.98 scheduler_feasible_count=3
+_____________ test_public_api_guest_booking_and_query_count_guard _____________
+
+database = async_sessionmaker(class_='AsyncSession', bind=<sqlalchemy.ext.asyncio.engine.AsyncEngine object at 0x0000021E40F80790>, autoflush=True, expire_on_commit=False)
+
+    @pytest.mark.asyncio(loop_scope="module")
+    async def test_public_api_guest_booking_and_query_count_guard(
+        database: async_sessionmaker[AsyncSession],
+    ) -> None:
+        test_app = FastAPI()
+        test_app.include_router(public_router)
+    
+        async def sessions() -> AsyncIterator[AsyncSession]:
+            async with database() as session:
+                yield session
+    
+        test_app.dependency_overrides[session_dependency] = sessions
+        test_app.dependency_overrides[optional_identity] = lambda: None
+    
+        @test_app.exception_handler(DomainError)
+        async def error_handler(request: Request, exc: DomainError) -> JSONResponse:
+            return JSONResponse(status_code=exc.status_code, content={"code": exc.code})
+    
+        transport = httpx.ASGITransport(app=test_app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            query_count.set(0)
+            catalogue = await client.get("/api/v1/public/catalogue")
+            assert catalogue.status_code == 200
+            assert query_count.get() <= 2
+            service_id = catalogue.json()["services"][0]["id"]
+            async with database() as session, session.begin():
+                service = await session.get(Service, uuid.UUID(service_id))
+                assert service is not None
+                await session.execute(
+                    insert(ServicePrice).values(
+                        business_id=service.business_id,
+                        service_id=service.id,
+                        vehicle_type="suv",
+                        price_minor=service.price_minor,
+                    ).on_conflict_do_nothing(index_elements=[ServicePrice.service_id, ServicePrice.vehicle_type])
+                )
+                prior_revision = await session.get(BusinessSyncRevision, service.business_id)
+                prior_counts = (
+                    (
+                        prior_revision.jobs_revision,
+                        prior_revision.schedule_revision,
+                        prior_revision.finance_revision,
+                    )
+                    if prior_revision else (0, 0, 0)
+                )
+            query_count.set(0)
+            availability = await client.get(
+                "/api/v1/public/availability",
+                params={
+                    "date": "2035-01-05",
+                    "vehicle_count": 1,
+                    "service_id": service_id,
+                },
+            )
+            assert availability.status_code == 200
+            assert query_count.get() <= 10
+            assert [slot["time"] for slot in availability.json()["slots"]] == [
+                "09:00:00",
+                "11:00:00",
+                "13:00:00",
+                "15:00:00",
+                "17:00:00",
+                "19:00:00",
+                "21:00:00",
+            ]
+            assert all("resources" not in slot for slot in availability.json()["slots"])
+            query_count.set(0)
+            hold = await client.post(
+                "/api/v1/public/holds",
+                json={
+                    "date": "2035-01-05",
+                    "start_time": "09:00:00",
+                    "vehicle_count": 1,
+                    "service_ids": [service_id],
+                },
+            )
+            assert hold.status_code == 201
+            assert "resource_id" not in hold.json()
+            assert query_count.get() <= 16
+            payload = {
+                "hold_token": hold.json()["hold_token"],
+                "contact": {
+                    "first_name": "Guest",
+                    "surname": "Customer",
+                    "email": "guest@example.com",
+                    "phone": "+971500000001",
+                },
+                "location": {
+                    "written_address": "Business Bay",
+                    "location_url": "https://maps.google.com/?q=Business+Bay",
+                    "instructions": "Meet by the lobby",
+                },
+                "vehicles": [
+                    {
+                        "make": "Nissan",
+                        "model": "Patrol",
+                        "vehicle_type": "suv",
+                        "plate_number": "C 24680",
+                        "service_id": service_id,
+                    }
+                ],
+                "payment_choice": "pay_after_service",
+                "policy_acceptance": {
+                    "accepted": True,
+                    "language": "en",
+                    "revision": POLICY_REVISION,
+                },
+            }
+            rejected = await client.post(
+                "/api/v1/public/bookings",
+                json={**payload, "policy_acceptance": None},
+                headers={"Idempotency-Key": "api-integration-booking-1"},
+            )
+            assert rejected.status_code == 422
+            assert rejected.json()["code"] == "POLICY_ACCEPTANCE_REQUIRED"
+            query_count.set(0)
+            booking = await client.post(
+                "/api/v1/public/bookings",
+                json=payload,
+                headers={"Idempotency-Key": "api-integration-booking-1"},
+            )
+            assert booking.status_code == 201, booking.text
+            # Confirmed pay-after-service creates the job/outbox; the old bound measured
+            # the now-disabled incomplete pending-payment path.
+            assert query_count.get() <= 33
+            assert booking.json()["status"] == "confirmed"
+            assert booking.json()["payment_status"] == "unpaid"
+            retried = await client.post(
+                "/api/v1/public/bookings",
+                json=payload,
+                headers={"Idempotency-Key": "api-integration-booking-1"},
+            )
+            assert retried.status_code == 201
+            assert retried.json() == booking.json()
+            management_token = booking.json()["management_token"]
+            managed = await client.get(
+                "/api/v1/public/bookings/manage",
+                headers={"X-Booking-Management-Token": management_token},
+            )
+            assert managed.status_code == 200
+            assert managed.json()["reference"] == booking.json()["reference"]
+>           assert managed.json()["cancellation_eligible"] is False
+E           assert True is False
+
+tests\test_postgres_integration.py:1719: AssertionError
+---------------------------- Captured stdout call -----------------------------
+2026-11-11 15:17:56 [info     ] smart_scheduler_decision       assignment_source=auto result=selected scheduler_candidate_count=3 scheduler_duration_ms=2.71 scheduler_feasible_count=3
+=========================== short test summary info ===========================
+FAILED tests/test_postgres_integration.py::test_staff_write_workflow_uses_real_context_dependency_without_leaking_transaction
+FAILED tests/test_postgres_integration.py::test_public_api_guest_booking_and_query_count_guard
+2 failed, 17 passed in 4.09s

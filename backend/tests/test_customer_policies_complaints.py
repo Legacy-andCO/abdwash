@@ -27,7 +27,7 @@ from app.services.policy_acceptance import POLICY_REVISION, POLICY_VERSIONS
 from app.workers.notifications import mark_delivery_failed, mark_delivery_succeeded
 
 REFERENCE = "TC-" + "A" * 32
-PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jY1sAAAAASUVORK5CYII="
+PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC"
 
 
 @asynccontextmanager
@@ -84,7 +84,7 @@ def booking_payload():
             }
         ],
         "payment_choice": "pay_after_service",
-        "source": "admin",
+        "source": "web",
     }
 
 

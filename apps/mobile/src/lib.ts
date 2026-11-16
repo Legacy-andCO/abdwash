@@ -1,6 +1,8 @@
 import { authStorage } from "./authStorage";
+import { requestMfa } from "./mfa-events";
 import { createClient, type Session } from "@supabase/supabase-js";
 import "react-native-url-polyfill/auto";
+import { alreadyUploaded } from "./network/immutableUpload";
 import type { Role } from "./capabilities";
 import { ApiError } from "./errors/domainErrors";
 import { parseApiErrorPayload } from "./errors/parseApiError";
@@ -914,6 +916,7 @@ export async function api<T>(
       await response.json().catch(() => ({})),
       response.status,
     );
+      requestMfa(parsed.code);
     const requestId =
       parsed.requestId ?? response.headers.get("X-Request-ID") ?? undefined;
     if (__DEV__) {
@@ -1119,7 +1122,7 @@ export async function uploadJobPhoto(
         cacheControl: "3600",
       }),
   );
-  if (error)
+  if (error && !alreadyUploaded(error))
     throw new ApiError(
       "JOB_PHOTO_UPLOAD_FAILED",
       502,
@@ -1384,7 +1387,7 @@ export async function uploadExpenseEvidence(
       contentType: "image/jpeg",
       cacheControl: "3600",
     });
-  if (error)
+  if (error && !alreadyUploaded(error))
     throw new ApiError(
       "EXPENSE_EVIDENCE_UPLOAD_FAILED",
       502,

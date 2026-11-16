@@ -1,0 +1,212 @@
+{
+  "project_ref": "mgfzfgvlrxwyyftwukwf",
+  "executed_at": "2026-11-11T15:39:58.698707+00:00",
+  "tests": [
+    {
+      "test": "native aal1 privileged API denied manager",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native aal2 privileged API allowed manager",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "native aal1 privileged API denied admin",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native aal2 privileged API allowed admin",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "native aal1 privileged API denied admin_two",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native aal2 privileged API allowed admin_two",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "native aal1 privileged API denied foreign_manager",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native aal2 privileged API allowed foreign_manager",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "employee retains aal1 access",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "customer cannot become staff",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "authoritative promotion immediately enforces MFA",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "employee team boundary 0",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "employee team boundary 1",
+      "status": "PASS",
+      "http_status": 404
+    },
+    {
+      "test": "employee team boundary 2",
+      "status": "PASS",
+      "http_status": 404
+    },
+    {
+      "test": "customer address create",
+      "status": "PASS",
+      "http_status": 201
+    },
+    {
+      "test": "customer address IDOR denied",
+      "status": "PASS",
+      "http_status": 404
+    },
+    {
+      "test": "employee creates appointment",
+      "status": "PASS",
+      "http_status": 201
+    },
+    {
+      "test": "employee intentional double booking",
+      "status": "PASS",
+      "http_status": 201
+    },
+    {
+      "test": "employee booking idempotency",
+      "status": "PASS",
+      "http_status": 201
+    },
+    {
+      "test": "double booking preserves original",
+      "status": "PASS"
+    },
+    {
+      "test": "cross tenant job access denied",
+      "status": "PASS",
+      "http_status": 404
+    },
+    {
+      "test": "unauthorized double booking customer_a",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "unauthorized double booking other_employee",
+      "status": "PASS",
+      "http_status": 404
+    },
+    {
+      "test": "customer availability hold",
+      "status": "PASS",
+      "http_status": 201
+    },
+    {
+      "test": "price and payment mass assignment denied",
+      "status": "PASS",
+      "http_status": 422
+    },
+    {
+      "test": "customer booking server price",
+      "status": "PASS",
+      "http_status": 201
+    },
+    {
+      "test": "own booking access",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "booking IDOR denied",
+      "status": "PASS",
+      "http_status": 404
+    },
+    {
+      "test": "native Data API denies customer_a customer_profiles",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_a customer_addresses",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_a bookings",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_a payments",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_a staff_profiles",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_b customer_profiles",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_b customer_addresses",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_b bookings",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_b payments",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "native Data API denies customer_b staff_profiles",
+      "status": "PASS",
+      "http_status": 403
+    },
+    {
+      "test": "real non-owner NOBYPASSRLS runtime",
+      "status": "PASS"
+    },
+    {
+      "test": "runtime cannot assume owner",
+      "status": "PASS"
+    },
+    {
+      "test": "runtime cannot read Auth users",
+      "status": "PASS"
+    },
+    {
+      "test": "runtime cannot read migration state",
+      "status": "PASS"
+    }
+  ],
+  "evidence_note": "42 executed conditional assertions; an unconditional schema-field diagnostic was excluded from test counts. Original provider/API log and staging-api-raw.json retained."
+}

@@ -24,6 +24,10 @@ class UnavailableNotificationProvider:
 def create_notification_provider(
     settings: Settings, client: httpx.AsyncClient
 ) -> NotificationProvider:
+    # Security staging must never deliver booking/customer mail, even if a shell
+    # accidentally inherits a real provider credential.
+    if settings.app_env == "staging":
+        return LogNotificationProvider()
     if settings.resend_api_key and settings.email_from and settings.public_web_url:
         return ResendNotificationProvider(
             client,

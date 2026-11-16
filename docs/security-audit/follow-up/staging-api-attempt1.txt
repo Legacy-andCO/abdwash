@@ -1,0 +1,225 @@
+{'test': 'native aal1 privileged API denied manager', 'status': 'PASS', 'http_status': 403}
+{'test': 'native aal2 privileged API allowed manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'native aal1 privileged API denied admin', 'status': 'PASS', 'http_status': 403}
+{'test': 'native aal2 privileged API allowed admin', 'status': 'PASS', 'http_status': 200}
+{'test': 'native aal1 privileged API denied admin_two', 'status': 'PASS', 'http_status': 403}
+{'test': 'native aal2 privileged API allowed admin_two', 'status': 'FAIL', 'http_status': 401}
+{'test': 'native aal1 privileged API denied foreign_manager', 'status': 'PASS', 'http_status': 403}
+{'test': 'native aal2 privileged API allowed foreign_manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'employee retains aal1 access', 'status': 'PASS', 'http_status': 200}
+{'test': 'customer cannot become staff', 'status': 'PASS', 'http_status': 403}
+{'test': 'authoritative promotion immediately enforces MFA', 'status': 'PASS', 'http_status': 403}
+{'test': 'employee team boundary 0', 'status': 'PASS', 'http_status': 200}
+{'test': 'employee team boundary 1', 'status': 'PASS', 'http_status': 404}
+{'test': 'employee team boundary 2', 'status': 'PASS', 'http_status': 404}
+{'test': 'customer address create', 'status': 'FAIL', 'http_status': 422}
+{'test': 'staff payload contract', 'status': 'PASS', 'fields': ['date', 'time', 'contact', 'location', 'vehicles', 'expected_amount_minor', 'policy_revision', 'policy_delivery', 'language', 'overlap']}
+{'test': 'employee creates appointment', 'status': 'FAIL', 'http_status': 422}
+{'test': 'unauthorized double booking customer_a', 'status': 'PASS', 'http_status': 403}
+{'test': 'unauthorized double booking other_employee', 'status': 'FAIL', 'http_status': 422}
+{'test': 'customer availability hold', 'status': 'PASS', 'http_status': 201}
+{'test': 'price and payment mass assignment denied', 'status': 'PASS', 'http_status': 422}
+{'test': 'customer booking server price', 'status': 'FAIL', 'http_status': 422}
+{'test': 'native Data API denies customer_a customer_profiles', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_a customer_addresses', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_a bookings', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_a payments', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_a staff_profiles', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_b customer_profiles', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_b customer_addresses', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_b bookings', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_b payments', 'status': 'PASS', 'http_status': 403}
+{'test': 'native Data API denies customer_b staff_profiles', 'status': 'PASS', 'http_status': 403}
+{'test': 'real non-owner NOBYPASSRLS runtime', 'status': 'PASS'}
+{'test': 'runtime cannot assume owner', 'status': 'PASS'}
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 526, in _prepare_and_execute
+    prepared_stmt, attributes = await adapt_connection._prepare(
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        operation, self._invalidate_schema_cache_asof
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 755, in _prepare
+    prepared_stmt = await self._connection.prepare(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        operation, name=self._prepared_statement_name_func()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\asyncpg\connection.py", line 638, in prepare
+    return await self._prepare(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\asyncpg\connection.py", line 657, in _prepare
+    stmt = await self._get_statement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\asyncpg\connection.py", line 443, in _get_statement
+    statement = await self._protocol.prepare(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+    )
+    ^
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+asyncpg.exceptions.InFailedSQLTransactionError: current transaction is aborted, commands ignored until end of transaction block
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 585, in execute
+    self._adapt_connection.await_(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self._prepare_and_execute(operation, parameters)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 563, in _prepare_and_execute
+    self._handle_exception(error)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 513, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 797, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\scripts\security_staging_api.py", line 167, in <module>
+    if __name__=="__main__":asyncio.run(main())
+                            ~~~~~~~~~~~^^^^^^^^
+  File "C:\Python313\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Python313\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\scripts\security_staging_api.py", line 159, in main
+    async with db.begin_nested():
+               ~~~~~~~~~~~~~~~^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1886, in __aexit__
+    await greenlet_spawn(
+        self._sync_transaction().__exit__, type_, value, traceback
+    )
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 201, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\util.py", line 147, in __exit__
+    with util.safe_reraise():
+         ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 122, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\util.py", line 145, in __exit__
+    self.commit()
+    ~~~~~~~~~~~^^
+  File "<string>", line 2, in commit
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1323, in commit
+    trans.commit()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2642, in commit
+    self._do_commit()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2867, in _do_commit
+    self.connection._release_savepoint_impl(self._savepoint)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1172, in _release_savepoint_impl
+    self.engine.dialect.do_release_savepoint(self, name)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 774, in do_release_savepoint
+    connection.execute(expression.ReleaseSavepointClause(name))
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1421, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<8 lines>...
+        cache_hit=cache_hit,
+    )
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 585, in execute
+    self._adapt_connection.await_(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self._prepare_and_execute(operation, parameters)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 563, in _prepare_and_execute
+    self._handle_exception(error)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 513, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 797, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.DBAPIError: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: RELEASE SAVEPOINT sa_savepoint_1]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)

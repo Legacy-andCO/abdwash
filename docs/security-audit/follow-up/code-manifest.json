@@ -1,0 +1,50 @@
+[
+  {
+    "path": "backend/app/auth/verifier.py",
+    "sha256": "f7fe4337924d2a862f8ae54ebb17f7416825c146830661226f82c621d7591f97"
+  },
+  {
+    "path": "backend/app/auth/mfa.py",
+    "sha256": "7693b256d4a843cbfeb9a113b7d82bc42e6afa093d676afe7008f5d0a23102b1"
+  },
+  {
+    "path": "backend/app/auth/dependencies.py",
+    "sha256": "f82bab4944f67c1ba5bcb8a3effa116e06595de20e67905dd24c64296b0342a8"
+  },
+  {
+    "path": "backend/app/auth/sessions.py",
+    "sha256": "195b8c05b4bc72839bede61b3f5d4719bf3f0330951bd545df5c047b807b755e"
+  },
+  {
+    "path": "backend/app/api/staff.py",
+    "sha256": "aa8ebacc68080d039fa8a0189e8d5023bc42312112a4b998b7fc4135ebf720af"
+  },
+  {
+    "path": "backend/app/integrations/supabase_storage.py",
+    "sha256": "4eae3b43a7f4e3476e59956090863379627f5b2aaa63f2edb1b43f21b56c0158"
+  },
+  {
+    "path": "backend/app/core/config.py",
+    "sha256": "95c8f66d2914b9d7ac2d3cb082570056218f112aa3551186b96bf7f029f324d6"
+  },
+  {
+    "path": "backend/app/core/database.py",
+    "sha256": "d32be07e0050c3edac9ede647639813d511399506d36d1d03e3ae168d15987cf"
+  },
+  {
+    "path": "backend/migrations/versions/bb63439e5750_verify_privileged_totp_factor_state.py",
+    "sha256": "79c2e77245d73d1bf3d0caea42301088ff1e0b3cd65fb81072a73fb8dc1623d1"
+  },
+  {
+    "path": "apps/mobile/src/App.tsx",
+    "sha256": "c4df83265f6507b1ddd0e85f55bed7543d96b423e2c3c7d9cad43ee2d75a42ba"
+  },
+  {
+    "path": "apps/mobile/src/components/PrivilegedMfa.tsx",
+    "sha256": "19f7d0204bc08b07b787a2049c2ce2ee4912aa45812f28a100892b0a9f601e97"
+  },
+  {
+    "path": "apps/mobile/src/errors/domainErrors.ts",
+    "sha256": "20a802cd5505beb369277b372a0887da22f79ffc41d316a76b1ff8cfd9366253"
+  }
+]

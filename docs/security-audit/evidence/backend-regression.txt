@@ -1,0 +1,14 @@
+........................................................................ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 52%]
+......s................................................................. [ 70%]
+........................................................................ [ 88%]
+................................................                         [100%]
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: C:\Users\Lenovo\Desktop\abdwash\docs\security-audit\evidence\backend-regression.xml -
+407 passed, 1 skipped, 32 deselected, 1 warning in 10.45s

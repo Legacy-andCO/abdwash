@@ -1,0 +1,30 @@
+[
+  {
+    "actor": "manager",
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.636,
+    "active_session": true
+  },
+  {
+    "actor": "admin",
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.206,
+    "active_session": true
+  },
+  {
+    "actor": "admin_two",
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.669,
+    "active_session": true
+  },
+  {
+    "actor": "foreign_manager",
+    "verified": true,
+    "cause": null,
+    "iat_minus_client_seconds": -0.125,
+    "active_session": true
+  }
+]

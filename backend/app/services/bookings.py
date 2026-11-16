@@ -93,6 +93,12 @@ async def create_booking(
             {"api": 1, "query": map_query}
         )
     else:
+        if request.payment_choice == "pay_now":
+            raise DomainError(
+                "ONLINE_PAYMENTS_UNAVAILABLE",
+                "Online payments are not available. Choose Pay After Service.",
+                status_code=503,
+            )
         hold_token = request.hold_token
         payment_choice = request.payment_choice
         source = request.source

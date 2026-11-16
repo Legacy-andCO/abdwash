@@ -1,0 +1,49 @@
+
+> @trifecta/web@0.1.0 build
+> next build
+
+▲ Next.js 16.4.6 (Turbopack)
+✓ Running next.config.ts took 84ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.4s
+  Running TypeScript ...
+  Finished TypeScript in 5.1s ...
+  Collecting page data using 19 workers ...
+  Generating static pages using 19 workers (0/25) ...
+  Generating static pages using 19 workers (6/25) 
+  Generating static pages using 19 workers (12/25) 
+  Generating static pages using 19 workers (18/25) 
+✓ Generating static pages using 19 workers (25/25) in 576ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /about
+├ ○ /account
+├ ƒ /account/bookings/[bookingId]
+├ ○ /account/profile
+├ ○ /apple-icon.png
+├ ○ /auth/confirm
+├ ○ /auth/reset-password
+├ ƒ /book
+├ ○ /cancellation-and-refund-policy
+├ ○ /complaints
+├ ○ /contact
+├ ○ /data-protection
+├ ○ /forgot-password
+├ ○ /icon.png
+├ ƒ /invoice
+├ ○ /login
+├ ○ /manage
+├ ○ /privacy-policy
+├ ○ /reviews
+├ ○ /reviews/leave
+├ ○ /service-warranty-and-aftercare
+└ ○ /terms-and-conditions
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

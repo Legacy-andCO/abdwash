@@ -1,0 +1,208 @@
+{
+  "public_event_triggers": [
+    {
+      "evtname": "issue_graphql_placeholder",
+      "evtevent": "sql_drop",
+      "evtenabled": "O",
+      "function": "set_graphql_placeholder()"
+    },
+    {
+      "evtname": "pgrst_ddl_watch",
+      "evtevent": "ddl_command_end",
+      "evtenabled": "O",
+      "function": "pgrst_ddl_watch()"
+    },
+    {
+      "evtname": "pgrst_drop_watch",
+      "evtevent": "sql_drop",
+      "evtenabled": "O",
+      "function": "pgrst_drop_watch()"
+    },
+    {
+      "evtname": "issue_pg_cron_access",
+      "evtevent": "ddl_command_end",
+      "evtenabled": "O",
+      "function": "grant_pg_cron_access()"
+    },
+    {
+      "evtname": "issue_pg_net_access",
+      "evtevent": "ddl_command_end",
+      "evtenabled": "O",
+      "function": "grant_pg_net_access()"
+    },
+    {
+      "evtname": "issue_pg_graphql_access",
+      "evtevent": "ddl_command_end",
+      "evtenabled": "O",
+      "function": "grant_pg_graphql_access()"
+    },
+    {
+      "evtname": "ensure_rls",
+      "evtevent": "ddl_command_end",
+      "evtenabled": "O",
+      "function": "rls_auto_enable()"
+    }
+  ],
+  "definer_source": "CREATE OR REPLACE FUNCTION public.rls_auto_enable()\n RETURNS event_trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE\n  cmd record;\nBEGIN\n  FOR cmd IN\n    SELECT *\n    FROM pg_event_trigger_ddl_commands()\n    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')\n      AND object_type IN ('table','partitioned table')\n  LOOP\n     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN\n      BEGIN\n        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);\n        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;\n      EXCEPTION\n        WHEN OTHERS THEN\n          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;\n      END;\n     ELSE\n        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;\n     END IF;\n  END LOOP;\nEND;\n$function$\n",
+  "role_memberships": [
+    {
+      "role": "pg_read_all_settings",
+      "member": "pg_monitor",
+      "admin_option": false
+    },
+    {
+      "role": "pg_read_all_stats",
+      "member": "pg_monitor",
+      "admin_option": false
+    },
+    {
+      "role": "pg_stat_scan_tables",
+      "member": "pg_monitor",
+      "admin_option": false
+    },
+    {
+      "role": "pg_read_all_data",
+      "member": "supabase_etl_admin",
+      "admin_option": false
+    },
+    {
+      "role": "pg_read_all_data",
+      "member": "supabase_read_only_user",
+      "admin_option": false
+    },
+    {
+      "role": "anon",
+      "member": "authenticator",
+      "admin_option": false
+    },
+    {
+      "role": "authenticated",
+      "member": "authenticator",
+      "admin_option": false
+    },
+    {
+      "role": "service_role",
+      "member": "authenticator",
+      "admin_option": false
+    },
+    {
+      "role": "authenticator",
+      "member": "supabase_storage_admin",
+      "admin_option": false
+    },
+    {
+      "role": "anon",
+      "member": "postgres",
+      "admin_option": true
+    },
+    {
+      "role": "authenticated",
+      "member": "postgres",
+      "admin_option": true
+    },
+    {
+      "role": "service_role",
+      "member": "postgres",
+      "admin_option": true
+    },
+    {
+      "role": "authenticator",
+      "member": "postgres",
+      "admin_option": true
+    },
+    {
+      "role": "pg_monitor",
+      "member": "postgres",
+      "admin_option": true
+    },
+    {
+      "role": "pg_read_all_data",
+      "member": "postgres",
+      "admin_option": true
+    },
+    {
+      "role": "pg_signal_backend",
+      "member": "postgres",
+      "admin_option": true
+    },
+    {
+      "role": "pg_monitor",
+      "member": "supabase_etl_admin",
+      "admin_option": false
+    },
+    {
+      "role": "pg_monitor",
+      "member": "supabase_read_only_user",
+      "admin_option": false
+    },
+    {
+      "role": "pg_create_subscription",
+      "member": "postgres",
+      "admin_option": true
+    },
+    {
+      "role": "supabase_privileged_role",
+      "member": "postgres",
+      "admin_option": false
+    },
+    {
+      "role": "supabase_privileged_role",
+      "member": "supabase_etl_admin",
+      "admin_option": false
+    },
+    {
+      "role": "anon",
+      "member": "supabase_realtime_admin",
+      "admin_option": false
+    },
+    {
+      "role": "authenticated",
+      "member": "supabase_realtime_admin",
+      "admin_option": false
+    },
+    {
+      "role": "service_role",
+      "member": "supabase_realtime_admin",
+      "admin_option": false
+    }
+  ],
+  "public_triggers": [
+    {
+      "schema": "realtime",
+      "table_name": "subscription",
+      "tgname": "tr_check_filters",
+      "definition": "CREATE TRIGGER tr_check_filters BEFORE INSERT OR UPDATE ON realtime.subscription FOR EACH ROW EXECUTE FUNCTION realtime.subscription_check_filters()"
+    },
+    {
+      "schema": "storage",
+      "table_name": "objects",
+      "tgname": "update_objects_updated_at",
+      "definition": "CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.update_updated_at_column()"
+    },
+    {
+      "schema": "storage",
+      "table_name": "buckets",
+      "tgname": "enforce_bucket_name_length_trigger",
+      "definition": "CREATE TRIGGER enforce_bucket_name_length_trigger BEFORE INSERT OR UPDATE OF name ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.enforce_bucket_name_length()"
+    },
+    {
+      "schema": "storage",
+      "table_name": "buckets",
+      "tgname": "protect_buckets_delete",
+      "definition": "CREATE TRIGGER protect_buckets_delete BEFORE DELETE ON storage.buckets FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete()"
+    },
+    {
+      "schema": "storage",
+      "table_name": "objects",
+      "tgname": "protect_objects_delete",
+      "definition": "CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete()"
+    },
+    {
+      "schema": "cron",
+      "table_name": "job",
+      "tgname": "cron_job_cache_invalidate",
+      "definition": "CREATE TRIGGER cron_job_cache_invalidate AFTER INSERT OR DELETE OR UPDATE OR TRUNCATE ON cron.job FOR EACH STATEMENT EXECUTE FUNCTION cron.job_cache_invalidate()"
+    }
+  ],
+  "data_api_schema_setting": null
+}

@@ -1,0 +1,663 @@
+{
+  "result": {
+    "lints": [
+      {
+        "name": "rls_enabled_no_policy",
+        "title": "RLS Enabled No Policy",
+        "level": "INFO",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects cases where row level security (RLS) has been enabled on a table but no RLS policies have been created.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+        "count": 61,
+        "findings": [
+          {
+            "detail": "Table \\`public.alembic_version\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "alembic_version",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.attendance_sessions\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "attendance_sessions",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.audit_events\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "audit_events",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.booking_service_addons\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "booking_service_addons",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.booking_services\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "booking_services",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.booking_vehicles\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "booking_vehicles",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.bookings\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "bookings",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.business_operating_hours\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "business_operating_hours",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.business_settings\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "business_settings",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.business_sync_revisions\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "business_sync_revisions",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.businesses\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "businesses",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.cancellation_requests\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "cancellation_requests",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.cash_reconciliation_payments\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "cash_reconciliation_payments",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.cash_reconciliations\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "cash_reconciliations",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.coupon_service_eligibility\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "coupon_service_eligibility",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.coupon_vehicle_eligibility\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "coupon_vehicle_eligibility",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.coupons\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "coupons",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.customer_addresses\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "customer_addresses",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.customer_payment_methods\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "customer_payment_methods",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.customer_profiles\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "customer_profiles",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.customer_review_prompt_states\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "customer_review_prompt_states",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.customer_reviews\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "customer_reviews",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.deleted_customer_identities\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "deleted_customer_identities",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.expense_evidence\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "expense_evidence",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.expenses\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "expenses",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.guest_review_verification_attempts\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "guest_review_verification_attempts",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.idempotency_records\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "idempotency_records",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.inventory_items\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "inventory_items",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.inventory_locations\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "inventory_locations",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.inventory_movements\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "inventory_movements",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.inventory_operations\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "inventory_operations",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.inventory_stock\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "inventory_stock",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.invoice_sequences\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "invoice_sequences",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.job_checklist_items\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "job_checklist_items",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.job_complaints\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "job_complaints",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.job_events\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "job_events",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.job_inspections\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "job_inspections",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.job_inventory_consumption_lines\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "job_inventory_consumption_lines",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.job_inventory_consumption_runs\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "job_inventory_consumption_runs",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.job_photos\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "job_photos",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.job_quality_issues\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "job_quality_issues",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.jobs\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "jobs",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.leave_requests\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "leave_requests",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.loyalty_events\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "loyalty_events",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.loyalty_rewards\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "loyalty_rewards",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.notification_outbox\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "notification_outbox",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.payment_transactions\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "payment_transactions",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.payments\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "payments",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.revenue_invoices\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "revenue_invoices",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.schedule_resources\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "schedule_resources",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.schedule_slots\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "schedule_slots",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.service_addons\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "service_addons",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.service_inventory_templates\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "service_inventory_templates",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.service_prices\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "service_prices",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.services\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "services",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.shifts\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "shifts",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.slot_hold_groups\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "slot_hold_groups",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.staff_profiles\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "staff_profiles",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.staff_shift_assignments\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "staff_shift_assignments",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.team_memberships\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "team_memberships",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          },
+          {
+            "detail": "Table \\`public.vehicles\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "vehicles",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          }
+        ]
+      },
+      {
+        "name": "extension_in_public",
+        "title": "Extension in Public",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects extensions installed in the \\`public\\` schema.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "Extension \\`pg_net\\` is installed in the public schema. Move it to another schema.",
+            "metadata": {
+              "name": "pg_net",
+              "type": "extension",
+              "schema": "public"
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          }
+        ]
+      },
+      {
+        "name": "anon_security_definer_function_executable",
+        "title": "Public Can Execute SECURITY DEFINER Function",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects `SECURITY DEFINER` functions that are callable without signing in. Revoke `EXECUTE`, switch the function to `SECURITY INVOKER`, or move it out of your exposed API schema if it is not meant to be public.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "Function `public.rls_auto_enable()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/rls_auto_enable`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "rls_auto_enable",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          }
+        ]
+      },
+      {
+        "name": "authenticated_security_definer_function_executable",
+        "title": "Signed-In Users Can Execute SECURITY DEFINER Function",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects `SECURITY DEFINER` functions that are callable by signed-in users. Revoke `EXECUTE`, switch the function to `SECURITY INVOKER`, or move it out of your exposed API schema if signed-in users should not call it.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "Function `public.rls_auto_enable()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/rls_auto_enable`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "rls_auto_enable",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-11-11T11:39:19.980Z"
+          }
+        ]
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "title": "Leaked Password Protection Disabled",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Leaked password protection is currently disabled.",
+        "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "Supabase Auth prevents the use of compromised passwords by checking against HaveIBeenPwned.org. Enable this feature to enhance security.",
+            "metadata": {
+              "type": "auth",
+              "entity": "Auth"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

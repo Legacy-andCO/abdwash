@@ -3,7 +3,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.errors import ConflictError
@@ -41,6 +41,17 @@ async def find_idempotent_response(
         raise ConflictError(
             "IDEMPOTENCY_CONFLICT",
             "This idempotency key was already used with a different request.",
+        )
+    if record is None:
+        # The unique key outlives the response TTL. Reclaim only the expired record
+        # under the same transaction advisory lock before a retry creates a new one.
+        await session.execute(
+            delete(IdempotencyRecord).where(
+                IdempotencyRecord.scope == scope,
+                IdempotencyRecord.operation == operation,
+                IdempotencyRecord.idempotency_key == key,
+                IdempotencyRecord.expires_at <= datetime.now(UTC),
+            )
         )
     return record
 

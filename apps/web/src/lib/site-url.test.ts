@@ -6,6 +6,9 @@ describe("trusted authentication redirects", () => {
     expect(safeReturnPath("/book?service=123")).toBe("/book?service=123");
     expect(safeReturnPath("https://attacker.example/path")).toBe("/account");
     expect(safeReturnPath("//attacker.example/path")).toBe("/account");
+    expect(safeReturnPath("/\\attacker.example/path")).toBe("/account");
+    expect(safeReturnPath("/\n/attacker.example/path")).toBe("/account");
+    expect(safeReturnPath("/%5cattacker.example/path")).toBe("/account");
   });
 
   it("constructs the magic-link callback on the trusted site origin", () => {

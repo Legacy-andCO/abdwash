@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="30" time="6.314" timestamp="2026-11-11T15:18:38.072539+03:00" hostname="DESKTOP-VPIRRDM"><testcase classname="tests.test_security_postgres" name="test_all_protected_endpoints_reject_anonymous" time="1.651" /><testcase classname="tests.test_security_postgres" name="test_every_business_table_denies_client_roles_and_runtime_cannot_truncate" time="0.638" /><testcase classname="tests.test_security_postgres" name="test_customer_ownership_and_metadata_cannot_grant_staff_access" time="0.042" /><testcase classname="tests.test_security_postgres" name="test_staff_overlap_is_scoped_idempotent_and_does_not_displace_original" time="0.393" /><testcase classname="tests.test_security_postgres" name="test_authoritative_sessions_reject_revoked_banned_and_unverified_identities" time="0.026" /><testcase classname="tests.test_security_postgres" name="test_shared_rate_limits_are_atomic_and_ipv6_rotation_cannot_reset_them" time="0.165" /><testcase classname="tests.test_security_postgres" name="test_migration_downgrade_and_upgrade_preserve_customer_rows" time="0.088" /><testcase classname="tests.test_security_hardening" name="test_signed_access_token_requires_security_claims[exp]" time="0.146" /><testcase classname="tests.test_security_hardening" name="test_signed_access_token_requires_security_claims[iss]" time="0.120" /><testcase classname="tests.test_security_hardening" name="test_signed_access_token_requires_security_claims[aud]" time="0.130" /><testcase classname="tests.test_security_hardening" name="test_signed_access_token_requires_security_claims[sub]" time="0.136" /><testcase classname="tests.test_security_hardening" name="test_validation_errors_do_not_echo_passwords_or_private_fields" time="0.004" /><testcase classname="tests.test_security_hardening" name="test_deployed_configuration_rejects_wildcard_cors" time="0.001" /><testcase classname="tests.test_security_hardening" name="test_signed_upload_cannot_replace_existing_evidence" time="0.002" /><testcase classname="tests.test_security_hardening" name="test_unknown_signing_keys_do_not_amplify_provider_requests" time="0.017" /><testcase classname="tests.test_security_hardening" name="test_forged_image_magic_bytes_are_rejected" time="0.012" /><testcase classname="tests.test_security_hardening" name="test_storage_content_validation_rejects_lie_about_mime_type" time="0.004" /><testcase classname="tests.test_security_hardening" name="test_chunked_and_declared_oversized_bodies_are_rejected_before_parsing" time="0.004" /><testcase classname="tests.test_security_hardening" name="test_sensitive_api_responses_prevent_shared_caching" time="0.003"><failure message="AttributeError: 'State' object has no attribute 'session_factory'">self = &lt;starlette.datastructures.State object at 0x00000239AC7352B0&gt;
+key = 'session_factory'
+
+    def __getattr__(self, key: Any) -&gt; Any:
+        try:
+&gt;           return self._state[key]
+                   ^^^^^^^^^^^^^^^^
+E           KeyError: 'session_factory'
+
+.venv\Lib\site-packages\starlette\datastructures.py:683: KeyError
+
+The above exception was the direct cause of the following exception:
+
+    async def test_sensitive_api_responses_prevent_shared_caching() -&gt; None:
+        from app.main import app
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://audit") as client:
+&gt;           response = await client.get("/api/v1/customer/profile")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_security_hardening.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\httpx\_client.py:1768: in get
+    return await self.request(
+.venv\Lib\site-packages\httpx\_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_transports\asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\main.py:138: in request_metrics
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\middleware\base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+.venv\Lib\site-packages\starlette\middleware\base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+app\core\http_security.py:70: in __call__
+    await self.app(scope, bounded_receive, send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:88: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:2734: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:1780: in handle
+    await self.original_router.handle(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:2789: in handle
+    await included_router._handle_selected(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:1800: in _handle_selected
+    await original_route.handle(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:1279: in handle
+    await app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:158: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:144: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:481: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:668: in solve_dependencies
+    solved = await _solve_generator(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:574: in _solve_generator
+    return await stack.enter_async_context(cm)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\contextlib.py:668: in enter_async_context
+    result = await _enter(cm)
+             ^^^^^^^^^^^^^^^^
+C:\Python313\Lib\contextlib.py:214: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+app\core\database.py:145: in session_dependency
+    factory = cast(async_sessionmaker[AsyncSession], request.app.state.session_factory)
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;starlette.datastructures.State object at 0x00000239AC7352B0&gt;
+key = 'session_factory'
+
+    def __getattr__(self, key: Any) -&gt; Any:
+        try:
+            return self._state[key]
+        except KeyError:
+            message = "'{}' object has no attribute '{}'"
+&gt;           raise AttributeError(message.format(self.__class__.__name__, key))
+E           AttributeError: 'State' object has no attribute 'session_factory'
+
+.venv\Lib\site-packages\starlette\datastructures.py:686: AttributeError</failure></testcase><testcase classname="tests.test_auth_verifier" name="test_fresh_jwks_loads_and_verifies_locally" time="0.041" /><testcase classname="tests.test_auth_verifier" name="test_expired_cache_refreshes_successfully" time="0.036" /><testcase classname="tests.test_auth_verifier" name="test_expired_cache_timeout_uses_known_stale_key" time="0.079" /><testcase classname="tests.test_auth_verifier" name="test_expired_cache_uses_known_key_for_other_transient_failures[network]" time="0.096" /><testcase classname="tests.test_auth_verifier" name="test_expired_cache_uses_known_key_for_other_transient_failures[server_error]" time="0.038" /><testcase classname="tests.test_auth_verifier" name="test_unknown_kid_forces_refresh_even_with_fresh_cache" time="0.097" /><testcase classname="tests.test_auth_verifier" name="test_no_cache_provider_outage_is_service_unavailable" time="0.084" /><testcase classname="tests.test_auth_verifier" name="test_expired_token_remains_invalid_with_fresh_cached_key" time="0.187" /><testcase classname="tests.test_auth_verifier" name="test_invalid_signature_remains_invalid_with_fresh_cached_key" time="0.165" /><testcase classname="tests.test_auth_verifier" name="test_hs256_verification_behavior_is_preserved" time="0.128" /><testcase classname="tests.test_auth_verifier" name="test_auth_dependency_maps_provider_outage_to_503" time="0.001" /></testsuite></testsuites>

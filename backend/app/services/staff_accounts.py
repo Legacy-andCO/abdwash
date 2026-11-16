@@ -202,6 +202,7 @@ async def create_staff_account(
                 phone=phone,
                 role=request.role,
                 is_active=True,
+                must_change_password=True,
             )
             session.add(profile)
             await session.flush()

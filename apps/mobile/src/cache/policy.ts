@@ -45,7 +45,7 @@ export function operationalScope(context: StaffContext) {
 }
 
 export function persistedQueryMeta(retentionMs: number) {
-  return { persist: true, retentionMs } as const;
+  return { persist: false, retentionMs } as const;
 }
 
 export const queryKeys = {

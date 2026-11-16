@@ -17,6 +17,8 @@ const messages: Record<string, string> = {
   RESCHEDULE_UNCONFIRMED:
     "We couldn't confirm the reschedule. Try again safely.",
   UNAUTHORIZED: "Your session expired. Please sign in again.",
+  REAUTHENTICATION_REQUIRED:
+    "Sign out and sign in again, then change your password within five minutes.",
   STAFF_ACCESS_REQUIRED: "This account does not have staff access.",
   TEAM_ASSIGNMENT_CONFLICT:
     "This team already has another job during this appointment.",

@@ -8,7 +8,7 @@ The Expo app uses the same Supabase Auth project as the customer website. A vali
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
-Never put service-role, database, Resend, dispatch, payment, or Google Routes secrets in Expo variables. Sessions use Expo SecureStore. TanStack Query owns server state and persists only explicitly opted-in read queries (profile, job lists, and recent job detail) in AsyncStorage. Every key includes the authenticated business/staff scope, cached screens show their last-updated time when a refresh fails, and sign-out clears both memory and persisted data. Operational and financial mutations always require an authoritative online response and retain retry-safe client event IDs.
+Never put service-role, database, Resend, dispatch, payment, or Google Routes secrets in Expo variables. Native sessions use Expo SecureStore. TanStack Query owns server state in memory; operational personal data is no longer persisted to unencrypted AsyncStorage. Every key includes the authenticated business/staff scope. Sign-out clears memory and legacy persisted data. Operational and financial mutations always require an authoritative online response and retain retry-safe client event IDs.
 
 ## Backend environment
 
@@ -52,8 +52,8 @@ Use JDK 17 (Android Studio's bundled JBR is suitable). Verify Login, Add/Edit St
 - Teams/staff: 3 minutes.
 - Profile and shift definitions: 5 minutes.
 - Reports: 2 minutes.
-- Managed catalogue and booking settings: 1 minute, persisted for three days inside the authenticated business/staff/role scope.
-- Manager customer list/detail and loyalty: 1 minute, persisted for two days in the authenticated business/staff/role scope.
+- Managed catalogue and booking settings: 1 minute in memory.
+- Manager customer list/detail and loyalty: 1 minute in memory.
 
 Assignments, lifecycle actions, clock events, shifts, leave and rescheduling update the returned entity and invalidate only related keys. App foreground uses React Query focus handling; pull-to-refresh calls the same query observers. The app has no offline mutation queue.
 

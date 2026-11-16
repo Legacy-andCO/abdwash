@@ -186,7 +186,7 @@ class BookingCreate(StrictRequest):
     payment_choice: Literal["pay_now", "pay_after_service"]
     billing: BookingBillingDetails | None = None
     coupon: BookingCouponSelection | None = None
-    source: Literal["web", "mobile", "admin"] = "web"
+    source: Literal["web", "mobile"] = "web"
     policy_acceptance: PolicyAcceptance | None = None
 
 

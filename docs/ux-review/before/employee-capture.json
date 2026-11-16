@@ -1,0 +1,42 @@
+{
+  "errors": [],
+  "unknown": [],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/context"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/attendance/overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/shift-assignments"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/finance/cash/mine"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/sync-state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/jobs/calendar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/staff/calendar-bookings/catalogue"
+    }
+  ]
+}

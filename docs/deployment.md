@@ -1,5 +1,17 @@
 # Deployment notes
 
+## Security hardening release gate (2026-11-11)
+
+No deployment was performed during this audit. Follow the blockers and staged release
+procedure in [`security-audit/REPORT.md`](security-audit/REPORT.md) before any release.
+The new Alembic head is `c7e833583da3`. The inspected live database was at
+`dbd74a2d3de9`; apply the complete intervening migration chain only after staging
+verification and a separately authorized release. Set `APP_ENV=production`, exact HTTPS
+`CORS_ORIGINS`, `DB_REQUIRE_TLS=true`, and backend-only secrets explicitly.
+The new private session function must exist in Supabase before this API is released.
+Provision a dedicated login inheriting `trifecta_runtime`; keep the migration/owner
+credential out of the running API. The default migration role remains a separate concern.
+
 ## Optional booking email migration (2026-08-31)
 
 Apply Alembic revision `c6c7c3026e63` before deploying the matching API. It changes only

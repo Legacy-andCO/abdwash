@@ -5,14 +5,17 @@ from typing import Annotated, Any, cast
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.mfa import require_privileged_totp
+from app.auth.sessions import require_active_session
 from app.auth.verifier import (
     AuthenticationError,
     AuthenticationServiceUnavailable,
     VerifiedIdentity,
 )
+from app.core.config import get_settings
 from app.core.database import session_dependency
 from app.domain.enums import StaffRole
 from app.models.entities import Business, BusinessSettings, StaffProfile
@@ -44,7 +47,11 @@ async def optional_identity(
     started = time.perf_counter()
     try:
         verifier = cast(Any, request.app.state.auth_verifier)
-        return cast(VerifiedIdentity, await verifier.verify(credentials.credentials))
+        identity = cast(VerifiedIdentity, await verifier.verify(credentials.credentials))
+        if get_settings().is_deployed:
+            async with request.app.state.session_factory() as auth_session, auth_session.begin():
+                await require_active_session(auth_session, identity)
+        return identity
     except AuthenticationServiceUnavailable as exc:
         raise HTTPException(
             status_code=503,
@@ -84,7 +91,11 @@ async def staff_context(
         )
         .join(Business, Business.id == StaffProfile.business_id)
         .join(BusinessSettings, BusinessSettings.business_id == Business.id)
-        .where(StaffProfile.auth_user_id == identity.user_id, StaffProfile.is_active.is_(True))
+        .where(
+            StaffProfile.auth_user_id == identity.user_id,
+            StaffProfile.is_active.is_(True),
+            Business.is_active.is_(True),
+        )
     )
     # SQLAlchemy SELECTs autobegin a transaction. Resolve the immutable request
     # context inside an explicit read boundary so staff mutation routes receive
@@ -107,6 +118,20 @@ async def staff_context(
                 phone=values["phone"],
                 must_change_password=values["must_change_password"],
             )
+            if context.role in {StaffRole.MANAGER, StaffRole.ADMIN}:
+                require_privileged_totp(
+                    identity, sensitive=request.method not in {"GET", "HEAD", "OPTIONS"}
+                )
+                if get_settings().is_deployed:
+                    active_factor = await session.scalar(
+                        text("SELECT app_private.privileged_totp_active(:session_id,:user_id)"),
+                        {
+                            "session_id": uuid.UUID(str(identity.claims.get("session_id", ""))),
+                            "user_id": identity.user_id,
+                        },
+                    )
+                    if not active_factor:
+                        raise HTTPException(403, detail={"code": "MFA_REQUIRED"})
             if context.must_change_password and request.url.path not in {
                 "/api/v1/staff/context",
                 "/api/v1/staff/profile",

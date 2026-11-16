@@ -1,0 +1,1154 @@
+[
+  {
+    "table": "alembic_version",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "api_rate_windows",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "attendance_sessions",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "audit_events",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "booking_service_addons",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "booking_services",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "booking_vehicles",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "bookings",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "business_operating_hours",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "business_settings",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "business_sync_revisions",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "businesses",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "cancellation_requests",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "cash_reconciliation_payments",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "cash_reconciliations",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "complaint_rate_windows",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "coupon_service_eligibility",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "coupon_vehicle_eligibility",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "coupons",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_addresses",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_complaints",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_payment_methods",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_profiles",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_review_prompt_states",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_reviews",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "deleted_customer_identities",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "expense_evidence",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "expenses",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "guest_review_verification_attempts",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "idempotency_records",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_items",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_locations",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_movements",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_operations",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_stock",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "invoice_sequences",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_checklist_items",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_complaints",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_events",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_inspections",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_inventory_consumption_lines",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_inventory_consumption_runs",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_photos",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_quality_issues",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "jobs",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "leave_requests",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "loyalty_events",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "loyalty_rewards",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "notification_outbox",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "payment_transactions",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "payments",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "revenue_invoices",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "schedule_resources",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "schedule_slots",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "service_addons",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "service_inventory_templates",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "service_prices",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "services",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "shifts",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "slot_hold_groups",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "staff_profiles",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "staff_shift_assignments",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "team_memberships",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "vehicles",
+    "role": "anon",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "alembic_version",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "api_rate_windows",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "attendance_sessions",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "audit_events",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "booking_service_addons",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "booking_services",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "booking_vehicles",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "bookings",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "business_operating_hours",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "business_settings",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "business_sync_revisions",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "businesses",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "cancellation_requests",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "cash_reconciliation_payments",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "cash_reconciliations",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "complaint_rate_windows",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "coupon_service_eligibility",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "coupon_vehicle_eligibility",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "coupons",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_addresses",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_complaints",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_payment_methods",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_profiles",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_review_prompt_states",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "customer_reviews",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "deleted_customer_identities",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "expense_evidence",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "expenses",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "guest_review_verification_attempts",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "idempotency_records",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_items",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_locations",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_movements",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_operations",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "inventory_stock",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "invoice_sequences",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_checklist_items",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_complaints",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_events",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_inspections",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_inventory_consumption_lines",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_inventory_consumption_runs",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_photos",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "job_quality_issues",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "jobs",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "leave_requests",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "loyalty_events",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "loyalty_rewards",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "notification_outbox",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "payment_transactions",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "payments",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "revenue_invoices",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "schedule_resources",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "schedule_slots",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "service_addons",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "service_inventory_templates",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "service_prices",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "services",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "shifts",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "slot_hold_groups",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "staff_profiles",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "staff_shift_assignments",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "team_memberships",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  },
+  {
+    "table": "vehicles",
+    "role": "authenticated",
+    "select": "PASS",
+    "insert": "PASS",
+    "update": "PASS",
+    "delete": "PASS",
+    "truncate": "PASS"
+  }
+]

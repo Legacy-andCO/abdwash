@@ -14,7 +14,9 @@ export function getPublicSiteUrl(): string {
 }
 
 export function safeReturnPath(value: string | null, fallback = "/account"): string {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : fallback;
+  if (!value?.startsWith("/") || value.startsWith("//") || /[\\\u0000-\u0020\u007f]/.test(value) || /%5c|%0[ad]/i.test(value)) return fallback;
+  const trustedBase = "https://return.invalid";
+  return new URL(value, trustedBase).origin === trustedBase ? value : fallback;
 }
 
 export function getAuthConfirmUrl(returnTo: string | null): string {

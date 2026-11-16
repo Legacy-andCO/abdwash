@@ -29,6 +29,7 @@ from app.services.idempotency import (
     find_idempotent_response,
     store_idempotent_response,
 )
+from app.services.image_validation import validate_image
 from app.services.policy_acceptance import POLICY_VERSIONS, require_current_revision
 
 CONTACT_EMAIL = "contact@trifecta-wash.com"
@@ -86,6 +87,10 @@ def decode_evidence(item: ComplaintEvidenceInput) -> tuple[bytes, str]:
         raise invalid_evidence() from exc
     if not data or len(data) > MAX_EVIDENCE_BYTES:
         raise invalid_evidence()
+    try:
+        validate_image(data, item.content_type, MAX_EVIDENCE_BYTES)
+    except DomainError as exc:
+        raise invalid_evidence() from exc
     if (
         item.content_type == "image/jpeg"
         and data.startswith(b"\xff\xd8\xff")

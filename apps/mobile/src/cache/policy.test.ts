@@ -6,9 +6,14 @@ import {
   cacheTimes,
   operationalScope,
   queryKeys,
+  persistedQueryMeta,
   replaceJobInResponse,
   shouldShowPagination,
 } from "./policy";
+
+it("never opts operational personal data into unencrypted persistence", () => {
+  expect(persistedQueryMeta(60_000).persist).toBe(false);
+});
 
 const job = (id: string, status: string) => ({ id, status }) as Job;
 

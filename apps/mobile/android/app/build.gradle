@@ -98,6 +98,15 @@ android {
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
     signingConfigs {
+        release {
+            def releaseFile = System.getenv('TRIFECTA_RELEASE_STORE_FILE')
+            if (releaseFile) {
+                storeFile file(releaseFile)
+                storePassword System.getenv('TRIFECTA_RELEASE_STORE_PASSWORD')
+                keyAlias System.getenv('TRIFECTA_RELEASE_KEY_ALIAS')
+                keyPassword System.getenv('TRIFECTA_RELEASE_KEY_PASSWORD')
+            }
+        }
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
@@ -110,9 +119,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
@@ -129,6 +136,17 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name == 'preReleaseBuild') {
+        task.doFirst {
+            def required = ['TRIFECTA_RELEASE_STORE_FILE', 'TRIFECTA_RELEASE_STORE_PASSWORD', 'TRIFECTA_RELEASE_KEY_ALIAS', 'TRIFECTA_RELEASE_KEY_PASSWORD']
+            if (required.any { !System.getenv(it) }) {
+                throw new GradleException('Release signing credentials must be configured; debug signing is forbidden for release builds.')
+            }
+        }
     }
 }
 

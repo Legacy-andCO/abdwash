@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Full employee lifecycle: trip, arrival, wash, complete, cash",
+    "pass": true
+  },
+  {
+    "name": "Clock in appears before work for employees starting a shift",
+    "pass": true
+  },
+  {
+    "name": "Empty jobs explain where assignments appear",
+    "pass": true
+  },
+  {
+    "name": "Booking validation retains entered details",
+    "pass": true
+  },
+  {
+    "name": "Jobs error offers explicit retry",
+    "pass": true
+  }
+]

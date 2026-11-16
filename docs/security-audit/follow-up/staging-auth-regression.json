@@ -1,0 +1,22 @@
+{
+  "project_ref": "mgfzfgvlrxwyyftwukwf",
+  "executed_at": "2026-11-11T20:09:48.096184+00:00",
+  "tests": [
+    {
+      "test": "real expired native JWT rejected without expiry grace",
+      "status": "PASS",
+      "http_status": 401,
+      "verifier_reason": "ExpiredSignatureError"
+    },
+    {
+      "test": "forged privileged assurance cannot reuse native signature",
+      "status": "PASS",
+      "http_status": 401
+    },
+    {
+      "test": "naturally aged native TOTP blocks privileged mutation",
+      "status": "PASS",
+      "http_status": 403
+    }
+  ]
+}

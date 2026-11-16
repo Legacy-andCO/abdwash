@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Linking, Modal, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Alert } from "../alert";
@@ -9,7 +9,7 @@ import { api, type CalendarJob, type StaffContext } from "../lib";
 import { colors, spacing } from "../theme";
 import { formatUaeDateTime, formatWallClockTime, UAE_TIME_ZONE, uaeDateKey, wallDate } from "../time/uaeTime";
 import { DatePickerField } from "./pickers";
-import { AppButton, Card, uiStyles } from "./ui";
+import { AppButton, Card, Disclosure, uiStyles } from "./ui";
 import { webSheetStyle } from "./webSheetStyle";
 
 const path = "/api/v1/staff/calendar-bookings";
@@ -87,6 +87,8 @@ export function CalendarBookingSheet({
   onBooked: (jobId: string, date: string) => void;
 }) {
   const [day, setDay] = useState(overlap?.local_date ?? initialDate);
+  const client = useQueryClient();
+  const scroll = useRef<ScrollView>(null);
   const [start, setStart] = useState(() => overlap
     ? new Intl.DateTimeFormat("en-GB", {
         timeZone: UAE_TIME_ZONE, hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit",
@@ -158,6 +160,7 @@ export function CalendarBookingSheet({
     } else {
       setError("");
       setReview(true);
+      scroll.current?.scrollTo({ y: 0, animated: false });
     }
   }
 
@@ -196,6 +199,10 @@ export function CalendarBookingSheet({
       });
       setReceipt(result);
       setUncertain(false);
+      for (const key of ["calendar", "jobs", "dashboard", "calendar-booking-availability"]) {
+        void client.invalidateQueries({ queryKey: [key, scope] });
+      }
+      scroll.current?.scrollTo({ y: 0, animated: false });
       onBooked(result.job_id, day);
     } catch (cause) {
       const uncertainResult = isUncertainMutationFailure(cause);
@@ -235,10 +242,13 @@ export function CalendarBookingSheet({
       if (!busy && !uncertain) onClose();
     }}>
       <View style={styles.backdrop}>
-        <ScrollView keyboardShouldPersistTaps="handled" style={styles.sheet} contentContainerStyle={styles.content}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {overlap ? "Double-book a wash / حجز غسيل في وقت متداخل" : "Book a Wash"}
-          </Text>
+        <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" style={styles.sheet} contentContainerStyle={styles.content}>
+          <View style={uiStyles.row}>
+            <Text accessibilityRole="header" style={styles.title}>
+              {overlap ? "Double-book a wash / حجز غسيل في وقت متداخل" : "Book a Wash"}
+            </Text>
+            {!receipt && !uncertain ? <AppButton title="Close" tone="secondary" disabled={busy} onPress={onClose} /> : null}
+          </View>
           {receipt ? (
             <>
               <Text style={uiStyles.success}>
@@ -270,7 +280,10 @@ export function CalendarBookingSheet({
                   <Entry label="New appointment time (HH:MM) / وقت الموعد الجديد" value={start} onChange={setStart} />
                 </>
               ) : (
+              <>
+                <Text style={uiStyles.muted}>Choose a service and time, then enter the customer's details. Payment is collected after service.</Text>
                 <DatePickerField label="Appointment date" value={day} minimumDate={wallDate(uaeDateKey())} onChange={(date) => { setDay(date); setStart(""); }} />
+              </>
               )}
               {catalogue.isPending && <Text style={uiStyles.muted}>Loading services…</Text>}
               {catalogue.isError && <AppButton title="Retry loading services" tone="secondary" onPress={() => void catalogue.refetch()} />}
@@ -295,9 +308,11 @@ export function CalendarBookingSheet({
                           onPress={() => updateVehicle(index, { vehicle_type: price.vehicle_type })} />
                       ))}
                     </View>
-                    <Entry label="Make (optional)" value={vehicle.make} onChange={(make) => updateVehicle(index, { make })} />
-                    <Entry label="Model (optional)" value={vehicle.model} onChange={(model) => updateVehicle(index, { model })} />
-                    <Entry label="Plate (optional)" value={vehicle.plate_number} onChange={(plate_number) => updateVehicle(index, { plate_number })} />
+                    <Disclosure title="Vehicle details (optional)">
+                      <Entry label="Make (optional)" value={vehicle.make} onChange={(make) => updateVehicle(index, { make })} />
+                      <Entry label="Model (optional)" value={vehicle.model} onChange={(model) => updateVehicle(index, { model })} />
+                      <Entry label="Plate (optional)" value={vehicle.plate_number} onChange={(plate_number) => updateVehicle(index, { plate_number })} />
+                    </Disclosure>
                     {vehicles.length > 1 && <AppButton title="Remove vehicle" tone="secondary" onPress={() => { setVehicles((items) => items.filter((_, i) => i !== index)); if (!overlap) setStart(""); }} />}
                   </Card>
                 );
@@ -306,6 +321,7 @@ export function CalendarBookingSheet({
               {!overlap && (
                 <>
                   <Text style={uiStyles.label}>Available times · Abu Dhabi</Text>
+                  {!serviceIds.every(Boolean) ? <Text style={uiStyles.muted}>Select a service above to see available times.</Text> : null}
                   {availability.isFetching && <Text style={uiStyles.muted}>Checking team capacity…</Text>}
                   {availability.isError && <AppButton title="Retry checking times" tone="secondary" onPress={() => void availability.refetch()} />}
                   {availability.data && !availability.data.slots.some((slot) => slot.available) && (
@@ -323,6 +339,7 @@ export function CalendarBookingSheet({
               <Entry label="Customer phone" value={phone} onChange={setPhone} keyboardType="phone-pad" />
               <Entry label="Customer email (optional)" value={email} onChange={setEmail} keyboardType="email-address" />
               <Entry label="Written service address" value={address} onChange={setAddress} multiline />
+              <Disclosure title="Service notes & coordinates (optional)">
               <Entry label="Service notes (optional)" value={notes} onChange={setNotes} multiline />
               <AppButton title={showGps ? "Remove coordinates" : "Add authorised coordinates (optional)"} tone="secondary" onPress={() => setShowGps(!showGps)} />
               {showGps && (
@@ -331,18 +348,22 @@ export function CalendarBookingSheet({
                   <Entry label="Longitude" value={longitude} onChange={setLongitude} keyboardType="numbers-and-punctuation" />
                 </>
               )}
+              </Disclosure>
               <Text style={uiStyles.label}>Provide the booking policies</Text>
+              <Text style={uiStyles.muted}>Choose how the customer receives the policies before confirming.</Text>
+              <Disclosure title="Read booking policies">
               {policyUrl && Object.entries(policyLinks).map(([slug, title]) => (
                 <AppButton key={slug} title={title} tone="secondary" onPress={() => void Linking.openURL(`${policyUrl}/${slug}`).catch(() => setError("Could not open the policy link."))} />
               ))}
+              </Disclosure>
               <AppButton title={language === "en" ? "Policy language · English" : "Policy language · Arabic"} tone="secondary" onPress={() => setLanguage(language === "en" ? "ar" : "en")} />
               <AppButton title="I provided the policies to the customer" tone={delivery === "provided" ? "primary" : "secondary"} onPress={() => setDelivery("provided")} />
               <AppButton title="Email links with the confirmation" disabled={!email.trim() || !policyUrl} tone={delivery === "email" ? "primary" : "secondary"} onPress={() => setDelivery("email")} />
               <AppButton title="Review appointment" disabled={!catalogue.data} onPress={prepareReview} />
             </>
           )}
-          {error && <Text accessibilityRole="alert" style={uiStyles.error}>{error}</Text>}
-          {!uncertain && <AppButton title={receipt ? "Done" : "Close"} tone="secondary" disabled={busy} onPress={onClose} />}
+          {error ? <Text accessibilityRole="alert" style={uiStyles.error}>{error}</Text> : null}
+          {receipt ? <AppButton title="Done" tone="secondary" onPress={onClose} /> : null}
         </ScrollView>
       </View>
     </Modal>
@@ -353,7 +374,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   sheet: { backgroundColor: colors.surface, maxHeight: "90%", ...webSheetStyle },
   content: { padding: spacing.lg, gap: spacing.md },
-  title: { color: colors.text, fontSize: 24, fontWeight: "900" },
+  title: { color: colors.text, fontSize: 24, fontWeight: "700", flex: 1 },
   vehicle: { gap: spacing.sm },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
 });

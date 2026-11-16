@@ -1,0 +1,16 @@
+
+> trifecta@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> @trifecta/mobile@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @trifecta/web@0.1.0 typecheck
+> tsc --noEmit
+
+
+> @trifecta/shared@0.1.0 typecheck
+> tsc --noEmit
+

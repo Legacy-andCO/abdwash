@@ -1,10 +1,14 @@
 # Security posture
 
+The evidence-based assessment and outstanding production release blockers are in
+[`security-audit/REPORT.md`](security-audit/REPORT.md). This document describes intended
+controls; deployed configuration and third-party settings require the release checks there.
+
 - Supabase Auth is the identity provider; FastAPI stores no passwords.
 - Asymmetric access tokens are verified against cached project JWKS with issuer, audience, expiry, algorithm, and subject validation. Legacy HS256 fallback requires an explicit backend-only secret and should be avoided where project signing keys are available.
 - Staff role and active state come from `staff_profiles`, not user-editable JWT metadata or client input.
 - Public request schemas forbid unknown fields and exclude prices, status, paid state, role, and other server-owned fields.
-- Every exposed business table has RLS enabled and no anonymous/authenticated business-data policy. Clients perform business operations through FastAPI.
+- Every exposed business table has RLS enabled. The hardening migration revokes client grants and permits the dedicated backend runtime group through an explicit policy. Clients perform business operations through FastAPI; tenant and object authorization is enforced there.
 - CORS origins are explicit. Credentialed production CORS never uses `*`.
 - Hold tokens are random and booking-management links are signed with a backend-only HMAC key; only hashes are stored. Idempotency records contain safe responses and deterministically re-derive management links rather than persisting raw tokens.
 - The management secret stays in a browser URL fragment, which is not sent in HTTP requests, and reaches FastAPI only through a dedicated header. It is never part of a server route or idempotency record. The booking reference alone cannot open or cancel a booking.
@@ -19,6 +23,7 @@
 - Logged-in review authorization uses verified JWT → owned `customer_profiles` → completed booking. Guest review authorization uses the existing management secret or a 30-minute signed proof bound to a first-party device UUID after bounded booking-reference/phone verification; the device UUID alone is never authorization.
 - Customer account deletion accepts no browser-supplied user ID. FastAPI derives the caller from the verified JWT and uses `SUPABASE_SERVICE_ROLE_KEY` only server-side to delete that same Supabase Auth identity. A database tombstone prevents stale access tokens from recreating deleted profile state.
 - The bounded notification endpoint requires a backend-only dispatch secret and compares it in constant time. Google Maps browser credentials are intentionally public but must be restricted to approved HTTPS referrers and only the Maps JavaScript, Places API (New), and Geocoding APIs.
-- Public booking/hold endpoints are isolated behind versioned routers and can receive a gateway or middleware rate limiter later without changing domain services. Deployment should add per-IP and per-idempotency-key limits at the trusted ingress.
+- Staging/production API requests check authoritative Supabase sessions. Public endpoints use shared PostgreSQL rate counters with per-peer and global budgets; the trusted ingress must supply a reliable client address. Request bodies are bounded before JSON parsing. A managed ingress abuse-control layer remains necessary against distributed attacks.
+- Operational mobile queries stay in memory during a session. Logout clears memory and legacy persisted caches. Native tokens remain in SecureStore; browser tokens use the provider's browser storage model.
 
 Rotate any credential that has appeared in chat, logs, source, or another non-secret channel before production use.

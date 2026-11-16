@@ -69,7 +69,7 @@ class TestVerifier:
     async def verify(self, token):
         if token not in self.tokens:
             raise AuthenticationError("Invalid test identity")
-        return VerifiedIdentity(self.tokens[token], {})
+        return VerifiedIdentity(self.tokens[token], {"aal":"aal2","amr":[{"method":"totp","timestamp":datetime.now(UTC).timestamp()}]})
 
 
 @pytest.fixture(scope="module")

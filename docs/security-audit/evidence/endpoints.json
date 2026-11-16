@@ -1,0 +1,1612 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/calendar-bookings/catalogue",
+    "function": "catalogue",
+    "source": "backend/app/api/calendar_bookings.py",
+    "line": 32,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: Staff",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/calendar-bookings/availability",
+    "function": "availability",
+    "source": "backend/app/api/calendar_bookings.py",
+    "line": 43,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: Staff, day: Annotated[date, Query(alias='date')], service_ids: Annotated[list[uuid.UUID], Query(alias='service_id', min_length=1, max_length=20)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/calendar-bookings",
+    "function": "create",
+    "source": "backend/app/api/calendar_bookings.py",
+    "line": 61,
+    "authentication": "STAFF",
+    "parameters": "payload: StaffBookingCreate, session: SessionDep, context: Staff, idempotency_key: Annotated[uuid.UUID, Header(alias='Idempotency-Key')]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/public/complaints",
+    "function": "create_complaint",
+    "source": "backend/app/api/complaints.py",
+    "line": 34,
+    "authentication": "PUBLIC",
+    "parameters": "request: Request, response: Response, session: SessionDep, idempotency_key: Annotated[uuid.UUID, Header(alias='Idempotency-Key')]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/complaints",
+    "function": "complaints",
+    "source": "backend/app/api/complaints.py",
+    "line": 65,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "response: Response, session: SessionDep, context: ManagerContext, limit: Annotated[int, Query(ge=1, le=100)]=30, offset: Annotated[int, Query(ge=0, le=10000)]=0",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/complaints/{reference}",
+    "function": "complaint_detail",
+    "source": "backend/app/api/complaints.py",
+    "line": 84,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "reference: Reference, response: Response, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/complaints/{reference}/evidence/{index}/download",
+    "function": "complaint_evidence_download",
+    "source": "backend/app/api/complaints.py",
+    "line": 111,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "reference: Reference, index: Annotated[int, Path(ge=0, le=1)], request: Request, response: Response, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/context",
+    "function": "context",
+    "source": "backend/app/api/customer.py",
+    "line": 87,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/profile",
+    "function": "profile",
+    "source": "backend/app/api/customer.py",
+    "line": 92,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/customer/profile",
+    "function": "profile_update",
+    "source": "backend/app/api/customer.py",
+    "line": 97,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "request: CustomerProfileUpdate, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/addresses",
+    "function": "addresses",
+    "source": "backend/app/api/customer.py",
+    "line": 108,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/addresses",
+    "function": "address_create",
+    "source": "backend/app/api/customer.py",
+    "line": 113,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "request: CustomerAddressWrite, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/customer/addresses/{address_id}",
+    "function": "address_update",
+    "source": "backend/app/api/customer.py",
+    "line": 124,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "address_id: uuid.UUID, request: CustomerAddressWrite, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/customer/addresses/{address_id}",
+    "function": "address_delete",
+    "source": "backend/app/api/customer.py",
+    "line": 138,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "address_id: uuid.UUID, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/vehicles",
+    "function": "vehicles",
+    "source": "backend/app/api/customer.py",
+    "line": 149,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/vehicles",
+    "function": "vehicle_create",
+    "source": "backend/app/api/customer.py",
+    "line": 154,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "request: CustomerVehicleWrite, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/customer/vehicles/{vehicle_id}",
+    "function": "vehicle_update",
+    "source": "backend/app/api/customer.py",
+    "line": 165,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "vehicle_id: uuid.UUID, request: CustomerVehicleWrite, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/customer/vehicles/{vehicle_id}",
+    "function": "vehicle_delete",
+    "source": "backend/app/api/customer.py",
+    "line": 179,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "vehicle_id: uuid.UUID, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/reviews/eligibility",
+    "function": "review_eligibility",
+    "source": "backend/app/api/customer.py",
+    "line": 190,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/bookings/{booking_id}/review",
+    "function": "booking_review_eligibility",
+    "source": "backend/app/api/customer.py",
+    "line": 197,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "booking_id: uuid.UUID, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/reviews",
+    "function": "review_create",
+    "source": "backend/app/api/customer.py",
+    "line": 216,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "payload: ReviewSubmission, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/review-prompt/open",
+    "function": "review_prompt_open",
+    "source": "backend/app/api/customer.py",
+    "line": 230,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/customer/account",
+    "function": "account_delete",
+    "source": "backend/app/api/customer.py",
+    "line": 238,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "payload: CustomerAccountDelete, request: Request, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/bookings",
+    "function": "bookings",
+    "source": "backend/app/api/customer.py",
+    "line": 252,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/bookings/{booking_id}",
+    "function": "booking_detail",
+    "source": "backend/app/api/customer.py",
+    "line": 257,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "booking_id: uuid.UUID, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/customer/bookings/{booking_id}/invoices/{invoice_id}",
+    "function": "booking_invoice",
+    "source": "backend/app/api/customer.py",
+    "line": 267,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "booking_id: uuid.UUID, invoice_id: uuid.UUID, session: SessionDep, identity: IdentityDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/bookings/{booking_id}/cancellation-requests",
+    "function": "cancellation_request",
+    "source": "backend/app/api/customer.py",
+    "line": 282,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "booking_id: uuid.UUID, request: CustomerCancellationCreate, session: SessionDep, identity: IdentityDep, idempotency_key: IdempotencyKey",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/customer/bookings/{booking_id}/reschedule",
+    "function": "reschedule",
+    "source": "backend/app/api/customer.py",
+    "line": 326,
+    "authentication": "CUSTOMER JWT",
+    "parameters": "booking_id: uuid.UUID, request: CustomerRescheduleCreate, session: SessionDep, identity: IdentityDep, idempotency_key: IdempotencyKey",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/internal/notifications/dispatch",
+    "function": "dispatch_notifications",
+    "source": "backend/app/api/internal.py",
+    "line": 17,
+    "authentication": "DISPATCH SECRET",
+    "parameters": "request: Request, supplied_secret: Annotated[str | None, Header(alias='X-Outbox-Dispatch-Secret')]=None",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/catalogue",
+    "function": "catalogue",
+    "source": "backend/app/api/public.py",
+    "line": 65,
+    "authentication": "PUBLIC",
+    "parameters": "session: SessionDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/public/coupons/validate",
+    "function": "coupon_validate",
+    "source": "backend/app/api/public.py",
+    "line": 70,
+    "authentication": "PUBLIC",
+    "parameters": "request: CouponValidationRequest, session: SessionDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/reviews/summary",
+    "function": "reviews_summary",
+    "source": "backend/app/api/public.py",
+    "line": 77,
+    "authentication": "PUBLIC",
+    "parameters": "session: SessionDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/reviews",
+    "function": "reviews",
+    "source": "backend/app/api/public.py",
+    "line": 82,
+    "authentication": "PUBLIC",
+    "parameters": "session: SessionDep, limit: Annotated[int, Query(ge=1, le=100)]=20, offset: Annotated[int, Query(ge=0)]=0",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/reviews/guest/eligibility",
+    "function": "guest_review_eligibility",
+    "source": "backend/app/api/public.py",
+    "line": 91,
+    "authentication": "PUBLIC + BOOKING CAPABILITY",
+    "parameters": "session: SessionDep, management_token: Annotated[str, Header(alias='X-Booking-Management-Token', min_length=60, max_length=80)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/public/reviews/guest/verify",
+    "function": "guest_review_verify",
+    "source": "backend/app/api/public.py",
+    "line": 105,
+    "authentication": "PUBLIC",
+    "parameters": "payload: GuestReviewVerification, session: SessionDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/public/reviews/guest/submit",
+    "function": "guest_review_submit",
+    "source": "backend/app/api/public.py",
+    "line": 130,
+    "authentication": "PUBLIC + BOOKING CAPABILITY",
+    "parameters": "payload: GuestReviewSubmission, session: SessionDep, management_token: Annotated[str | None, Header(alias='X-Booking-Management-Token', min_length=60, max_length=80)]=None",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/availability",
+    "function": "availability",
+    "source": "backend/app/api/public.py",
+    "line": 186,
+    "authentication": "PUBLIC",
+    "parameters": "session: SessionDep, day: Annotated[date, Query(alias='date')], vehicle_count: Annotated[int, Query(ge=1, le=20)], service_id: Annotated[list[uuid.UUID] | None, Query(max_length=20)]=None, addon_id: Annotated[list[uuid.UUID] | None, Query(max_length=400)]=None",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/public/holds",
+    "function": "hold",
+    "source": "backend/app/api/public.py",
+    "line": 203,
+    "authentication": "PUBLIC",
+    "parameters": "request: HoldCreate, session: SessionDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/public/bookings",
+    "function": "booking",
+    "source": "backend/app/api/public.py",
+    "line": 209,
+    "authentication": "OPTIONAL JWT",
+    "parameters": "request: BookingCreate, session: SessionDep, identity: Annotated[VerifiedIdentity | None, Depends(optional_identity)], idempotency_key: Annotated[str, Header(alias='Idempotency-Key', min_length=8, max_length=255)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/bookings/manage",
+    "function": "manage_booking",
+    "source": "backend/app/api/public.py",
+    "line": 266,
+    "authentication": "PUBLIC + BOOKING CAPABILITY",
+    "parameters": "session: SessionDep, management_token: Annotated[str, Header(alias='X-Booking-Management-Token', min_length=60, max_length=80)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/public/bookings/manage/invoices/{invoice_id}",
+    "function": "manage_invoice",
+    "source": "backend/app/api/public.py",
+    "line": 280,
+    "authentication": "PUBLIC + BOOKING CAPABILITY",
+    "parameters": "invoice_id: uuid.UUID, session: SessionDep, management_token: Annotated[str, Header(alias='X-Booking-Management-Token', min_length=60, max_length=80)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/public/bookings/manage/cancellation-requests",
+    "function": "cancellation_request",
+    "source": "backend/app/api/public.py",
+    "line": 296,
+    "authentication": "PUBLIC + BOOKING CAPABILITY",
+    "parameters": "request: CancellationRequestCreate, session: SessionDep, management_token: Annotated[str, Header(alias='X-Booking-Management-Token', min_length=60, max_length=80)], idempotency_key: Annotated[str, Header(alias='Idempotency-Key', min_length=8, max_length=255)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/coupons",
+    "function": "managed_coupons",
+    "source": "backend/app/api/staff.py",
+    "line": 294,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/coupons",
+    "function": "managed_coupon_create",
+    "source": "backend/app/api/staff.py",
+    "line": 299,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: CouponWrite, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/coupons/{coupon_id}",
+    "function": "managed_coupon_update",
+    "source": "backend/app/api/staff.py",
+    "line": 307,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "coupon_id: uuid.UUID, payload: CouponWrite, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/reviews/{review_id}",
+    "function": "review_moderation_update",
+    "source": "backend/app/api/staff.py",
+    "line": 318,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "review_id: uuid.UUID, _payload: ReviewModerationUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/catalogue",
+    "function": "managed_catalogue",
+    "source": "backend/app/api/staff.py",
+    "line": 333,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/catalogue/services",
+    "function": "managed_service_create",
+    "source": "backend/app/api/staff.py",
+    "line": 338,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: ServiceInput, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/catalogue/services/{service_id}",
+    "function": "managed_service_update",
+    "source": "backend/app/api/staff.py",
+    "line": 348,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "service_id: uuid.UUID, payload: ServicePatch, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/catalogue/services/{service_id}/addons",
+    "function": "managed_addon_create",
+    "source": "backend/app/api/staff.py",
+    "line": 361,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "service_id: uuid.UUID, payload: AddonInput, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/catalogue/addons/{addon_id}",
+    "function": "managed_addon_update",
+    "source": "backend/app/api/staff.py",
+    "line": 374,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "addon_id: uuid.UUID, payload: AddonPatch, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/business-settings",
+    "function": "business_booking_settings",
+    "source": "backend/app/api/staff.py",
+    "line": 387,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/business-settings",
+    "function": "business_booking_settings_update",
+    "source": "backend/app/api/staff.py",
+    "line": 394,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: BusinessBookingSettingsPatch, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/context",
+    "function": "context",
+    "source": "backend/app/api/staff.py",
+    "line": 426,
+    "authentication": "STAFF",
+    "parameters": "value: Annotated[StaffContext, Depends(staff_context)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/sync-state",
+    "function": "sync_state",
+    "source": "backend/app/api/staff.py",
+    "line": 443,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/profile",
+    "function": "own_profile",
+    "source": "backend/app/api/staff.py",
+    "line": 457,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/profile",
+    "function": "own_profile_update",
+    "source": "backend/app/api/staff.py",
+    "line": 462,
+    "authentication": "STAFF",
+    "parameters": "payload: OwnProfileUpdate, request: Request, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/users",
+    "function": "staff_users",
+    "source": "backend/app/api/staff.py",
+    "line": 477,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/users",
+    "function": "staff_user_create",
+    "source": "backend/app/api/staff.py",
+    "line": 482,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: StaffAccountCreate, request: Request, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/users/{staff_id}",
+    "function": "staff_user_update",
+    "source": "backend/app/api/staff.py",
+    "line": 492,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "staff_id: uuid.UUID, payload: StaffAccountUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/users/{staff_id}/temporary-password",
+    "function": "staff_user_password",
+    "source": "backend/app/api/staff.py",
+    "line": 505,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "staff_id: uuid.UUID, payload: TemporaryPasswordUpdate, request: Request, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/users/{staff_id}/password",
+    "function": "staff_user_password_reset",
+    "source": "backend/app/api/staff.py",
+    "line": 518,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "staff_id: uuid.UUID, payload: StaffPasswordReset, request: Request, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/teams",
+    "function": "teams",
+    "source": "backend/app/api/staff.py",
+    "line": 536,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/teams",
+    "function": "team_create",
+    "source": "backend/app/api/staff.py",
+    "line": 541,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: TeamCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/teams/{team_id}",
+    "function": "team_get",
+    "source": "backend/app/api/staff.py",
+    "line": 551,
+    "authentication": "STAFF",
+    "parameters": "team_id: uuid.UUID, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/teams/{team_id}",
+    "function": "team_update",
+    "source": "backend/app/api/staff.py",
+    "line": 556,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "team_id: uuid.UUID, payload: TeamUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/teams/{team_id}/members",
+    "function": "team_members",
+    "source": "backend/app/api/staff.py",
+    "line": 569,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "team_id: uuid.UUID, payload: TeamMembersUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/attendance",
+    "function": "attendance",
+    "source": "backend/app/api/staff.py",
+    "line": 582,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep, start_date: date, end_date: date, staff_id: uuid.UUID | None=None, offset: int=Query(default=0, ge=0), limit: int=Query(default=50, ge=1, le=100)",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/attendance/overview",
+    "function": "attendance_status_overview",
+    "source": "backend/app/api/staff.py",
+    "line": 603,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep, day: date | None=None",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/attendance/clock-in",
+    "function": "attendance_clock_in",
+    "source": "backend/app/api/staff.py",
+    "line": 613,
+    "authentication": "STAFF",
+    "parameters": "payload: AttendanceAction, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/attendance/clock-out",
+    "function": "attendance_clock_out",
+    "source": "backend/app/api/staff.py",
+    "line": 623,
+    "authentication": "STAFF",
+    "parameters": "payload: AttendanceAction, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/shifts",
+    "function": "shifts",
+    "source": "backend/app/api/staff.py",
+    "line": 633,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/shifts",
+    "function": "shift_create",
+    "source": "backend/app/api/staff.py",
+    "line": 638,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: ShiftCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/shift-assignments",
+    "function": "shift_assignments",
+    "source": "backend/app/api/staff.py",
+    "line": 648,
+    "authentication": "STAFF",
+    "parameters": "start_date: date, end_date: date, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/shift-assignments",
+    "function": "shift_assignment",
+    "source": "backend/app/api/staff.py",
+    "line": 658,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: ShiftAssignmentCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/leave",
+    "function": "leave",
+    "source": "backend/app/api/staff.py",
+    "line": 670,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep, status: str | None=None",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/leave",
+    "function": "leave_create",
+    "source": "backend/app/api/staff.py",
+    "line": 677,
+    "authentication": "STAFF",
+    "parameters": "payload: LeaveCreate, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/leave/{leave_id}/review",
+    "function": "leave_review",
+    "source": "backend/app/api/staff.py",
+    "line": 685,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "leave_id: uuid.UUID, payload: LeaveReview, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/dashboard",
+    "function": "dashboard",
+    "source": "backend/app/api/staff.py",
+    "line": 698,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext, day: date | None=None",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/reports/v2",
+    "function": "reports_v2",
+    "source": "backend/app/api/staff.py",
+    "line": 708,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "start_date: date, end_date: date, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/overview",
+    "function": "finance_overview_view",
+    "source": "backend/app/api/staff.py",
+    "line": 718,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "start_date: date, end_date: date, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/expenses",
+    "function": "finance_expenses",
+    "source": "backend/app/api/staff.py",
+    "line": 728,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "start_date: date, end_date: date, session: SessionDep, context: ManagerContext, category: str | None=None, payment_method: str | None=None, staff_id: uuid.UUID | None=None, team_id: uuid.UUID | None=None, status: Annotated[str | None, Query(pattern='^(active|voided)$')]=None, search: str | None=None, cursor: str | None=None, limit: Annotated[int, Query(ge=1, le=100)]=30",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/expenses",
+    "function": "finance_expense_create",
+    "source": "backend/app/api/staff.py",
+    "line": 759,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: ExpenseCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}",
+    "function": "finance_expense_detail",
+    "source": "backend/app/api/staff.py",
+    "line": 774,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "expense_id: uuid.UUID, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}/voucher",
+    "function": "finance_expense_voucher",
+    "source": "backend/app/api/staff.py",
+    "line": 786,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "expense_id: uuid.UUID, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}/evidence/upload",
+    "function": "finance_expense_evidence_upload",
+    "source": "backend/app/api/staff.py",
+    "line": 799,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "expense_id: uuid.UUID, payload: ExpenseEvidenceCreate, request: Request, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}/evidence/{evidence_id}/complete",
+    "function": "finance_expense_evidence_complete",
+    "source": "backend/app/api/staff.py",
+    "line": 825,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "expense_id: uuid.UUID, evidence_id: uuid.UUID, request: Request, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/expenses/{expense_id}/void",
+    "function": "finance_expense_void",
+    "source": "backend/app/api/staff.py",
+    "line": 855,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "expense_id: uuid.UUID, payload: ExpenseVoid, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/pending",
+    "function": "finance_cash_pending",
+    "source": "backend/app/api/staff.py",
+    "line": 871,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext, staff_id: uuid.UUID | None=None",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/pending/{staff_id}",
+    "function": "finance_cash_pending_detail",
+    "source": "backend/app/api/staff.py",
+    "line": 880,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "staff_id: uuid.UUID, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/reconciliations",
+    "function": "finance_cash_reconciliations",
+    "source": "backend/app/api/staff.py",
+    "line": 889,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext, cursor: datetime | None=None, limit: Annotated[int, Query(ge=1, le=100)]=30",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/cash/reconciliations",
+    "function": "finance_cash_reconciliation_create",
+    "source": "backend/app/api/staff.py",
+    "line": 903,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: CashReconciliationCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/reconciliations/{reconciliation_id}",
+    "function": "finance_cash_reconciliation_detail",
+    "source": "backend/app/api/staff.py",
+    "line": 918,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "reconciliation_id: uuid.UUID, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/finance/cash/reconciliations/{reconciliation_id}/void",
+    "function": "finance_cash_reconciliation_void",
+    "source": "backend/app/api/staff.py",
+    "line": 930,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "reconciliation_id: uuid.UUID, payload: CashReconciliationVoid, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/finance/cash/mine",
+    "function": "finance_my_cash",
+    "source": "backend/app/api/staff.py",
+    "line": 943,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep, day: date | None=None",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/overview",
+    "function": "inventory_overview_view",
+    "source": "backend/app/api/staff.py",
+    "line": 953,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/consumption/attention",
+    "function": "inventory_consumption_attention",
+    "source": "backend/app/api/staff.py",
+    "line": 960,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext, offset: Annotated[int, Query(ge=0)]=0, limit: Annotated[int, Query(ge=1, le=100)]=50",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/consumption/{run_id}/review",
+    "function": "inventory_consumption_review",
+    "source": "backend/app/api/staff.py",
+    "line": 973,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "run_id: uuid.UUID, payload: InventoryConsumptionReview, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/items",
+    "function": "inventory_items",
+    "source": "backend/app/api/staff.py",
+    "line": 986,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep, search: str | None=None, category: str | None=None, active: bool | None=True, include_inactive: bool=False, offset: Annotated[int, Query(ge=0)]=0, limit: Annotated[int, Query(ge=1, le=100)]=50",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/items",
+    "function": "inventory_item_create",
+    "source": "backend/app/api/staff.py",
+    "line": 1008,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: InventoryItemCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/items/{item_id}",
+    "function": "inventory_item_detail",
+    "source": "backend/app/api/staff.py",
+    "line": 1018,
+    "authentication": "STAFF",
+    "parameters": "item_id: uuid.UUID, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/inventory/items/{item_id}",
+    "function": "inventory_item_update",
+    "source": "backend/app/api/staff.py",
+    "line": 1025,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "item_id: uuid.UUID, payload: InventoryItemUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/locations",
+    "function": "inventory_locations",
+    "source": "backend/app/api/staff.py",
+    "line": 1038,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep, active: bool | None=True",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/locations",
+    "function": "inventory_location_create",
+    "source": "backend/app/api/staff.py",
+    "line": 1045,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: InventoryLocationCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/inventory/locations/{location_id}",
+    "function": "inventory_location_update",
+    "source": "backend/app/api/staff.py",
+    "line": 1055,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "location_id: uuid.UUID, payload: InventoryLocationUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/stock",
+    "function": "inventory_stock",
+    "source": "backend/app/api/staff.py",
+    "line": 1068,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep, location_id: uuid.UUID | None=None, search: str | None=None, category: str | None=None, status: Annotated[str | None, Query(pattern='^(normal|low|out)$')]=None, offset: Annotated[int, Query(ge=0)]=0, limit: Annotated[int, Query(ge=1, le=100)]=50",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/inventory/locations/{location_id}/items/{item_id}/threshold",
+    "function": "inventory_threshold_update",
+    "source": "backend/app/api/staff.py",
+    "line": 1094,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "location_id: uuid.UUID, item_id: uuid.UUID, payload: InventoryThresholdUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/receipts",
+    "function": "inventory_receive",
+    "source": "backend/app/api/staff.py",
+    "line": 1108,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: InventoryReceiptCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/transfers",
+    "function": "inventory_transfer",
+    "source": "backend/app/api/staff.py",
+    "line": 1121,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: InventoryTransferCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/usage",
+    "function": "inventory_usage",
+    "source": "backend/app/api/staff.py",
+    "line": 1132,
+    "authentication": "STAFF",
+    "parameters": "payload: InventoryUsageCreate, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/wastage",
+    "function": "inventory_wastage",
+    "source": "backend/app/api/staff.py",
+    "line": 1143,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: InventoryWastageCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/inventory/stock-counts",
+    "function": "inventory_stock_count",
+    "source": "backend/app/api/staff.py",
+    "line": 1154,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: InventoryStockCountCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/movements",
+    "function": "inventory_movements",
+    "source": "backend/app/api/staff.py",
+    "line": 1165,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: StaffDep, start_at: datetime | None=None, end_at: datetime | None=None, item_id: uuid.UUID | None=None, location_id: uuid.UUID | None=None, movement_type: str | None=None, team_id: uuid.UUID | None=None, job_id: uuid.UUID | None=None, actor_id: uuid.UUID | None=None, offset: Annotated[int, Query(ge=0)]=0, limit: Annotated[int, Query(ge=1, le=100)]=50",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/reports/usage",
+    "function": "inventory_usage_report",
+    "source": "backend/app/api/staff.py",
+    "line": 1196,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "start_at: datetime, end_at: datetime, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/teams/{team_id}/summary",
+    "function": "inventory_team_summary",
+    "source": "backend/app/api/staff.py",
+    "line": 1206,
+    "authentication": "STAFF",
+    "parameters": "team_id: uuid.UUID, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/inventory/services/{service_id}/template",
+    "function": "inventory_service_template",
+    "source": "backend/app/api/staff.py",
+    "line": 1216,
+    "authentication": "STAFF",
+    "parameters": "service_id: uuid.UUID, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/inventory/services/{service_id}/template",
+    "function": "inventory_service_template_update",
+    "source": "backend/app/api/staff.py",
+    "line": 1226,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "service_id: uuid.UUID, payload: ServiceConsumptionTemplateUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/management-check",
+    "function": "management_check",
+    "source": "backend/app/api/staff.py",
+    "line": 1239,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "value: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs",
+    "function": "jobs",
+    "source": "backend/app/api/staff.py",
+    "line": 1244,
+    "authentication": "STAFF",
+    "parameters": "session: SessionDep, context: Annotated[StaffContext, Depends(staff_context)], include_archived: bool=False, day: Annotated[date | None, Query(alias='date')]=None, start_date: date | None=None, end_date: date | None=None, view: Annotated[str | None, Query(pattern='^(today|upcoming|history|unassigned|rescheduling|all)$')]=None, status: str | None=None, scope: Annotated[str, Query(pattern='^(my|all)$')]='my', team_id: uuid.UUID | None=None, employee_id: uuid.UUID | None=None, payment_method: str | None=None, service_id: uuid.UUID | None=None, search: str | None=Query(default=None, min_length=1, max_length=160), offset: int=Query(default=0, ge=0), limit: int=Query(default=50, ge=1, le=100)",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/calendar",
+    "function": "jobs_calendar",
+    "source": "backend/app/api/staff.py",
+    "line": 1285,
+    "authentication": "STAFF",
+    "parameters": "start_date: date, end_date: date, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/{job_id}",
+    "function": "job_detail",
+    "source": "backend/app/api/staff.py",
+    "line": 1295,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, session: SessionDep, context: Annotated[StaffContext, Depends(staff_context)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/{job_id}/communications",
+    "function": "job_communications",
+    "source": "backend/app/api/staff.py",
+    "line": 1302,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "job_id: uuid.UUID, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/notifications/delay",
+    "function": "job_delay_notification",
+    "source": "backend/app/api/staff.py",
+    "line": 1313,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "job_id: uuid.UUID, payload: JobDelayNotification, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/{job_id}/quality",
+    "function": "job_quality_detail",
+    "source": "backend/app/api/staff.py",
+    "line": 1324,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, request: Request, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/inspection",
+    "function": "job_quality_inspection",
+    "source": "backend/app/api/staff.py",
+    "line": 1371,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: JobInspectionInput, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/checklist",
+    "function": "job_quality_checklist",
+    "source": "backend/app/api/staff.py",
+    "line": 1383,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: JobChecklistUpdate, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/issues",
+    "function": "job_quality_issue",
+    "source": "backend/app/api/staff.py",
+    "line": 1395,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: JobQualityIssueCreate, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/photos/upload",
+    "function": "job_quality_photo_upload",
+    "source": "backend/app/api/staff.py",
+    "line": 1411,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: JobPhotoCreate, request: Request, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/photos/{photo_id}/complete",
+    "function": "job_quality_photo_complete",
+    "source": "backend/app/api/staff.py",
+    "line": 1440,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, photo_id: uuid.UUID, request: Request, session: SessionDep, context: StaffDep",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/complaints",
+    "function": "job_quality_complaint",
+    "source": "backend/app/api/staff.py",
+    "line": 1469,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "job_id: uuid.UUID, payload: JobComplaintCreate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/quality/complaints/{complaint_id}/review",
+    "function": "job_quality_complaint_review",
+    "source": "backend/app/api/staff.py",
+    "line": 1481,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "job_id: uuid.UUID, complaint_id: uuid.UUID, payload: JobComplaintReview, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/start-trip",
+    "function": "job_start_trip",
+    "source": "backend/app/api/staff.py",
+    "line": 1499,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: StartTripAction, request: Request, session: SessionDep, context: Annotated[StaffContext, Depends(staff_context)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/start",
+    "function": "job_start",
+    "source": "backend/app/api/staff.py",
+    "line": 1537,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: JobAction, session: SessionDep, context: Annotated[StaffContext, Depends(staff_context)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/arrive",
+    "function": "job_arrive",
+    "source": "backend/app/api/staff.py",
+    "line": 1550,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: JobAction, session: SessionDep, context: Annotated[StaffContext, Depends(staff_context)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/complete",
+    "function": "job_complete",
+    "source": "backend/app/api/staff.py",
+    "line": 1563,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: JobAction, session: SessionDep, context: Annotated[StaffContext, Depends(staff_context)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/jobs/{job_id}/cash-payment",
+    "function": "job_cash",
+    "source": "backend/app/api/staff.py",
+    "line": 1585,
+    "authentication": "STAFF",
+    "parameters": "job_id: uuid.UUID, payload: CashTenderAction, session: SessionDep, context: Annotated[StaffContext, Depends(staff_context)]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/jobs/{job_id}/assignment",
+    "function": "job_assignment",
+    "source": "backend/app/api/staff.py",
+    "line": 1598,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "job_id: uuid.UUID, payload: AssignmentAction, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/jobs/{job_id}/assignment-options",
+    "function": "job_assignment_options",
+    "source": "backend/app/api/staff.py",
+    "line": 1608,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "job_id: uuid.UUID, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/team",
+    "function": "team",
+    "source": "backend/app/api/staff.py",
+    "line": 1615,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/reports/summary",
+    "function": "reports",
+    "source": "backend/app/api/staff.py",
+    "line": 1620,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "start_date: date, end_date: date, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/cancellations",
+    "function": "cancellations",
+    "source": "backend/app/api/staff.py",
+    "line": 1627,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/cancellations/{cancellation_id}/review",
+    "function": "cancellation_review",
+    "source": "backend/app/api/staff.py",
+    "line": 1632,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "cancellation_id: uuid.UUID, payload: CancellationReview, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/customers",
+    "function": "manager_customers",
+    "source": "backend/app/api/staff.py",
+    "line": 1645,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext, search: str | None=Query(default=None, max_length=160), offset: int=Query(default=0, ge=0), limit: int=Query(default=30, ge=1, le=50)",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/customers/{customer_id}",
+    "function": "manager_customer",
+    "source": "backend/app/api/staff.py",
+    "line": 1656,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, session: SessionDep, context: ManagerContext, history_offset: int=Query(default=0, ge=0), history_limit: int=Query(default=30, ge=1, le=50)",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/customers/{customer_id}",
+    "function": "manager_customer_update",
+    "source": "backend/app/api/staff.py",
+    "line": 1673,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, payload: ManagerCustomerUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/customers/{customer_id}/addresses",
+    "function": "manager_customer_address_create",
+    "source": "backend/app/api/staff.py",
+    "line": 1690,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, payload: CustomerAddressWrite, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/customers/{customer_id}/addresses/{address_id}",
+    "function": "manager_customer_address_update",
+    "source": "backend/app/api/staff.py",
+    "line": 1706,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, address_id: uuid.UUID, payload: CustomerAddressWrite, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/staff/customers/{customer_id}/addresses/{address_id}",
+    "function": "manager_customer_address_delete",
+    "source": "backend/app/api/staff.py",
+    "line": 1720,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, address_id: uuid.UUID, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/customers/{customer_id}/vehicles",
+    "function": "manager_customer_vehicle_create",
+    "source": "backend/app/api/staff.py",
+    "line": 1737,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, payload: CustomerVehicleWrite, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/customers/{customer_id}/vehicles/{vehicle_id}",
+    "function": "manager_customer_vehicle_update",
+    "source": "backend/app/api/staff.py",
+    "line": 1753,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, vehicle_id: uuid.UUID, payload: CustomerVehicleWrite, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/staff/customers/{customer_id}/vehicles/{vehicle_id}",
+    "function": "manager_customer_vehicle_delete",
+    "source": "backend/app/api/staff.py",
+    "line": 1767,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, vehicle_id: uuid.UUID, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/customers/{customer_id}/loyalty/adjustments",
+    "function": "manager_customer_loyalty_adjustment",
+    "source": "backend/app/api/staff.py",
+    "line": 1780,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "customer_id: uuid.UUID, payload: LoyaltyAdjustment, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/loyalty/settings",
+    "function": "loyalty_settings",
+    "source": "backend/app/api/staff.py",
+    "line": 1799,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/loyalty/settings",
+    "function": "loyalty_settings_update",
+    "source": "backend/app/api/staff.py",
+    "line": 1804,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "payload: LoyaltySettingsUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/bookings/{booking_id}/reschedule-options",
+    "function": "reschedule_options",
+    "source": "backend/app/api/staff.py",
+    "line": 1814,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "booking_id: uuid.UUID, session: SessionDep, context: ManagerContext, day: Annotated[date, Query(alias='date')], start_time: Annotated[WallTime, Query(alias='time')]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/bookings/{booking_id}/reschedule",
+    "function": "manager_reschedule",
+    "source": "backend/app/api/staff.py",
+    "line": 1827,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "booking_id: uuid.UUID, payload: ManagerRescheduleCreate, request: Request, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/staff/customer-policies",
+    "function": "current_customer_policies",
+    "source": "backend/app/api/staff.py",
+    "line": 1918,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/staff/bookings/{booking_id}/policy-provision",
+    "function": "booking_policy_provision",
+    "source": "backend/app/api/staff.py",
+    "line": 1923,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "booking_id: uuid.UUID, payload: StaffPolicyProvision, session: SessionDep, context: ManagerContext, idempotency_key: Annotated[uuid.UUID, Header(alias='Idempotency-Key')]",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/staff/bookings/{booking_id}/archive",
+    "function": "booking_archive",
+    "source": "backend/app/api/staff.py",
+    "line": 1952,
+    "authentication": "MANAGER/ADMIN",
+    "parameters": "booking_id: uuid.UUID, payload: BookingArchiveUpdate, session: SessionDep, context: ManagerContext",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/health",
+    "function": "health",
+    "source": "backend/app/api/system.py",
+    "line": 11,
+    "authentication": "PUBLIC",
+    "parameters": "",
+    "status": "NOT TESTED"
+  },
+  {
+    "method": "GET",
+    "path": "/ready",
+    "function": "ready",
+    "source": "backend/app/api/system.py",
+    "line": 16,
+    "authentication": "PUBLIC",
+    "parameters": "request: Request",
+    "status": "NOT TESTED"
+  }
+]

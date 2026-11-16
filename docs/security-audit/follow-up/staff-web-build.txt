@@ -1,0 +1,36 @@
+
+> @trifecta/mobile@0.1.0 build:web
+> expo export --platform web
+
+env: load .env
+env: export EXPO_PUBLIC_API_BASE_URL EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY EXPO_PUBLIC_SUPABASE_URL
+Expo Autolinking module resolution enabled
+Starting Metro Bundler
+
+| (node:33480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+| (Use `node --trace-warnings ...` to show where the warning was created)
+| (node:33480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+| (Use `node --trace-warnings ...` to show where the warning was created)
+| (node:33480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+| (Use `node --trace-warnings ...` to show where the warning was created)
+| (node:33480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+| (Use `node --trace-warnings ...` to show where the warning was created)
+| (node:33480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+| (Use `node --trace-warnings ...` to show where the warning was created)
+| (node:33480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+| (Use `node --trace-warnings ...` to show where the warning was created)
+| (node:33480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+| (Use `node --trace-warnings ...` to show where the warning was created)
+Web Bundled 8736ms apps\mobile\index.ts (630 modules)
+
+› Assets (1):
+assets\trifecta-logo.4392d22df355a426fee2b436184b1170.png (3.2KB)
+
+› web bundles (1):
+_expo/static/js/web/index-4718efd8ed3671c9fc4992477cccaa25.js (1.6MB)
+
+› Files (2):
+index.html (1.2KB)
+metadata.json (49B)
+
+Exported: dist

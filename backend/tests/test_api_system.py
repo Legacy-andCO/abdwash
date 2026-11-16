@@ -361,4 +361,7 @@ def test_invalid_maps_url_returns_validation_response() -> None:
             headers={"Idempotency-Key": "invalid-map-link"},
         )
     assert response.status_code == 422
-    assert "supported Google Maps link" in response.text
+    assert any(
+        error["loc"] == ["body", "location", "location_url"] for error in response.json()["detail"]
+    )
+    assert "google.com.attacker.com" not in response.text

@@ -1,0 +1,16 @@
+{
+  "assessment_date": "2026-11-11",
+  "source_head": "f5f54447ebff7dc49d0adef381c0bf96bf88e2c5",
+  "python": "3.13.6 (tags/v3.13.6:4e66535, Aug  6 2025, 14:36:00) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "node": "v22.18.0",
+  "npm": "11.12.1",
+  "postgres": "postgres (PostgreSQL) 17.11",
+  "postgres_archive_source": "https://get.enterprisedb.com/postgresql/postgresql-17.11-3-windows-x64-binaries.zip",
+  "postgres_archive_sha256": "4b8db0930c38f6ef845db919551dedda3b6b845aeb0927b3d79a6e8e9e4537cf",
+  "postgres_executable_authenticode": "NotSigned; archive downloaded from official EDB distributor, hash recorded, independent provenance/signature not established",
+  "database_host": "127.0.0.1",
+  "database_port": 55432,
+  "data": "synthetic only",
+  "production_access": "metadata/advisor SELECT only; no deployment or production mutation"
+}

@@ -1,0 +1,89 @@
+{
+  "errors": [],
+  "consoleErrors": [],
+  "unknown": [],
+  "computed": {
+    "font": "system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "box": {
+      "x": 16,
+      "y": -15,
+      "width": 175,
+      "height": 52,
+      "top": -15,
+      "right": 191,
+      "bottom": 37,
+      "left": 16
+    }
+  },
+  "mutations": [
+    {
+      "method": "POST",
+      "path": "/api/v1/staff/calendar-bookings",
+      "body": {
+        "date": "2026-11-16",
+        "time": "15:00:00",
+        "contact": {
+          "first_name": "ليلى Test",
+          "phone": "+971500000000",
+          "email": null
+        },
+        "location": {
+          "written_address": "Villa 12, Abu Dhabi",
+          "instructions": null,
+          "latitude": null,
+          "longitude": null
+        },
+        "vehicles": [
+          {
+            "make": "",
+            "model": "",
+            "plate_number": "",
+            "service_id": "service-1",
+            "vehicle_type": "sedan"
+          }
+        ],
+        "expected_amount_minor": 7000,
+        "policy_revision": "ux-fixture-v1",
+        "policy_delivery": "provided",
+        "language": "en",
+        "overlap": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/staff/calendar-bookings",
+      "body": {
+        "date": "2026-11-16",
+        "time": "10:00:00",
+        "contact": {
+          "first_name": "Overlap Test",
+          "phone": "+971500000000",
+          "email": null
+        },
+        "location": {
+          "written_address": "Villa 99, Abu Dhabi",
+          "instructions": null,
+          "latitude": null,
+          "longitude": null
+        },
+        "vehicles": [
+          {
+            "make": "",
+            "model": "",
+            "plate_number": "",
+            "service_id": "service-1",
+            "vehicle_type": "sedan"
+          }
+        ],
+        "expected_amount_minor": 7000,
+        "policy_revision": "ux-fixture-v1",
+        "policy_delivery": "provided",
+        "language": "en",
+        "overlap": {
+          "team_id": "team-1",
+          "confirmed": true
+        }
+      }
+    }
+  ]
+}

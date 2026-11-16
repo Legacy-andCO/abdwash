@@ -1,0 +1,12 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"error\":{\"name\":\"HttpException\",\"message\":\"Failed to run sql query: ERROR:  42501: permission denied for schema app_private\\n\"}}"
+    }
+  ],
+  "structuredContent": {
+    "error_code": "INVALID_ARGUMENT"
+  },
+  "isError": true
+}

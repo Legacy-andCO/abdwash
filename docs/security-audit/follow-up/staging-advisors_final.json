@@ -1,0 +1,10 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"result\":{\"lints\":[{\"name\":\"rls_enabled_no_policy\",\"title\":\"RLS Enabled No Policy\",\"level\":\"INFO\",\"facing\":\"EXTERNAL\",\"categories\":[\"SECURITY\"],\"description\":\"Detects cases where row level security (RLS) has been enabled on a table but no RLS policies have been created.\",\"remediation\":\"https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy\",\"count\":1,\"findings\":[{\"detail\":\"Table \\\\`public.alembic_version\\\\` has RLS enabled, but no policies exist\",\"metadata\":{\"name\":\"alembic_version\",\"type\":\"table\",\"schema\":\"public\"},\"observed_at\":\"2026-11-11T20:04:46.760Z\"}]},{\"name\":\"auth_leaked_password_protection\",\"title\":\"Leaked Password Protection Disabled\",\"level\":\"WARN\",\"facing\":\"EXTERNAL\",\"categories\":[\"SECURITY\"],\"description\":\"Leaked password protection is currently disabled.\",\"remediation\":\"https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection\",\"count\":1,\"findings\":[{\"detail\":\"Supabase Auth prevents the use of compromised passwords by checking against HaveIBeenPwned.org. Enable this feature to enhance security.\",\"metadata\":{\"type\":\"auth\",\"entity\":\"Auth\"}}]}]}}"
+    }
+  ],
+  "structuredContent": null,
+  "isError": false
+}

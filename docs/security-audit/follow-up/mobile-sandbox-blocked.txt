@@ -1,0 +1,233 @@
+
+> @trifecta/mobile@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.12 C:/Users/Lenovo/Desktop/abdwash/apps/mobile
+
+ ❯ src/operations.test.ts (0 test)
+ ❯ src/functional-ui-contract.test.js (0 test)
+ ❯ src/calendar-communications.test.ts (0 test)
+ ❯ src/cache/policy.test.ts (0 test)
+ ❯ src/android-ime-plugin.test.js (0 test)
+ ❯ src/inventory-ui-contract.test.js (0 test)
+ ❯ src/idempotency/clientEventId.test.ts (0 test)
+ ❯ src/services-pricing.test.ts (0 test)
+ ❯ src/forms/staffForm.test.ts (0 test)
+ ❯ src/cache/sync.test.ts (0 test)
+ ❯ src/location/startTripLocation.test.ts (0 test)
+ ❯ src/cache/persistence.test.ts (0 test)
+ ❯ src/jobs/jobActions.test.ts (0 test)
+ ❯ src/calendar/calendarState.test.ts (0 test)
+ ❯ src/location/startTripFlow.test.ts (0 test)
+ ❯ src/network/requestTimeout.test.ts (0 test)
+ ❯ src/inventory/inventoryState.test.ts (0 test)
+ ❯ src/scheduling-assignment.test.ts (0 test)
+ ❯ src/jobs/archiveCache.test.ts (0 test)
+ ❯ src/quality-ui-contract.test.js (0 test)
+ ❯ src/quality/qualityState.test.ts (0 test)
+ ❯ src/cash/cashTender.test.ts (0 test)
+ ❯ src/finance/financeState.test.ts (0 test)
+ ❯ src/time/uaeTime.test.ts (0 test)
+ ❯ src/scheduling/exactTime.test.ts (0 test)
+ ❯ src/errors/domainErrors.test.ts (0 test)
+ ❯ src/capabilities.test.ts (0 test)
+ ❯ src/safe-area-contract.test.js (0 test)
+ ❯ src/errors/parseApiError.test.ts (0 test)
+ ❯ src/coupon-manager.test.ts (0 test)
+ ❯ src/components/buttonState.test.ts (0 test)
+ ❯ src/forms/password.test.ts (0 test)
+ ❯ src/components/picker-values.test.ts (0 test)
+ ❯ src/staff-login.test.ts (0 test)
+ ❯ src/network/apiPerformance.test.ts (0 test)
+ ❯ src/network/immutableUpload.test.ts (0 test)
+ ❯ src/search/customerSearch.test.ts (0 test)
+ ❯ src/theme.test.ts (0 test)
+ ❯ src/jobs/customerContact.test.ts (0 test)
+ ❯ src/security-config.test.ts (0 test)
+ ❯ src/components/PrivilegedMfa.test.tsx (0 test)
+ ❯ src/web-adapters.test.js (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 42 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/android-ime-plugin.test.js [ src/android-ime-plugin.test.js ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625428-wec1evgvsz' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\acfa3c2230b576335d728f2c2f238f0b21d68db1'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/42]⎯
+
+ FAIL  src/calendar-communications.test.ts [ src/calendar-communications.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625261-kwq88m3wre' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\f4d4c84e697a075600a71adf2a699ae617d51edd'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/42]⎯
+
+ FAIL  src/capabilities.test.ts [ src/capabilities.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627077-5dnahr4p3s8' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\ab1c34477473ad898bc77dc3f2565df2c8fc02f7'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/42]⎯
+
+ FAIL  src/coupon-manager.test.ts [ src/coupon-manager.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627421-xkvfpegbjxg' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\5ddcf4fb58daf9d640efac82f6ada36c3100fa35'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/42]⎯
+
+ FAIL  src/functional-ui-contract.test.js [ src/functional-ui-contract.test.js ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411624807-0w2qywyjm5cc' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\cd967de8abe60be0ff1101536a9d0a14c5889749'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/42]⎯
+
+ FAIL  src/inventory-ui-contract.test.js [ src/inventory-ui-contract.test.js ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625426-3w4xlnsxc8j' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\52884625e38c37f5106e7294b448c229e79f7007'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/42]⎯
+
+ FAIL  src/operations.test.ts [ src/operations.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411624623-c994a8548jn' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\1fcc53f0af42f4e1827a1a8992189797bbf21a95'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/42]⎯
+
+ FAIL  src/quality-ui-contract.test.js [ src/quality-ui-contract.test.js ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626591-rg7z87vj9m' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\991e37846870322274d6a1abdb60752f4e4e72bf'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/42]⎯
+
+ FAIL  src/safe-area-contract.test.js [ src/safe-area-contract.test.js ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627374-5yj6sscuy1v' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\fca0cd57db65891d18aab700c11b1f3d0c2c44d1'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/42]⎯
+
+ FAIL  src/scheduling-assignment.test.ts [ src/scheduling-assignment.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626289-f431yqe0q39' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\bbb7c15a85c6fb11620cd2b91e11c6535599036b'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/42]⎯
+
+ FAIL  src/security-config.test.ts [ src/security-config.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411628106-tfbymsa1tgd' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\75f5ac10fc2c421b50985a933c44cfe2eeaf7813'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/42]⎯
+
+ FAIL  src/services-pricing.test.ts [ src/services-pricing.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625477-sd8xntx7lzg' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\6db7ea53a337d2fc065984331f0baf4244d6bf65'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/42]⎯
+
+ FAIL  src/staff-login.test.ts [ src/staff-login.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627597-m5l2ctc6k9r' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\35254876462eeef2e857aad28658ea803f56d734'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/42]⎯
+
+ FAIL  src/theme.test.ts [ src/theme.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627906-4d01g7qd42g' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\a3c85427bf3a61eafe22834cc25e38b8e0e1aa73'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/42]⎯
+
+ FAIL  src/web-adapters.test.js [ src/web-adapters.test.js ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\client\.tmp-1794411635490-7heaq8la4vh' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\client\f6fe5596b00779a781f24b8598804c5bc3356f76'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/42]⎯
+
+ FAIL  src/calendar/calendarState.test.ts [ src/calendar/calendarState.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625684-12ioimiz8nur' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\4bcc0f95cd314fd3f85219cffacb6a6b1a9c7668'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/42]⎯
+
+ FAIL  src/cache/persistence.test.ts [ src/cache/persistence.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625511-ud4lbzw9j6' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\ef6265d1b5580119054cddb2dec4a9ebb29ad3fa'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/42]⎯
+
+ FAIL  src/cache/policy.test.ts [ src/cache/policy.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625276-9fgjymwwc1u' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\207b18d6ade077baad1e15ee6e9d68d482693712'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/42]⎯
+
+ FAIL  src/cache/sync.test.ts [ src/cache/sync.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625502-at0saq95ivr' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\86df871c84336ebba060b6d6c225f5cc8101fc12'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/42]⎯
+
+ FAIL  src/cash/cashTender.test.ts [ src/cash/cashTender.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626826-afzgwcwg61' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\d4b46fe699602dd1483a7753abe06e5cc60570eb'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/42]⎯
+
+ FAIL  src/components/buttonState.test.ts [ src/components/buttonState.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627495-jft3wzcxua' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\0c164e1a4df5d37f2619813747d116f657fd11ca'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/42]⎯
+
+ FAIL  src/components/picker-values.test.ts [ src/components/picker-values.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627550-yf87j3qr0id' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\d82fd33839f1630939f7f790419a046264ded06e'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/42]⎯
+
+ FAIL  src/components/PrivilegedMfa.test.tsx [ src/components/PrivilegedMfa.test.tsx ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\client\.tmp-1794411634949-bt22uskwzuu' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\client\ecd7916a6720944ecd7d7ff96c89a84297865216'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/42]⎯
+
+ FAIL  src/errors/domainErrors.test.ts [ src/errors/domainErrors.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627000-07lhdqx6w1ie' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\dfb4cb0891469708604c03037c3a3860edb7864c'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/42]⎯
+
+ FAIL  src/errors/parseApiError.test.ts [ src/errors/parseApiError.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627396-jikcnxy43j' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\58104352e5af0556752cbbfc72fb06567d34034b'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/42]⎯
+
+ FAIL  src/finance/financeState.test.ts [ src/finance/financeState.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626877-dah8ti1jphc' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\a0a84a33c692a2eff2ec747cae312ea2f0c87b1d'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/42]⎯
+
+ FAIL  src/forms/password.test.ts [ src/forms/password.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627547-x0etuh83s39' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\1b336b39c50fd513906e34c9a72c3db5ec890b0d'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/42]⎯
+
+ FAIL  src/forms/staffForm.test.ts [ src/forms/staffForm.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625474-r8nv5fcojds' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\03b863bfecea9e34fb9f6d8df55684b118e64ca5'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/42]⎯
+
+ FAIL  src/idempotency/clientEventId.test.ts [ src/idempotency/clientEventId.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625463-ca4ce64qi1i' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\d6271baa4714be33cbc480202f1d0ef5b401324b'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/42]⎯
+
+ FAIL  src/inventory/inventoryState.test.ts [ src/inventory/inventoryState.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626305-fe7dwz1ctxu' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\4fdd0f44cfcbaf2d70751883368239a7f8616b8e'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/42]⎯
+
+ FAIL  src/location/startTripFlow.test.ts [ src/location/startTripFlow.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626213-7tqbe8cfewg' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\d174b50f2174c716b2f9b4656c0cb9fa32cf78fd'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/42]⎯
+
+ FAIL  src/location/startTripLocation.test.ts [ src/location/startTripLocation.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625507-gbs3rim5s1n' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\c97d93e0f633d89ba3816806a0545cf7a03e166e'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/42]⎯
+
+ FAIL  src/jobs/archiveCache.test.ts [ src/jobs/archiveCache.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626306-8b5ex9z8enc' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\8558effd45c80e89d18f16dd9df8b3585d7fe112'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/42]⎯
+
+ FAIL  src/jobs/customerContact.test.ts [ src/jobs/customerContact.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627940-67flvdf06uo' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\26c5f8070e7498d288149b19ec85e255037d8744'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/42]⎯
+
+ FAIL  src/jobs/jobActions.test.ts [ src/jobs/jobActions.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411625509-r2yu4r1algp' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\0a4d941804c0226a6b1b931900995168030c622e'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/42]⎯
+
+ FAIL  src/network/apiPerformance.test.ts [ src/network/apiPerformance.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627634-xg335ecchxd' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\17519da94168f8090783610da854b534c206c453'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/42]⎯
+
+ FAIL  src/network/immutableUpload.test.ts [ src/network/immutableUpload.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627754-73yp0270dau' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\d91f5fae20363ad0d7a82e333cfa775ac3505e7d'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/42]⎯
+
+ FAIL  src/network/requestTimeout.test.ts [ src/network/requestTimeout.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626264-2hblla0w033' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\75a46d8a3d16816a8ef22cd184b235a0359f5dde'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/42]⎯
+
+ FAIL  src/quality/qualityState.test.ts [ src/quality/qualityState.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626721-0kcfqikq1saj' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\f5e2221d0798ad0691ac93b8d91b1a1ea9ce7946'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/42]⎯
+
+ FAIL  src/scheduling/exactTime.test.ts [ src/scheduling/exactTime.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626998-1rq7stcft5yj' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\e69ac2b0a7b82a8747e0469456999d71176c4e01'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/42]⎯
+
+ FAIL  src/search/customerSearch.test.ts [ src/search/customerSearch.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411627839-w5gm5311a9' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\1872aa44fe955b3f510e50557fcf144b6e63f414'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/42]⎯
+
+ FAIL  src/time/uaeTime.test.ts [ src/time/uaeTime.test.ts ]
+Error: EPERM: operation not permitted, rename 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\.tmp-1794411626957-fhkw4kmvbul' -> 'C:\Users\Lenovo\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{a4e2f1ac-a85b-45f5-a1e3-11669a037542}\Temp\9W_ohQvFANKvOekim6fo8\ssr\ad78b5066b04eac0415047a3f55b3e1ea9ef45ae'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/42]⎯
+
+
+ Test Files  42 failed (42)
+      Tests  no tests
+   Start at  18:40:23
+   Duration  11.96s (transform 0ms, setup 0ms, import 0ms, tests 0ms, environment 20.81s)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path C:\Users\Lenovo\Desktop\abdwash\apps\mobile
+npm error workspace @trifecta/mobile@0.1.0
+npm error location C:\Users\Lenovo\Desktop\abdwash\apps\mobile
+npm error command failed
+npm error command C:\Windows\system32\cmd.exe /d /s /c vitest run

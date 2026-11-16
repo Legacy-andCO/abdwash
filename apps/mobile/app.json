@@ -12,6 +12,7 @@
       }
     },
     "android": {
+      "allowBackup": false,
       "package": "com.abdwash.staff",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -32,6 +33,7 @@
         }
       ],
       "./plugins/withAndroidImeInsets",
+      "./plugins/withSecurityDefaults",
       "@react-native-community/datetimepicker"
     ],
     "extra": {

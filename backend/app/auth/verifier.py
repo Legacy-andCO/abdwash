@@ -1,4 +1,5 @@
 import asyncio
+import math
 import time
 import uuid
 from dataclasses import dataclass
@@ -13,6 +14,10 @@ from app.core.config import Settings
 from app.core.providers import observe_provider_call
 
 logger = structlog.get_logger()
+
+# Native issuance can precede a slightly slower API clock. Do not apply this
+# allowance to exp: expired credentials must still fail closed immediately.
+ISSUANCE_CLOCK_SKEW_SECONDS = 5
 
 
 class AuthenticationError(Exception):
@@ -43,6 +48,7 @@ class SupabaseTokenVerifier:
         self._jwks: PyJWKSet | None = None
         self._jwks_loaded_at = 0.0
         self._lock = asyncio.Lock()
+        self._unknown_kid_refreshed_at = float("-inf")
 
     def _jwks_is_fresh(self, now: float | None = None) -> bool:
         checked_at = time.monotonic() if now is None else now
@@ -136,9 +142,21 @@ class SupabaseTokenVerifier:
                     algorithms=["HS256"],
                     audience=self.settings.supabase_jwt_audience,
                     issuer=self.settings.supabase_issuer,
+                    options={"require": ["exp", "sub", "aud", "iss"], "verify_iat": False},
                 )
             else:
                 payload = await self._verify_asymmetric(token, algorithm)
+            issued_at = payload.get("iat")
+            if "iat" in payload:
+                if (
+                    not isinstance(issued_at, (int, float))
+                    or isinstance(issued_at, bool)
+                    or not math.isfinite(issued_at)
+                    or issued_at < 0
+                ):
+                    raise jwt.InvalidIssuedAtError("Invalid issuance timestamp.")
+                if issued_at > time.time() + ISSUANCE_CLOCK_SKEW_SECONDS:
+                    raise jwt.ImmatureSignatureError("Token issued too far in the future.")
             subject = payload.get("sub")
             if not subject:
                 raise AuthenticationError("Token has no subject.")
@@ -148,7 +166,7 @@ class SupabaseTokenVerifier:
         except AuthenticationError:
             logger.info("genuine_invalid_token")
             raise
-        except (jwt.PyJWTError, ValueError) as exc:
+        except (jwt.PyJWTError, ValueError, TypeError) as exc:
             logger.info("genuine_invalid_token", error_type=type(exc).__name__)
             raise AuthenticationError("Invalid or expired access token.") from exc
 
@@ -168,6 +186,10 @@ class SupabaseTokenVerifier:
                 logger.info("jwks_cache_hit")
                 return self._decode_asymmetric(token, algorithm, cached_key.key)
             logger.info("unknown_kid")
+            if time.monotonic() - self._unknown_kid_refreshed_at < 30:
+                raise AuthenticationError("No matching Supabase signing key.")
+            # Set before awaiting so concurrent random kids cannot fan out refreshes.
+            self._unknown_kid_refreshed_at = time.monotonic()
             loaded_at = self._jwks_loaded_at
             try:
                 refreshed = await self._refresh_jwks(
@@ -188,7 +210,12 @@ class SupabaseTokenVerifier:
         try:
             refreshed = await self._refresh_jwks()
         except _JwksRefreshError as exc:
-            if cached_key is not None and exc.stale_fallback_allowed:
+            if (
+                cached_key is not None
+                and exc.stale_fallback_allowed
+                and time.monotonic() - self._jwks_loaded_at
+                < self.settings.jwks_cache_ttl_seconds + 3600
+            ):
                 logger.warning("jwks_stale_fallback", reason=exc.reason)
                 return self._decode_asymmetric(token, algorithm, cached_key.key)
             raise AuthenticationServiceUnavailable(
@@ -211,4 +238,5 @@ class SupabaseTokenVerifier:
             algorithms=[algorithm],
             audience=self.settings.supabase_jwt_audience,
             issuer=self.settings.supabase_issuer,
+            options={"require": ["exp", "sub", "aud", "iss"], "verify_iat": False},
         )

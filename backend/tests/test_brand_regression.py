@@ -16,6 +16,7 @@ SCANNED_ROOTS = (
 )
 
 IGNORED_PARTS = {
+    "security-audit",  # Audit evidence includes immutable deployed identifiers and source paths.
     ".git",
     ".mypy_cache",
     ".next",

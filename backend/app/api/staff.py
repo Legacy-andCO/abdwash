@@ -1,4 +1,5 @@
 import asyncio
+import secrets
 import time
 import uuid
 from datetime import date, datetime
@@ -12,14 +13,22 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 
-from app.auth.dependencies import ManagerContext, SessionDep, StaffContext, staff_context
+from app.auth.dependencies import (
+    ManagerContext,
+    SessionDep,
+    StaffContext,
+    required_identity,
+    staff_context,
+)
+from app.auth.mfa import require_recent_password
+from app.auth.verifier import VerifiedIdentity
 from app.core.config import get_settings
-from app.domain.enums import JobStatus
+from app.domain.enums import JobStatus, StaffRole
 from app.domain.errors import DomainError
 from app.integrations.eta import GoogleRoutesEtaProvider
 from app.integrations.supabase_admin import SupabaseAdminClient
 from app.integrations.supabase_storage import SupabaseStorageAdminClient
-from app.models.entities import Booking, Job, JobPhoto
+from app.models.entities import AuditEvent, Booking, Job, JobPhoto
 from app.schemas.catalogue import (
     AddonInput,
     AddonPatch,
@@ -286,6 +295,33 @@ from app.services.workforce import (
 )
 
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
+
+
+@router.post("/bookings/{booking_id}/guest-access/revoke", status_code=204)
+async def revoke_guest_access(
+    booking_id: uuid.UUID, session: SessionDep, context: ManagerContext
+) -> None:
+    async with session.begin():
+        booking = await session.scalar(
+            select(Booking)
+            .where(Booking.id == booking_id, Booking.business_id == context.business_id)
+            .with_for_update()
+        )
+        if booking is None:
+            raise DomainError("BOOKING_NOT_FOUND", "Booking not found.", status_code=404)
+        booking.management_token_hash = secrets.token_hex(32)
+        session.add(
+            AuditEvent(
+                business_id=context.business_id,
+                actor_auth_user_id=context.auth_user_id,
+                event_type="guest_access_revoked",
+                entity_type="booking",
+                entity_id=booking.id,
+                metadata_json={},
+            )
+        )
+
+
 logger = structlog.get_logger()
 StaffDep = Annotated[StaffContext, Depends(staff_context)]
 
@@ -464,7 +500,10 @@ async def own_profile_update(
     request: Request,
     session: SessionDep,
     context: StaffDep,
+    identity: Annotated[VerifiedIdentity, Depends(required_identity)],
 ) -> StaffProfileView:
+    if payload.password is not None and context.role == StaffRole.EMPLOYEE:
+        require_recent_password(identity)
     return await update_own_profile(
         session,
         context,
@@ -831,8 +870,13 @@ async def finance_expense_evidence_complete(
 ) -> ExpenseEvidenceView:
     evidence = await load_pending_expense_evidence(session, context, expense_id, evidence_id)
     object_path = evidence.object_path
+    content_type = evidence.content_type
     await session.rollback()
-    object_info = await _expense_evidence_storage(request).object_info(object_path)
+    storage = _expense_evidence_storage(request)
+    await storage.validate_uploaded_content(
+        object_path, content_type, get_settings().expense_evidence_max_bytes
+    )
+    object_info = await storage.object_info(object_path)
     async with session.begin():
         result = await confirm_expense_evidence(
             session,
@@ -1441,8 +1485,12 @@ async def job_quality_photo_complete(
 ) -> None:
     photo = await load_pending_photo(session, context, job_id, photo_id)
     photo_path = photo.storage_path
+    content_type = photo.content_type
     await session.rollback()
     storage = _photo_storage(request)
+    await storage.validate_uploaded_content(
+        photo_path, content_type, get_settings().job_photo_max_bytes
+    )
     object_info = await storage.object_info(photo_path)
     async with session.begin():
         await confirm_photo(
@@ -1924,17 +1972,25 @@ async def booking_policy_provision(
     )
     async with session.begin():
         existing = await find_idempotent_response(
-            session, scope=scope, operation="booking_policy_provision",
-            key=str(idempotency_key), request_hash=request_hash,
+            session,
+            scope=scope,
+            operation="booking_policy_provision",
+            key=str(idempotency_key),
+            request_hash=request_hash,
         )
         if existing is not None:
             return {"email_queued": bool(existing.response_json["email_queued"])}
         email_queued = await record_staff_provision(session, context, booking_id, payload)
         result = {"email_queued": email_queued}
         store_idempotent_response(
-            session, scope=scope, operation="booking_policy_provision",
-            key=str(idempotency_key), request_hash=request_hash, response_status=201,
-            response_json=result, resource_id=booking_id,
+            session,
+            scope=scope,
+            operation="booking_policy_provision",
+            key=str(idempotency_key),
+            request_hash=request_hash,
+            response_status=201,
+            response_json=result,
+            resource_id=booking_id,
         )
         return result
 

@@ -1,4 +1,5 @@
 import contextvars
+import ssl
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -74,6 +75,8 @@ def create_engine(settings: Settings) -> AsyncEngine:
     connect_args: dict[str, object] = {"server_settings": {"application_name": "trifecta-api"}}
     if settings.db_disable_prepared_statements:
         connect_args.update(prepared_statement_cache_size=0, statement_cache_size=0)
+    if settings.is_deployed and settings.db_require_tls:
+        connect_args["ssl"] = ssl.create_default_context()
     engine = create_async_engine(
         settings.database_url,
         pool_pre_ping=settings.db_pool_pre_ping,

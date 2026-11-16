@@ -44,6 +44,12 @@ async def load_managed_booking(
         booking.management_token_hash, management_token_hash(management_token)
     ):
         raise DomainError("BOOKING_NOT_FOUND", "This booking link is invalid.", status_code=404)
+    if datetime.now(UTC) > booking.scheduled_end + timedelta(days=30):
+        raise DomainError(
+            "BOOKING_LINK_EXPIRED",
+            "This booking link has expired. Sign in or contact support.",
+            status_code=410,
+        )
     return booking
 
 

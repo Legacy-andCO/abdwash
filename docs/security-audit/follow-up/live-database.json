@@ -1,0 +1,1192 @@
+{
+  "revision": "c7e833583da3",
+  "tables": [
+    {
+      "relname": "idempotency_records",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "audit_events",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "notification_outbox",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "coupons",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "coupon_service_eligibility",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "coupon_vehicle_eligibility",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "alembic_version",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres}"
+    },
+    {
+      "relname": "team_memberships",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "attendance_sessions",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "shifts",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "staff_shift_assignments",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "leave_requests",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "business_sync_revisions",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "job_inspections",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "job_checklist_items",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "invoice_sequences",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "revenue_invoices",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "expense_evidence",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "deleted_customer_identities",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "customer_reviews",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "customer_review_prompt_states",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "guest_review_verification_attempts",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "customer_complaints",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "complaint_rate_windows",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "slot_hold_groups",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "api_rate_windows",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "bookings",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "businesses",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "customer_profiles",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "customer_addresses",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "vehicles",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "schedule_resources",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "booking_vehicles",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "jobs",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "job_events",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "payments",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "services",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "staff_profiles",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "schedule_slots",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "customer_payment_methods",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "cancellation_requests",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "job_photos",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "job_quality_issues",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "job_complaints",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "booking_services",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "payment_transactions",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "loyalty_rewards",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "loyalty_events",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "cash_reconciliations",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "cash_reconciliation_payments",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "expenses",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "inventory_items",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "inventory_locations",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "inventory_stock",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "inventory_operations",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "inventory_movements",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "service_inventory_templates",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "service_addons",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "business_settings",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "service_prices",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "business_operating_hours",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "booking_service_addons",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "job_inventory_consumption_lines",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    },
+    {
+      "relname": "job_inventory_consumption_runs",
+      "relrowsecurity": true,
+      "owner": "postgres",
+      "acl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,trifecta_runtime=arwd/postgres}"
+    }
+  ],
+  "policies": [
+    {
+      "schemaname": "public",
+      "tablename": "idempotency_records",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "audit_events",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notification_outbox",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "coupons",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "coupon_service_eligibility",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "coupon_vehicle_eligibility",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "storage",
+      "tablename": "objects",
+      "policyname": "complaint_evidence_server_only",
+      "permissive": "RESTRICTIVE",
+      "roles": [
+        "anon",
+        "authenticated"
+      ],
+      "cmd": "ALL",
+      "qual": "(bucket_id <> 'complaint-evidence'::text)",
+      "with_check": "(bucket_id <> 'complaint-evidence'::text)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "team_memberships",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "attendance_sessions",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "shifts",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "staff_shift_assignments",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "leave_requests",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "business_sync_revisions",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "job_inspections",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "job_checklist_items",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "invoice_sequences",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "revenue_invoices",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "expense_evidence",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "deleted_customer_identities",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "customer_reviews",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "customer_review_prompt_states",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "guest_review_verification_attempts",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "customer_complaints",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "complaint_rate_windows",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "slot_hold_groups",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "api_rate_windows",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "bookings",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "businesses",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "customer_profiles",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "customer_addresses",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "vehicles",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schedule_resources",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "booking_vehicles",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "jobs",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "job_events",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payments",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "services",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "staff_profiles",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "schedule_slots",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "customer_payment_methods",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "cancellation_requests",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "job_photos",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "job_quality_issues",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "job_complaints",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "booking_services",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payment_transactions",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "loyalty_rewards",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "loyalty_events",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "cash_reconciliations",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "cash_reconciliation_payments",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "expenses",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inventory_items",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inventory_locations",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inventory_stock",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inventory_operations",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "inventory_movements",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_inventory_templates",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_addons",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "business_settings",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_prices",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "business_operating_hours",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "booking_service_addons",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "job_inventory_consumption_lines",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "job_inventory_consumption_runs",
+      "policyname": "backend_only",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "trifecta_runtime"
+      ],
+      "cmd": "ALL",
+      "qual": "true",
+      "with_check": "true"
+    }
+  ],
+  "runtime": [
+    {
+      "rolname": "trifecta_runtime",
+      "rolsuper": false,
+      "rolcanlogin": false,
+      "rolbypassrls": false,
+      "rolcreaterole": false
+    }
+  ],
+  "buckets": [
+    {
+      "id": "job-quality-photos",
+      "public": false,
+      "file_size_limit": 8388608,
+      "allowed_mime_types": [
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+      ]
+    },
+    {
+      "id": "complaint-evidence",
+      "public": false,
+      "file_size_limit": 1048576,
+      "allowed_mime_types": [
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+      ]
+    }
+  ],
+  "session_function": "app_private.session_active(uuid,uuid)"
+}

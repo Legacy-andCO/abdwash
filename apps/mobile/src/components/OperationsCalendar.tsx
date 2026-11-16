@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { calendarDays, jobsByDate, monthWindow, shiftMonth } from "../calendar/calendarState";
 import { operationalScope } from "../cache/policy";
@@ -29,6 +30,7 @@ export function OperationsCalendar({
   onOpenRescheduling?: () => void;
 }) {
   const today = uaeDateKey();
+  const compact = useWindowDimensions().width < 600;
   const client = useQueryClient();
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -58,16 +60,16 @@ export function OperationsCalendar({
       <AppButton title="+ Book a Wash" onPress={() => openBooking(today)} />
       {onOpenRescheduling && <AppButton title="Needs reschedule" tone="secondary" onPress={onOpenRescheduling} />}
       <View style={styles.toolbar}>
-        <Pressable accessibilityLabel="Previous month" onPress={() => setMonth(shiftMonth(month, -1))}>
+        <Pressable accessibilityRole="button" style={styles.monthControl} accessibilityLabel="Previous month" onPress={() => setMonth(shiftMonth(month, -1))}>
           <Text style={uiStyles.link}>←</Text>
         </Pressable>
         <View style={styles.monthTitle}>
           <Text style={styles.heading}>{monthLabel}</Text>
-          <Pressable onPress={() => setMonth(today.slice(0, 7))}>
+          <Pressable accessibilityRole="button" style={styles.monthControl} onPress={() => setMonth(today.slice(0, 7))}>
             <Text style={uiStyles.link}>Today</Text>
           </Pressable>
         </View>
-        <Pressable accessibilityLabel="Next month" onPress={() => setMonth(shiftMonth(month, 1))}>
+        <Pressable accessibilityRole="button" style={styles.monthControl} accessibilityLabel="Next month" onPress={() => setMonth(shiftMonth(month, 1))}>
           <Text style={uiStyles.link}>→</Text>
         </Pressable>
       </View>
@@ -100,6 +102,7 @@ export function OperationsCalendar({
                   accessibilityLabel={`${day}, ${dayJobs.length} jobs`}
                   style={[
                     styles.day,
+                    compact ? styles.compactDay : undefined,
                     day === today ? styles.today : undefined,
                     day === selectedDate ? styles.selected : undefined,
                   ]}
@@ -108,7 +111,8 @@ export function OperationsCalendar({
                   <Text style={[styles.dayNumber, !inMonth ? styles.outside : undefined]}>
                     {Number(day.slice(-2))}
                   </Text>
-                  {dayJobs.slice(0, 3).map((job) => (
+                  {compact && dayJobs.length ? <Text style={styles.jobCount}>{dayJobs.length} {dayJobs.length === 1 ? "job" : "jobs"}</Text> : null}
+                  {!compact ? dayJobs.slice(0, 3).map((job) => (
                     <View
                       key={job.job_id}
                       style={[
@@ -125,8 +129,8 @@ export function OperationsCalendar({
                       </Text>
                       <Text style={styles.eventTime}>{formatUaeTime(job.scheduled_start)}</Text>
                     </View>
-                  ))}
-                  {dayJobs.length > 3 ? (
+                  )) : null}
+                  {!compact && dayJobs.length > 3 ? (
                     <Text style={styles.more}>+{dayJobs.length - 3} more</Text>
                   ) : null}
                 </Pressable>
@@ -145,7 +149,7 @@ export function OperationsCalendar({
           <View style={styles.sheet}>
             <View style={uiStyles.row}>
               <Text style={styles.heading}>{selectedDate}</Text>
-              <Pressable onPress={() => setSelectedDate(null)}><Text style={uiStyles.link}>Close</Text></Pressable>
+              <Pressable accessibilityRole="button" onPress={() => setSelectedDate(null)}><Text style={uiStyles.link}>Close</Text></Pressable>
             </View>
             <ScrollView>
               {selectedDate && selectedDate >= today && (
@@ -191,7 +195,7 @@ export function OperationsCalendar({
 
 function AgendaRow({ job, onPress }: { job: CalendarJob; onPress: () => void }) {
   return (
-    <Pressable style={styles.agendaRow} onPress={onPress}>
+    <Pressable accessibilityRole="button" style={styles.agendaRow} onPress={onPress}>
       <View style={uiStyles.row}>
         <Text style={styles.heading}>{formatUaeTime(job.scheduled_start)}</Text>
         <StatusChip value={job.status} />
@@ -203,6 +207,9 @@ function AgendaRow({ job, onPress }: { job: CalendarJob; onPress: () => void }) 
 }
 
 const styles = StyleSheet.create({
+  compactDay: { minHeight: 64, padding: 5 },
+  jobCount: { fontSize: 11, color: colors.primaryPressed, fontWeight: "600", marginTop: 8 },
+  monthControl: { minWidth: 48, minHeight: 48, alignItems: "center", justifyContent: "center" },
   toolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md },
   monthTitle: { alignItems: "center", gap: spacing.xs },
   heading: { color: colors.text, fontSize: 16, fontWeight: "800" },
@@ -223,7 +230,7 @@ const styles = StyleSheet.create({
   completed: { backgroundColor: colors.successSurface, borderLeftColor: colors.success },
   eventText: { color: colors.text, fontSize: 8, fontWeight: "700" },
   eventTime: { color: colors.textSecondary, fontSize: 8 },
-  more: { color: colors.primary, fontSize: 8, fontWeight: "700", marginTop: 2 },
+  more: { color: colors.primaryPressed, fontSize: 8, fontWeight: "700", marginTop: 2 },
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(15,15,16,0.45)" },
   sheet: { ...webSheetStyle, maxHeight: "75%", backgroundColor: colors.surface, padding: spacing.lg, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg, gap: spacing.md },
   agendaRow: { paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.xs },

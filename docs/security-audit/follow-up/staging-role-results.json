@@ -1,0 +1,4485 @@
+{
+  "project_ref": "mgfzfgvlrxwyyftwukwf",
+  "checks": [
+    {
+      "role": "anon",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "alembic_version",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "api_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "attendance_sessions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "audit_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "booking_vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "bookings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_operating_hours",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_settings",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "business_sync_revisions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "businesses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cancellation_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliation_payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "cash_reconciliations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "complaint_rate_windows",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_service_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupon_vehicle_eligibility",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "coupons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_addresses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_payment_methods",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_review_prompt_states",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "customer_reviews",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "deleted_customer_identities",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "expense_evidence",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "expenses",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "guest_review_verification_attempts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "idempotency_records",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_locations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_movements",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_operations",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "inventory_stock",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "invoice_sequences",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_checklist_items",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_complaints",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inspections",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_lines",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_inventory_consumption_runs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_photos",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "job_quality_issues",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "jobs",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "leave_requests",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_events",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "loyalty_rewards",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "notification_outbox",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "payment_transactions",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "payments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "revenue_invoices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_resources",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "schedule_slots",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_addons",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_inventory_templates",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "service_prices",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "services",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "shifts",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "slot_hold_groups",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_profiles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "staff_shift_assignments",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "team_memberships",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "vehicles",
+      "result": "PASS",
+      "sqlstate": "42501",
+      "operation": "TRUNCATE"
+    }
+  ]
+}

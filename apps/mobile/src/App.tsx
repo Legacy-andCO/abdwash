@@ -23,12 +23,17 @@ import { getContext, supabase, updateProfile, type StaffContext } from "./lib";
 import { OperationsShell } from "./navigation/OperationsShell";
 import { LoginScreen } from "./screens/LoginScreen";
 import { colors, spacing } from "./theme";
+import { PrivilegedMfa } from "./components/PrivilegedMfa";
+import { subscribeMfaRequired } from "./mfa-events";
 
 function AuthenticatedApp() {
   const [session, setSession] = useState<Session | null | undefined>();
   const [context, setContext] = useState<StaffContext | null>(null);
   const [contextUserId, setContextUserId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => subscribeMfaRequired(() => { setMfaRequired(true); setContext(null); }), []);
   useEffect(() => {
     void supabase.auth
       .getSession()
@@ -36,7 +41,7 @@ function AuthenticatedApp() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, value) => {
-      if (event === "SIGNED_OUT") void prepareOperationalLogout();
+      if (event === "SIGNED_OUT") { setMfaRequired(false); void prepareOperationalLogout(); }
       setSession(value);
     });
     return () => subscription.unsubscribe();
@@ -50,6 +55,7 @@ function AuthenticatedApp() {
       return;
     }
     setError("");
+    setContext(null);
     let active = true;
     void getContext(session)
       .then((value) => {
@@ -59,6 +65,9 @@ function AuthenticatedApp() {
         }
       })
       .catch((reason) => {
+        if (active && ["MFA_REQUIRED", "MFA_REAUTHENTICATION_REQUIRED"].includes(reason?.code ?? reason?.message)) {
+          setMfaRequired(true); setContext(null); return;
+        }
         if (active)
           setError(
             reason instanceof Error &&
@@ -70,9 +79,10 @@ function AuthenticatedApp() {
     return () => {
       active = false;
     };
-  }, [session?.user.id]);
+  }, [session?.user.id, session?.access_token, revision]);
   const verifiedContext =
     session && contextUserId === session.user.id ? context : null;
+  if (session && mfaRequired) return <PrivilegedMfa onVerified={() => { setMfaRequired(false); setRevision(v => v + 1); }} />;
   if (session === undefined || (session && !verifiedContext && !error))
     return (
       <SafeAreaView style={styles.center}>

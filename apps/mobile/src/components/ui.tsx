@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import {
   Platform,
@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { colors, elevation, radii, spacing } from "../theme";
+import { colors, radii, spacing } from "../theme";
 import { buttonInteractionState } from "./buttonState";
 
 export function ScreenTitle({
@@ -24,7 +24,7 @@ export function ScreenTitle({
   return (
     <View style={styles.titleWrap}>
       {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-      <Text style={styles.title}>{title}</Text>
+      <Text accessibilityRole="header" style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );
@@ -32,6 +32,23 @@ export function ScreenTitle({
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
+}
+
+/** Inline secondary controls remain labelled and keyboard accessible. */
+export function Disclosure({ title, children, initiallyOpen = false }: {
+  title: string; children: ReactNode; initiallyOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  return (
+    <View style={styles.disclosure}>
+      <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ expanded: open }} aria-expanded={open}
+        onPress={() => setOpen(value => !value)} style={styles.disclosureToggle}>
+        <Text style={styles.disclosureTitle}>{title}</Text>
+        <Text style={styles.disclosureState}>{open ? "Hide" : "Show"}</Text>
+      </Pressable>
+      {open ? <View style={styles.disclosureBody}>{children}</View> : null}
+    </View>
+  );
 }
 
 export function AppButton({
@@ -51,7 +68,7 @@ export function AppButton({
   const state = buttonInteractionState(disabled, loading);
   const backgroundColor =
     tone === "primary"
-      ? colors.primary
+      ? colors.primaryPressed
       : tone === "danger"
         ? colors.dangerSurface
         : colors.secondary;
@@ -60,7 +77,7 @@ export function AppButton({
       ? colors.white
       : tone === "danger"
         ? colors.danger
-        : colors.primary;
+        : colors.text;
   return (
     <Pressable
       accessibilityRole="button"
@@ -108,7 +125,7 @@ export function StatusChip({ value }: { value: string }) {
         danger ? styles.chipDanger : warning ? styles.chipWarning : active ? styles.chipActive : neutral ? styles.chipNeutral : undefined,
       ]}
     >
-      {value.replaceAll("_", " ").toUpperCase()}
+      {{ en_route: "On the way", in_progress: "Washing", rescheduling_required: "Needs reschedule", unpaid: "Payment due", assigned: "Scheduled" }[normalized] ?? value.replaceAll("_", " ").replace(/^./, letter => letter.toUpperCase())}
     </Text>
   );
 }
@@ -182,9 +199,10 @@ export const uiStyles = StyleSheet.create({
   body: { color: colors.text, fontSize: 15 },
   muted: { color: colors.textSecondary },
   link: {
-    color: colors.primary,
+    color: colors.primaryPressed,
     fontWeight: "800",
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
+    minHeight: 44,
   },
   error: {
     color: colors.danger,
@@ -205,24 +223,23 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 11,
     fontWeight: "900",
-    color: colors.primary,
+    color: colors.primaryPressed,
     letterSpacing: 1.4,
   },
   title: {
-    fontSize: 30,
-    fontWeight: "900",
+    fontSize: 28,
+    fontWeight: "700",
     color: colors.text,
     letterSpacing: -0.8,
   },
   subtitle: { color: colors.textSecondary, lineHeight: 20 },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     padding: spacing.lg,
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    ...elevation,
   },
   button: {
     minHeight: 52,
@@ -231,7 +248,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  buttonText: { fontSize: 15, fontWeight: "900" },
+  buttonText: { fontSize: 15, fontWeight: "700", textAlign: "center", flexShrink: 1 },
   buttonContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -243,13 +260,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: radii.pill,
-    fontWeight: "900",
-    fontSize: 10,
+    fontWeight: "700",
+    fontSize: 12,
     overflow: "hidden",
   },
   chipWarning: { color: colors.warning, backgroundColor: colors.warningSurface },
   chipDanger: { color: colors.danger, backgroundColor: colors.dangerSurface },
-  chipActive: { color: colors.primaryPressed, backgroundColor: colors.secondary },
+  chipActive: { color: colors.text, backgroundColor: colors.secondary },
   chipNeutral: { color: colors.textSecondary, backgroundColor: colors.neutralSurface },
   metric: {
     width: "48%",
@@ -265,4 +282,9 @@ const styles = StyleSheet.create({
   emptyTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
   skeletonWrap: { gap: spacing.md },
   skeleton: { height: 70, borderRadius: radii.lg, backgroundColor: colors.neutralSurface },
+  disclosure: { borderTopWidth: 1, borderTopColor: colors.border },
+  disclosureToggle: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
+  disclosureTitle: { color: colors.text, fontSize: 15, fontWeight: "600", flex: 1 },
+  disclosureState: { color: colors.primaryPressed, fontSize: 14, fontWeight: "600" },
+  disclosureBody: { gap: spacing.md, paddingBottom: spacing.md },
 });

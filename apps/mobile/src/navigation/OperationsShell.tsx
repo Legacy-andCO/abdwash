@@ -22,6 +22,7 @@ import { InventoryScreen } from "../screens/InventoryScreen";
 import { ServicesPricingScreen } from "../screens/ServicesPricingScreen";
 import { colors, spacing } from "../theme";
 import { uaeDateKey } from "../time/uaeTime";
+import { CalendarBookingSheet } from "../components/CalendarBookingSheet";
 
 export function OperationsShell({ context }: { context: StaffContext }) {
   const tabs = navigationTabs(context.role);
@@ -30,6 +31,7 @@ export function OperationsShell({ context }: { context: StaffContext }) {
   const [complaintsOpen, setComplaintsOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
   const [jobDrillId, setJobDrillId] = useState<string | null>(null);
   const [jobsNavigation, setJobsNavigation] = useState<JobsNavigationState>({
     view: "today",
@@ -119,6 +121,10 @@ export function OperationsShell({ context }: { context: StaffContext }) {
             onOpenComplaints={() => setComplaintsOpen(true)}
             onOpenInventory={() => setInventoryOpen(true)}
             onOpenServices={() => setServicesOpen(true)}
+            onBook={() => setBookingOpen(true)}
+            onOpenJob={(id) => { setJobDrillId(id); setTab("jobs"); }}
+            onOpenJobs={(view = "today") => { setJobDrillId(null); setJobsNavigation({ view, offset: 0 }); setTab("jobs"); }}
+            onOpenTeam={(section = "teams") => { setTeamSection(section); setTab("team"); }}
           />
         ) : tab === "jobs" ? (
           <JobsScreen
@@ -127,6 +133,7 @@ export function OperationsShell({ context }: { context: StaffContext }) {
             onNavigationStateChange={setJobsNavigation}
             initialJobId={jobDrillId}
             onInitialJobClosed={() => setJobDrillId(null)}
+            onBook={() => setBookingOpen(true)}
           />
         ) : tab === "team" ? (
           <TeamScreen
@@ -145,6 +152,8 @@ export function OperationsShell({ context }: { context: StaffContext }) {
           <ProfileScreen context={context} />
         )}
       </View>
+      {bookingOpen ? <CalendarBookingSheet context={context} initialDate={uaeDateKey()} overlap={null}
+        onClose={() => setBookingOpen(false)} onBooked={() => undefined} /> : null}
       {!customersOpen && !complaintsOpen && !inventoryOpen && !servicesOpen ? (
         <View style={styles.tabs}>
           {tabs.map((value) => (
@@ -185,13 +194,13 @@ const styles = StyleSheet.create({
   },
   body: { flex: 1, ...(Platform.OS === "web" ? { minHeight: 0 } : {}) },
   eyebrow: {
-    color: colors.primary,
+    color: colors.primaryPressed,
     fontWeight: "900",
     fontSize: 10,
     letterSpacing: 1.3,
   },
   name: { color: colors.text, fontWeight: "900", fontSize: 20 },
-  role: { color: colors.primary, fontWeight: "900", fontSize: 11 },
+  role: { color: colors.primaryPressed, fontWeight: "900", fontSize: 11 },
   tabs: {
     flexDirection: "row",
     minHeight: 64,
@@ -207,6 +216,6 @@ const styles = StyleSheet.create({
     borderTopColor: "transparent",
   },
   tabActive: { borderTopColor: colors.primary },
-  tabText: { color: colors.textSecondary, fontSize: 11, fontWeight: "700" },
-  tabTextActive: { color: colors.primary, fontWeight: "900" },
+  tabText: { color: colors.textSecondary, fontSize: 13, fontWeight: "600" },
+  tabTextActive: { color: colors.primaryPressed, fontWeight: "700" },
 });

@@ -1,0 +1,67 @@
+{'test': 'native password login customer_a', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login customer_b', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login employee', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login admin', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login admin_two', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login other_employee', 'status': 'PASS', 'http_status': 200}
+{'test': 'native password login foreign_manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'native TOTP enrollment manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'native private QR returned manager', 'status': 'PASS'}
+{'test': 'expired TOTP cannot verify', 'status': 'PASS', 'http_status': 422, 'error_code': 422}
+{'test': 'native correct TOTP verification manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'provider issued aal2 and totp AMR manager', 'status': 'PASS'}
+{'test': 'used MFA challenge cannot replay', 'status': 'PASS', 'http_status': 422, 'error_code': 422}
+{'test': 'native password login manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'subsequent password login is aal1', 'status': 'PASS'}
+{'test': 'stolen aal1 cannot remove verified factor', 'status': 'PASS', 'http_status': 422, 'error_code': 422}
+{'test': 'stolen aal1 cannot enroll replacement factor', 'status': 'PASS', 'http_status': 403, 'error_code': 403}
+{'test': 'native TOTP enrollment admin', 'status': 'PASS', 'http_status': 200}
+{'test': 'native private QR returned admin', 'status': 'PASS'}
+{'test': 'native correct TOTP verification admin', 'status': 'PASS', 'http_status': 200}
+{'test': 'provider issued aal2 and totp AMR admin', 'status': 'PASS'}
+{'test': 'native TOTP enrollment admin_two', 'status': 'PASS', 'http_status': 200}
+{'test': 'native private QR returned admin_two', 'status': 'PASS'}
+{'test': 'native correct TOTP verification admin_two', 'status': 'PASS', 'http_status': 200}
+{'test': 'provider issued aal2 and totp AMR admin_two', 'status': 'PASS'}
+{'test': 'native TOTP enrollment foreign_manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'native private QR returned foreign_manager', 'status': 'PASS'}
+{'test': 'native correct TOTP verification foreign_manager', 'status': 'PASS', 'http_status': 200}
+{'test': 'provider issued aal2 and totp AMR foreign_manager', 'status': 'PASS'}
+{'test': 'incorrect password rejected', 'status': 'PASS', 'http_status': 400, 'error_code': 400}
+{'test': 'signed immutable upload job-quality-photos', 'status': 'PASS', 'http_status': 200}
+{'test': 'upload token cannot overwrite job-quality-photos', 'status': 'PASS', 'http_status': 400}
+{'test': 'direct private read denied job-quality-photos anon', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied job-quality-photos anon', 'status': 'PASS', 'http_status': 200}
+{'test': 'direct private read denied job-quality-photos customer_a', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied job-quality-photos customer_a', 'status': 'PASS', 'http_status': 200}
+{'test': 'direct private read denied job-quality-photos customer_b', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied job-quality-photos customer_b', 'status': 'PASS', 'http_status': 200}
+{'test': 'signed download works job-quality-photos', 'status': 'PASS', 'http_status': 200}
+{'test': 'signed download path tampering denied job-quality-photos', 'status': 'PASS', 'http_status': 400}
+{'test': 'signed download expired job-quality-photos', 'status': 'PASS', 'http_status': 400}
+{'test': 'active MIME upload denied job-quality-photos', 'status': 'PASS', 'http_status': 400}
+{'test': 'signed immutable upload complaint-evidence', 'status': 'PASS', 'http_status': 200}
+{'test': 'upload token cannot overwrite complaint-evidence', 'status': 'PASS', 'http_status': 400}
+{'test': 'direct private read denied complaint-evidence anon', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied complaint-evidence anon', 'status': 'PASS', 'http_status': 200}
+{'test': 'direct private read denied complaint-evidence customer_a', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied complaint-evidence customer_a', 'status': 'PASS', 'http_status': 200}
+{'test': 'direct private read denied complaint-evidence customer_b', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied complaint-evidence customer_b', 'status': 'PASS', 'http_status': 200}
+{'test': 'signed download works complaint-evidence', 'status': 'PASS', 'http_status': 200}
+{'test': 'signed download path tampering denied complaint-evidence', 'status': 'PASS', 'http_status': 400}
+{'test': 'signed download expired complaint-evidence', 'status': 'PASS', 'http_status': 400}
+{'test': 'active MIME upload denied complaint-evidence', 'status': 'PASS', 'http_status': 400}
+{'test': 'signed immutable upload expense-evidence', 'status': 'PASS', 'http_status': 200}
+{'test': 'upload token cannot overwrite expense-evidence', 'status': 'PASS', 'http_status': 400}
+{'test': 'direct private read denied expense-evidence anon', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied expense-evidence anon', 'status': 'PASS', 'http_status': 200}
+{'test': 'direct private read denied expense-evidence customer_a', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied expense-evidence customer_a', 'status': 'PASS', 'http_status': 200}
+{'test': 'direct private read denied expense-evidence customer_b', 'status': 'PASS', 'http_status': 400}
+{'test': 'private listing empty/denied expense-evidence customer_b', 'status': 'PASS', 'http_status': 200}
+{'test': 'signed download works expense-evidence', 'status': 'PASS', 'http_status': 200}
+{'test': 'signed download path tampering denied expense-evidence', 'status': 'PASS', 'http_status': 400}
+{'test': 'signed download expired expense-evidence', 'status': 'PASS', 'http_status': 400}
+{'test': 'active MIME upload denied expense-evidence', 'status': 'PASS', 'http_status': 400}
