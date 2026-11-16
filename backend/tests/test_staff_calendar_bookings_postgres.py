@@ -67,9 +67,23 @@ class TestVerifier:
         self.tokens = tokens
 
     async def verify(self, token):
+        if token in {"manager-aal1", "manager-stale"}:
+            return VerifiedIdentity(
+                self.tokens["manager"],
+                {
+                    "aal": "aal1" if token.endswith("-aal1") else "aal2",
+                    "amr": [{"method": "totp", "timestamp": datetime.now(UTC).timestamp() - 600}],
+                },
+            )
         if token not in self.tokens:
             raise AuthenticationError("Invalid test identity")
-        return VerifiedIdentity(self.tokens[token], {"aal":"aal2","amr":[{"method":"totp","timestamp":datetime.now(UTC).timestamp()}]})
+        return VerifiedIdentity(
+            self.tokens[token],
+            {
+                "aal": "aal2",
+                "amr": [{"method": "totp", "timestamp": datetime.now(UTC).timestamp()}],
+            },
+        )
 
 
 @pytest.fixture(scope="module")
@@ -361,6 +375,8 @@ async def test_overlap_preserves_prepaid_booking_and_manager_reschedules(foundat
         email="new@example.com",
         overlap={
             "team_id": str(foundation.team_a),
+            "job_id": original["job_id"],
+            "expected_version": 1,
             "confirmed": True,
         },
     )
@@ -487,16 +503,20 @@ async def test_overlap_preserves_prepaid_booking_and_manager_reschedules(foundat
 
 async def test_overlap_requires_existing_appointment_and_preserves_hard_blocks(foundation):
     day = "2036-01-15"
+    original = {"job_id": str(uuid.uuid4())}
     body = payload(
         foundation,
         day,
         overlap={
             "team_id": str(foundation.team_a),
+            "job_id": original["job_id"],
+            "expected_version": 1,
             "confirmed": True,
         },
     )
-    assert (await submit(foundation, body)).json()["code"] == "NO_APPOINTMENT_OVERLAP"
-    await created(foundation, payload(foundation, day))
+    assert (await submit(foundation, body)).json()["code"] == "APPOINTMENT_NOT_FOUND"
+    original = await created(foundation, payload(foundation, day))
+    body["overlap"]["job_id"] = original["job_id"]
     async with foundation.sessions() as session, session.begin():
         session.add(
             ScheduleSlot(
@@ -543,3 +563,197 @@ async def test_manager_cannot_override_a_blocked_interval_with_off_grid_start(fo
         headers=headers("manager"),
     )
     assert response.status_code == 409 and response.json()["code"] == "TEAM_TIME_CONFLICT"
+
+
+async def test_normal_duration_overlap_and_manager_race(foundation):
+    long = await created(foundation, payload(foundation, "2036-02-01", service=1))
+    assert (
+        await submit(foundation, payload(foundation, "2036-02-01", time_value="11:00"))
+    ).status_code == 409
+    assert (
+        await submit(foundation, payload(foundation, "2036-02-01", time_value="13:00"))
+    ).status_code == 201
+    await created(foundation, payload(foundation, "2036-02-02"), actor="other")
+    body = payload(foundation, "2036-02-02")
+    responses = await asyncio.gather(
+        *(submit(foundation, body, actor) for actor in ["employee", "coworker", "manager"])
+    )
+    assert sorted(r.status_code for r in responses) == [201, 409, 409]
+    bypass = {**body, "overlap": {"team_id": str(foundation.team_a), "confirmed": True}}
+    assert (await submit(foundation, bypass)).status_code == 422
+    assert (await submit(foundation, {**body, "capacity_exception": True})).status_code == 422
+    stale = {
+        **body,
+        "overlap": {
+            "job_id": long["job_id"],
+            "expected_version": 99,
+            "team_id": str(foundation.team_a),
+            "confirmed": True,
+        },
+        "date": "2036-02-01",
+    }
+    assert (await submit(foundation, stale)).json()["code"] == "STALE_JOB_VERSION"
+
+
+async def test_manager_cancel_is_scoped_atomic_idempotent_and_financially_safe(foundation):
+    receipt = await created(
+        foundation, payload(foundation, "2036-02-03", email="cancel@example.com")
+    )
+    booking_id = uuid.UUID(receipt["id"])
+    async with foundation.sessions() as session, session.begin():
+        booking = await session.get(Booking, booking_id)
+        payment = await session.scalar(select(Payment).where(Payment.booking_id == booking_id))
+        payment.status = booking.payment_status = PaymentStatus.PAID
+        payment.provider_payment_id = "synthetic-existing-payment"
+        payment_id = payment.id
+        session.add(
+            NotificationOutbox(
+                business_id=foundation.business,
+                booking_id=booking_id,
+                channel="email",
+                notification_type="appointment_reminder",
+                recipient="cancel@example.com",
+                payload={},
+                status=OutboxStatus.PENDING,
+                next_attempt_at=datetime.now(UTC),
+            )
+        )
+    endpoint = f"{STAFF}/bookings/{booking_id}/cancel"
+    body = {"reason": "Customer requested cancellation", "expected_version": 1, "language": "en"}
+    assert (
+        await foundation.client.post(endpoint, json=body, headers=headers("employee"))
+    ).status_code == 403
+    assert (
+        await foundation.client.post(endpoint, json=body, headers=headers("foreign"))
+    ).status_code == 403
+    for actor in ["manager-aal1", "manager-stale"]:
+        denied = await foundation.client.post(endpoint, json=body, headers=headers(actor))
+        assert denied.status_code == 403
+    assert (
+        await foundation.client.post(
+            endpoint, json={**body, "reason": " "}, headers=headers("manager", uuid.uuid4())
+        )
+    ).status_code == 422
+    key = uuid.uuid4()
+    first, retry = await asyncio.gather(
+        *(
+            foundation.client.post(endpoint, json=body, headers=headers("manager", key))
+            for _ in range(2)
+        )
+    )
+    assert first.status_code == retry.status_code == 200, first.text
+    assert first.json() == retry.json()
+    assert first.json()["email_queued"] and not first.json()["manual_notification_required"]
+    async with foundation.sessions() as session:
+        booking = await session.get(Booking, booking_id)
+        job = await session.scalar(select(Job).where(Job.booking_id == booking_id))
+        payment = await session.get(Payment, payment_id)
+        assert booking.status == BookingStatus.CANCELLED and job.status == JobStatus.CANCELLED
+        assert (
+            payment.status == PaymentStatus.PAID
+            and payment.provider_payment_id == "synthetic-existing-payment"
+        )
+        assert booking.payment_status == PaymentStatus.PAID
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(NotificationOutbox)
+                .where(
+                    NotificationOutbox.booking_id == booking_id,
+                    NotificationOutbox.notification_type == "appointment_reminder",
+                )
+            )
+            == 0
+        )
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(NotificationOutbox)
+                .where(
+                    NotificationOutbox.booking_id == booking_id,
+                    NotificationOutbox.notification_type == "booking_cancelled",
+                )
+            )
+            == 1
+        )
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(AuditEvent)
+                .where(
+                    AuditEvent.entity_id == booking_id,
+                    AuditEvent.event_type == "staff_booking_cancelled",
+                )
+            )
+            == 1
+        )
+    assert (
+        await foundation.client.post(endpoint, json=body, headers=headers("admin", uuid.uuid4()))
+    ).status_code == 409
+    assert (await submit(foundation, payload(foundation, "2036-02-03"))).status_code == 201
+
+
+async def test_cancellation_without_email_and_ineligible_jobs(foundation):
+    for day, email in [("2036-02-04", None), ("2036-02-05", "invalid legacy address")]:
+        receipt = await created(foundation, payload(foundation, day))
+        if email:
+            async with foundation.sessions() as session, session.begin():
+                booking = await session.get(Booking, uuid.UUID(receipt["id"]))
+                booking.customer_email = email
+        r = await foundation.client.post(
+            f"{STAFF}/bookings/{receipt['id']}/cancel",
+            json={"reason": "Synthetic test cancellation", "expected_version": 1, "language": "ar"},
+            headers=headers("admin", uuid.uuid4()),
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["manual_notification_required"] and not r.json()["email_queued"]
+        async with foundation.sessions() as session:
+            event = await session.scalar(
+                select(AuditEvent).where(
+                    AuditEvent.entity_id == uuid.UUID(receipt["id"]),
+                    AuditEvent.event_type == "staff_booking_cancelled",
+                )
+            )
+            assert event.metadata_json["manual_notification_required"]
+    for day, status in [("2036-02-06", JobStatus.COMPLETED), ("2036-02-07", JobStatus.IN_PROGRESS)]:
+        receipt = await created(foundation, payload(foundation, day))
+        async with foundation.sessions() as session, session.begin():
+            job = await session.get(Job, uuid.UUID(receipt["job_id"]))
+            job.status = status
+        r = await foundation.client.post(
+            f"{STAFF}/bookings/{receipt['id']}/cancel",
+            json={"reason": "Not allowed", "expected_version": 1},
+            headers=headers("manager", uuid.uuid4()),
+        )
+        assert r.status_code == 409
+        assert r.json()["code"] == "BOOKING_NOT_CANCELLABLE"
+
+
+async def test_reports_keep_revenue_and_job_counts_accurate_and_reject_mixed_currency(foundation):
+    receipts = [
+        await created(foundation, payload(foundation, day))
+        for day in ["2036-03-01", "2036-03-02", "2036-03-03"]
+    ]
+    async with foundation.sessions() as session, session.begin():
+        paid = await session.get(Booking, uuid.UUID(receipts[0]["id"]))
+        paid.status = BookingStatus.COMPLETED
+        payment = await session.scalar(select(Payment).where(Payment.booking_id == paid.id))
+        payment.status = PaymentStatus.PAID
+        cancelled = await session.get(Booking, uuid.UUID(receipts[1]["id"]))
+        cancelled.status = BookingStatus.CANCELLED
+    endpoint = f"{STAFF}/reports/v2?start_date=2036-03-01&end_date=2036-03-03"
+    response = await foundation.client.get(endpoint, headers=headers("manager"))
+    assert response.status_code == 200, response.text
+    report = response.json()
+    assert report["summary"]["currency_code"] == "AED"
+    assert report["summary"]["booked_sales_minor"] == 15000
+    assert report["summary"]["collected_revenue_minor"] == 5000
+    assert sum(p["jobs"] for p in report["series"]) == 3
+    assert sum(p["completed"] for p in report["series"]) == 1
+    assert sum(p["cancelled"] for p in report["series"]) == 1
+    async with foundation.sessions() as session, session.begin():
+        booking = await session.get(Booking, uuid.UUID(receipts[2]["id"]))
+        booking.currency_code = "USD"
+    response = await foundation.client.get(endpoint, headers=headers("manager"))
+    assert response.status_code == 422
+    assert response.json()["code"] == "REPORT_MIXED_CURRENCY"

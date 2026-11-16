@@ -93,6 +93,27 @@ class BookingArchiveResult(BaseModel):
     archived_at: datetime | None
 
 
+class StaffBookingCancellation(StrictRequest):
+    reason: str = Field(min_length=3, max_length=1000)
+    expected_version: int = Field(ge=1)
+    language: Literal["en", "ar"] = "en"
+
+    @model_validator(mode="after")
+    def meaningful_reason(self) -> "StaffBookingCancellation":
+        self.reason = self.reason.strip()
+        if len(self.reason) < 3:
+            raise ValueError("Enter a cancellation reason.")
+        return self
+
+
+class StaffBookingCancellationResult(BaseModel):
+    booking_id: uuid.UUID
+    job_id: uuid.UUID
+    status: Literal["cancelled"] = "cancelled"
+    email_queued: bool
+    manual_notification_required: bool
+
+
 class CalendarJob(BaseModel):
     job_id: uuid.UUID
     version: int | None = None

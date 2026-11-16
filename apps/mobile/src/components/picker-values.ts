@@ -1,3 +1,4 @@
+import { staffLocale } from "../i18n";
 export function toIsoDate(value: Date): string {
   return [
     value.getFullYear(),
@@ -23,7 +24,7 @@ export function fromApiTime(value: string): Date {
 }
 
 export function formatHumanDate(value: string): string {
-  return fromIsoDate(value).toLocaleDateString(undefined, {
+  return fromIsoDate(value).toLocaleDateString(staffLocale(), {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -32,7 +33,7 @@ export function formatHumanDate(value: string): string {
 }
 
 export function formatHumanTime(value: string): string {
-  return fromApiTime(value).toLocaleTimeString([], {
+  return fromApiTime(value).toLocaleTimeString(staffLocale(), {
     hour: "2-digit",
     minute: "2-digit",
   });

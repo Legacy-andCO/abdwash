@@ -30,9 +30,9 @@ describe("smart scheduling assignment UI", () => {
     expect(capabilities("employee").canAssignJobs).toBe(false);
     expect(capabilities("manager").canAssignJobs).toBe(true);
     const jobsScreen = source("./screens/JobsScreen.tsx");
-    expect(jobsScreen).toContain('title={mutation.isPending ? "Assigning…" : "Auto assign"}');
+    expect(jobsScreen).toContain('title={mutation.isPending ? t("Assigning…") : t("Auto assign")}');
     expect(jobsScreen).toContain('selected?.status !== "turnaround_conflict"');
-    expect(jobsScreen).toContain('text: "Assign anyway"');
+    expect(jobsScreen).toContain('text: t("Assign anyway")');
     expect(jobsScreen).toContain('item.status === "time_conflict"');
   });
 
@@ -47,7 +47,7 @@ describe("smart scheduling assignment UI", () => {
   it("uses business-hour quick choices plus an arbitrary native time picker", () => {
     const jobsScreen = source("./screens/JobsScreen.tsx");
     expect(jobsScreen).toContain("hourlyQuickTimes");
-    expect(jobsScreen).toContain('title="Choose a custom time"');
+    expect(jobsScreen).toContain('title={t("Choose a custom time")}');
     expect(jobsScreen).toContain("<TimePickerField");
     expect(jobsScreen).toContain("TEAM_TURNAROUND_CONFLICT");
     expect(jobsScreen).not.toContain("Loading available times");

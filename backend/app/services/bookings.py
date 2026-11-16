@@ -55,7 +55,12 @@ from app.services.coupons import resolve_coupon
 from app.services.customer_communications import queue_customer_email_if_available
 from app.services.customer_profiles import provision_customer_profile
 from app.services.management_tokens import create_management_token, management_token_hash
-from app.services.scheduling import lock_hold_for_confirmation, policy_for_day, validate_overlap
+from app.services.scheduling import (
+    fresh_hold,
+    lock_hold_for_confirmation,
+    policy_for_day,
+    validate_overlap,
+)
 from app.services.smart_scheduling import (
     choose_team_for_booking,
     operational_duration_minutes,
@@ -105,11 +110,20 @@ async def create_booking(
         coupon, billing = request.coupon, request.billing
         location_url = str(request.location.location_url)
     configuration = configuration or await load_default_business(session)
-    hold = await lock_hold_for_confirmation(
-        session,
-        hold_token,
-        business_id=configuration.business.id,
-        timezone=configuration.settings.timezone,
+    # Calendar booking creates and consumes its hold under the same day lock and
+    # transaction. Reuse that locked reservation, never a prior request's cache.
+    reservation = (
+        fresh_hold(session, hold_token) if isinstance(request, StaffBookingCreate) else None
+    )
+    hold = (
+        reservation.hold
+        if reservation
+        else await lock_hold_for_confirmation(
+            session,
+            hold_token,
+            business_id=configuration.business.id,
+            timezone=configuration.settings.timezone,
+        )
     )
     if hold is None:
         raise DomainError("INVALID_HOLD", "The booking hold is invalid.")
@@ -222,7 +236,17 @@ async def create_booking(
     )
     day = hold.slot_start.astimezone(ZoneInfo(configuration.settings.timezone)).date()
     operational_end = hold.slot_start + timedelta(minutes=expected_duration_minutes)
-    day_policy = await policy_for_day(session, configuration.settings, day)
+    capacity_is_current = bool(
+        reservation
+        and reservation.resource_id == hold.resource_id
+        and reservation.starts_at == hold.slot_start
+        and reservation.ends_at == operational_end
+    )
+    day_policy = (
+        reservation.policy
+        if capacity_is_current and reservation
+        else await policy_for_day(session, configuration.settings, day)
+    )
     if day_policy is None:
         raise ConflictError(
             "NO_TEAM_CAPACITY", "This time is no longer available. Please choose another time."
@@ -234,15 +258,19 @@ async def create_booking(
     # Hold creation takes the business/day advisory lock before any schedule
     # slot rows. Keep confirmation in the same order to avoid a day/slot
     # deadlock under concurrent hold and confirmation requests.
-    slots = list(
-        (
-            await session.scalars(
-                select(ScheduleSlot)
-                .where(ScheduleSlot.hold_group_id == hold.id)
-                .order_by(ScheduleSlot.slot_start)
-                .with_for_update()
-            )
-        ).all()
+    slots = (
+        list(reservation.slots)
+        if reservation
+        else list(
+            (
+                await session.scalars(
+                    select(ScheduleSlot)
+                    .where(ScheduleSlot.hold_group_id == hold.id)
+                    .order_by(ScheduleSlot.slot_start)
+                    .with_for_update()
+                )
+            ).all()
+        )
     )
     if len(slots) != hold.required_slot_count or any(
         slot.status != SlotStatus.HELD
@@ -256,26 +284,34 @@ async def create_booking(
             slot.capacity_exception for slot in slots
         ):
             raise ConflictError("INVALID_HOLD", "The overlap booking hold is invalid.")
-        await validate_overlap(
-            session, configuration, day_policy, day, hold.resource_id,
-            hold.slot_start, operational_end, exclude_hold_id=hold.id,
-        )
+        if not capacity_is_current:
+            await validate_overlap(
+                session,
+                configuration,
+                day_policy,
+                day,
+                hold.resource_id,
+                hold.slot_start,
+                operational_end,
+                exclude_hold_id=hold.id,
+            )
     else:
         if any(slot.capacity_exception for slot in slots):
             raise ConflictError("INVALID_HOLD", "The booking hold is invalid.")
-        await choose_team_for_booking(
-            session,
-            business_id=hold.business_id,
-            day=day,
-            timezone=configuration.settings.timezone,
-            starts_at=hold.slot_start,
-            ends_at=operational_end,
-            turnaround_minutes=configuration.settings.default_team_turnaround_minutes,
-            source="auto",
-            preferred_team_id=hold.resource_id,
-            exclude_hold_id=hold.id,
-            include_blocked_slots=isinstance(request, StaffBookingCreate),
-        )
+        if not capacity_is_current:
+            await choose_team_for_booking(
+                session,
+                business_id=hold.business_id,
+                day=day,
+                timezone=configuration.settings.timezone,
+                starts_at=hold.slot_start,
+                ends_at=operational_end,
+                turnaround_minutes=configuration.settings.default_team_turnaround_minutes,
+                source="auto",
+                preferred_team_id=hold.resource_id,
+                exclude_hold_id=hold.id,
+                include_blocked_slots=isinstance(request, StaffBookingCreate),
+            )
     hold.expected_duration_minutes = expected_duration_minutes
     hold.slot_end = operational_end
 

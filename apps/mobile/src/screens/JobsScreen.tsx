@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { webSheetStyle } from "../components/webSheetStyle";
 import { Alert } from "../alert";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -29,6 +30,7 @@ import { ElapsedTimer } from "../components/ElapsedTimer";
 import { JobQualityControls } from "../components/JobQualityControls";
 import { BookingPolicyProvision } from "../components/BookingPolicyProvision";
 import { CashTenderModal } from "../components/CashTenderModal";
+import { CancelBooking } from "../components/CancelBooking";
 import { OperationsCalendar } from "../components/OperationsCalendar";
 import { ApiError, domainErrorMessage } from "../errors/domainErrors";
 import { expenseAmountMinor } from "../finance/financeState";
@@ -196,15 +198,15 @@ export function JobsScreen({
           ]}
           onPress={() => updateNavigation({ view: item, offset: 0 })}
         >
-          <Text style={styles.segmentText}>{item === "all" ? "All jobs & customer search" : label(item)}</Text>
+          <Text style={styles.segmentText}>{item === "all" ? t("All jobs & customer search") : label(item)}</Text>
         </Pressable>
   );
   const tabs = (
     <View style={{ gap: spacing.sm }}>
-      <View accessibilityRole="tablist" accessibilityLabel="Job views" style={[styles.segment, styles.primarySegment]}>
+      <View accessibilityRole="tablist" accessibilityLabel={t("Job views")} style={[styles.segment, styles.primarySegment]}>
         {views.filter(item => ["today", "upcoming", "calendar"].includes(item)).map(viewButton)}
       </View>
-      <Disclosure title={!["today", "upcoming", "calendar"].includes(view) ? `More job views · ${label(view)}` : "More job views"}>
+      <Disclosure title={!["today", "upcoming", "calendar"].includes(view) ? t("More job views · {p0}", { p0: label(view) }) : t("More job views")}>
         <View style={styles.segment}>{views.filter(item => !["today", "upcoming", "calendar"].includes(item)).map(viewButton)}</View>
       </Disclosure>
     </View>
@@ -212,7 +214,7 @@ export function JobsScreen({
   if (view === "calendar")
     return (
       <ScrollView contentContainerStyle={[uiStyles.content, narrowCalendar ? styles.narrowContent : undefined]}>
-        <ScreenTitle title="Jobs" subtitle="Choose a date to view appointments or double-book a team." />
+        <ScreenTitle title={t("Jobs")} subtitle={t("Choose a date to view appointments or double-book a team.")} />
         {tabs}
         <OperationsCalendar
           context={context}
@@ -231,16 +233,16 @@ export function JobsScreen({
       }
       contentContainerStyle={uiStyles.content}
     >
-      <ScreenTitle title="Jobs" subtitle="Appointments, customer details and job progress." />
-      {onBook ? <AppButton title="Book a wash" onPress={onBook} /> : null}
+      <ScreenTitle title={t("Jobs")} subtitle={t("Appointments, customer details and job progress.")} />
+      {onBook ? <AppButton title={t("Book a wash")} onPress={onBook} /> : null}
       {tabs}
       {view === "all" ? (
         <View style={styles.searchRow}>
           <TextInput
-            accessibilityLabel="Search customer name"
+            accessibilityLabel={t("Search customer name")}
             autoCapitalize="words"
             autoCorrect={false}
-            placeholder="Search customer"
+            placeholder={t("Search customer")}
             placeholderTextColor={colors.textSecondary}
             selectionColor={colors.primary}
             returnKeyType="search"
@@ -251,18 +253,18 @@ export function JobsScreen({
           {searchText ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Clear customer search"
+              accessibilityLabel={t("Clear customer search")}
               onPress={() => setSearchText("")}
             >
-              <Text style={uiStyles.link}>Clear</Text>
+              <Text style={uiStyles.link}>{t("Clear")}</Text>
             </Pressable>
           ) : null}
         </View>
       ) : null}
-      {searchPending ? <Text style={uiStyles.muted}>Searching…</Text> : null}
+      {searchPending ? <Text style={uiStyles.muted}>{t("Searching…")}</Text> : null}
       {query.isError && jobs.length ? (
         <Text style={styles.offline}>
-          Offline · last updated{" "}
+          {" " + t("Offline · last updated") + ""}{" "}
           {new Date(query.dataUpdatedAt).toLocaleTimeString()}
         </Text>
       ) : null}
@@ -270,10 +272,10 @@ export function JobsScreen({
         <Skeleton rows={4} />
       ) : query.isError && !jobs.length ? (
         <EmptyState
-          title="Jobs unavailable"
+          title={t("Jobs unavailable")}
           body={domainErrorMessage(query.error, "We couldn't load jobs.")}
           action={
-            <AppButton title="Try again" onPress={() => void query.refetch()} />
+            <AppButton title={t("Try again")} onPress={() => void query.refetch()} />
           }
         />
       ) : jobs.length ? (
@@ -291,7 +293,7 @@ export function JobsScreen({
             <View style={styles.actions}>
               <View style={styles.action}>
                 <AppButton
-                  title="Previous"
+                  title={t("Previous")}
                   tone="secondary"
                   disabled={offset === 0}
                   onPress={() =>
@@ -304,7 +306,7 @@ export function JobsScreen({
               </View>
               <View style={styles.action}>
                 <AppButton
-                  title="Next"
+                  title={t("Next")}
                   tone="secondary"
                   disabled={query.data?.next_offset === null}
                   onPress={() =>
@@ -320,11 +322,11 @@ export function JobsScreen({
         </>
       ) : (
         <EmptyState
-          title={search ? "No matching customers" : `No ${view} jobs`}
+          title={search ? t("No matching customers") : t("No {p0} jobs", { p0: view })}
           body={
             search
-              ? `No jobs matched “${search}”. Try another customer name.`
-              : view === "today" ? "New appointments will appear here. Use Book a wash to create one, or choose Upcoming to see future work." : "There are no appointments in this view. Choose Today or Calendar to see other work."
+              ? t("No jobs matched “{p0}”. Try another customer name.", { p0: search })
+              : view === "today" ? t("New appointments will appear here. Use Book a wash to create one, or choose Upcoming to see future work.") : t("There are no appointments in this view. Choose Today or Calendar to see other work.")
           }
         />
       )}
@@ -346,9 +348,9 @@ function JobDetailById({
   if (query.isError || !query.data)
     return (
       <EmptyState
-        title="Job unavailable"
+        title={t("Job unavailable")}
         body={domainErrorMessage(query.error, "We couldn't load this job.")}
-        action={<AppButton title="Back" onPress={onBack} />}
+        action={<AppButton title={t("Back")} onPress={onBack} />}
       />
     );
   return <JobDetail context={context} initial={query.data} onBack={onBack} />;
@@ -374,14 +376,14 @@ function JobCard({ job }: { job: Job }) {
     <Card>
       <View style={uiStyles.row}>
         <Text style={styles.time}>
-          {job.status === "rescheduling_required" ? "Previous · " : ""}
+          {job.status === "rescheduling_required" ? t("Previous · ") : ""}
           {formatTime(job.scheduled_start)}
         </Text>
         <StatusChip value={job.status} />
       </View>
       <Text style={styles.vehicle}>
         {job.vehicles[0]
-          ? `${job.vehicles[0].make} ${job.vehicles[0].model}`.trim() || "Vehicle"
+          ? `${job.vehicles[0].make} ${job.vehicles[0].model}`.trim() || t("Vehicle")
           : job.customer_name}
       </Text>
       <Text style={uiStyles.body}>
@@ -391,7 +393,7 @@ function JobCard({ job }: { job: Job }) {
         {job.written_address}
       </Text>
       <View style={uiStyles.row}>
-        <Text style={styles.assignment}>{assignmentLabel(job)}</Text>
+        <Text style={styles.assignment}>{t(assignmentLabel(job))}</Text>
         <StatusChip value={job.payment_status} />
       </View>
     </Card>
@@ -438,11 +440,11 @@ function JobDetail({
   ) {
     return new Promise<boolean>((resolve) => {
       Alert.alert(
-        "Location unavailable",
+        t("Location unavailable"),
         tripLocationFailureMessage(failure),
         [
-          { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-          { text: "Start without ETA", onPress: () => resolve(true) },
+          { text: t("Cancel"), style: "cancel", onPress: () => resolve(false) },
+          { text: t("Start without ETA"), onPress: () => resolve(true) },
         ],
         { cancelable: true, onDismiss: () => resolve(false) },
       );
@@ -475,23 +477,23 @@ function JobDetail({
           )
         : null;
       Alert.alert(
-        "Trip started",
+        t("Trip started"),
         etaMinutes === null
-          ? "ETA is unavailable. Customer notification queued."
-          : `Estimated arrival in ${etaMinutes} min. Customer notification queued.`,
+          ? t("ETA is unavailable. Customer notification queued.")
+          : t("Estimated arrival in {p0} min. Customer notification queued.", { p0: etaMinutes }),
         [
           {
-            text: "Navigate",
+            text: t("Navigate"),
             onPress: () => void Linking.openURL(updated.location_url),
           },
-          { text: "Close", style: "cancel" },
+          { text: t("Close"), style: "cancel" },
         ],
       );
     } catch (error) {
       Alert.alert(
-        "Unable to start trip",
+        t("Unable to start trip"),
         error instanceof JobActionPreflightError
-          ? "The app could not prepare this action. Please try again."
+          ? t("The app could not prepare this action. Please try again.")
           : domainErrorMessage(
               error,
               "The server did not confirm this action. Retry safely.",
@@ -510,15 +512,15 @@ function JobDetail({
       await successHaptic();
       if (name === "complete" && updated.consumption?.has_attention) {
         Alert.alert(
-          "Job completed",
-          "Inventory needs manager review. The customer workflow is complete.",
+          t("Job completed"),
+          t("Inventory needs manager review. The customer workflow is complete."),
         );
       }
     } catch (error) {
       Alert.alert(
-        "Action not completed",
+        t("Action not completed"),
         error instanceof JobActionPreflightError
-          ? "The app could not prepare this action. Please try again."
+          ? t("The app could not prepare this action. Please try again.")
           : domainErrorMessage(
               error,
               "The server did not confirm this action. Retry safely.",
@@ -545,13 +547,13 @@ function JobDetail({
       await successHaptic();
       setCashTender(false);
       Alert.alert(
-        "Payment complete",
-        `${receipt.job.currency_code} ${(receipt.amount_applied_minor / 100).toFixed(2)} applied. Return ${receipt.job.currency_code} ${(receipt.change_minor / 100).toFixed(2)} change.`,
+        t("Payment complete"),
+        t("{p0} {p1} applied. Return {p2} {p3} change.", { p0: receipt.job.currency_code, p1: (receipt.amount_applied_minor / 100).toFixed(2), p2: receipt.job.currency_code, p3: (receipt.change_minor / 100).toFixed(2) }),
       );
     } catch (error) {
       actionEventIds.failed(eventKey, error);
       Alert.alert(
-        "Payment not completed",
+        t("Payment not completed"),
         domainErrorMessage(
           error,
           "The server did not confirm this payment. Retry safely.",
@@ -560,17 +562,17 @@ function JobDetail({
     }
   }
   if (query.error instanceof ApiError && [403, 404].includes(query.error.status)) {
-    return <EmptyState title="Job unavailable" body="This appointment is no longer available to you."
-      action={<AppButton title="Back" onPress={onBack} />} />;
+    return <EmptyState title={t("Job unavailable")} body={t("This appointment is no longer available to you.")}
+      action={<AppButton title={t("Back")} onPress={onBack} />} />;
   }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <Pressable onPress={onBack}>
-        <Text style={uiStyles.link}>← All jobs</Text>
+        <Text style={uiStyles.link}>{t("← All jobs")}</Text>
       </Pressable>
       {query.isError ? (
         <Text style={styles.offline}>
-          Offline · showing details updated{" "}
+          {" " + t("Offline · showing details updated") + ""}{" "}
           {new Date(query.dataUpdatedAt).toLocaleTimeString()}
         </Text>
       ) : null}
@@ -581,7 +583,7 @@ function JobDetail({
           </Text>
           {job.estimated_arrival_at ? (
             <Text style={styles.eta}>
-              ETA {formatTime(job.estimated_arrival_at)}
+              {" " + t("ETA") + " "}{formatTime(job.estimated_arrival_at)}
             </Text>
           ) : null}
         </View>
@@ -596,7 +598,7 @@ function JobDetail({
       <View style={styles.actions}>
         <View style={styles.action}>
           <AppButton
-            title="Navigate"
+            title={t("Navigate")}
             tone="secondary"
             disabled={job.status === "rescheduling_required"}
             onPress={() => void Linking.openURL(job.location_url)}
@@ -604,14 +606,14 @@ function JobDetail({
         </View>
         <View style={styles.action}>
           <AppButton
-            title="Call"
+            title={t("Call")}
             tone="secondary"
             onPress={() => void Linking.openURL(`tel:${job.customer_phone}`)}
           />
         </View>
         <View style={styles.action}>
           <AppButton
-            title="Email"
+            title={t("Email")}
             tone="secondary"
             disabled={!job.customer_email}
             onPress={() => void Linking.openURL(customerEmailUrl(job.customer_email))}
@@ -619,21 +621,21 @@ function JobDetail({
         </View>
       </View>
       {canManageJob && <BookingPolicyProvision key={job.booking_id} context={context} job={job} />}
+      {canManageJob && <CancelBooking context={context} job={job} />}
       <Card style={styles.primaryActionCard}>
         {job.status === "assigned" ? (
           <>
-            <Text style={styles.sectionTitle}>NEXT ACTION</Text>
-            <Text style={styles.vehicle}>Ready to leave?</Text>
+            <Text style={styles.sectionTitle}>{t("NEXT ACTION")}</Text>
+            <Text style={styles.vehicle}>{t("Ready to leave?")}</Text>
             <Text style={uiStyles.muted}>
-              We’ll use your location for ETA when it is available.
-            </Text>
+              {" " + t("We’ll use your location for ETA when it is available.") + " "}</Text>
             <AppButton
               title={
                 tripStage === "getting_location"
-                  ? "Getting location…"
+                  ? t("Getting location…")
                   : tripStage === "starting_trip"
-                    ? "Starting trip…"
-                    : "Start trip"
+                    ? t("Starting trip…")
+                    : t("Start trip")
               }
               disabled={tripStage !== "idle" || actionMutation.isPending}
               loading={tripStage !== "idle"}
@@ -642,28 +644,28 @@ function JobDetail({
           </>
         ) : job.status === "en_route" ? (
           <>
-            <Text style={styles.sectionTitle}>ACTIVE TRIP</Text>
-            <Text style={styles.vehicle}>Driving to customer</Text>
+            <Text style={styles.sectionTitle}>{t("ACTIVE TRIP")}</Text>
+            <Text style={styles.vehicle}>{t("Driving to customer")}</Text>
             {job.en_route_at && <ElapsedTimer startedAt={job.en_route_at} />}
             <Text style={uiStyles.muted}>
               {job.estimated_arrival_at
-                ? `ETA ${formatTime(job.estimated_arrival_at)}`
-                : "ETA unavailable"}
+                ? t("ETA {p0}", { p0: formatTime(job.estimated_arrival_at) })
+                : t("ETA unavailable")}
             </Text>
             <AppButton
               title={
-                actionMutation.isPending ? "Confirming…" : "Arrived at location"
+                actionMutation.isPending ? t("Confirming…") : t("Arrived at location")
               }
               disabled={actionMutation.isPending}
               loading={actionMutation.isPending}
               onPress={() =>
                 Alert.alert(
-                  "Confirm arrival",
-                  "Confirm that you have arrived at the customer location.",
+                  t("Confirm arrival"),
+                  t("Confirm that you have arrived at the customer location."),
                   [
-                    { text: "Cancel", style: "cancel" },
+                    { text: t("Cancel"), style: "cancel" },
                     {
-                      text: "Confirm arrival",
+                      text: t("Confirm arrival"),
                       onPress: () => void action("arrive"),
                     },
                   ],
@@ -673,13 +675,13 @@ function JobDetail({
           </>
         ) : job.status === "arrived" ? (
           <>
-            <Text style={styles.sectionTitle}>AT CUSTOMER</Text>
-            <Text style={styles.vehicle}>Arrival confirmed</Text>
+            <Text style={styles.sectionTitle}>{t("AT CUSTOMER")}</Text>
+            <Text style={styles.vehicle}>{t("Arrival confirmed")}</Text>
             {job.arrived_at && (
               <ElapsedTimer startedAt={job.arrived_at} prefix="Waiting" />
             )}
             <AppButton
-              title={actionMutation.isPending ? "Starting…" : "Start wash"}
+              title={actionMutation.isPending ? t("Starting…") : t("Start wash")}
               disabled={actionMutation.isPending}
               loading={actionMutation.isPending}
               onPress={() => void action("start")}
@@ -687,10 +689,10 @@ function JobDetail({
           </>
         ) : job.status === "in_progress" ? (
           <>
-            <Text style={styles.sectionTitle}>WASH IN PROGRESS</Text>
+            <Text style={styles.sectionTitle}>{t("WASH IN PROGRESS")}</Text>
             {job.started_at && <ElapsedTimer startedAt={job.started_at} />}
             <AppButton
-              title={actionMutation.isPending ? "Completing…" : "Complete wash"}
+              title={actionMutation.isPending ? t("Completing…") : t("Complete wash")}
               disabled={
                 actionMutation.isPending ||
                 qualityQuery.data?.can_complete === false
@@ -698,12 +700,12 @@ function JobDetail({
               loading={actionMutation.isPending}
               onPress={() =>
                 Alert.alert(
-                  "Complete wash?",
-                  "Confirm that all booked vehicle services and required checklist items are complete.",
+                  t("Complete wash?"),
+                  t("Confirm that all booked vehicle services and required checklist items are complete."),
                   [
-                    { text: "Keep working", style: "cancel" },
+                    { text: t("Keep working"), style: "cancel" },
                     {
-                      text: "Complete wash",
+                      text: t("Complete wash"),
                       onPress: () => void action("complete"),
                     },
                   ],
@@ -713,26 +715,25 @@ function JobDetail({
           </>
         ) : job.status === "completed" && job.payment_status !== "paid" ? (
           <>
-            <Text style={styles.sectionTitle}>PAYMENT REQUIRED</Text>
+            <Text style={styles.sectionTitle}>{t("PAYMENT REQUIRED")}</Text>
             <Text style={styles.vehicle}>
               {job.currency_code} {(job.total_amount_minor / 100).toFixed(2)}
             </Text>
             <Text style={uiStyles.muted}>
-              Confirm only after the cash is in hand.
-            </Text>
+              {" " + t("Confirm only after the cash is in hand.") + " "}</Text>
             <AppButton
-              title="Record cash received"
+              title={t("Record cash received")}
               disabled={cashMutation.isPending}
               onPress={() => setCashTender(true)}
             />
           </>
         ) : (
           <>
-            <Text style={styles.sectionTitle}>JOB STATUS</Text>
+            <Text style={styles.sectionTitle}>{t("JOB STATUS")}</Text>
             <Text style={styles.vehicle}>
               {job.payment_status === "paid"
-                ? "Completed and paid"
-                : job.status.replaceAll("_", " ")}
+                ? t("Completed and paid")
+                : t(job.status.replaceAll("_", " "))}
             </Text>
           </>
         )}
@@ -764,24 +765,24 @@ function JobDetail({
         onSave={async (body) => {
           await expenseMutation.mutateAsync(body);
           setDirectExpense(false);
-          Alert.alert("Direct expense saved", "The expense is linked to this job.");
+          Alert.alert(t("Direct expense saved"), t("The expense is linked to this job."));
         }}
       />
       {canManageJob ? (
         <Card>
           {job.status === "rescheduling_required" && (
-            <Text style={uiStyles.error}>The original time was released. Contact the customer and agree on a new time.</Text>
+            <Text style={uiStyles.error}>{t("The original time was released. Contact the customer and agree on a new time.")}</Text>
           )}
           {job.payment_review_required && (
-            <Text style={uiStyles.error}>Payment review flagged on displacement. Review the original payment or deposit with the customer.</Text>
+            <Text style={uiStyles.error}>{t("Payment review flagged on displacement. Review the original payment or deposit with the customer.")}</Text>
           )}
           <View style={uiStyles.row}>
             <View>
-              <Text style={styles.sectionTitle}>ASSIGNMENT</Text>
+              <Text style={styles.sectionTitle}>{t("ASSIGNMENT")}</Text>
               <Text style={uiStyles.muted}>
                 {job.assigned_team_name ??
                   job.assigned_staff_name ??
-                  "Unassigned"}
+                  t("Unassigned")}
               </Text>
               {job.assignment_source ? (
                 <Text style={uiStyles.muted}>
@@ -791,19 +792,19 @@ function JobDetail({
             </View>
             {job.status !== "rescheduling_required" && (
               <Pressable onPress={() => setAssignment(true)}>
-                <Text style={uiStyles.link}>Change</Text>
+                <Text style={uiStyles.link}>{t("Change")}</Text>
               </Pressable>
             )}
           </View>
           <AppButton
-            title="Reschedule appointment"
+            title={t("Reschedule appointment")}
             tone="secondary"
             disabled={!job.version || ["completed", "cancelled"].includes(job.status)}
             onPress={() => setReschedule(true)}
           />
           {job.status === "assigned" || job.status === "en_route" ? (
             <AppButton
-              title="Notify customer of delay"
+              title={t("Notify customer of delay")}
               tone="secondary"
               onPress={() => setDelayNotice(true)}
             />
@@ -811,7 +812,7 @@ function JobDetail({
         </Card>
       ) : null}
       <Card>
-        <Text style={styles.sectionTitle}>CUSTOMER</Text>
+        <Text style={styles.sectionTitle}>{t("CUSTOMER")}</Text>
         <Text style={styles.vehicle}>{job.customer_name}</Text>
         <Text style={uiStyles.body}>{job.customer_phone}</Text>
         <Text style={uiStyles.body}>{job.customer_email}</Text>
@@ -819,18 +820,18 @@ function JobDetail({
       {canManageJob ? (
         <Card>
           <View style={uiStyles.row}>
-            <Text style={styles.sectionTitle}>CUSTOMER COMMUNICATIONS</Text>
+            <Text style={styles.sectionTitle}>{t("CUSTOMER COMMUNICATIONS")}</Text>
             {communications.isFetching && communications.data?.length ? (
-              <Text style={uiStyles.muted}>Refreshing…</Text>
+              <Text style={uiStyles.muted}>{t("Refreshing…")}</Text>
             ) : null}
           </View>
           {communications.isPending ? (
             <Skeleton rows={3} />
           ) : communications.isError && !communications.data?.length ? (
             <View>
-              <Text style={uiStyles.error}>Communication history unavailable.</Text>
+              <Text style={uiStyles.error}>{t("Communication history unavailable.")}</Text>
               <Pressable onPress={() => void communications.refetch()}>
-                <Text style={uiStyles.link}>Try again</Text>
+                <Text style={uiStyles.link}>{t("Try again")}</Text>
               </Pressable>
             </View>
           ) : communications.data?.length ? (
@@ -840,39 +841,39 @@ function JobDetail({
                   {formatTime(item.created_at)}
                 </Text>
                 <View style={styles.timelineBody}>
-                  <Text style={styles.vehicle}>{item.event}</Text>
+                  <Text style={styles.vehicle}>{t(item.event)}</Text>
                   <Text style={uiStyles.muted}>
                     {item.state === "sent"
-                      ? "Sent"
+                      ? t("Sent")
                       : item.state === "failed"
-                        ? "Failed"
-                        : "Queued"}
-                    {item.detail ? ` · ${item.detail}` : ""}
+                        ? t("Failed")
+                        : t("Queued")}
+                    {item.detail ? t(" · {p0}", { p0: item.detail }) : ""}
                   </Text>
                 </View>
               </View>
             ))
           ) : (
-            <Text style={uiStyles.muted}>No customer messages recorded yet.</Text>
+            <Text style={uiStyles.muted}>{t("No customer messages recorded yet.")}</Text>
           )}
         </Card>
       ) : null}
       <Card>
-        <Text style={styles.sectionTitle}>LOCATION</Text>
+        <Text style={styles.sectionTitle}>{t("LOCATION")}</Text>
         <Text style={uiStyles.body}>{job.written_address}</Text>
         {job.location_instructions ? (
           <Text style={uiStyles.muted}>{job.location_instructions}</Text>
         ) : null}
       </Card>
       <Card>
-        <Text style={styles.sectionTitle}>VEHICLES & SERVICES</Text>
+        <Text style={styles.sectionTitle}>{t("VEHICLES & SERVICES")}</Text>
         {job.vehicles.map((vehicle, index) => (
           <View key={`${vehicle.make}-${index}`}>
             <Text style={styles.vehicle}>
               {vehicle.make} {vehicle.model}
             </Text>
             <Text style={uiStyles.muted}>
-              {vehicle.service_name} · {vehicle.plate_number ?? "No plate"}
+              {vehicle.service_name} · {vehicle.plate_number ?? t("No plate")}
             </Text>
           </View>
         ))}
@@ -880,36 +881,35 @@ function JobDetail({
       {job.consumption ? (
         <Card>
           <View style={uiStyles.row}>
-            <Text style={styles.sectionTitle}>CONSUMABLES</Text>
+            <Text style={styles.sectionTitle}>{t("CONSUMABLES")}</Text>
             {job.consumption.has_attention ? (
               <StatusChip value={job.consumption.reviewed_at ? "reviewed" : "needs review"} />
             ) : null}
           </View>
           {job.consumption.status === "no_template" ? (
-            <Text style={uiStyles.muted}>No automatic expected usage was configured.</Text>
+            <Text style={uiStyles.muted}>{t("No automatic expected usage was configured.")}</Text>
           ) : (
             job.consumption.lines.map((line) => (
               <View key={line.id} style={styles.consumptionLine}>
                 <Text style={styles.vehicle}>{line.item_name}</Text>
                 <Text style={uiStyles.muted}>{line.service_name}</Text>
                 <Text style={uiStyles.body}>
-                  Expected {line.expected_quantity} {line.unit} · Recorded {Number(line.automatic_applied_quantity) + Number(line.preexisting_manual_quantity)} {line.unit}
+                  {" " + t("Expected") + " "}{line.expected_quantity} {line.unit} {" " + t("· Recorded") + " "}{Number(line.automatic_applied_quantity) + Number(line.preexisting_manual_quantity)} {line.unit}
                 </Text>
                 {Number(line.additional_manual_quantity) > 0 ? (
                   <Text style={uiStyles.muted}>
-                    Additional manual usage {line.additional_manual_quantity} {line.unit}
+                    {" " + t("Additional manual usage") + " "}{line.additional_manual_quantity} {line.unit}
                   </Text>
                 ) : null}
                 {Number(line.shortfall_quantity) > 0 ? (
                   <Text style={uiStyles.error}>
-                    Needs review: {line.shortfall_quantity} {line.unit} difference
-                  </Text>
+                    {" " + t("Needs review:") + " "}{line.shortfall_quantity} {line.unit} {" " + t("difference") + " "}</Text>
                 ) : null}
               </View>
             ))
           )}
           {job.consumption.source_location_name ? (
-            <Text style={uiStyles.muted}>Stock source: {job.consumption.source_location_name}</Text>
+            <Text style={uiStyles.muted}>{"" + t("Stock source:") + " "}{job.consumption.source_location_name}</Text>
           ) : null}
         </Card>
       ) : null}
@@ -917,13 +917,13 @@ function JobDetail({
         <Card>
           <View style={uiStyles.row}>
             <View>
-              <Text style={styles.sectionTitle}>DIRECT EXPENSES</Text>
+              <Text style={styles.sectionTitle}>{t("DIRECT EXPENSES")}</Text>
               <Text style={styles.vehicle}>
                 {job.currency_code} {((job.direct_expenses_total_minor ?? 0) / 100).toFixed(2)}
               </Text>
             </View>
             <Pressable accessibilityRole="button" onPress={() => setDirectExpense(true)}>
-              <Text style={uiStyles.link}>Add expense</Text>
+              <Text style={uiStyles.link}>{t("Add expense")}</Text>
             </Pressable>
           </View>
           {job.direct_expenses?.length ? (
@@ -936,12 +936,12 @@ function JobDetail({
               </View>
             ))
           ) : (
-            <Text style={uiStyles.muted}>No direct expenses recorded.</Text>
+            <Text style={uiStyles.muted}>{t("No direct expenses recorded.")}</Text>
           )}
         </Card>
       ) : null}
       <Card>
-        <Text style={styles.sectionTitle}>PAYMENT</Text>
+        <Text style={styles.sectionTitle}>{t("PAYMENT")}</Text>
         <View style={uiStyles.row}>
           <Text style={styles.vehicle}>
             {job.currency_code} {(job.total_amount_minor / 100).toFixed(2)}
@@ -950,7 +950,7 @@ function JobDetail({
         </View>
       </Card>
       <Card>
-        <Text style={styles.sectionTitle}>TIMELINE</Text>
+        <Text style={styles.sectionTitle}>{t("TIMELINE")}</Text>
         {query.isFetching && !job.timeline.length ? (
           <Skeleton rows={3} />
         ) : job.timeline.length ? (
@@ -960,7 +960,7 @@ function JobDetail({
                 {formatTime(event.occurred_at)}
               </Text>
               <View style={styles.timelineBody}>
-                <Text style={styles.vehicle}>{event.event}</Text>
+                <Text style={styles.vehicle}>{t(event.event)}</Text>
                 {event.actor ? (
                   <Text style={uiStyles.muted}>{event.actor}</Text>
                 ) : null}
@@ -971,7 +971,7 @@ function JobDetail({
             </View>
           ))
         ) : (
-          <Text style={uiStyles.muted}>No recorded events yet.</Text>
+          <Text style={uiStyles.muted}>{t("No recorded events yet.")}</Text>
         )}
       </Card>
       {canManageJob ? (
@@ -994,22 +994,22 @@ function JobDetail({
             onClose={() => setDelayNotice(false)}
             onNotify={(minutes) => {
               Alert.alert(
-                "Notify customer?",
-                `Email the customer that the team is approximately ${minutes} minutes late? The appointment time will not change.`,
+                t("Notify customer?"),
+                t("Email the customer that the team is approximately {p0} minutes late? The appointment time will not change.", { p0: minutes }),
                 [
-                  { text: "Cancel", style: "cancel" },
+                  { text: t("Cancel"), style: "cancel" },
                   {
-                    text: "Queue email",
+                    text: t("Queue email"),
                     onPress: () => {
                       void delayMutation
                         .mutateAsync(minutes)
                         .then(() => {
                           setDelayNotice(false);
-                          Alert.alert("Update queued", "The customer email is queued for sending.");
+                          Alert.alert(t("Update queued"), t("The customer email is queued for sending."));
                         })
                         .catch((error) =>
                           Alert.alert(
-                            "Update not queued",
+                            t("Update not queued"),
                             domainErrorMessage(error, "Please try again."),
                           ),
                         );
@@ -1023,17 +1023,17 @@ function JobDetail({
       ) : null}
       {canManageJob && !job.archived_at && ["completed", "cancelled"].includes(job.status) ? (
         <AppButton
-          title="Archive booking"
+          title={t("Archive booking")}
           loading={archiveMutation.isPending}
           disabled={archiveMutation.isPending}
           onPress={() => Alert.alert(
-            "Archive this booking?",
-            "It will be hidden from normal job and dashboard views but will remain in the database.",
+            t("Archive this booking?"),
+            t("It will be hidden from normal job and dashboard views but will remain in the database."),
             [
-              { text: "Cancel", style: "cancel" },
-              { text: "Archive booking", onPress: () => {
+              { text: t("Cancel"), style: "cancel" },
+              { text: t("Archive booking"), onPress: () => {
                 void archiveMutation.mutateAsync().then(onBack).catch((error) =>
-                  Alert.alert("Booking not archived", domainErrorMessage(error, "Please try again.")),
+                  Alert.alert(t("Booking not archived"), domainErrorMessage(error, "Please try again.")),
                 );
               } },
             ],
@@ -1059,15 +1059,14 @@ function DelayNotificationSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <Text style={styles.vehicle}>Notify customer of a delay</Text>
+          <Text style={styles.vehicle}>{t("Notify customer of a delay")}</Text>
           <Text style={uiStyles.muted}>
-            This sends an email update only. It does not change the appointment time.
-          </Text>
+            {" " + t("This sends an email update only. It does not change the appointment time.") + " "}</Text>
           <View style={styles.actions}>
             {[15, 30, 45, 60].map((minutes) => (
               <View key={minutes} style={styles.action}>
                 <AppButton
-                  title={`${minutes} min`}
+                  title={t("{p0} min", { p0: minutes })}
                   tone="secondary"
                   disabled={pending}
                   onPress={() => onNotify(minutes)}
@@ -1075,7 +1074,7 @@ function DelayNotificationSheet({
               </View>
             ))}
           </View>
-          <AppButton title="Cancel" tone="secondary" disabled={pending} onPress={onClose} />
+          <AppButton title={t("Cancel")} tone="secondary" disabled={pending} onPress={onClose} />
         </View>
       </View>
     </Modal>
@@ -1125,7 +1124,7 @@ function DirectExpenseModal({
     } catch (error) {
       eventIds.failed(key, error);
       Alert.alert(
-        "Expense not saved",
+        t("Expense not saved"),
         domainErrorMessage(error, "The server did not confirm this expense."),
       );
     }
@@ -1134,18 +1133,18 @@ function DirectExpenseModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <Text style={styles.vehicle}>Add direct job expense</Text>
-          <Text style={uiStyles.muted}>Job {job.booking_reference}</Text>
+          <Text style={styles.vehicle}>{t("Add direct job expense")}</Text>
+          <Text style={uiStyles.muted}>{"" + t("Job") + " "}{job.booking_reference}</Text>
           <TextInput
-            accessibilityLabel="Direct expense description"
-            placeholder="Special material or parking"
+            accessibilityLabel={t("Direct expense description")}
+            placeholder={t("Special material or parking")}
             placeholderTextColor={colors.textSecondary}
             value={description}
             onChangeText={setDescription}
             style={uiStyles.field}
           />
           <TextInput
-            accessibilityLabel="Direct expense amount"
+            accessibilityLabel={t("Direct expense amount")}
             placeholder="0.00"
             placeholderTextColor={colors.textSecondary}
             keyboardType="decimal-pad"
@@ -1162,17 +1161,17 @@ function DirectExpenseModal({
                 onPress={() => setMethod(value)}
                 style={[styles.choice, method === value ? styles.choiceSelected : undefined]}
               >
-                <Text style={uiStyles.body}>{value.replaceAll("_", " ")}</Text>
+                <Text style={uiStyles.body}>{t(value.replaceAll("_", " "))}</Text>
               </Pressable>
             ))}
           </View>
           <AppButton
-            title="Save expense"
+            title={t("Save expense")}
             loading={pending}
             disabled={pending || minor === null || !description.trim()}
             onPress={() => void submit()}
           />
-          <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+          <AppButton title={t("Cancel")} tone="secondary" onPress={onClose} />
         </View>
       </View>
     </Modal>
@@ -1228,7 +1227,7 @@ function AssignmentSheet({
     } catch (error) {
       eventIds.failed(eventKey, error);
       Alert.alert(
-        "Assignment not completed",
+        t("Assignment not completed"),
         domainErrorMessage(error, "Review the assignment and try again."),
       );
     }
@@ -1240,12 +1239,12 @@ function AssignmentSheet({
       return;
     }
     Alert.alert(
-      "Short turnaround",
-      selected.reason ?? "This team has less than the recommended turnaround between jobs.",
+      t("Short turnaround"),
+      selected.reason ?? t("This team has less than the recommended turnaround between jobs."),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("Cancel"), style: "cancel" },
         {
-          text: "Assign anyway",
+          text: t("Assign anyway"),
           style: "destructive",
           onPress: () => void save("manual", true),
         },
@@ -1265,21 +1264,21 @@ function AssignmentSheet({
           contentContainerStyle={styles.sheet}
         >
           <View style={uiStyles.row}>
-            <Text style={styles.heroVehicle}>Assign job</Text>
+            <Text style={styles.heroVehicle}>{t("Assign job")}</Text>
             <Pressable onPress={onClose}>
-              <Text style={uiStyles.link}>Close</Text>
+              <Text style={uiStyles.link}>{t("Close")}</Text>
             </Pressable>
           </View>
           {optionsQuery.isPending || staffQuery.isPending ? (
             <Skeleton rows={3} />
           ) : null}
           <AppButton
-            title={mutation.isPending ? "Assigning…" : "Auto assign"}
+            title={mutation.isPending ? t("Assigning…") : t("Auto assign")}
             disabled={mutation.isPending}
             loading={mutation.isPending}
             onPress={() => void save("auto")}
           />
-          <Text style={styles.sectionTitle}>TEAMS</Text>
+          <Text style={styles.sectionTitle}>{t("TEAMS")}</Text>
           {options.map((item) => (
             <Choice
               key={item.team_id}
@@ -1288,7 +1287,7 @@ function AssignmentSheet({
               detail={
                 item.status === "available"
                   ? `${item.same_day_job_count} jobs · ${item.assigned_minutes} min assigned`
-                  : item.reason ?? item.status.replaceAll("_", " ")
+                  : item.reason ?? t(item.status.replaceAll("_", " "))
               }
               disabled={item.status === "time_conflict" || item.status === "unavailable"}
               onPress={() => {
@@ -1296,7 +1295,7 @@ function AssignmentSheet({
               }}
             />
           ))}
-          <Text style={styles.sectionTitle}>INDIVIDUALS</Text>
+          <Text style={styles.sectionTitle}>{t("INDIVIDUALS")}</Text>
           {staff.map((item) => (
             <Choice
               key={item.id}
@@ -1307,7 +1306,7 @@ function AssignmentSheet({
             />
           ))}
           <AppButton
-            title={mutation.isPending ? "Assigning…" : "Assign"}
+            title={mutation.isPending ? t("Assigning…") : t("Assign")}
             disabled={
               mutation.isPending || (!target.staff_id && !target.team_id)
             }
@@ -1409,12 +1408,12 @@ function RescheduleSheet({
         !overrideTurnaround
       ) {
         Alert.alert(
-          "Team turnaround conflict",
-          "The assigned team needs more travel or preparation time. You can keep the manual assignment and override this buffer.",
+          t("Team turnaround conflict"),
+          t("The assigned team needs more travel or preparation time. You can keep the manual assignment and override this buffer."),
           [
-            { text: "Choose another time", style: "cancel" },
+            { text: t("Choose another time"), style: "cancel" },
             {
-              text: "Reschedule anyway",
+              text: t("Reschedule anyway"),
               onPress: () =>
                 void submit(confirmActiveReschedule, true),
             },
@@ -1423,7 +1422,7 @@ function RescheduleSheet({
         return;
       }
       Alert.alert(
-        "Reschedule not completed",
+        t("Reschedule not completed"),
         domainErrorMessage(
           error,
           "That exact time is no longer operationally available. Choose another time and retry.",
@@ -1439,20 +1438,20 @@ function RescheduleSheet({
       job.status === "arrived" ||
       job.status === "in_progress";
     Alert.alert(
-      active ? "Reset and reschedule active job?" : "Confirm new appointment?",
-      `${selectedDay} · ${formatClockTime(selectedTime)} Abu Dhabi · ${selectedTeam?.team_name ?? "Auto-assign"}. ${active ? "The trip, ETA and work timestamps will reset. " : ""}The customer will receive an updated email if an address is on file.`,
+      active ? t("Reset and reschedule active job?") : t("Confirm new appointment?"),
+      t("{p0} · {p1} Abu Dhabi · {p2}. {p3}The customer will receive an updated email if an address is on file.", { p0: selectedDay, p1: formatClockTime(selectedTime), p2: selectedTeam?.team_name ?? "Auto-assign", p3: active ? "The trip, ETA and work timestamps will reset. " : "" }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("Cancel"), style: "cancel" },
         {
-          text: "Confirm reschedule",
+          text: t("Confirm reschedule"),
           onPress: () => {
             if (selectedTeam?.status === "turnaround_conflict") {
               Alert.alert(
-                "Override team turnaround?",
-                "This appointment leaves less than the configured travel or preparation time.",
+                t("Override team turnaround?"),
+                t("This appointment leaves less than the configured travel or preparation time."),
                 [
-                  { text: "Go back", style: "cancel" },
-                  { text: "Override turnaround", style: "destructive", onPress: () => void submit(active, true) },
+                  { text: t("Go back"), style: "cancel" },
+                  { text: t("Override turnaround"), style: "destructive", onPress: () => void submit(active, true) },
                 ],
               );
             } else void submit(active);
@@ -1474,21 +1473,21 @@ function RescheduleSheet({
           contentContainerStyle={styles.sheet}
         >
           <View style={uiStyles.row}>
-            <Text style={styles.heroVehicle}>Reschedule</Text>
+            <Text style={styles.heroVehicle}>{t("Reschedule")}</Text>
             {!uncertain && !mutation.isPending && (
-              <Pressable onPress={onClose}><Text style={uiStyles.link}>Close</Text></Pressable>
+              <Pressable onPress={onClose}><Text style={uiStyles.link}>{t("Close")}</Text></Pressable>
             )}
           </View>
           <Text style={uiStyles.muted}>
-            {job.status === "rescheduling_required" ? "Previous" : "Current"} · {formatUaeDateTime(job.scheduled_start)}
+            {job.status === "rescheduling_required" ? t("Previous") : t("Current")} · {formatUaeDateTime(job.scheduled_start)}
           </Text>
           {uncertain ? (
             <>
-              <Text style={uiStyles.error}>The result is unknown. Retry to recover the same reschedule.</Text>
-              <AppButton title="Retry safely" loading={mutation.isPending} onPress={() => void submit(uncertain.active, uncertain.override)} />
+              <Text style={uiStyles.error}>{t("The result is unknown. Retry to recover the same reschedule.")}</Text>
+              <AppButton title={t("Retry safely")} loading={mutation.isPending} onPress={() => void submit(uncertain.active, uncertain.override)} />
             </>
           ) : <>
-          <Text style={styles.sectionTitle}>CHOOSE DATE</Text>
+          <Text style={styles.sectionTitle}>{t("CHOOSE DATE")}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -1529,35 +1528,35 @@ function RescheduleSheet({
             })}
           </ScrollView>
           <DatePickerField
-            label="Another date"
+            label={t("Another date")}
             value={selectedDay}
             minimumDate={wallDate(today())}
             onChange={changeDay}
           />
           {settings.isPending ? (
             <>
-              <Text style={uiStyles.muted}>Loading business hours…</Text>
+              <Text style={uiStyles.muted}>{t("Loading business hours…")}</Text>
               <Skeleton rows={3} />
             </>
           ) : settings.isError ? (
             <EmptyState
-              title="We couldn't load business hours"
-              body="Check your connection and try again."
+              title={t("We couldn't load business hours")}
+              body={t("Check your connection and try again.")}
               action={
                 <AppButton
-                  title="Try again"
+                  title={t("Try again")}
                   onPress={() => void settings.refetch()}
                 />
               }
             />
           ) : !selectedDayIsOpen ? (
             <EmptyState
-              title="Business closed on this date"
-              body="Choose another day to set an exact appointment time."
+              title={t("Business closed on this date")}
+              body={t("Choose another day to set an exact appointment time.")}
             />
           ) : (
             <>
-              <Text style={styles.sectionTitle}>QUICK HOURLY TIMES</Text>
+              <Text style={styles.sectionTitle}>{t("QUICK HOURLY TIMES")}</Text>
               <View style={styles.slotGrid}>
                 {quickTimes.map((time) => {
                   const selected = selectedTime === time && !showCustomTime;
@@ -1588,29 +1587,28 @@ function RescheduleSheet({
                 })}
               </View>
               <AppButton
-                title="Choose a custom time"
+                title={t("Choose a custom time")}
                 tone="secondary"
                 onPress={() => setShowCustomTime(true)}
               />
               {showCustomTime ? (
                 <TimePickerField
-                  label="Exact appointment time"
+                  label={t("Exact appointment time")}
                   value={selectedTime || operatingHour?.opening_time?.slice(0, 5) || "09:00"}
                   onChange={changeTime}
                 />
               ) : null}
               <Text style={uiStyles.muted}>
-                We check team availability, the full service time and travel time before saving.
-              </Text>
+                {" " + t("We check team availability, the full service time and travel time before saving.") + " "}</Text>
               {selectedTime && (
                 <>
-                  <Text style={styles.sectionTitle}>TEAM AT THIS TIME</Text>
-                  {options.isFetching && <Text style={uiStyles.muted}>Checking teams…</Text>}
+                  <Text style={styles.sectionTitle}>{t("TEAM AT THIS TIME")}</Text>
+                  {options.isFetching && <Text style={uiStyles.muted}>{t("Checking teams…")}</Text>}
                   {options.isError && (
                     <Text style={uiStyles.error}>{domainErrorMessage(options.error, "Could not check availability.")}</Text>
                   )}
                   {canAuto && (
-                    <Choice selected={teamId === null} title="Auto-assign" detail="Choose an available team" onPress={() => setTeamId(null)} />
+                    <Choice selected={teamId === null} title={t("Auto-assign")} detail="Choose an available team" onPress={() => setTeamId(null)} />
                   )}
                   {options.data?.map((team) => (
                     <Choice key={team.team_id} title={team.team_name}
@@ -1618,15 +1616,15 @@ function RescheduleSheet({
                       disabled={team.status === "time_conflict" || team.status === "unavailable"}
                       onPress={() => setTeamId(team.team_id)} />
                   ))}
-                  {options.data?.length === 0 && <Text style={uiStyles.muted}>No eligible teams on this date.</Text>}
-                  <Text style={styles.sectionTitle}>REASON FOR RESCHEDULING</Text>
-                  <TextInput accessibilityLabel="Reason for rescheduling" style={uiStyles.field}
+                  {options.data?.length === 0 && <Text style={uiStyles.muted}>{t("No eligible teams on this date.")}</Text>}
+                  <Text style={styles.sectionTitle}>{t("REASON FOR RESCHEDULING")}</Text>
+                  <TextInput accessibilityLabel={t("Reason for rescheduling")} style={uiStyles.field}
                     maxLength={500} multiline value={reason} onChangeText={setReason} />
                 </>
               )}
               <AppButton
                 title={
-                  mutation.isPending ? "Rescheduling…" : "Confirm reschedule"
+                  mutation.isPending ? t("Rescheduling…") : t("Confirm reschedule")
                 }
                 disabled={mutation.isPending || !selectedTime || !canConfirm || reason.trim().length < 3}
                 loading={mutation.isPending}
@@ -1682,7 +1680,7 @@ function upcomingDates(count: number): Date[] {
     wallDate(addUaeDays(start, index)),
   );
 }
-const label = (value: JobView) => value === "rescheduling" ? "Needs reschedule" : value[0].toUpperCase() + value.slice(1);
+const label = (value: JobView) => value === "rescheduling" ? t("Needs reschedule") : t(value[0].toUpperCase() + value.slice(1));
 const styles = StyleSheet.create({
   narrowContent: { paddingHorizontal: 4 },
   segment: {

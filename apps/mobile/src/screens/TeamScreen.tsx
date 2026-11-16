@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { Alert } from "../alert";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -150,9 +151,9 @@ function TeamsPane({ context }: { context: StaffContext }) {
     return (
       <SimpleCreate
         visible
-        title="Create team"
-        label="TEAM NAME"
-        placeholder="Mobile Team 2"
+        title={t("Create team")}
+        label={t("TEAM NAME")}
+        placeholder={t("Mobile Team 2")}
         onClose={() => setAdd(false)}
         onSave={async (name) => {
           await createMutation.mutateAsync(name);
@@ -166,7 +167,7 @@ function TeamsPane({ context }: { context: StaffContext }) {
     return (
       <ScrollView contentContainerStyle={uiStyles.content}>
         <Pressable onPress={() => setSelectedTeamId("")}>
-          <Text style={uiStyles.link}>← Teams</Text>
+          <Text style={uiStyles.link}>{t("← Teams")}</Text>
         </Pressable>
         <Skeleton rows={5} />
       </ScrollView>
@@ -176,13 +177,13 @@ function TeamsPane({ context }: { context: StaffContext }) {
     return (
       <ScrollView contentContainerStyle={uiStyles.content}>
         <Pressable onPress={() => setSelectedTeamId("")}>
-          <Text style={uiStyles.link}>← Teams</Text>
+          <Text style={uiStyles.link}>{t("← Teams")}</Text>
         </Pressable>
         <Text style={uiStyles.error}>
           {domainErrorMessage(detailQuery.error, "Team details could not load.")}
         </Text>
         <AppButton
-          title="Try again"
+          title={t("Try again")}
           onPress={() => void detailQuery.refetch()}
         />
       </ScrollView>
@@ -214,18 +215,17 @@ function TeamsPane({ context }: { context: StaffContext }) {
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <ScreenTitle
-        title="Teams"
-        subtitle="Scheduling capacity and live workload"
+        title={t("Teams")}
+        subtitle={t("Scheduling capacity and live workload")}
       />
       <AppButton
-        title="Create team"
+        title={t("Create team")}
         tone="secondary"
         onPress={() => setAdd(true)}
       />
       {teamsQuery.isError && items.length ? (
         <Text style={uiStyles.error}>
-          Teams could not refresh. Showing saved data.
-        </Text>
+          {" " + t("Teams could not refresh. Showing saved data.") + " "}</Text>
       ) : null}
       {teamsQuery.isPending ? (
         <Skeleton />
@@ -241,8 +241,7 @@ function TeamsPane({ context }: { context: StaffContext }) {
                 <View>
                   <Text style={styles.cardTitle}>{item.name}</Text>
                   <Text style={uiStyles.muted}>
-                    {item.member_count} members · {item.jobs_today} jobs today
-                  </Text>
+                    {item.member_count} {" " + t("members ·") + " "}{item.jobs_today} {" " + t("jobs today") + " "}</Text>
                 </View>
                 <StatusChip
                   value={
@@ -255,14 +254,14 @@ function TeamsPane({ context }: { context: StaffContext }) {
               {item.active_job_reference ? (
                 <Text style={styles.live}>● {item.active_job_reference}</Text>
               ) : null}
-              <Text style={uiStyles.link}>Manage members →</Text>
+              <Text style={uiStyles.link}>{t("Manage members →")}</Text>
             </Card>
           </Pressable>
         ))
       ) : (
         <EmptyState
-          title="No teams yet"
-          body="Create the first mobile team to add booking capacity."
+          title={t("No teams yet")}
+          body={t("Create the first mobile team to add booking capacity.")}
         />
       )}
     </ScrollView>
@@ -302,7 +301,7 @@ function StaffPane({ context }: { context: StaffContext }) {
       await successHaptic();
     } catch (error) {
       Alert.alert(
-        "Update failed",
+        t("Update failed"),
         domainErrorMessage(error, "The account could not be changed."),
       );
     } finally {
@@ -364,14 +363,13 @@ function StaffPane({ context }: { context: StaffContext }) {
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <ScreenTitle
-        title="Staff"
-        subtitle="Accounts, roles and team membership"
+        title={t("Staff")}
+        subtitle={t("Accounts, roles and team membership")}
       />
-      <AppButton title="Add employee" onPress={() => setAdd(true)} />
+      <AppButton title={t("Add employee")} onPress={() => setAdd(true)} />
       {staffQuery.isError && items.length ? (
         <Text style={uiStyles.error}>
-          Staff could not refresh. Showing saved data.
-        </Text>
+          {" " + t("Staff could not refresh. Showing saved data.") + " "}</Text>
       ) : null}
       {staffQuery.isPending ? (
         <Skeleton />
@@ -403,17 +401,17 @@ function StaffPane({ context }: { context: StaffContext }) {
                 <StatusChip value={item.is_active ? "active" : "inactive"} />
               </View>
               <Text style={uiStyles.muted}>
-                {item.phone ?? "No phone"}
+                {item.phone ?? t("No phone")}
                 {item.teams.length
-                  ? ` · ${item.teams.map((team) => team.name).join(", ")}`
+                  ? t(" · {p0}", { p0: item.teams.map((team) => team.name).join(", ") })
                   : ""}
               </Text>
-              <Text style={uiStyles.link}>View attendance & performance →</Text>
+              <Text style={uiStyles.link}>{t("View attendance & performance →")}</Text>
             </Pressable>
             <View style={styles.actions}>
               <View style={{ flex: 1 }}>
                 <AppButton
-                  title="Edit"
+                  title={t("Edit")}
                   tone="secondary"
                   onPress={() => setEditTarget(item)}
                 />
@@ -424,7 +422,7 @@ function StaffPane({ context }: { context: StaffContext }) {
                 : item.role === "employee") ? (
                 <View style={{ flex: 1 }}>
                   <AppButton
-                    title="Reset password"
+                    title={t("Reset password")}
                     tone="secondary"
                     onPress={() => setPasswordTarget(item)}
                   />
@@ -434,10 +432,10 @@ function StaffPane({ context }: { context: StaffContext }) {
             <AppButton
               title={
                 updatingStaffId === item.id
-                  ? "Saving…"
+                  ? t("Saving…")
                   : item.is_active
-                    ? "Deactivate"
-                    : "Reactivate"
+                    ? t("Deactivate")
+                    : t("Reactivate")
               }
               tone={item.is_active ? "danger" : "secondary"}
               disabled={updatingStaffId === item.id}
@@ -496,19 +494,19 @@ function ShiftsPane({ context }: { context: StaffContext }) {
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <ScreenTitle
-        title="Shifts"
-        subtitle="Today · assigned work and reusable templates"
+        title={t("Shifts")}
+        subtitle={t("Today · assigned work and reusable templates")}
       />
       <View style={styles.actions}>
         <View style={{ flex: 1 }}>
           <AppButton
-            title="Create shift"
+            title={t("Create shift")}
             tone="secondary"
             onPress={() => setAdd(true)}
           />
         </View>
         <View style={{ flex: 1 }}>
-          <AppButton title="Assign shift" onPress={() => setAssigning(true)} />
+          <AppButton title={t("Assign shift")} onPress={() => setAssigning(true)} />
         </View>
       </View>
       {error ? (
@@ -526,16 +524,15 @@ function ShiftsPane({ context }: { context: StaffContext }) {
               {item.shift_name} · {item.start_time.slice(0, 5)}–
               {item.end_time.slice(0, 5)}
             </Text>
-            <Text style={uiStyles.muted}>{item.team_name ?? "No team"}</Text>
+            <Text style={uiStyles.muted}>{item.team_name ?? t("No team")}</Text>
           </Card>
         ))
       ) : (
-        <EmptyState title="No shifts assigned today" />
+        <EmptyState title={t("No shifts assigned today")} />
       )}
       {shifts.length ? (
         <Text style={uiStyles.muted}>
-          {shifts.length} shift templates available
-        </Text>
+          {shifts.length} {" " + t("shift templates available") + " "}</Text>
       ) : null}
     </ScrollView>
   );
@@ -559,7 +556,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
       await successHaptic();
     } catch (reason) {
       Alert.alert(
-        "Decision not saved",
+        t("Decision not saved"),
         domainErrorMessage(reason, "Please retry."),
       );
     } finally {
@@ -577,7 +574,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
       await successHaptic();
     } catch (error) {
       Alert.alert(
-        "Decision not saved",
+        t("Decision not saved"),
         domainErrorMessage(error, "Please retry."),
       );
     } finally {
@@ -587,13 +584,12 @@ function AttendancePane({ context }: { context: StaffContext }) {
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <ScreenTitle
-        title="Attendance"
-        subtitle="Working, late, clocked out, absent, off and approved leave"
+        title={t("Attendance")}
+        subtitle={t("Working, late, clocked out, absent, off and approved leave")}
       />
       {attendance.isError && items.length ? (
         <Text style={uiStyles.error}>
-          Attendance could not refresh. Showing saved data.
-        </Text>
+          {" " + t("Attendance could not refresh. Showing saved data.") + " "}</Text>
       ) : null}
       {attendance.isPending ? (
         <Skeleton />
@@ -609,8 +605,8 @@ function AttendancePane({ context }: { context: StaffContext }) {
                 <Text style={styles.cardTitle}>{item.staff_name}</Text>
                 <Text style={uiStyles.muted}>
                   {item.shift_name
-                    ? `${item.shift_name} · ${item.shift_start?.slice(0, 5)}–${item.shift_end?.slice(0, 5)}`
-                    : "No shift today"}
+                    ? t("{p0} · {p1}–{p2}", { p0: item.shift_name, p1: item.shift_start?.slice(0, 5), p2: item.shift_end?.slice(0, 5) })
+                    : t("No shift today")}
                 </Text>
               </View>
               <StatusChip value={item.status} />
@@ -627,26 +623,26 @@ function AttendancePane({ context }: { context: StaffContext }) {
                       hour: "numeric",
                       minute: "2-digit",
                     })
-                  : "Now"}
+                  : t("Now")}
               </Text>
             ) : null}
             {item.late_minutes ? (
-              <Text style={styles.warning}>{item.late_minutes} min late</Text>
+              <Text style={styles.warning}>{item.late_minutes} {" " + t("min late") + ""}</Text>
             ) : null}
             {item.missed_shift ? (
-              <Text style={styles.warning}>Missed shift</Text>
+              <Text style={styles.warning}>{t("Missed shift")}</Text>
             ) : null}
           </Card>
         ))
       )}
-      <Text style={styles.section}>PENDING LEAVE</Text>
+      <Text style={styles.section}>{t("PENDING LEAVE")}</Text>
       {leave.length ? (
         leave.map((item) => (
           <Card key={item.id}>
             <Text style={styles.cardTitle}>{item.staff_name}</Text>
             <Text style={uiStyles.body}>
               {item.start_date}
-              {item.end_date !== item.start_date ? ` → ${item.end_date}` : ""}
+              {item.end_date !== item.start_date ? t(" → {p0}", { p0: item.end_date }) : ""}
             </Text>
             <Text style={uiStyles.muted}>{item.reason}</Text>
             <View style={styles.actions}>
@@ -654,8 +650,8 @@ function AttendancePane({ context }: { context: StaffContext }) {
                 <AppButton
                   title={
                     decisionKey === `${item.id}:rejected`
-                      ? "Rejecting…"
-                      : "Reject"
+                      ? t("Rejecting…")
+                      : t("Reject")
                   }
                   tone="danger"
                   disabled={decisionKey !== null}
@@ -667,8 +663,8 @@ function AttendancePane({ context }: { context: StaffContext }) {
                 <AppButton
                   title={
                     decisionKey === `${item.id}:approved`
-                      ? "Approving…"
-                      : "Approve"
+                      ? t("Approving…")
+                      : t("Approve")
                   }
                   disabled={decisionKey !== null}
                   loading={decisionKey === `${item.id}:approved`}
@@ -679,13 +675,12 @@ function AttendancePane({ context }: { context: StaffContext }) {
           </Card>
         ))
       ) : (
-        <EmptyState title="No pending leave requests" />
+        <EmptyState title={t("No pending leave requests")} />
       )}
-      <Text style={styles.section}>CANCELLATIONS</Text>
+      <Text style={styles.section}>{t("CANCELLATIONS")}</Text>
       {cancellationsQuery.isError && cancellations.length ? (
         <Text style={uiStyles.error}>
-          Cancellation requests could not refresh. Showing saved data.
-        </Text>
+          {" " + t("Cancellation requests could not refresh. Showing saved data.") + " "}</Text>
       ) : null}
       {cancellationsQuery.isPending ? (
         <Skeleton />
@@ -705,7 +700,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
               {formatUaeDateTime(item.scheduled_start)}
             </Text>
             <Text style={uiStyles.muted}>
-              {item.reason ?? "No reason provided"}
+              {item.reason ?? t("No reason provided")}
             </Text>
             <StatusChip value={item.payment_status} />
             <View style={styles.actions}>
@@ -713,8 +708,8 @@ function AttendancePane({ context }: { context: StaffContext }) {
                 <AppButton
                   title={
                     decisionKey === `${item.id}:rejected`
-                      ? "Rejecting…"
-                      : "Reject"
+                      ? t("Rejecting…")
+                      : t("Reject")
                   }
                   tone="danger"
                   disabled={decisionKey !== null}
@@ -726,8 +721,8 @@ function AttendancePane({ context }: { context: StaffContext }) {
                 <AppButton
                   title={
                     decisionKey === `${item.id}:approved`
-                      ? "Approving…"
-                      : "Approve"
+                      ? t("Approving…")
+                      : t("Approve")
                   }
                   disabled={decisionKey !== null}
                   loading={decisionKey === `${item.id}:approved`}
@@ -738,7 +733,7 @@ function AttendancePane({ context }: { context: StaffContext }) {
           </Card>
         ))
       ) : (
-        <EmptyState title="No cancellation requests" />
+        <EmptyState title={t("No cancellation requests")} />
       )}
     </ScrollView>
   );
@@ -795,31 +790,31 @@ function AddStaffSheet({
       contentContainerStyle={uiStyles.content}
     >
       <View style={uiStyles.row}>
-        <Text style={styles.sheetTitle}>Add staff</Text>
+        <Text style={styles.sheetTitle}>{t("Add staff")}</Text>
         <Pressable onPress={onClose}>
-          <Text style={uiStyles.link}>Back</Text>
+          <Text style={uiStyles.link}>{t("Back")}</Text>
         </Pressable>
       </View>
       <View>
-        <Text style={uiStyles.label}>FULL NAME</Text>
+        <Text style={uiStyles.label}>{t("FULL NAME")}</Text>
         <TextInput
-          accessibilityLabel="Full name"
+          accessibilityLabel={t("Full name")}
           style={uiStyles.field}
           value={name}
           onChangeText={setName}
-          placeholder="Mohammed Ali"
+          placeholder={t("Mohammed Ali")}
           autoCapitalize="words"
         />
         {errors.name ? <Text style={uiStyles.error}>{errors.name}</Text> : null}
       </View>
       <View>
-        <Text style={uiStyles.label}>USERNAME</Text>
+        <Text style={uiStyles.label}>{t("USERNAME")}</Text>
         <TextInput
-          accessibilityLabel="Username"
+          accessibilityLabel={t("Username")}
           style={uiStyles.field}
           value={username}
           onChangeText={(value) => setUsername(normalizeStaffUsername(value))}
-          placeholder="mohammed.ali"
+          placeholder={t("mohammed.ali")}
           autoCapitalize="none"
           autoCorrect={false}
         />
@@ -828,9 +823,9 @@ function AddStaffSheet({
         ) : null}
       </View>
       <View>
-        <Text style={uiStyles.label}>PHONE</Text>
+        <Text style={uiStyles.label}>{t("PHONE")}</Text>
         <TextInput
-          accessibilityLabel="Phone"
+          accessibilityLabel={t("Phone")}
           style={uiStyles.field}
           value={phone}
           onChangeText={setPhone}
@@ -838,25 +833,24 @@ function AddStaffSheet({
           keyboardType="phone-pad"
         />
         <Text style={uiStyles.muted}>
-          UAE local and international formats accepted.
-        </Text>
+          {" " + t("UAE local and international formats accepted.") + " "}</Text>
         {errors.phone ? (
           <Text style={uiStyles.error}>{errors.phone}</Text>
         ) : null}
       </View>
       <View>
-        <Text style={uiStyles.label}>TEMPORARY PASSWORD</Text>
+        <Text style={uiStyles.label}>{t("TEMPORARY PASSWORD")}</Text>
         <TextInput
-          accessibilityLabel="Temporary password"
+          accessibilityLabel={t("Temporary password")}
           style={uiStyles.field}
           value={password}
           onChangeText={setPassword}
-          placeholder="At least 8 characters"
+          placeholder={t("At least 8 characters")}
           secureTextEntry
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <Text style={uiStyles.muted}>{password.length} / 8 minimum</Text>
+        <Text style={uiStyles.muted}>{password.length} {" " + t("/ 8 minimum") + ""}</Text>
         {errors.password ? (
           <Text style={uiStyles.error}>{errors.password}</Text>
         ) : null}
@@ -870,7 +864,7 @@ function AddStaffSheet({
               role === "employee" ? styles.roleActive : undefined,
             ]}
           >
-            <Text>Employee</Text>
+            <Text>{t("Employee")}</Text>
           </Pressable>
           <Pressable
             onPress={() => setRole("manager")}
@@ -879,13 +873,13 @@ function AddStaffSheet({
               role === "manager" ? styles.roleActive : undefined,
             ]}
           >
-            <Text>Manager</Text>
+            <Text>{t("Manager")}</Text>
           </Pressable>
         </View>
       ) : null}
       {formError ? <Text style={uiStyles.error}>{formError}</Text> : null}
       <AppButton
-        title={busy ? "Creating…" : "Create account"}
+        title={busy ? t("Creating…") : t("Create account")}
         disabled={busy || !formValid}
         loading={busy}
         onPress={() => void save()}
@@ -919,7 +913,7 @@ function SimpleCreate({
       <View style={uiStyles.row}>
         <Text style={styles.sheetTitle}>{title}</Text>
         <Pressable onPress={onClose}>
-          <Text style={uiStyles.link}>Back</Text>
+          <Text style={uiStyles.link}>{t("Back")}</Text>
         </Pressable>
       </View>
       <Text style={uiStyles.label}>{label}</Text>
@@ -930,7 +924,7 @@ function SimpleCreate({
         placeholder={placeholder}
       />
       <AppButton
-        title={busy ? "Creating…" : "Create team"}
+        title={busy ? t("Creating…") : t("Create team")}
         disabled={busy || value.trim().length < 2}
         loading={busy}
         onPress={() => {
@@ -938,7 +932,7 @@ function SimpleCreate({
           void onSave(value.trim())
             .catch((error) =>
               Alert.alert(
-                "Team not created",
+                t("Team not created"),
                 domainErrorMessage(
                   error,
                   "Something went wrong while creating the team. Please try again.",
@@ -995,7 +989,7 @@ function TeamMembersSheet({
       onMembersSaved(next);
     } catch (error) {
       Alert.alert(
-        "Members not saved",
+        t("Members not saved"),
         domainErrorMessage(
           error,
           "The team membership could not be updated. Please try again.",
@@ -1010,7 +1004,7 @@ function TeamMembersSheet({
       onSaved(next);
     } catch (error) {
       Alert.alert(
-        "Team not updated",
+        t("Team not updated"),
         domainErrorMessage(
           error,
           "The team details could not be updated. Please try again.",
@@ -1024,13 +1018,13 @@ function TeamMembersSheet({
       <View style={uiStyles.row}>
         <Text style={styles.sheetTitle}>{detail.name}</Text>
         <Pressable onPress={onClose}>
-          <Text style={uiStyles.link}>Back</Text>
+          <Text style={uiStyles.link}>{t("Back")}</Text>
         </Pressable>
       </View>
-      <Text style={uiStyles.muted}>{detail.jobs_today} jobs today</Text>
+      <Text style={uiStyles.muted}>{detail.jobs_today} {" " + t("jobs today") + ""}</Text>
       <Card>
-        <Text style={styles.section}>STOCK</Text>
-        <Text style={styles.cardTitle}>{stock?.location_name ?? "No linked stock location"}</Text>
+        <Text style={styles.section}>{t("STOCK")}</Text>
+        <Text style={styles.cardTitle}>{stock?.location_name ?? t("No linked stock location")}</Text>
         {stock?.items.map((item) => (
           <View key={item.item_id} style={uiStyles.row}>
             <Text style={uiStyles.body}>{item.item_name}</Text>
@@ -1039,11 +1033,10 @@ function TeamMembersSheet({
         ))}
         {stock ? (
           <Text style={uiStyles.muted}>
-            {stock.low_stock_count} low · {stock.out_of_stock_count} out
-          </Text>
+            {stock.low_stock_count} {" " + t("low ·") + " "}{stock.out_of_stock_count} {" " + t("out") + " "}</Text>
         ) : null}
       </Card>
-      <Text style={uiStyles.label}>TEAM NAME</Text>
+      <Text style={uiStyles.label}>{t("TEAM NAME")}</Text>
       <TextInput
         style={uiStyles.field}
         value={teamName}
@@ -1052,7 +1045,7 @@ function TeamMembersSheet({
       <View style={styles.actions}>
         <View style={{ flex: 1 }}>
           <AppButton
-            title={updating ? "Saving…" : "Save name"}
+            title={updating ? t("Saving…") : t("Save name")}
             tone="secondary"
             disabled={
               updating ||
@@ -1065,7 +1058,7 @@ function TeamMembersSheet({
         </View>
         <View style={{ flex: 1 }}>
           <AppButton
-            title={detail.is_active ? "Deactivate" : "Reactivate"}
+            title={detail.is_active ? t("Deactivate") : t("Reactivate")}
             tone={detail.is_active ? "danger" : "secondary"}
             disabled={updating}
             loading={updating}
@@ -1073,7 +1066,7 @@ function TeamMembersSheet({
           />
         </View>
       </View>
-      <Text style={styles.section}>MEMBERS</Text>
+      <Text style={styles.section}>{t("MEMBERS")}</Text>
       {staff.map((member) => (
         <Pressable
           key={member.id}
@@ -1095,7 +1088,7 @@ function TeamMembersSheet({
         </Pressable>
       ))}
       <AppButton
-        title={saving ? "Saving…" : "Save members"}
+        title={saving ? t("Saving…") : t("Save members")}
         disabled={
           saving ||
           sameStringSet(
@@ -1139,7 +1132,7 @@ function EditStaffSheet({
       onSaved();
     } catch (error) {
       Alert.alert(
-        "Profile not saved",
+        t("Profile not saved"),
         domainErrorMessage(error, "Check the staff details and try again."),
       );
     } finally {
@@ -1153,14 +1146,14 @@ function EditStaffSheet({
       contentContainerStyle={uiStyles.content}
     >
       <View style={uiStyles.row}>
-        <Text style={styles.sheetTitle}>Edit staff</Text>
+        <Text style={styles.sheetTitle}>{t("Edit staff")}</Text>
         <Pressable onPress={onClose}>
-          <Text style={uiStyles.link}>Back</Text>
+          <Text style={uiStyles.link}>{t("Back")}</Text>
         </Pressable>
       </View>
-      <Text style={uiStyles.label}>FULL NAME</Text>
+      <Text style={uiStyles.label}>{t("FULL NAME")}</Text>
       <TextInput style={uiStyles.field} value={name} onChangeText={setName} />
-      <Text style={uiStyles.label}>PHONE</Text>
+      <Text style={uiStyles.label}>{t("PHONE")}</Text>
       <TextInput
         style={uiStyles.field}
         value={phone}
@@ -1168,12 +1161,12 @@ function EditStaffSheet({
         keyboardType="phone-pad"
       />
       <AppButton
-        title={busy ? "Saving…" : "Save changes"}
+        title={busy ? t("Saving…") : t("Save changes")}
         disabled={busy || name.trim().length < 2}
         loading={busy}
         onPress={() => void save()}
       />
-      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+      <AppButton title={t("Cancel")} tone="secondary" onPress={onClose} />
     </ScrollView>
   );
 }
@@ -1201,46 +1194,42 @@ function StaffDetailSheet({
           </Text>
         </View>
         <Pressable onPress={onClose}>
-          <Text style={uiStyles.link}>Close</Text>
+          <Text style={uiStyles.link}>{t("Close")}</Text>
         </Pressable>
       </View>
-      <Text style={styles.section}>TEAMS</Text>
+      <Text style={styles.section}>{t("TEAMS")}</Text>
       <Text style={uiStyles.body}>
         {profile.teams.length
           ? profile.teams.map((team) => team.name).join(", ")
-          : "No team membership"}
+          : t("No team membership")}
       </Text>
-      <Text style={styles.section}>TODAY'S ATTENDANCE</Text>
+      <Text style={styles.section}>{t("TODAY'S ATTENDANCE")}</Text>
       {attendance ? (
         <Card>
           <StatusChip value={attendance.status} />
           <Text style={uiStyles.muted}>
-            {attendance.worked_minutes} minutes worked ·{" "}
-            {attendance.late_minutes} minutes late
-          </Text>
+            {attendance.worked_minutes} {" " + t("minutes worked ·") + ""}{" "}
+            {attendance.late_minutes} {" " + t("minutes late") + " "}</Text>
         </Card>
       ) : (
-        <EmptyState title="No attendance recorded" />
+        <EmptyState title={t("No attendance recorded")} />
       )}
-      <Text style={styles.section}>TODAY'S JOBS</Text>
+      <Text style={styles.section}>{t("TODAY'S JOBS")}</Text>
       <Text style={styles.cardTitle}>{jobs.length}</Text>
-      <Text style={styles.section}>LAST 30 DAYS</Text>
+      <Text style={styles.section}>{t("LAST 30 DAYS")}</Text>
       {performance ? (
         <Card>
           <Text style={uiStyles.body}>
-            {performance.jobs_completed} completed ·{" "}
-            {performance.hours_worked.toFixed(1)} hours
-          </Text>
+            {performance.jobs_completed} {" " + t("completed ·") + ""}{" "}
+            {performance.hours_worked.toFixed(1)} {" " + t("hours") + " "}</Text>
           <Text style={uiStyles.muted}>
-            Average wash {performance.average_wash_minutes} min ·{" "}
-            {performance.late_arrivals} late arrivals
-          </Text>
+            {" " + t("Average wash") + " "}{performance.average_wash_minutes} {" " + t("min ·") + ""}{" "}
+            {performance.late_arrivals} {" " + t("late arrivals") + " "}</Text>
           <Text style={uiStyles.muted}>
-            {performance.jobs_per_worked_hour.toFixed(2)} jobs per worked hour
-          </Text>
+            {performance.jobs_per_worked_hour.toFixed(2)} {" " + t("jobs per worked hour") + " "}</Text>
         </Card>
       ) : (
-        <EmptyState title="No performance data" />
+        <EmptyState title={t("No performance data")} />
       )}
     </ScrollView>
   );
@@ -1261,7 +1250,7 @@ function PasswordSheet({
     if (modeToUse === "manual") {
       const validation = validatePasswordConfirmation(password, confirmation);
       if (validation) {
-        Alert.alert("Password not changed", validation);
+        Alert.alert(t("Password not changed"), validation);
         return;
       }
     }
@@ -1276,18 +1265,18 @@ function PasswordSheet({
       setConfirmation("");
       if (modeToUse === "temporary" && result.temporary_password) {
         Alert.alert(
-          "Password reset successfully.",
-          `Temporary password: ${result.temporary_password}\n\nEmployee must change this password on next login.`,
-          [{ text: "Done", onPress: onClose }],
+          t("Password reset successfully."),
+          t("Temporary password: {p0}\n\nEmployee must change this password on next login.", { p0: result.temporary_password }),
+          [{ text: t("Done"), onPress: onClose }],
         );
       } else {
-        Alert.alert("Password updated successfully.", undefined, [
-          { text: "Done", onPress: onClose },
+        Alert.alert(t("Password updated successfully."), undefined, [
+          { text: t("Done"), onPress: onClose },
         ]);
       }
     } catch (error) {
       Alert.alert(
-        "Password not changed",
+        t("Password not changed"),
         domainErrorMessage(
           error,
           "The password could not be changed. Please try again.",
@@ -1304,26 +1293,26 @@ function PasswordSheet({
       contentContainerStyle={uiStyles.content}
     >
       <View style={uiStyles.row}>
-        <Text style={styles.sheetTitle}>Reset password</Text>
+        <Text style={styles.sheetTitle}>{t("Reset password")}</Text>
         <Pressable onPress={onClose}>
-          <Text style={uiStyles.link}>Back</Text>
+          <Text style={uiStyles.link}>{t("Back")}</Text>
         </Pressable>
       </View>
       <Text style={uiStyles.muted}>{profile.display_name}</Text>
       {mode === "choose" ? (
         <>
           <AppButton
-            title="Reset to temporary password"
+            title={t("Reset to temporary password")}
             disabled={busy}
             loading={busy}
             onPress={() =>
               Alert.alert(
-                `Reset password for ${profile.display_name}?`,
-                "A temporary password will be shown once. The employee must change it on next login.",
+                t("Reset password for {p0}?", { p0: profile.display_name }),
+                t("A temporary password will be shown once. The employee must change it on next login."),
                 [
-                  { text: "Cancel", style: "cancel" },
+                  { text: t("Cancel"), style: "cancel" },
                   {
-                    text: "Reset password",
+                    text: t("Reset password"),
                     style: "destructive",
                     onPress: () => void reset("temporary"),
                   },
@@ -1332,7 +1321,7 @@ function PasswordSheet({
             }
           />
           <AppButton
-            title="Set new password manually"
+            title={t("Set new password manually")}
             tone="secondary"
             disabled={busy}
             onPress={() => setMode("manual")}
@@ -1341,32 +1330,32 @@ function PasswordSheet({
       ) : (
         <>
           <TextInput
-            accessibilityLabel="New password"
+            accessibilityLabel={t("New password")}
             autoCapitalize="none"
             style={uiStyles.field}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            placeholder="New password"
+            placeholder={t("New password")}
           />
           <TextInput
-            accessibilityLabel="Confirm new password"
+            accessibilityLabel={t("Confirm new password")}
             autoCapitalize="none"
             style={uiStyles.field}
             value={confirmation}
             onChangeText={setConfirmation}
             secureTextEntry
-            placeholder="Confirm new password"
+            placeholder={t("Confirm new password")}
           />
           <AppButton
-            title={busy ? "Updating…" : "Update password"}
+            title={busy ? t("Updating…") : t("Update password")}
             disabled={busy}
             loading={busy}
             onPress={() =>
-              Alert.alert(`Reset password for ${profile.display_name}?`, "", [
-                { text: "Cancel", style: "cancel" },
+              Alert.alert(t("Reset password for {p0}?", { p0: profile.display_name }), "", [
+                { text: t("Cancel"), style: "cancel" },
                 {
-                  text: "Update password",
+                  text: t("Update password"),
                   style: "destructive",
                   onPress: () => void reset("manual"),
                 },
@@ -1374,14 +1363,14 @@ function PasswordSheet({
             }
           />
           <AppButton
-            title="Back"
+            title={t("Back")}
             tone="secondary"
             disabled={busy}
             onPress={() => setMode("choose")}
           />
         </>
       )}
-      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+      <AppButton title={t("Cancel")} tone="secondary" onPress={onClose} />
     </ScrollView>
   );
 }
@@ -1411,7 +1400,7 @@ function CreateShiftSheet({
       onClose();
     } catch (error) {
       Alert.alert(
-        "Shift not created",
+        t("Shift not created"),
         domainErrorMessage(error, "Check the name and times, then try again."),
       );
     }
@@ -1423,37 +1412,36 @@ function CreateShiftSheet({
       contentContainerStyle={uiStyles.content}
     >
       <View style={uiStyles.row}>
-        <Text style={styles.sheetTitle}>Create shift</Text>
+        <Text style={styles.sheetTitle}>{t("Create shift")}</Text>
         <Pressable onPress={onClose}>
-          <Text style={uiStyles.link}>Back</Text>
+          <Text style={uiStyles.link}>{t("Back")}</Text>
         </Pressable>
       </View>
-      <Text style={uiStyles.label}>SHIFT NAME</Text>
+      <Text style={uiStyles.label}>{t("SHIFT NAME")}</Text>
       <TextInput
-        accessibilityLabel="Shift name"
+        accessibilityLabel={t("Shift name")}
         style={uiStyles.field}
         value={name}
         onChangeText={setName}
-        placeholder="Morning"
+        placeholder={t("Morning")}
       />
       <TimePickerField
-        label="Start time"
+        label={t("Start time")}
         value={startTime}
         onChange={setStartTime}
       />
-      <TimePickerField label="End time" value={endTime} onChange={setEndTime} />
+      <TimePickerField label={t("End time")} value={endTime} onChange={setEndTime} />
       {name && !valid ? (
         <Text style={uiStyles.error}>
-          The end time must be after the start time.
-        </Text>
+          {" " + t("The end time must be after the start time.") + " "}</Text>
       ) : null}
       <AppButton
-        title={mutation.isPending ? "Creating…" : "Create shift"}
+        title={mutation.isPending ? t("Creating…") : t("Create shift")}
         disabled={mutation.isPending || !valid}
         loading={mutation.isPending}
         onPress={() => void save()}
       />
-      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+      <AppButton title={t("Cancel")} tone="secondary" onPress={onClose} />
     </ScrollView>
   );
 }
@@ -1525,18 +1513,18 @@ function ShiftAssignmentSheet({
       contentContainerStyle={uiStyles.content}
     >
       <View style={uiStyles.row}>
-        <Text style={styles.sheetTitle}>Assign shift</Text>
+        <Text style={styles.sheetTitle}>{t("Assign shift")}</Text>
         <Pressable onPress={onClose}>
-          <Text style={uiStyles.link}>Back</Text>
+          <Text style={uiStyles.link}>{t("Back")}</Text>
         </Pressable>
       </View>
       <DatePickerField
-        label="Date"
+        label={t("Date")}
         value={workDate}
         minimumDate={wallDate(uaeDateKey())}
         onChange={setWorkDate}
       />
-      <Text style={uiStyles.label}>STAFF</Text>
+      <Text style={uiStyles.label}>{t("STAFF")}</Text>
       {staff.map((item) => (
         <Pressable
           key={item.id}
@@ -1558,7 +1546,7 @@ function ShiftAssignmentSheet({
           <Text style={styles.cardTitle}>{item.display_name}</Text>
         </Pressable>
       ))}
-      <Text style={uiStyles.label}>SHIFT</Text>
+      <Text style={uiStyles.label}>{t("SHIFT")}</Text>
       {shifts.map((item) => (
         <Pressable
           key={item.id}
@@ -1574,7 +1562,7 @@ function ShiftAssignmentSheet({
           </Text>
         </Pressable>
       ))}
-      <Text style={uiStyles.label}>TEAM (OPTIONAL)</Text>
+      <Text style={uiStyles.label}>{t("TEAM (OPTIONAL)")}</Text>
       <Pressable
         style={[
           styles.memberChoice,
@@ -1582,7 +1570,7 @@ function ShiftAssignmentSheet({
         ]}
         onPress={() => setTeamId("")}
       >
-        <Text style={styles.cardTitle}>No team</Text>
+        <Text style={styles.cardTitle}>{t("No team")}</Text>
       </Pressable>
       {eligibleTeams.map((item) => (
         <Pressable
@@ -1599,20 +1587,20 @@ function ShiftAssignmentSheet({
       <Text style={uiStyles.muted}>
         {staffId
           ? eligibleTeams.length
-            ? "Only teams this employee belongs to are shown."
-            : "This employee is not an active member of a team. Assign without a team or update team membership first."
-          : "Select an employee to see valid teams."}
+            ? t("Only teams this employee belongs to are shown.")
+            : t("This employee is not an active member of a team. Assign without a team or update team membership first.")
+          : t("Select an employee to see valid teams.")}
       </Text>
       {assignmentError ? (
         <Text style={uiStyles.error}>{assignmentError}</Text>
       ) : null}
       <AppButton
-        title={mutation.isPending ? "Assigning…" : "Assign shift"}
+        title={mutation.isPending ? t("Assigning…") : t("Assign shift")}
         disabled={mutation.isPending || !staffId || !shiftId || !workDate}
         loading={mutation.isPending}
         onPress={() => void save()}
       />
-      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+      <AppButton title={t("Cancel")} tone="secondary" onPress={onClose} />
     </ScrollView>
   );
 }

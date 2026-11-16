@@ -1,0 +1,30 @@
+{
+  "booking_state": {
+    "cancelled": "8ef06829-e5fe-4f9b-8c98-112d22a5be10",
+    "overlap_remains_confirmed": "2811c204-f3f2-468c-b4b2-8169e551242d",
+    "payment_preserved": true,
+    "pending_reminders": 0,
+    "cancellation_outbox_count": 1,
+    "audit_preserved": true
+  },
+  "notification_worker": {
+    "first": "sent",
+    "retry": "skipped",
+    "provider_calls": 1,
+    "sink": "isolated synthetic email capture; no external delivery"
+  },
+  "report_fixtures": {
+    "date": "2026-11-16",
+    "ids": [
+      "a0afc4a8-ce37-4f32-90a9-ea2e10463bb4",
+      "20fb0ccc-2985-4439-8590-4a2936c84d8d",
+      "df648911-b94a-4d4f-92f1-e6ff20a4ee1c"
+    ],
+    "booked_sales_minor": 15000,
+    "collected_revenue_minor": 5000,
+    "jobs": 3,
+    "completed": 1,
+    "cancelled": 1,
+    "currency": "AED"
+  }
+}

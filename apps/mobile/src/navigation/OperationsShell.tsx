@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { useEffect, useRef } from "react";
@@ -79,12 +80,12 @@ export function OperationsShell({ context }: { context: StaffContext }) {
       <StatusBar style="dark" />
       <View style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>TRIFECTA OPERATIONS</Text>
+          <Text style={styles.eyebrow}>{t("TRIFECTA OPERATIONS")}</Text>
           <Text style={styles.name}>
             {context.display_name || context.business_name}
           </Text>
         </View>
-        <Text style={styles.role}>{context.role.toUpperCase()}</Text>
+        <Text style={styles.role}>{t(context.role.toUpperCase())}</Text>
       </View>
       <View style={styles.body}>
         {complaintsOpen ? (
@@ -170,7 +171,7 @@ export function OperationsShell({ context }: { context: StaffContext }) {
                   tab === value ? styles.tabTextActive : undefined,
                 ]}
               >
-                {value[0].toUpperCase() + value.slice(1)}
+                {t(value[0].toUpperCase() + value.slice(1))}
               </Text>
             </Pressable>
           ))}

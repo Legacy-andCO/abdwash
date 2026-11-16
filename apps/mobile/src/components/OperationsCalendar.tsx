@@ -1,3 +1,4 @@
+import { staffLocale, t } from "../i18n";
 import { webSheetStyle } from "./webSheetStyle";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -44,7 +45,7 @@ export function OperationsCalendar({
     [range.end, range.start],
   );
   const agenda = selectedDate ? grouped.get(selectedDate) ?? [] : [];
-  const monthLabel = new Date(`${month}-01T00:00:00Z`).toLocaleDateString([], {
+  const monthLabel = new Date(`${month}-01T00:00:00Z`).toLocaleDateString(staffLocale(), {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
@@ -57,38 +58,38 @@ export function OperationsCalendar({
 
   return (
     <View>
-      <AppButton title="+ Book a Wash" onPress={() => openBooking(today)} />
-      {onOpenRescheduling && <AppButton title="Needs reschedule" tone="secondary" onPress={onOpenRescheduling} />}
+      <AppButton title={t("+ Book a Wash")} onPress={() => openBooking(today)} />
+      {onOpenRescheduling && <AppButton title={t("Needs reschedule")} tone="secondary" onPress={onOpenRescheduling} />}
       <View style={styles.toolbar}>
-        <Pressable accessibilityRole="button" style={styles.monthControl} accessibilityLabel="Previous month" onPress={() => setMonth(shiftMonth(month, -1))}>
+        <Pressable accessibilityRole="button" style={styles.monthControl} accessibilityLabel={t("Previous month")} onPress={() => setMonth(shiftMonth(month, -1))}>
           <Text style={uiStyles.link}>←</Text>
         </Pressable>
         <View style={styles.monthTitle}>
           <Text style={styles.heading}>{monthLabel}</Text>
           <Pressable accessibilityRole="button" style={styles.monthControl} onPress={() => setMonth(today.slice(0, 7))}>
-            <Text style={uiStyles.link}>Today</Text>
+            <Text style={uiStyles.link}>{t("Today")}</Text>
           </Pressable>
         </View>
-        <Pressable accessibilityRole="button" style={styles.monthControl} accessibilityLabel="Next month" onPress={() => setMonth(shiftMonth(month, 1))}>
+        <Pressable accessibilityRole="button" style={styles.monthControl} accessibilityLabel={t("Next month")} onPress={() => setMonth(shiftMonth(month, 1))}>
           <Text style={uiStyles.link}>→</Text>
         </Pressable>
       </View>
       {query.isError && jobs.length ? (
-        <Text style={styles.warning}>Offline · showing the last saved calendar</Text>
+        <Text style={styles.warning}>{t("Offline · showing the last saved calendar")}</Text>
       ) : null}
       {query.isPending && !jobs.length ? (
         <Skeleton rows={5} />
       ) : query.isError && !jobs.length ? (
         <EmptyState
-          title="Calendar unavailable"
+          title={t("Calendar unavailable")}
           body={domainErrorMessage(query.error, "We couldn't load this month.")}
-          action={<AppButton title="Try again" onPress={() => void query.refetch()} />}
+          action={<AppButton title={t("Try again")} onPress={() => void query.refetch()} />}
         />
       ) : (
         <>
           <View style={styles.weekRow}>
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <Text key={day} style={styles.weekday}>{day}</Text>
+              <Text key={day} style={styles.weekday}>{new Intl.DateTimeFormat(staffLocale(), { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2026, 10, 15 + ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(day))))}</Text>
             ))}
           </View>
           <View style={styles.grid}>
@@ -99,7 +100,7 @@ export function OperationsCalendar({
                 <Pressable
                   key={day}
                   accessibilityRole="button"
-                  accessibilityLabel={`${day}, ${dayJobs.length} jobs`}
+                  accessibilityLabel={t("{p0}, {p1} jobs", { p0: day, p1: dayJobs.length })}
                   style={[
                     styles.day,
                     compact ? styles.compactDay : undefined,
@@ -111,7 +112,7 @@ export function OperationsCalendar({
                   <Text style={[styles.dayNumber, !inMonth ? styles.outside : undefined]}>
                     {Number(day.slice(-2))}
                   </Text>
-                  {compact && dayJobs.length ? <Text style={styles.jobCount}>{dayJobs.length} {dayJobs.length === 1 ? "job" : "jobs"}</Text> : null}
+                  {compact && dayJobs.length ? <Text style={styles.jobCount}>{dayJobs.length} {dayJobs.length === 1 ? t("job") : t("jobs")}</Text> : null}
                   {!compact ? dayJobs.slice(0, 3).map((job) => (
                     <View
                       key={job.job_id}
@@ -125,13 +126,13 @@ export function OperationsCalendar({
                       ]}
                     >
                       <Text numberOfLines={1} style={styles.eventText}>
-                        {job.team_short_name ?? "UN"} · {job.vehicle_label}
+                        {job.team_short_name ?? t("UN")} · {job.vehicle_label}
                       </Text>
                       <Text style={styles.eventTime}>{formatUaeTime(job.scheduled_start)}</Text>
                     </View>
                   )) : null}
                   {!compact && dayJobs.length > 3 ? (
-                    <Text style={styles.more}>+{dayJobs.length - 3} more</Text>
+                    <Text style={styles.more}>+{dayJobs.length - 3} {" " + t("more") + ""}</Text>
                   ) : null}
                 </Pressable>
               );
@@ -149,11 +150,11 @@ export function OperationsCalendar({
           <View style={styles.sheet}>
             <View style={uiStyles.row}>
               <Text style={styles.heading}>{selectedDate}</Text>
-              <Pressable accessibilityRole="button" onPress={() => setSelectedDate(null)}><Text style={uiStyles.link}>Close</Text></Pressable>
+              <Pressable accessibilityRole="button" onPress={() => setSelectedDate(null)}><Text style={uiStyles.link}>{t("Close")}</Text></Pressable>
             </View>
             <ScrollView>
               {selectedDate && selectedDate >= today && (
-                <AppButton title="+ Book a Wash on this date" tone="secondary" onPress={() => openBooking(selectedDate)} />
+                <AppButton title={t("+ Book a Wash on this date")} tone="secondary" onPress={() => openBooking(selectedDate)} />
               )}
               {agenda.length ? agenda.map((job) => (
                 <View key={job.job_id}>
@@ -163,13 +164,13 @@ export function OperationsCalendar({
                   }} />
                   {job.can_double_book && job.team_id && (
                     <AppButton
-                      title={`Double-book this time · احجز موعداً متداخلاً · ${formatUaeTime(job.scheduled_start)}`}
+                      title={t("Double-book this time · {p0}", { p0: formatUaeTime(job.scheduled_start) })}
                       tone="secondary"
                       onPress={() => openBooking(job.local_date, job)}
                     />
                   )}
                 </View>
-              )) : <Text style={uiStyles.muted}>No scheduled jobs.</Text>}
+              )) : <Text style={uiStyles.muted}>{t("No scheduled jobs.")}</Text>}
             </ScrollView>
           </View>
         </View>
@@ -201,7 +202,7 @@ function AgendaRow({ job, onPress }: { job: CalendarJob; onPress: () => void }) 
         <StatusChip value={job.status} />
       </View>
       <Text style={uiStyles.body}>{job.vehicle_label} · {job.service_label}</Text>
-      <Text style={uiStyles.muted}>{job.team_short_name ?? "Unassigned"}</Text>
+      <Text style={uiStyles.muted}>{job.team_short_name ?? t("Unassigned")}</Text>
     </Pressable>
   );
 }

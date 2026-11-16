@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { webSheetStyle } from "../components/webSheetStyle";
 import { Alert } from "../alert";
 import { useEffect, useRef, useState } from "react";
@@ -73,8 +74,8 @@ export function CustomersScreen({
   if (!capabilities(context.role).canManageCustomers)
     return (
       <EmptyState
-        title="Customers unavailable"
-        body="Manager access is required."
+        title={t("Customers unavailable")}
+        body={t("Manager access is required.")}
       />
     );
   if (selectedId)
@@ -97,25 +98,25 @@ export function CustomersScreen({
       contentContainerStyle={uiStyles.content}
     >
       <Pressable accessibilityRole="button" onPress={onBack}>
-        <Text style={uiStyles.link}>← Today</Text>
+        <Text style={uiStyles.link}>{t("← Today")}</Text>
       </Pressable>
       <View style={uiStyles.row}>
         <ScreenTitle
-          title="Customers"
-          subtitle="Profiles, saved details and loyalty"
+          title={t("Customers")}
+          subtitle={t("Profiles, saved details and loyalty")}
         />
         <Pressable
           accessibilityRole="button"
           onPress={() => setSettingsOpen(true)}
         >
-          <Text style={uiStyles.link}>Loyalty settings</Text>
+          <Text style={uiStyles.link}>{t("Loyalty settings")}</Text>
         </Pressable>
       </View>
       <TextInput
-        accessibilityLabel="Search customers"
+        accessibilityLabel={t("Search customers")}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholder="Search name, phone, email or plate"
+        placeholder={t("Search name, phone, email or plate")}
         placeholderTextColor={colors.textSecondary}
         selectionColor={colors.primary}
         style={uiStyles.field}
@@ -126,10 +127,10 @@ export function CustomersScreen({
         <Skeleton rows={5} />
       ) : query.isError ? (
         <EmptyState
-          title="Customers unavailable"
+          title={t("Customers unavailable")}
           body={domainErrorMessage(query.error, "We couldn't load customers.")}
           action={
-            <AppButton title="Try again" onPress={() => void query.refetch()} />
+            <AppButton title={t("Try again")} onPress={() => void query.refetch()} />
           }
         />
       ) : query.data?.customers.length ? (
@@ -145,7 +146,7 @@ export function CustomersScreen({
             <View style={styles.buttonRow}>
               <View style={styles.flex}>
                 <AppButton
-                  title="Previous"
+                  title={t("Previous")}
                   tone="secondary"
                   disabled={offset === 0}
                   onPress={() => setOffset(Math.max(0, offset - 30))}
@@ -153,7 +154,7 @@ export function CustomersScreen({
               </View>
               <View style={styles.flex}>
                 <AppButton
-                  title="Next"
+                  title={t("Next")}
                   tone="secondary"
                   disabled={query.data.next_offset === null}
                   onPress={() => setOffset(query.data?.next_offset ?? offset)}
@@ -164,8 +165,8 @@ export function CustomersScreen({
         </>
       ) : (
         <EmptyState
-          title="No customers found"
-          body="Try another name, phone, email address or plate number."
+          title={t("No customers found")}
+          body={t("Try another name, phone, email address or plate number.")}
         />
       )}
       <LoyaltySettingsModal
@@ -199,19 +200,17 @@ function CustomerCard({
         </View>
         <Text style={uiStyles.body}>{customer.phone}</Text>
         <Text style={uiStyles.muted}>
-          {customer.active_vehicle_count} vehicle
-          {customer.active_vehicle_count === 1 ? "" : "s"} ·{" "}
-          {customer.booking_count} bookings
-        </Text>
+          {customer.active_vehicle_count} {" " + t("vehicle") + " "}{customer.active_vehicle_count === 1 ? "" : t("s")} ·{" "}
+          {customer.booking_count} {" " + t("bookings") + " "}</Text>
         <Text style={uiStyles.muted}>
-          Loyalty {customer.loyalty_progress_washes} /{" "}
+          {" " + t("Loyalty") + " "}{customer.loyalty_progress_washes} /{" "}
           {customer.loyalty_required_washes}
         </Text>
         <Text style={uiStyles.muted}>
-          Last visit:{" "}
+          {" " + t("Last visit:") + ""}{" "}
           {customer.latest_booking_at
             ? new Date(customer.latest_booking_at).toLocaleDateString()
-            : "No bookings yet"}
+            : t("No bookings yet")}
         </Text>
       </Card>
     </Pressable>
@@ -251,69 +250,66 @@ function CustomerDetailScreen({
       contentContainerStyle={uiStyles.content}
     >
       <Pressable accessibilityRole="button" onPress={onBack}>
-        <Text style={uiStyles.link}>← Customers</Text>
+        <Text style={uiStyles.link}>{t("← Customers")}</Text>
       </Pressable>
       {query.isPending ? (
         <Skeleton rows={6} />
       ) : query.isError || !value ? (
         <EmptyState
-          title="Customer unavailable"
+          title={t("Customer unavailable")}
           body={domainErrorMessage(
             query.error,
             "We couldn't load this customer.",
           )}
           action={
-            <AppButton title="Try again" onPress={() => void query.refetch()} />
+            <AppButton title={t("Try again")} onPress={() => void query.refetch()} />
           }
         />
       ) : (
         <>
           <ScreenTitle
-            title={`${value.profile.first_name} ${value.profile.surname}`}
+            title={t("{p0} {p1}", { p0: value.profile.first_name, p1: value.profile.surname })}
             subtitle={value.profile.phone}
           />
           <Card>
             <View style={uiStyles.row}>
-              <Text style={styles.section}>CUSTOMER</Text>
+              <Text style={styles.section}>{t("CUSTOMER")}</Text>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setProfileOpen(true)}
               >
-                <Text style={uiStyles.link}>Edit</Text>
+                <Text style={uiStyles.link}>{t("Edit")}</Text>
               </Pressable>
             </View>
             <Text style={uiStyles.body}>{value.profile.phone}</Text>
             <Text style={uiStyles.muted}>
-              {value.profile.email} · email read-only
-            </Text>
+              {value.profile.email} {" " + t("· email read-only") + " "}</Text>
           </Card>
           <Card>
             <View style={uiStyles.row}>
-              <Text style={styles.section}>LOYALTY</Text>
+              <Text style={styles.section}>{t("LOYALTY")}</Text>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setAdjustOpen(true)}
               >
-                <Text style={uiStyles.link}>Adjust loyalty</Text>
+                <Text style={uiStyles.link}>{t("Adjust loyalty")}</Text>
               </Pressable>
             </View>
             <Text style={styles.rewardMetric}>
               {value.loyalty.progress_washes} / {value.loyalty.required_washes}{" "}
-              washes
-            </Text>
+              {" " + t("washes") + " "}</Text>
             <Text style={uiStyles.muted}>
-              {value.loyalty.washes_remaining} remaining ·{" "}
-              {value.loyalty.available_rewards} available rewards
-            </Text>
+              {value.loyalty.washes_remaining} {" " + t("remaining ·") + ""}{" "}
+              {value.loyalty.available_rewards} {" " + t("available rewards") + " "}</Text>
             <Text style={uiStyles.muted}>
-              Lifetime qualifying washes{" "}
-              {value.loyalty.lifetime_qualifying_washes} · Redeemed{" "}
+              {" " + t("Lifetime qualifying washes") + ""}{" "}
+              {value.loyalty.lifetime_qualifying_washes} {" " + t("· Redeemed") + ""}{" "}
               {value.loyalty.redeemed_rewards}
             </Text>
             {value.loyalty.history.slice(0, 8).map((item) => (
               <View key={item.id} style={styles.historyRow}>
                 <Text style={uiStyles.body}>
-                  {item.event_type.replaceAll("_", " ")}
+                  {t(item.event_type.replaceAll("_", " "))}
                 </Text>
                 <Text style={uiStyles.muted}>
                   {item.quantity > 0 ? "+" : ""}
@@ -327,7 +323,7 @@ function CustomerDetailScreen({
             ))}
           </Card>
           <DetailSection
-            title="VEHICLES"
+            title={t("VEHICLES")}
             action="Add vehicle"
             onAction={() => setVehicleTarget("new")}
           >
@@ -335,17 +331,17 @@ function CustomerDetailScreen({
               value.vehicles.map((item) => (
                 <ManageableRow
                   key={item.id}
-                  title={`${item.make} ${item.model}`}
+                  title={t("{p0} {p1}", { p0: item.make, p1: item.model })}
                   detail={`Plate ${item.plate_number ?? "—"} · ${item.vehicle_type}`}
                   onEdit={() => setVehicleTarget(item)}
                 />
               ))
             ) : (
-              <Text style={uiStyles.muted}>No saved vehicles.</Text>
+              <Text style={uiStyles.muted}>{t("No saved vehicles.")}</Text>
             )}
           </DetailSection>
           <DetailSection
-            title="LOCATIONS"
+            title={t("LOCATIONS")}
             action="Add location"
             onAction={() => setAddressTarget("new")}
           >
@@ -353,13 +349,13 @@ function CustomerDetailScreen({
               value.addresses.map((item) => (
                 <ManageableRow
                   key={item.id}
-                  title={`${item.label}${item.is_default ? " · Default" : ""}`}
+                  title={t("{p0}{p1}", { p0: item.label, p1: item.is_default ? " · Default" : "" })}
                   detail={item.written_address}
                   onEdit={() => setAddressTarget(item)}
                 />
               ))
             ) : (
-              <Text style={uiStyles.muted}>No saved locations.</Text>
+              <Text style={uiStyles.muted}>{t("No saved locations.")}</Text>
             )}
           </DetailSection>
           <BookingHistory
@@ -438,7 +434,7 @@ function ManageableRow({
         <Text style={uiStyles.muted}>{detail}</Text>
       </View>
       <Pressable accessibilityRole="button" onPress={onEdit}>
-        <Text style={uiStyles.link}>Edit</Text>
+        <Text style={uiStyles.link}>{t("Edit")}</Text>
       </Pressable>
     </View>
   );
@@ -463,27 +459,27 @@ function BookingHistory({
   const history = value.bookings.filter((item) => !upcoming.includes(item));
   return (
     <Card>
-      <Text style={styles.section}>UPCOMING BOOKINGS</Text>
+      <Text style={styles.section}>{t("UPCOMING BOOKINGS")}</Text>
       {upcoming.length ? (
         upcoming.map((item) => (
           <BookingRow key={item.id} item={item} onOpenJob={onOpenJob} />
         ))
       ) : (
-        <Text style={uiStyles.muted}>No upcoming bookings.</Text>
+        <Text style={uiStyles.muted}>{t("No upcoming bookings.")}</Text>
       )}
-      <Text style={styles.section}>HISTORY</Text>
+      <Text style={styles.section}>{t("HISTORY")}</Text>
       {history.length ? (
         history.map((item) => (
           <BookingRow key={item.id} item={item} onOpenJob={onOpenJob} />
         ))
       ) : (
-        <Text style={uiStyles.muted}>No booking history.</Text>
+        <Text style={uiStyles.muted}>{t("No booking history.")}</Text>
       )}
       {offset > 0 || value.bookings_next_offset !== null ? (
         <View style={styles.buttonRow}>
           <View style={styles.flex}>
             <AppButton
-              title="Newer"
+              title={t("Newer")}
               tone="secondary"
               disabled={offset === 0}
               onPress={() => onOffsetChange(Math.max(0, offset - 30))}
@@ -491,7 +487,7 @@ function BookingHistory({
           </View>
           <View style={styles.flex}>
             <AppButton
-              title="Older"
+              title={t("Older")}
               tone="secondary"
               disabled={value.bookings_next_offset === null}
               onPress={() =>
@@ -523,8 +519,8 @@ function BookingRow({
           key={`${vehicle.make}-${vehicle.model}-${index}`}
           style={uiStyles.body}
         >
-          {vehicle.make} {vehicle.model} · {vehicle.plate_number ?? "No plate"}
-          {vehicle.service_name ? ` · ${vehicle.service_name}` : ""}
+          {vehicle.make} {vehicle.model} · {vehicle.plate_number ?? t("No plate")}
+          {vehicle.service_name ? t(" · {p0}", { p0: vehicle.service_name }) : ""}
         </Text>
       ))}
       <Text style={uiStyles.muted}>
@@ -533,8 +529,7 @@ function BookingRow({
       </Text>
       {item.complaint_count ? (
         <Text style={uiStyles.muted}>
-          {item.complaint_count} quality complaint
-          {item.complaint_count === 1 ? "" : "s"}
+          {item.complaint_count} {" " + t("quality complaint") + " "}{item.complaint_count === 1 ? "" : t("s")}
         </Text>
       ) : null}
     </>
@@ -542,7 +537,7 @@ function BookingRow({
   return item.job_id ? (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open job ${item.reference}`}
+      accessibilityLabel={t("Open job {p0}", { p0: item.reference })}
       style={styles.historyRow}
       onPress={() => onOpenJob(item.job_id!)}
     >
@@ -579,7 +574,7 @@ function Sheet({
           <View style={uiStyles.row}>
             <Text style={styles.sheetTitle}>{title}</Text>
             <Pressable onPress={onClose}>
-              <Text style={uiStyles.link}>Close</Text>
+              <Text style={uiStyles.link}>{t("Close")}</Text>
             </Pressable>
           </View>
           {children}
@@ -648,29 +643,29 @@ function ProfileEditModal({
       onClose();
     } catch (error) {
       Alert.alert(
-        "Customer not saved",
+        t("Customer not saved"),
         domainErrorMessage(error, "Review the customer details and try again."),
       );
     }
   }
   return (
-    <Sheet visible={visible} title="Edit customer" onClose={onClose}>
-      <Field label="FIRST NAME" value={firstName} onChangeText={setFirstName} />
-      <Field label="SURNAME" value={surname} onChangeText={setSurname} />
+    <Sheet visible={visible} title={t("Edit customer")} onClose={onClose}>
+      <Field label={t("FIRST NAME")} value={firstName} onChangeText={setFirstName} />
+      <Field label={t("SURNAME")} value={surname} onChangeText={setSurname} />
       <Field
-        label="PHONE"
+        label={t("PHONE")}
         keyboardType="phone-pad"
         value={phone}
         onChangeText={setPhone}
       />
       <Field
-        label="EMAIL (READ ONLY)"
+        label={t("EMAIL (READ ONLY)")}
         editable={false}
         value={detail.profile.email}
         onChangeText={() => undefined}
       />
       <AppButton
-        title={mutation.isPending ? "Saving…" : "Save changes"}
+        title={mutation.isPending ? t("Saving…") : t("Save changes")}
         disabled={
           mutation.isPending ||
           !firstName.trim() ||
@@ -737,17 +732,17 @@ function AddressEditModal({
       onClose();
     } catch (error) {
       Alert.alert(
-        "Location not saved",
+        t("Location not saved"),
         domainErrorMessage(error, "Review the saved location and try again."),
       );
     }
   }
   function remove() {
     if (!existing) return;
-    Alert.alert("Remove saved location?", existing.label, [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("Remove saved location?"), existing.label, [
+      { text: t("Cancel"), style: "cancel" },
       {
-        text: "Remove",
+        text: t("Remove"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -755,7 +750,7 @@ function AddressEditModal({
             onClose();
           } catch (error) {
             Alert.alert(
-              "Location not removed",
+              t("Location not removed"),
               domainErrorMessage(error, "Try again."),
             );
           }
@@ -766,31 +761,31 @@ function AddressEditModal({
   return (
     <Sheet
       visible={target !== null}
-      title={existing ? "Edit location" : "Add location"}
+      title={existing ? t("Edit location") : t("Add location")}
       onClose={onClose}
     >
-      <Field label="LABEL" value={label} onChangeText={setLabel} />
+      <Field label={t("LABEL")} value={label} onChangeText={setLabel} />
       <Field
-        label="ADDRESS"
+        label={t("ADDRESS")}
         multiline
         value={address}
         onChangeText={setAddress}
       />
       <Field
-        label="GOOGLE MAPS LINK"
+        label={t("GOOGLE MAPS LINK")}
         autoCapitalize="none"
         keyboardType="url"
         value={url}
         onChangeText={setUrl}
       />
       <Field
-        label="LOCATION INSTRUCTIONS"
+        label={t("LOCATION INSTRUCTIONS")}
         multiline
         value={instructions}
         onChangeText={setInstructions}
       />
       <View style={uiStyles.row}>
-        <Text style={uiStyles.body}>Default location</Text>
+        <Text style={uiStyles.body}>{t("Default location")}</Text>
         <Switch
           value={isDefault}
           onValueChange={setDefault}
@@ -798,7 +793,7 @@ function AddressEditModal({
         />
       </View>
       <AppButton
-        title={mutation.isPending ? "Saving…" : "Save location"}
+        title={mutation.isPending ? t("Saving…") : t("Save location")}
         loading={mutation.isPending}
         disabled={
           mutation.isPending ||
@@ -811,7 +806,7 @@ function AddressEditModal({
       />
       {existing ? (
         <AppButton
-          title="Remove location"
+          title={t("Remove location")}
           tone="danger"
           disabled={mutation.isPending}
           onPress={remove}
@@ -872,17 +867,17 @@ function VehicleEditModal({
       onClose();
     } catch (error) {
       Alert.alert(
-        "Vehicle not saved",
+        t("Vehicle not saved"),
         domainErrorMessage(error, "Review the vehicle details and try again."),
       );
     }
   }
   function remove() {
     if (!existing) return;
-    Alert.alert("Remove saved vehicle?", `${existing.make} ${existing.model}`, [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("Remove saved vehicle?"), t("{p0} {p1}", { p0: existing.make, p1: existing.model }), [
+      { text: t("Cancel"), style: "cancel" },
       {
-        text: "Remove",
+        text: t("Remove"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -890,7 +885,7 @@ function VehicleEditModal({
             onClose();
           } catch (error) {
             Alert.alert(
-              "Vehicle not removed",
+              t("Vehicle not removed"),
               domainErrorMessage(error, "Try again."),
             );
           }
@@ -901,28 +896,28 @@ function VehicleEditModal({
   return (
     <Sheet
       visible={target !== null}
-      title={existing ? "Edit vehicle" : "Add vehicle"}
+      title={existing ? t("Edit vehicle") : t("Add vehicle")}
       onClose={onClose}
     >
-      <Field label="MAKE" value={make} onChangeText={setMake} />
-      <Field label="MODEL" value={model} onChangeText={setModel} />
+      <Field label={t("MAKE")} value={make} onChangeText={setMake} />
+      <Field label={t("MODEL")} value={model} onChangeText={setModel} />
       <Field
-        label="YEAR"
+        label={t("YEAR")}
         keyboardType="number-pad"
         value={year}
         onChangeText={setYear}
       />
-      <Field label="VEHICLE TYPE" value={type} onChangeText={setType} />
-      <Field label="COLOUR" value={colour} onChangeText={setColour} />
+      <Field label={t("VEHICLE TYPE")} value={type} onChangeText={setType} />
+      <Field label={t("COLOUR")} value={colour} onChangeText={setColour} />
       <Field
-        label="PLATE NUMBER"
+        label={t("PLATE NUMBER")}
         autoCapitalize="characters"
         value={plate}
         onChangeText={setPlate}
       />
-      <Field label="NOTES" multiline value={notes} onChangeText={setNotes} />
+      <Field label={t("NOTES")} multiline value={notes} onChangeText={setNotes} />
       <AppButton
-        title={mutation.isPending ? "Saving…" : "Save vehicle"}
+        title={mutation.isPending ? t("Saving…") : t("Save vehicle")}
         loading={mutation.isPending}
         disabled={
           mutation.isPending ||
@@ -935,7 +930,7 @@ function VehicleEditModal({
       />
       {existing ? (
         <AppButton
-          title="Remove vehicle"
+          title={t("Remove vehicle")}
           tone="danger"
           disabled={mutation.isPending}
           onPress={remove}
@@ -983,38 +978,38 @@ function LoyaltyAdjustmentModal({
     } catch (error) {
       eventIds.failed(key, error);
       Alert.alert(
-        "Loyalty not adjusted",
+        t("Loyalty not adjusted"),
         domainErrorMessage(error, "Review the adjustment and try again."),
       );
     }
   }
   return (
-    <Sheet visible={visible} title="Adjust loyalty" onClose={onClose}>
+    <Sheet visible={visible} title={t("Adjust loyalty")} onClose={onClose}>
       <View style={styles.buttonRow}>
         <View style={styles.flex}>
           <AppButton
-            title="Add wash credit"
+            title={t("Add wash credit")}
             tone={direction === "credit" ? "primary" : "secondary"}
             onPress={() => setDirection("credit")}
           />
         </View>
         <View style={styles.flex}>
           <AppButton
-            title="Remove wash credit"
+            title={t("Remove wash credit")}
             tone={direction === "debit" ? "primary" : "secondary"}
             onPress={() => setDirection("debit")}
           />
         </View>
       </View>
       <Field
-        label="AMOUNT"
+        label={t("AMOUNT")}
         keyboardType="number-pad"
         value={washes}
         onChangeText={setWashes}
       />
-      <Field label="REASON" multiline value={reason} onChangeText={setReason} />
+      <Field label={t("REASON")} multiline value={reason} onChangeText={setReason} />
       <AppButton
-        title={mutation.isPending ? "Saving adjustment…" : "Save adjustment"}
+        title={mutation.isPending ? t("Saving adjustment…") : t("Save adjustment")}
         loading={mutation.isPending}
         disabled={mutation.isPending || Number(washes) < 1 || !reason.trim()}
         onPress={() => void submit()}
@@ -1056,7 +1051,7 @@ function LoyaltySettingsModal({
       onClose();
     } catch (error) {
       Alert.alert(
-        "Loyalty settings not saved",
+        t("Loyalty settings not saved"),
         domainErrorMessage(
           error,
           "Review the loyalty configuration and try again.",
@@ -1065,13 +1060,13 @@ function LoyaltySettingsModal({
     }
   }
   return (
-    <Sheet visible={visible} title="Loyalty settings" onClose={onClose}>
+    <Sheet visible={visible} title={t("Loyalty settings")} onClose={onClose}>
       {query.isPending || services.isPending ? (
         <Skeleton rows={3} />
       ) : (
         <>
           <View style={uiStyles.row}>
-            <Text style={uiStyles.body}>Loyalty enabled</Text>
+            <Text style={uiStyles.body}>{t("Loyalty enabled")}</Text>
             <Switch
               value={enabled}
               onValueChange={setEnabled}
@@ -1079,12 +1074,12 @@ function LoyaltySettingsModal({
             />
           </View>
           <Field
-            label="WASHES REQUIRED"
+            label={t("WASHES REQUIRED")}
             keyboardType="number-pad"
             value={required}
             onChangeText={setRequired}
           />
-          <Text style={uiStyles.label}>REWARD SERVICE</Text>
+          <Text style={uiStyles.label}>{t("REWARD SERVICE")}</Text>
           {services.data?.map((service) => (
             <Pressable
               key={service.id}
@@ -1103,7 +1098,7 @@ function LoyaltySettingsModal({
             </Pressable>
           ))}
           <AppButton
-            title={mutation.isPending ? "Saving…" : "Save settings"}
+            title={mutation.isPending ? t("Saving…") : t("Save settings")}
             loading={mutation.isPending}
             disabled={
               mutation.isPending ||

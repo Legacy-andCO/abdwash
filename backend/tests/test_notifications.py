@@ -279,9 +279,7 @@ def test_cancellation_email_uses_only_current_brand() -> None:
 def test_every_transactional_email_uses_only_trifecta_brand(
     notification_type: str,
 ) -> None:
-    subject, html = render_email(
-        notification_type, confirmation_payload() | {"delay_minutes": 30}
-    )
+    subject, html = render_email(notification_type, confirmation_payload() | {"delay_minutes": 30})
     rendered = subject + html
     assert "trifecta" in rendered.casefold()
     assert "AbdWash" not in rendered
@@ -548,3 +546,19 @@ def test_internal_dispatch_runs_one_bounded_batch(monkeypatch: pytest.MonkeyPatc
     assert response.status_code == 200
     assert response.json() == {"claimed": 3, "sent": 2, "retry": 1, "skipped": 0}
     assert calls == [3]
+
+
+@pytest.mark.parametrize("language", ["en", "ar"])
+def test_cancelled_email_has_details_contact_and_escaped_reason(language):
+    payload = confirmation_payload() | {
+        "language": language,
+        "reason": "<script>unsafe</script>",
+        "written_address": "Synthetic Villa",
+    }
+    subject, html = render_email("booking_cancelled", payload)
+    assert "AW-ABC123" in subject
+    assert "2026-08-28" in html and "13:00" in html and "15:00" in html
+    assert "Synthetic Villa" in html
+    assert "&lt;script&gt;unsafe&lt;/script&gt;" in html and "<script>" not in html
+    assert "contact@trifecta-wash.com" in html and "+971 56 420 4954" in html
+    assert ('dir="rtl"' in html) == (language == "ar")

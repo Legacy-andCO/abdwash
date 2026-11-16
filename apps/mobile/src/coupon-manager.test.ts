@@ -19,7 +19,7 @@ describe("manager coupon controls", () => {
   });
 
   it("supports list, create, edit, and active state changes", () => {
-    expect(screen).toContain('title="Create coupon"');
+    expect(screen).toContain('title={t("Create coupon")}');
     expect(screen).toContain('editing === "new"');
     expect(screen).toContain('action: "update"');
     expect(screen).toContain("setActive");

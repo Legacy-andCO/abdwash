@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { Platform } from "react-native";
 import { Alert } from "../alert";
 import {
@@ -68,7 +69,7 @@ const money = (currency: string, amount: number) =>
     maximumFractionDigits: 2,
   })}`;
 const label = (value: string) =>
-  value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  t(value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
 
 export function FinanceScreen({
   context,
@@ -123,11 +124,11 @@ export function FinanceScreen({
       }
       contentContainerStyle={uiStyles.content}
     >
-      <AppButton title="Back to reports" tone="secondary" onPress={onBack} />
+      <AppButton title={t("Back to reports")} tone="secondary" onPress={onBack} />
       <ScreenTitle
-        eyebrow="MANAGER"
-        title="Finance"
-        subtitle="Operational cash, expenses and profitability"
+        eyebrow={t("MANAGER")}
+        title={t("Finance")}
+        subtitle={t("Operational cash, expenses and profitability")}
       />
       <View style={styles.tabs}>
         {(["today", "week", "month", "custom"] as const).map((item) => (
@@ -144,8 +145,8 @@ export function FinanceScreen({
       </View>
       {period === "custom" ? (
         <View style={styles.customDates}>
-          <DatePickerField label="From" value={customStart} maximumDate={wallDate(uaeDateKey())} onChange={setCustomStart} />
-          <DatePickerField label="To" value={customEnd} maximumDate={wallDate(uaeDateKey())} onChange={setCustomEnd} />
+          <DatePickerField label={t("From")} value={customStart} maximumDate={wallDate(uaeDateKey())} onChange={setCustomStart} />
+          <DatePickerField label={t("To")} value={customEnd} maximumDate={wallDate(uaeDateKey())} onChange={setCustomEnd} />
         </View>
       ) : null}
       <View style={styles.tabs}>
@@ -185,27 +186,27 @@ function Overview({
   if (!value)
     return (
       <EmptyState
-        title="Finance unavailable"
+        title={t("Finance unavailable")}
         body={domainErrorMessage(error, "Pull down to try again.")}
       />
     );
   return (
     <>
-      <Text style={styles.section}>THIS MONTH</Text>
+      <Text style={styles.section}>{t("THIS MONTH")}</Text>
       <View style={styles.metrics}>
-        <MetricCard label="Booked sales" value={money(value.currency_code, value.booked_sales_minor)} />
-        <MetricCard label="Collected" value={money(value.currency_code, value.collected_revenue_minor)} />
-        <MetricCard label="Outstanding" value={money(value.currency_code, value.outstanding_minor)} />
-        <MetricCard label="Expenses" value={money(value.currency_code, value.expenses_minor)} />
+        <MetricCard label={t("Booked sales")} value={money(value.currency_code, value.booked_sales_minor)} />
+        <MetricCard label={t("Collected")} value={money(value.currency_code, value.collected_revenue_minor)} />
+        <MetricCard label={t("Outstanding")} value={money(value.currency_code, value.outstanding_minor)} />
+        <MetricCard label={t("Expenses")} value={money(value.currency_code, value.expenses_minor)} />
         <MetricCard
-          label="Operational profit"
+          label={t("Operational profit")}
           value={money(value.currency_code, value.operational_profit_minor)}
         />
-        <MetricCard label="Margin" value={`${value.margin_percent.toFixed(1)}%`} />
-        <MetricCard label="Cash awaiting handover" value={money(value.currency_code, value.cash_pending_minor)} />
-        <MetricCard label="Cash short / over" value={money(value.currency_code, value.cash_short_over_minor)} />
+        <MetricCard label={t("Margin")} value={`${value.margin_percent.toFixed(1)}%`} />
+        <MetricCard label={t("Cash awaiting handover")} value={money(value.currency_code, value.cash_pending_minor)} />
+        <MetricCard label={t("Cash short / over")} value={money(value.currency_code, value.cash_short_over_minor)} />
       </View>
-      <Text style={styles.section}>EXPENSE MIX</Text>
+      <Text style={styles.section}>{t("EXPENSE MIX")}</Text>
       {value.expense_categories.length ? (
         value.expense_categories.map((item) => (
           <Card key={item.category}>
@@ -213,23 +214,22 @@ function Overview({
               <Text style={styles.cardTitle}>{label(item.category)}</Text>
               <Text style={styles.amount}>{money(value.currency_code, item.amount_minor)}</Text>
             </View>
-            <Text style={uiStyles.muted}>{item.percentage.toFixed(1)}% of expenses</Text>
+            <Text style={uiStyles.muted}>{item.percentage.toFixed(1)}{t("% of expenses")}</Text>
           </Card>
         ))
       ) : (
-        <EmptyState title="No expenses this month" />
+        <EmptyState title={t("No expenses this month")} />
       )}
-      <Text style={styles.section}>DIRECT TEAM CONTRIBUTION</Text>
+      <Text style={styles.section}>{t("DIRECT TEAM CONTRIBUTION")}</Text>
       {value.team_contributions.map((item) => (
         <Card key={item.team_id}>
           <Text style={styles.cardTitle}>{item.team_name}</Text>
           <Text style={uiStyles.body}>
-            Contribution {money(value.currency_code, item.direct_contribution_minor)}
+            {" " + t("Contribution") + " "}{money(value.currency_code, item.direct_contribution_minor)}
           </Text>
           <Text style={uiStyles.muted}>
-            Collected {money(value.currency_code, item.collected_revenue_minor)} · Direct expenses{" "}
-            {money(value.currency_code, item.direct_expenses_minor)} · {item.completed_jobs} jobs
-          </Text>
+            {" " + t("Collected") + " "}{money(value.currency_code, item.collected_revenue_minor)} {" " + t("· Direct expenses") + ""}{" "}
+            {money(value.currency_code, item.direct_expenses_minor)} · {item.completed_jobs} {" " + t("jobs") + " "}</Text>
         </Card>
       ))}
     </>
@@ -288,22 +288,22 @@ function Expenses({
   if (!query.data)
     return (
       <EmptyState
-        title="Expenses unavailable"
+        title={t("Expenses unavailable")}
         body={domainErrorMessage(query.error, "Pull down to try again.")}
       />
     );
   return (
     <>
       <Card>
-        <Text style={styles.section}>TOTAL EXPENSES</Text>
+        <Text style={styles.section}>{t("TOTAL EXPENSES")}</Text>
         <Text style={styles.total}>{money(query.data.currency_code, query.data.total_expenses_minor)}</Text>
-        <AppButton title="Add expense" onPress={() => setAdding(true)} />
+        <AppButton title={t("Add expense")} onPress={() => setAdding(true)} />
       </Card>
       <Card>
-        <Text style={styles.cardTitle}>Filters</Text>
+        <Text style={styles.cardTitle}>{t("Filters")}</Text>
         <TextInput
-          accessibilityLabel="Search expenses"
-          placeholder="Search description, supplier or reference"
+          accessibilityLabel={t("Search expenses")}
+          placeholder={t("Search description, supplier or reference")}
           value={search}
           onChangeText={setSearch}
           style={uiStyles.field}
@@ -349,7 +349,7 @@ function Expenses({
           onSave={async (body, evidence) => {
             const network = await NetInfo.fetch();
             if (!network.isConnected) {
-              Alert.alert("You're offline", "Expense changes require an internet connection.");
+              Alert.alert(t("You're offline"), t("Expense changes require an internet connection."));
               return;
             }
             try {
@@ -365,7 +365,7 @@ function Expenses({
                 } catch (error) {
                   setAdding(false);
                   Alert.alert(
-                    "Expense saved",
+                    t("Expense saved"),
                     domainErrorMessage(
                       error,
                       "The ledger entry was saved, but the receipt image was not attached. You can retry the evidence upload later.",
@@ -375,10 +375,10 @@ function Expenses({
                 }
               }
               setAdding(false);
-              Alert.alert("Expense saved");
+              Alert.alert(t("Expense saved"));
             } catch (error) {
               Alert.alert(
-                "Expense not saved",
+                t("Expense not saved"),
                 domainErrorMessage(error, "The server did not confirm this expense."),
               );
               throw error;
@@ -400,13 +400,13 @@ function Expenses({
           <StatusChip value={item.status} />
           {item.status === "active" ? (
             <AppButton
-              title="Void expense"
+              title={t("Void expense")}
               tone="danger"
               onPress={() =>
-                Alert.alert("Void this expense?", "The ledger entry remains in history.", [
-                  { text: "Cancel", style: "cancel" },
+                Alert.alert(t("Void this expense?"), t("The ledger entry remains in history."), [
+                  { text: t("Cancel"), style: "cancel" },
                   {
-                    text: "Void",
+                    text: t("Void"),
                     style: "destructive",
                     onPress: () =>
                       void voidMutation.mutateAsync({ id: item.id, reason: "Voided by manager" }),
@@ -421,14 +421,14 @@ function Expenses({
         <View style={styles.pagination}>
           {cursors.length > 1 ? (
             <AppButton
-              title="Previous page"
+              title={t("Previous page")}
               tone="secondary"
               onPress={() => setCursors((current) => current.slice(0, -1))}
             />
           ) : null}
           {query.data.next_cursor ? (
             <AppButton
-              title="Next page"
+              title={t("Next page")}
               tone="secondary"
               onPress={() =>
                 setCursors((current) => [...current, query.data.next_cursor ?? ""])
@@ -437,7 +437,7 @@ function Expenses({
           ) : null}
         </View>
       ) : null}
-      {!query.data.items.length ? <EmptyState title="No expenses this month" /> : null}
+      {!query.data.items.length ? <EmptyState title={t("No expenses this month")} /> : null}
     </>
   );
 }
@@ -525,8 +525,8 @@ function ExpenseForm({
     const permission = Platform.OS === "web" ? { granted: true } : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
-        "Permission needed",
-        "Allow photo access to attach a supplier invoice or receipt.",
+        t("Permission needed"),
+        t("Allow photo access to attach a supplier invoice or receipt."),
       );
       return;
     }
@@ -552,9 +552,9 @@ function ExpenseForm({
   }
   return (
     <Card>
-      <Text style={styles.cardTitle}>Add expense</Text>
-      <DatePickerField label="Date" value={expenseDate} maximumDate={wallDate(uaeDateKey())} onChange={setExpenseDate} />
-      <Text style={uiStyles.label}>CATEGORY</Text>
+      <Text style={styles.cardTitle}>{t("Add expense")}</Text>
+      <DatePickerField label={t("Date")} value={expenseDate} maximumDate={wallDate(uaeDateKey())} onChange={setExpenseDate} />
+      <Text style={uiStyles.label}>{t("CATEGORY")}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.chips}>
           {expenseCategories.map((item) => (
@@ -570,9 +570,9 @@ function ExpenseForm({
           ))}
         </View>
       </ScrollView>
-      <Text style={uiStyles.label}>AMOUNT</Text>
-      <TextInput accessibilityLabel="Expense amount" keyboardType="decimal-pad" placeholder="0.00" value={amount} onChangeText={setAmount} style={uiStyles.field} />
-      <Text style={uiStyles.label}>PAYMENT METHOD</Text>
+      <Text style={uiStyles.label}>{t("AMOUNT")}</Text>
+      <TextInput accessibilityLabel={t("Expense amount")} keyboardType="decimal-pad" placeholder="0.00" value={amount} onChangeText={setAmount} style={uiStyles.field} />
+      <Text style={uiStyles.label}>{t("PAYMENT METHOD")}</Text>
       <View style={styles.chips}>
         {["cash", "card", "bank_transfer", "company_card", "other"].map((item) => (
           <Pressable key={item} onPress={() => setMethod(item)} style={[styles.choice, method === item ? styles.choiceActive : undefined]}>
@@ -581,24 +581,24 @@ function ExpenseForm({
         ))}
       </View>
       <AppButton
-        title={evidence ? "Replace receipt photo" : "Attach receipt photo"}
+        title={evidence ? t("Replace receipt photo") : t("Attach receipt photo")}
         tone="secondary"
         onPress={() => void chooseEvidencePhoto()}
       />
       {evidence ? (
         <View style={uiStyles.row}>
-          <Text style={uiStyles.muted}>Receipt photo ready to upload</Text>
+          <Text style={uiStyles.muted}>{t("Receipt photo ready to upload")}</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Remove receipt photo"
+            accessibilityLabel={t("Remove receipt photo")}
             onPress={() => setEvidence(null)}
           >
-            <Text style={styles.dangerText}>Remove</Text>
+            <Text style={styles.dangerText}>{t("Remove")}</Text>
           </Pressable>
         </View>
       ) : null}
-      <TextInput accessibilityLabel="Expense description" placeholder="Description" value={description} onChangeText={setDescription} style={uiStyles.field} />
-      <Text style={uiStyles.label}>PAID BY (OPTIONAL)</Text>
+      <TextInput accessibilityLabel={t("Expense description")} placeholder={t("Description")} value={description} onChangeText={setDescription} style={uiStyles.field} />
+      <Text style={uiStyles.label}>{t("PAID BY (OPTIONAL)")}</Text>
       <FilterChoices
         values={["", ...(staff.data?.map((item) => item.id) ?? [])]}
         labels={Object.fromEntries(
@@ -608,7 +608,7 @@ function ExpenseForm({
         onChange={setPaidByStaffId}
         emptyLabel="Not assigned"
       />
-      <Text style={uiStyles.label}>TEAM (OPTIONAL)</Text>
+      <Text style={uiStyles.label}>{t("TEAM (OPTIONAL)")}</Text>
       <FilterChoices
         values={["", ...(teams.data?.map((item) => item.id) ?? [])]}
         labels={Object.fromEntries(
@@ -618,7 +618,7 @@ function ExpenseForm({
         onChange={setTeamId}
         emptyLabel="Not assigned"
       />
-      <Text style={uiStyles.label}>RELATED JOB (OPTIONAL)</Text>
+      <Text style={uiStyles.label}>{t("RELATED JOB (OPTIONAL)")}</Text>
       <FilterChoices
         values={["", ...(jobs.data?.jobs.map((item) => item.id) ?? [])]}
         labels={Object.fromEntries(
@@ -628,12 +628,12 @@ function ExpenseForm({
         onChange={setRelatedJobId}
         emptyLabel="Not linked"
       />
-      <TextInput accessibilityLabel="Supplier" placeholder="Supplier (optional)" value={supplier} onChangeText={setSupplier} style={uiStyles.field} />
-      <TextInput accessibilityLabel="Reference" placeholder="Reference (optional)" value={reference} onChangeText={setReference} style={uiStyles.field} />
-      <TextInput accessibilityLabel="Supplier invoice or receipt number" placeholder="Supplier invoice / receipt number" value={supplierDocument} onChangeText={setSupplierDocument} style={uiStyles.field} />
-      <TextInput accessibilityLabel="Supplier tax registration number" placeholder="Supplier TRN (optional)" value={supplierTrn} onChangeText={setSupplierTrn} style={uiStyles.field} />
-      <TextInput accessibilityLabel="VAT amount" keyboardType="decimal-pad" placeholder="VAT amount (optional)" value={vatAmount} onChangeText={setVatAmount} style={uiStyles.field} />
-      <Text style={uiStyles.label}>SUPPLIER EVIDENCE</Text>
+      <TextInput accessibilityLabel={t("Supplier")} placeholder={t("Supplier (optional)")} value={supplier} onChangeText={setSupplier} style={uiStyles.field} />
+      <TextInput accessibilityLabel={t("Reference")} placeholder={t("Reference (optional)")} value={reference} onChangeText={setReference} style={uiStyles.field} />
+      <TextInput accessibilityLabel={t("Supplier invoice or receipt number")} placeholder={t("Supplier invoice / receipt number")} value={supplierDocument} onChangeText={setSupplierDocument} style={uiStyles.field} />
+      <TextInput accessibilityLabel={t("Supplier tax registration number")} placeholder={t("Supplier TRN (optional)")} value={supplierTrn} onChangeText={setSupplierTrn} style={uiStyles.field} />
+      <TextInput accessibilityLabel={t("VAT amount")} keyboardType="decimal-pad" placeholder={t("VAT amount (optional)")} value={vatAmount} onChangeText={setVatAmount} style={uiStyles.field} />
+      <Text style={uiStyles.label}>{t("SUPPLIER EVIDENCE")}</Text>
       <View style={styles.chips}>
         {(["missing_evidence", "not_required"] as const).map((item) => (
           <Pressable key={item} onPress={() => setEvidenceStatus(item)} style={[styles.choice, evidenceStatus === item ? styles.choiceActive : undefined]}>
@@ -641,9 +641,9 @@ function ExpenseForm({
           </Pressable>
         ))}
       </View>
-      <TextInput accessibilityLabel="Notes" placeholder="Notes (optional)" value={notes} onChangeText={setNotes} multiline style={uiStyles.field} />
+      <TextInput accessibilityLabel={t("Notes")} placeholder={t("Notes (optional)")} value={notes} onChangeText={setNotes} multiline style={uiStyles.field} />
       <AppButton
-        title="Save expense"
+        title={t("Save expense")}
         loading={pending}
         disabled={!description.trim() || !validBreakdown}
         onPress={() => {
@@ -692,7 +692,7 @@ function ExpenseForm({
           })();
         }}
       />
-      <AppButton title="Cancel" tone="secondary" onPress={onCancel} />
+      <AppButton title={t("Cancel")} tone="secondary" onPress={onCancel} />
     </Card>
   );
 }
@@ -704,34 +704,34 @@ function Cash({ context }: { context: StaffContext }) {
   if (pending.isPending || history.isPending) return <Skeleton rows={5} />;
   return (
     <>
-      <Text style={styles.section}>CASH TO COLLECT</Text>
+      <Text style={styles.section}>{t("CASH TO COLLECT")}</Text>
       {pending.data?.items.map((item) => (
         <Pressable key={item.staff_id} onPress={() => setSelected(item)}>
           <Card>
             <View style={uiStyles.row}>
               <View>
                 <Text style={styles.cardTitle}>{item.staff_name}</Text>
-                <Text style={uiStyles.muted}>{item.payment_count} payments</Text>
+                <Text style={uiStyles.muted}>{item.payment_count} {" " + t("payments") + ""}</Text>
               </View>
               <Text style={styles.amount}>{money(item.currency_code, item.expected_cash_minor)}</Text>
             </View>
           </Card>
         </Pressable>
       ))}
-      {!pending.data?.items.length ? <EmptyState title="No cash awaiting handover" /> : null}
+      {!pending.data?.items.length ? <EmptyState title={t("No cash awaiting handover")} /> : null}
       {selected ? <CashHandover context={context} staff={selected} onClose={() => setSelected(null)} /> : null}
-      <Text style={styles.section}>HANDOVER HISTORY</Text>
+      <Text style={styles.section}>{t("HANDOVER HISTORY")}</Text>
       {history.data?.items.map((item) => (
         <Card key={item.id}>
           <View style={uiStyles.row}>
             <View>
               <Text style={styles.cardTitle}>{item.staff_name}</Text>
-              <Text style={uiStyles.muted}>{new Date(item.confirmed_at).toLocaleString()} · {item.payment_count} payments</Text>
+              <Text style={uiStyles.muted}>{new Date(item.confirmed_at).toLocaleString()} · {item.payment_count} {" " + t("payments") + ""}</Text>
             </View>
             <StatusChip value={item.status} />
           </View>
-          <Text style={uiStyles.body}>Expected {money(item.currency_code, item.expected_cash_minor)}</Text>
-          <Text style={uiStyles.body}>Declared {money(item.currency_code, item.declared_cash_minor)}</Text>
+          <Text style={uiStyles.body}>{"" + t("Expected") + " "}{money(item.currency_code, item.expected_cash_minor)}</Text>
+          <Text style={uiStyles.body}>{"" + t("Declared") + " "}{money(item.currency_code, item.declared_cash_minor)}</Text>
           <Text style={item.difference_minor === 0 ? uiStyles.muted : uiStyles.error}>
             {item.difference_label.toUpperCase()} · {money(item.currency_code, item.difference_minor)}
           </Text>
@@ -768,30 +768,30 @@ function CashHandover({
   return (
     <Card>
       <Text style={styles.cardTitle}>{staff.staff_name}</Text>
-      <Text style={styles.total}>Expected {money(staff.currency_code, detail.data?.expected_cash_minor ?? 0)}</Text>
+      <Text style={styles.total}>{"" + t("Expected") + " "}{money(staff.currency_code, detail.data?.expected_cash_minor ?? 0)}</Text>
       {detail.data?.payments.map((item) => (
         <View key={item.payment_transaction_id} style={uiStyles.row}>
           <Text style={uiStyles.body}>{item.booking_reference}</Text>
           <Text style={uiStyles.body}>{money(item.currency_code, item.amount_minor)}</Text>
         </View>
       ))}
-      <Text style={uiStyles.label}>CASH HANDED IN</Text>
-      <TextInput accessibilityLabel="Cash handed in" keyboardType="decimal-pad" value={declared} onChangeText={setDeclared} style={uiStyles.field} />
+      <Text style={uiStyles.label}>{t("CASH HANDED IN")}</Text>
+      <TextInput accessibilityLabel={t("Cash handed in")} keyboardType="decimal-pad" value={declared} onChangeText={setDeclared} style={uiStyles.field} />
       <Text style={difference === 0 ? uiStyles.body : uiStyles.error}>
-        Difference {money(staff.currency_code, difference)} · {cashDifferenceLabel(difference).toUpperCase()}
+        {" " + t("Difference") + " "}{money(staff.currency_code, difference)} · {cashDifferenceLabel(difference).toUpperCase()}
       </Text>
       {difference !== 0 ? (
-        <TextInput accessibilityLabel="Cash discrepancy reason" placeholder="Reason required" value={note} onChangeText={setNote} multiline style={uiStyles.field} />
+        <TextInput accessibilityLabel={t("Cash discrepancy reason")} placeholder={t("Reason required")} value={note} onChangeText={setNote} multiline style={uiStyles.field} />
       ) : null}
       <AppButton
-        title={difference === 0 ? "Confirm handover" : "Confirm discrepancy"}
+        title={difference === 0 ? t("Confirm handover") : t("Confirm discrepancy")}
         loading={reconcile.isPending}
         disabled={!canConfirmCashHandover(paymentIds.length, declaredMinor, difference, note)}
         onPress={() =>
           void (async () => {
             const network = await NetInfo.fetch();
             if (!network.isConnected) {
-              Alert.alert("You're offline", "Cash handover requires an internet connection.");
+              Alert.alert(t("You're offline"), t("Cash handover requires an internet connection."));
               return;
             }
             try {
@@ -810,7 +810,7 @@ function CashHandover({
               });
               eventIds.succeeded(key);
               onClose();
-              Alert.alert("Cash handover confirmed");
+              Alert.alert(t("Cash handover confirmed"));
             } catch (error) {
               const key = JSON.stringify({
                 staffId: staff.staff_id,
@@ -820,14 +820,14 @@ function CashHandover({
               });
               eventIds.failed(key, error);
               Alert.alert(
-                "Handover not confirmed",
+                t("Handover not confirmed"),
                 domainErrorMessage(error, "The server did not confirm this handover."),
               );
             }
           })()
         }
       />
-      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+      <AppButton title={t("Cancel")} tone="secondary" onPress={onClose} />
     </Card>
   );
 }

@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { TripDiagnosticReporter } from "./tripDiagnostics";
 
 export type TripOrigin = { latitude: number; longitude: number };
@@ -99,8 +100,8 @@ export async function acquireTripOrigin(
 
 export function tripLocationFailureMessage(failure: TripLocationFailure) {
   if (failure === "LOCATION_PERMISSION_DENIED")
-    return "Location permission is required for ETA.";
+    return t("Location permission is required for ETA.");
   if (failure === "LOCATION_TIMEOUT")
-    return "We couldn't get your location before the timeout.";
-  return "We couldn't get your location.";
+    return t("We couldn't get your location before the timeout.");
+  return t("We couldn't get your location.");
 }

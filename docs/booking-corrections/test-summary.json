@@ -1,0 +1,26 @@
+{
+  "backend_full": {
+    "passed": 462,
+    "gated_skips": 16
+  },
+  "dedicated_security_and_migrations": {
+    "passed": 18,
+    "includes_the_16_gated_cases": true
+  },
+  "staff": {
+    "passed": 194,
+    "failed": 0
+  },
+  "customer_web": {
+    "passed": 230,
+    "failed": 0
+  },
+  "typescript_staff": "passed",
+  "typescript_customer": "passed",
+  "application_ruff": "passed",
+  "application_mypy_8_files": "passed",
+  "staff_staging_web_export": "passed",
+  "native_hardware_tested": false,
+  "production_changed": false,
+  "deployed": false
+}

@@ -26,7 +26,7 @@ describe("job quality mobile contracts", () => {
     expect(quality).toContain("Service checklist");
     expect(quality).toContain("Report an issue");
     expect(quality).toContain("Photo evidence");
-    expect(quality).toContain('<Summary label="Checklist"');
+    expect(quality).toContain('<Summary label={t("Checklist")}');
     expect(quality).toContain("qualityWritesDisabled");
   });
 

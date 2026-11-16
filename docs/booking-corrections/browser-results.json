@@ -1,0 +1,42 @@
+{
+  "results": [
+    {
+      "test": "Employee explicit overlap requires custom confirmation; Go back does not submit; one confirmed request",
+      "pass": true
+    },
+    {
+      "test": "Arabic overlap modal has independent translated controls and RTL; no unconfirmed booking",
+      "pass": true
+    },
+    {
+      "test": "Manager reason/review/confirm cancellation and queued email",
+      "pass": true,
+      "result": {
+        "booking_id": "8ef06829-e5fe-4f9b-8c98-112d22a5be10",
+        "job_id": "65e706dc-3308-454e-8db7-1e1297f83d85",
+        "status": "cancelled",
+        "email_queued": true,
+        "manual_notification_required": false
+      }
+    },
+    {
+      "test": "Separate revenue and activity charts rendered in real reports at mobile and desktop widths",
+      "pass": true
+    },
+    {
+      "test": "No browser JavaScript errors",
+      "pass": true
+    }
+  ],
+  "receipts": [
+    {
+      "id": "2811c204-f3f2-468c-b4b2-8169e551242d",
+      "job_id": "9516d6a4-ecfa-48c2-ba4c-e5e2d5dcba00",
+      "reference": "AW-9E11110709",
+      "scheduled_start": "2026-11-19T05:00:00Z",
+      "scheduled_end": "2026-11-19T07:00:00Z",
+      "total_amount_minor": 5000,
+      "capacity_exception": true
+    }
+  ]
+}

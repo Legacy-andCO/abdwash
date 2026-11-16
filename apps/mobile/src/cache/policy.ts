@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { ExpenseFilters, Job, JobFilters, StaffContext } from "../lib";
 
 export const cacheTimes = {
@@ -149,13 +150,13 @@ export function shouldShowPagination(
 export function assignmentLabel(job: Job) {
   if (job.assigned_team_name) return job.assigned_team_name;
   if (job.assigned_staff_name) return job.assigned_staff_name;
-  if (job.assigned_team_id || job.assigned_staff_id) return "ASSIGNED";
-  return "UNASSIGNED";
+  if (job.assigned_team_id || job.assigned_staff_id) return t("ASSIGNED");
+  return t("UNASSIGNED");
 }
 
 export function assignmentSourceLabel(job: Job) {
-  if (job.assignment_source === "auto") return "Auto-assigned";
-  if (job.assignment_source === "manual") return "Manually assigned";
-  if (job.assignment_source === "legacy") return "Existing assignment";
+  if (job.assignment_source === "auto") return t("Auto-assigned");
+  if (job.assignment_source === "manual") return t("Manually assigned");
+  if (job.assignment_source === "legacy") return t("Existing assignment");
   return null;
 }

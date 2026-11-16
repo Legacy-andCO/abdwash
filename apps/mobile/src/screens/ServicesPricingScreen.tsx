@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { Alert } from "../alert";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -59,7 +60,7 @@ export function ServicesPricingScreen({
     return (
       <ScrollView contentContainerStyle={uiStyles.content}>
         <BackButton onPress={onBack} />
-        <EmptyState title="Management access required" body="Only managers and admins can change catalogue settings." />
+        <EmptyState title={t("Management access required")} body={t("Only managers and admins can change catalogue settings.")} />
       </ScrollView>
     );
   }
@@ -88,7 +89,7 @@ export function ServicesPricingScreen({
       contentContainerStyle={uiStyles.content}
     >
       <BackButton onPress={onBack} />
-      <ScreenTitle title="Services & pricing" subtitle="The authoritative customer catalogue and booking rules" />
+      <ScreenTitle title={t("Services & pricing")} subtitle={t("The authoritative customer catalogue and booking rules")} />
       <TabRow selected={tab} onSelect={setTab} />
       {catalogue.error || settings.error ? (
         <Text accessibilityRole="alert" style={uiStyles.error}>
@@ -137,16 +138,16 @@ function ServicesList({
       <View style={styles.summaryRow}>
         <Card style={styles.summaryCard}>
           <Text style={styles.price}>{activeCount}</Text>
-          <Text style={uiStyles.muted}>Active services</Text>
+          <Text style={uiStyles.muted}>{t("Active services")}</Text>
         </Card>
         <Card style={styles.summaryCard}>
           <Text style={styles.price}>{addonCount}</Text>
-          <Text style={uiStyles.muted}>Add-ons</Text>
+          <Text style={uiStyles.muted}>{t("Add-ons")}</Text>
         </Card>
       </View>
-      <AppButton title="Add service" onPress={onCreate} />
+      <AppButton title={t("Add service")} onPress={onCreate} />
       {!services.length ? (
-        <EmptyState title="No services configured" body="Add the first bookable service." />
+        <EmptyState title={t("No services configured")} body={t("Add the first bookable service.")} />
       ) : (
         services.map((service) => {
           const startingPrice = service.prices.reduce(
@@ -160,23 +161,21 @@ function ServicesList({
                   <View style={styles.flex}>
                     <Text style={styles.title}>{service.name}</Text>
                     <Text style={uiStyles.muted}>
-                      {service.default_duration_minutes} min · Mobile service
-                    </Text>
+                      {service.default_duration_minutes} {" " + t("min · Mobile service") + " "}</Text>
                   </View>
                   <StatusChip value={service.is_active ? "active" : "inactive"} />
                 </View>
                 <Text style={styles.price}>
-                  {catalogue?.currency_code ?? "AED"} {Number.isFinite(startingPrice) ? (startingPrice / 100).toFixed(2) : "—"}
+                  {catalogue?.currency_code ?? t("AED")} {Number.isFinite(startingPrice) ? (startingPrice / 100).toFixed(2) : "—"}
                 </Text>
                 <Text style={uiStyles.muted}>
-                  {service.prices.length} vehicle prices · {service.addons.length} add-ons
-                </Text>
+                  {service.prices.length} {" " + t("vehicle prices ·") + " "}{service.addons.length} {" " + t("add-ons") + " "}</Text>
                 <Text style={uiStyles.body}>
                   {service.prices.slice(0, 3).map((price) =>
                     `${vehicleTypeLabel(price.vehicle_type)} ${(price.price_minor / 100).toFixed(2)}`,
                   ).join(" · ")}
                 </Text>
-                <Text style={uiStyles.link}>Edit service →</Text>
+                <Text style={uiStyles.link}>{t("Edit service →")}</Text>
               </Card>
             </Pressable>
           );
@@ -246,10 +245,10 @@ function ServiceEditor({
           ? { action: "update_service", serviceId: service.id, body }
           : { action: "create_service", body },
       );
-      Alert.alert("Service saved", "The customer catalogue now uses this configuration.");
+      Alert.alert(t("Service saved"), t("The customer catalogue now uses this configuration."));
       onBack();
     } catch (error) {
-      Alert.alert("Service not saved", domainErrorMessage(error, "The server did not confirm this service."));
+      Alert.alert(t("Service not saved"), domainErrorMessage(error, "The server did not confirm this service."));
     }
   }
   async function toggleActive() {
@@ -262,7 +261,7 @@ function ServiceEditor({
       });
       onBack();
     } catch (error) {
-      Alert.alert("Service not updated", domainErrorMessage(error, "The server did not confirm this change."));
+      Alert.alert(t("Service not updated"), domainErrorMessage(error, "The server did not confirm this change."));
     }
   }
   if (addon && service) {
@@ -277,18 +276,18 @@ function ServiceEditor({
   }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
-      <BackButton label="Services" onPress={onBack} />
-      <ScreenTitle title={service ? "Edit service" : "Add service"} subtitle="Prices are stored in minor currency units by the backend" />
-      <Field label="Service name" value={name} onChange={setName} placeholder="Standard Wash" />
-      <Field label="Description" value={description} onChange={setDescription} multiline />
-      <Text style={uiStyles.label}>DEFAULT DURATION</Text>
+      <BackButton label={t("Services")} onPress={onBack} />
+      <ScreenTitle title={service ? t("Edit service") : t("Add service")} subtitle={t("Prices are stored in minor currency units by the backend")} />
+      <Field label={t("Service name")} value={name} onChange={setName} placeholder={t("Standard Wash")} />
+      <Field label={t("Description")} value={description} onChange={setDescription} multiline />
+      <Text style={uiStyles.label}>{t("DEFAULT DURATION")}</Text>
       <View style={styles.durationRow}>
-        <View style={styles.flex}><Field label="Hours" value={hours} onChange={setHours} keyboard="number-pad" /></View>
-        <View style={styles.flex}><Field label="Minutes" value={minutes} onChange={setMinutes} keyboard="number-pad" /></View>
+        <View style={styles.flex}><Field label={t("Hours")} value={hours} onChange={setHours} keyboard="number-pad" /></View>
+        <View style={styles.flex}><Field label={t("Minutes")} value={minutes} onChange={setMinutes} keyboard="number-pad" /></View>
       </View>
-      <Text style={uiStyles.muted}>Customer bookings are mobile service only.</Text>
-      <Field label="Display order" value={sortOrder} onChange={setSortOrder} keyboard="number-pad" />
-      <Text style={styles.section}>VEHICLE PRICING · {catalogue?.currency_code ?? "AED"}</Text>
+      <Text style={uiStyles.muted}>{t("Customer bookings are mobile service only.")}</Text>
+      <Field label={t("Display order")} value={sortOrder} onChange={setSortOrder} keyboard="number-pad" />
+      <Text style={styles.section}>{"" + t("VEHICLE PRICING ·") + " "}{catalogue?.currency_code ?? t("AED")}</Text>
       {vehicleTypes.map((type) => (
         <Field
           key={type}
@@ -299,10 +298,10 @@ function ServiceEditor({
           placeholder="0.00"
         />
       ))}
-      <AppButton title="Save service" onPress={() => void save()} loading={mutation.isPending} disabled={!canSave} />
+      <AppButton title={t("Save service")} onPress={() => void save()} loading={mutation.isPending} disabled={!canSave} />
       {service ? (
         <>
-          <Text style={styles.section}>ADD-ONS</Text>
+          <Text style={styles.section}>{t("ADD-ONS")}</Text>
           {service.addons.map((item) => (
             <Pressable key={item.id} accessibilityRole="button" onPress={() => setAddon(item)}>
               <Card>
@@ -316,9 +315,9 @@ function ServiceEditor({
               </Card>
             </Pressable>
           ))}
-          <AppButton title="Add add-on" tone="secondary" onPress={() => setAddon("new")} />
+          <AppButton title={t("Add add-on")} tone="secondary" onPress={() => setAddon("new")} />
           <AppButton
-            title={service.is_active ? "Deactivate service" : "Reactivate service"}
+            title={service.is_active ? t("Deactivate service") : t("Reactivate service")}
             tone={service.is_active ? "danger" : "secondary"}
             onPress={() => void toggleActive()}
             loading={mutation.isPending}
@@ -361,10 +360,10 @@ function AddonEditor({
           ? { action: "update_addon", addonId: addon.id, body }
           : { action: "create_addon", serviceId, body },
       );
-      Alert.alert("Add-on saved", "The catalogue add-on is ready.");
+      Alert.alert(t("Add-on saved"), t("The catalogue add-on is ready."));
       onBack();
     } catch (error) {
-      Alert.alert("Add-on not saved", domainErrorMessage(error, "The server did not confirm this add-on."));
+      Alert.alert(t("Add-on not saved"), domainErrorMessage(error, "The server did not confirm this add-on."));
     }
   }
   async function toggleActive() {
@@ -373,22 +372,22 @@ function AddonEditor({
       await mutation.mutateAsync({ action: "update_addon", addonId: addon.id, body: { is_active: !addon.is_active } });
       onBack();
     } catch (error) {
-      Alert.alert("Add-on not updated", domainErrorMessage(error, "The server did not confirm this change."));
+      Alert.alert(t("Add-on not updated"), domainErrorMessage(error, "The server did not confirm this change."));
     }
   }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
-      <BackButton label="Service" onPress={onBack} />
-      <ScreenTitle title={addon ? "Edit add-on" : "Add add-on"} subtitle="Optional extras can add price and expected time" />
-      <Field label="Name" value={name} onChange={setName} />
-      <Field label="Description" value={description} onChange={setDescription} multiline />
-      <Field label="Price" value={price} onChange={setPrice} keyboard="decimal-pad" placeholder="0.00" />
-      <Field label="Additional minutes" value={duration} onChange={setDuration} keyboard="number-pad" />
-      <Text style={uiStyles.muted}>Available with mobile service bookings.</Text>
-      <AppButton title="Save add-on" onPress={() => void save()} disabled={!canSave} loading={mutation.isPending} />
+      <BackButton label={t("Service")} onPress={onBack} />
+      <ScreenTitle title={addon ? t("Edit add-on") : t("Add add-on")} subtitle={t("Optional extras can add price and expected time")} />
+      <Field label={t("Name")} value={name} onChange={setName} />
+      <Field label={t("Description")} value={description} onChange={setDescription} multiline />
+      <Field label={t("Price")} value={price} onChange={setPrice} keyboard="decimal-pad" placeholder="0.00" />
+      <Field label={t("Additional minutes")} value={duration} onChange={setDuration} keyboard="number-pad" />
+      <Text style={uiStyles.muted}>{t("Available with mobile service bookings.")}</Text>
+      <AppButton title={t("Save add-on")} onPress={() => void save()} disabled={!canSave} loading={mutation.isPending} />
       {addon ? (
         <AppButton
-          title={addon.is_active ? "Deactivate add-on" : "Reactivate add-on"}
+          title={addon.is_active ? t("Deactivate add-on") : t("Reactivate add-on")}
           tone={addon.is_active ? "danger" : "secondary"}
           onPress={() => void toggleActive()}
           loading={mutation.isPending}
@@ -410,7 +409,7 @@ function SettingsEditor({
   const mutation = useCatalogueMutation(context);
   const [draft, setDraft] = useState<BusinessBookingSettings | null>(value);
   useEffect(() => setDraft(value), [value]);
-  if (!draft) return <EmptyState title="Settings unavailable" body="Pull down to try again." />;
+  if (!draft) return <EmptyState title={t("Settings unavailable")} body={t("Pull down to try again.")} />;
   async function save() {
     if (!draft) return;
     const { currency_code: _currencyCode, ...editable } = draft;
@@ -426,9 +425,9 @@ function SettingsEditor({
           })),
         },
       });
-      Alert.alert("Settings saved", "Future availability and bookings use these rules.");
+      Alert.alert(t("Settings saved"), t("Future availability and bookings use these rules."));
     } catch (error) {
-      Alert.alert("Settings not saved", domainErrorMessage(error, "The server did not confirm these settings."));
+      Alert.alert(t("Settings not saved"), domainErrorMessage(error, "The server did not confirm these settings."));
     }
   }
   const updateHour = (weekday: number, patch: Partial<OperatingHour>) =>
@@ -438,42 +437,42 @@ function SettingsEditor({
     } : current);
   return (
     <>
-      <Text style={styles.section}>BOOKING GRID</Text>
-      <Text style={uiStyles.label}>SLOT DURATION</Text>
+      <Text style={styles.section}>{t("BOOKING GRID")}</Text>
+      <Text style={uiStyles.label}>{t("SLOT DURATION")}</Text>
       <ChoiceRow
-        values={[60, 90, 120].map((minutes) => ({ id: String(minutes), label: `${minutes} min` }))}
+        values={[60, 90, 120].map((minutes) => ({ id: String(minutes), label: t("{p0} min", { p0: minutes }) }))}
         selected={String(draft.slot_duration_minutes)}
         onSelect={(selected) => setDraft({ ...draft, slot_duration_minutes: Number(selected) })}
       />
       <Field
-        label="Cancellation cutoff (hours)"
+        label={t("Cancellation cutoff (hours)")}
         value={String(draft.cancellation_cutoff_hours)}
         onChange={(selected) => setDraft({ ...draft, cancellation_cutoff_hours: Number(selected) })}
         keyboard="number-pad"
       />
       <Toggle
-        label="Mobile booking minimum"
+        label={t("Mobile booking minimum")}
         value={draft.mobile_minimum_enabled}
         onChange={(selected) => setDraft({ ...draft, mobile_minimum_enabled: selected })}
       />
       {draft.mobile_minimum_enabled ? (
         <Field
-          label={`Minimum (${draft.currency_code})`}
+          label={t("Minimum ({p0})", { p0: draft.currency_code })}
           value={(draft.mobile_minimum_minor / 100).toFixed(2)}
           onChange={(selected) => setDraft({ ...draft, mobile_minimum_minor: moneyToMinor(selected) ?? 0 })}
           keyboard="decimal-pad"
         />
       ) : null}
       <Field
-        label="Default time between mobile jobs (minutes)"
+        label={t("Default time between mobile jobs (minutes)")}
         value={String(draft.default_team_turnaround_minutes)}
         onChange={(selected) => setDraft({ ...draft, default_team_turnaround_minutes: Number(selected) })}
         keyboard="number-pad"
       />
-      <Text style={uiStyles.muted}>Automatic assignment uses this buffer between a team's mobile jobs.</Text>
-      <Text style={styles.section}>CUSTOMER UPDATES</Text>
+      <Text style={uiStyles.muted}>{t("Automatic assignment uses this buffer between a team's mobile jobs.")}</Text>
+      <Text style={styles.section}>{t("CUSTOMER UPDATES")}</Text>
       <Toggle
-        label="Appointment reminder email"
+        label={t("Appointment reminder email")}
         value={draft.appointment_reminder_enabled}
         onChange={(selected) =>
           setDraft({ ...draft, appointment_reminder_enabled: selected })
@@ -481,7 +480,7 @@ function SettingsEditor({
       />
       {draft.appointment_reminder_enabled ? (
         <Field
-          label="Send reminder before appointment (hours)"
+          label={t("Send reminder before appointment (hours)")}
           value={String(draft.appointment_reminder_hours_before)}
           onChange={(selected) =>
             setDraft({
@@ -493,94 +492,93 @@ function SettingsEditor({
         />
       ) : null}
       <Text style={uiStyles.muted}>
-        Reminder emails are queued from the current appointment schedule.
-      </Text>
-      <Text style={styles.section}>INVOICE IDENTITY</Text>
+        {" " + t("Reminder emails are queued from the current appointment schedule.") + " "}</Text>
+      <Text style={styles.section}>{t("INVOICE IDENTITY")}</Text>
       <Field
-        label="Legal name"
+        label={t("Legal name")}
         value={draft.legal_name ?? ""}
         onChange={(selected) => setDraft({ ...draft, legal_name: selected || null })}
       />
       <Field
-        label="Trading name"
+        label={t("Trading name")}
         value={draft.trading_name ?? ""}
         onChange={(selected) => setDraft({ ...draft, trading_name: selected || null })}
       />
       <Field
-        label="Business address"
+        label={t("Business address")}
         value={draft.billing_address ?? ""}
         onChange={(selected) => setDraft({ ...draft, billing_address: selected || null })}
       />
       <Field
-        label="Emirate"
+        label={t("Emirate")}
         value={draft.billing_emirate ?? ""}
         onChange={(selected) => setDraft({ ...draft, billing_emirate: selected || null })}
       />
       <Field
-        label="Country"
+        label={t("Country")}
         value={draft.billing_country}
         onChange={(selected) => setDraft({ ...draft, billing_country: selected })}
       />
       <Toggle
-        label="VAT registered"
+        label={t("VAT registered")}
         value={draft.vat_registered}
         onChange={(selected) => setDraft({ ...draft, vat_registered: selected })}
       />
       {draft.vat_registered ? (
         <>
           <Field
-            label="Tax registration number (TRN)"
+            label={t("Tax registration number (TRN)")}
             value={draft.tax_registration_number ?? ""}
             onChange={(selected) => setDraft({ ...draft, tax_registration_number: selected || null })}
           />
           <Field
-            label="VAT rate (%)"
+            label={t("VAT rate (%)")}
             value={String(draft.vat_rate)}
             onChange={(selected) => setDraft({ ...draft, vat_rate: Number(selected) })}
             keyboard="decimal-pad"
           />
           <Toggle
-            label="Catalogue prices include VAT"
+            label={t("Catalogue prices include VAT")}
             value={draft.prices_include_vat}
             onChange={(selected) => setDraft({ ...draft, prices_include_vat: selected })}
           />
         </>
       ) : null}
       <Field
-        label="Invoice email"
+        label={t("Invoice email")}
         value={draft.billing_email ?? ""}
         onChange={(selected) => setDraft({ ...draft, billing_email: selected || null })}
         keyboard="email-address"
       />
       <Field
-        label="Invoice phone"
+        label={t("Invoice phone")}
         value={draft.billing_phone ?? ""}
         onChange={(selected) => setDraft({ ...draft, billing_phone: selected || null })}
         keyboard="phone-pad"
       />
-      <Text style={styles.section}>LOYALTY REWARD SERVICE</Text>
+      <Text style={styles.section}>{t("LOYALTY REWARD SERVICE")}</Text>
       <ChoiceRow
-        values={[{ id: "", label: "None" }, ...(catalogue?.services.filter((item) => item.is_active).map((item) => ({ id: item.id, label: item.name })) ?? [])]}
+        values={[{ id: "", label: t("None") }, ...(catalogue?.services.filter((item) => item.is_active).map((item) => ({ id: item.id, label: item.name })) ?? [])]}
         selected={draft.loyalty_reward_service_id ?? ""}
         onSelect={(selected) => setDraft({ ...draft, loyalty_reward_service_id: selected || null })}
       />
-      <Text style={styles.section}>OPERATING HOURS</Text>
+      <Text style={styles.section}>{t("OPERATING HOURS")}</Text>
       {draft.operating_hours.map((item) => (
         <Card key={item.weekday}>
-          <Toggle label={DAYS[item.weekday] ?? `Day ${item.weekday}`} value={item.is_open} onChange={(selected) => updateHour(item.weekday, { is_open: selected })} />
+          <Toggle label={DAYS[item.weekday] ?? t("Day {p0}", { p0: item.weekday })} value={item.is_open} onChange={(selected) => updateHour(item.weekday, { is_open: selected })} />
           {item.is_open ? (
             <View style={styles.durationRow}>
               <View style={styles.flex}>
-                <Field label="Opens" value={(item.opening_time ?? "08:00").slice(0, 5)} onChange={(selected) => updateHour(item.weekday, { opening_time: selected })} placeholder="08:00" />
+                <Field label={t("Opens")} value={(item.opening_time ?? "08:00").slice(0, 5)} onChange={(selected) => updateHour(item.weekday, { opening_time: selected })} placeholder="08:00" />
               </View>
               <View style={styles.flex}>
-                <Field label="Closes" value={(item.closing_time ?? "18:00").slice(0, 5)} onChange={(selected) => updateHour(item.weekday, { closing_time: selected })} placeholder="18:00" />
+                <Field label={t("Closes")} value={(item.closing_time ?? "18:00").slice(0, 5)} onChange={(selected) => updateHour(item.weekday, { closing_time: selected })} placeholder="18:00" />
               </View>
             </View>
           ) : null}
         </Card>
       ))}
-      <AppButton title="Save business settings" onPress={() => void save()} loading={mutation.isPending} />
+      <AppButton title={t("Save business settings")} onPress={() => void save()} loading={mutation.isPending} />
     </>
   );
 }
@@ -606,33 +604,32 @@ function ConsumablesEditor({ context, catalogue }: { context: StaffContext; cata
         body: { lines: selectedLines.map(([item_id, expected_quantity]) => ({ item_id, expected_quantity: Number(expected_quantity) })) },
       });
       Alert.alert(
-        "Template saved",
-        "The current expected quantities will be snapshotted when future jobs complete.",
+        t("Template saved"),
+        t("The current expected quantities will be snapshotted when future jobs complete."),
       );
     } catch (error) {
-      Alert.alert("Template not saved", domainErrorMessage(error, "The server did not confirm this template."));
+      Alert.alert(t("Template not saved"), domainErrorMessage(error, "The server did not confirm this template."));
     }
   }
-  if (!catalogue?.services.length) return <EmptyState title="No services available" />;
+  if (!catalogue?.services.length) return <EmptyState title={t("No services available")} />;
   return (
     <>
       <Text style={uiStyles.muted}>
-        Expected usage per completed service is snapshotted when the job completes. These quantities are estimates, not exact physical usage.
-      </Text>
-      <Text style={uiStyles.label}>SERVICE</Text>
+        {" " + t("Expected usage per completed service is snapshotted when the job completes. These quantities are estimates, not exact physical usage.") + " "}</Text>
+      <Text style={uiStyles.label}>{t("SERVICE")}</Text>
       <ChoiceRow values={catalogue.services.map((service) => ({ id: service.id, label: service.name }))} selected={serviceId} onSelect={setServiceId} />
       {template.error || items.error ? <Text style={uiStyles.error}>{domainErrorMessage(template.error ?? items.error, "Consumables could not load.")}</Text> : null}
       {template.isPending || items.isPending ? <Skeleton rows={3} /> : (items.data?.items ?? []).map((item) => (
         <Field
           key={item.id}
-          label={`${item.name} (${item.unit})${item.is_active ? "" : " — inactive; remove before saving"}`}
+          label={t("{p0} ({p1}){p2}", { p0: item.name, p1: item.unit, p2: item.is_active ? "" : " — inactive; remove before saving" })}
           value={quantities[item.id] ?? ""}
           onChange={(selected) => setQuantities((current) => ({ ...current, [item.id]: selected }))}
           keyboard="decimal-pad"
-          placeholder="Not used"
+          placeholder={t("Not used")}
         />
       ))}
-      <AppButton title="Save consumption template" onPress={() => void save()} disabled={!serviceId} loading={mutation.isPending} />
+      <AppButton title={t("Save consumption template")} onPress={() => void save()} disabled={!serviceId} loading={mutation.isPending} />
     </>
   );
 }
@@ -735,7 +732,7 @@ function moneyToMinor(value: string | undefined) {
 }
 
 function vehicleTypeLabel(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return t(value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
 }
 
 const styles = StyleSheet.create({

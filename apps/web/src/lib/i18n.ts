@@ -1678,9 +1678,13 @@ export function translate(
   key: TranslationKey,
   values: Record<string, string | number> = {},
 ): string {
+  return interpolateMessage(translations[language][key] ?? translations.en[key], values);
+}
+
+export function interpolateMessage(message: string, values: Record<string, string | number> = {}): string {
   return Object.entries(values).reduce(
     (message, [name, value]) => message.replaceAll(`{${name}}`, String(value)),
-    translations[language][key] ?? translations.en[key],
+    message,
   );
 }
 

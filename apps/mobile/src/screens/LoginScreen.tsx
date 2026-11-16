@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -28,9 +29,9 @@ export function LoginScreen() {
         email: staffLoginEmail(username),
         password,
       });
-      if (result.error) setError("Username or password is incorrect.");
+      if (result.error) setError(t("Username or password is incorrect."));
     } catch {
-      setError("Enter a valid username.");
+      setError(t("Enter a valid username."));
     } finally {
       setBusy(false);
     }
@@ -49,40 +50,39 @@ export function LoginScreen() {
           contentContainerStyle={styles.center}
         >
           <View style={styles.brand}>
-            <Text style={styles.eyebrow}>STAFF OPERATIONS</Text>
-            <Image source={require("../../assets/trifecta-logo.png")} resizeMode="contain" style={styles.logo} accessibilityLabel="Trifecta" />
+            <Text style={styles.eyebrow}>{t("STAFF OPERATIONS")}</Text>
+            <Image source={require("../../assets/trifecta-logo.png")} resizeMode="contain" style={styles.logo} accessibilityLabel={t("Trifecta")} />
             <Text style={styles.subtitle}>
-              Your day, team and jobs in one place.
-            </Text>
+              {" " + t("Your day, team and jobs in one place.") + " "}</Text>
           </View>
           <View style={styles.form}>
-            <Text style={uiStyles.label}>USERNAME</Text>
+            <Text style={uiStyles.label}>{t("USERNAME")}</Text>
             <TextInput
               style={uiStyles.field}
-              accessibilityLabel="Username"
+              accessibilityLabel={t("Username")}
               autoCapitalize="none"
               autoCorrect={false}
               value={username}
               onChangeText={setUsername}
-              placeholder="Username"
+              placeholder={t("Username")}
             />
-            <Text style={uiStyles.label}>PASSWORD</Text>
+            <Text style={uiStyles.label}>{t("PASSWORD")}</Text>
             <TextInput
               style={uiStyles.field}
-              accessibilityLabel="Password"
+              accessibilityLabel={t("Password")}
               secureTextEntry
               value={password}
               onChangeText={setPassword}
-              placeholder="Password"
+              placeholder={t("Password")}
               onSubmitEditing={() => void login()}
             />
             {error ? (
               <Text accessibilityRole="alert" style={uiStyles.error}>
-                {error}
+                {t(error)}
               </Text>
             ) : null}
             <AppButton
-              title="Log in"
+              title={t("Log in")}
               disabled={busy}
               loading={busy}
               onPress={() => void login()}

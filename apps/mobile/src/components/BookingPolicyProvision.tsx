@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Linking, Text } from "react-native";
@@ -58,24 +59,24 @@ export function BookingPolicyProvision({ context, job }: { context: StaffContext
 
   return (
     <Card>
-      <AppButton title={open ? "Hide booking policies" : "Booking policies"} tone="secondary" disabled={busy} onPress={() => setOpen(!open)} />
+      <AppButton title={open ? t("Hide booking policies") : t("Booking policies")} tone="secondary" disabled={busy} onPress={() => setOpen(!open)} />
       {open && (
         <>
-          <Text style={uiStyles.muted}>For an assisted booking, record how you provided the policies or send the links to the booking email.</Text>
-          {policies.isPending && <Text style={uiStyles.muted}>Loading policies…</Text>}
-          {policies.isError && <AppButton title="Retry loading policies" tone="secondary" onPress={() => void policies.refetch()} />}
+          <Text style={uiStyles.muted}>{t("For an assisted booking, record how you provided the policies or send the links to the booking email.")}</Text>
+          {policies.isPending && <Text style={uiStyles.muted}>{t("Loading policies…")}</Text>}
+          {policies.isError && <AppButton title={t("Retry loading policies")} tone="secondary" onPress={() => void policies.refetch()} />}
           {policies.data?.public_web_url && Object.entries(links).map(([path, label]) => (
             <AppButton key={path} title={label} tone="secondary" onPress={() => {
               const base = policies.data?.public_web_url?.replace(/\/$/, "");
-              if (base) void Linking.openURL(`${base}/${path}`).catch(() => setError("Could not open the policy."));
+              if (base) void Linking.openURL(`${base}/${path}`).catch(() => setError(t("Could not open the policy.")));
             }} />
           ))}
-          <AppButton title={language === "en" ? "Language: English" : "Language: Arabic"} tone="secondary" disabled={busy} onPress={() => setLanguage(language === "en" ? "ar" : "en")} />
+          <AppButton title={language === "en" ? t("Language: English") : t("Language: Arabic")} tone="secondary" disabled={busy} onPress={() => setLanguage(language === "en" ? "ar" : "en")} />
           {Object.entries(channels).map(([channel, label]) => (
             <AppButton key={channel} title={label} tone="secondary" disabled={busy || !policies.data || (channel === "email" && (!job.customer_email || !policies.data.public_web_url))} onPress={() => void record(channel as keyof typeof channels)} />
           ))}
           {success && <Text style={uiStyles.success}>{success}</Text>}
-          {error && <Text style={uiStyles.error}>{error}</Text>}
+          {error && <Text style={uiStyles.error}>{t(error)}</Text>}
         </>
       )}
     </Card>

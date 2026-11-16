@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { Alert } from "../alert";
 import { useEffect, useState } from "react";
 import {
@@ -122,23 +123,23 @@ export function TodayScreen({
       await successHaptic();
     } catch (reason) {
       Alert.alert(
-        "Attendance not changed",
+        t("Attendance not changed"),
         domainErrorMessage(reason, "The server did not confirm attendance."),
       );
     }
   }
   const attendanceNeedsAction = !attendance.isPending && !attendance.error && !ownAttendance?.clock_in_at && ownAttendance?.status !== "approved_leave";
   const attendanceSection = (
-    <Disclosure title="Attendance & shift" initiallyOpen={attendanceNeedsAction}>
+    <Disclosure title={t("Attendance & shift")} initiallyOpen={attendanceNeedsAction}>
             <View style={uiStyles.row}>
               <View>
-                <Text style={styles.kicker}>ATTENDANCE</Text>
+                <Text style={styles.kicker}>{t("ATTENDANCE")}</Text>
                 <Text style={styles.cardTitle}>
                   {ownAttendance?.clock_in_at && !ownAttendance.clock_out_at
-                    ? "You're clocked in"
+                    ? t("You're clocked in")
                     : ownAttendance?.status === "approved_leave"
-                      ? "Approved leave"
-                      : "Ready to start?"}
+                      ? t("Approved leave")
+                      : t("Ready to start?")}
                 </Text>
               </View>
               {ownAttendance ? (
@@ -147,16 +148,16 @@ export function TodayScreen({
             </View>
             {ownShift ? (
               <Text style={uiStyles.muted}>
-                Today's shift · {ownShift.start_time.slice(0, 5)}–
+                {" " + t("Today's shift ·") + " "}{ownShift.start_time.slice(0, 5)}–
                 {ownShift.end_time.slice(0, 5)}
-                {ownShift.team_name ? ` · ${ownShift.team_name}` : ""}
+                {ownShift.team_name ? t(" · {p0}", { p0: ownShift.team_name }) : ""}
               </Text>
             ) : (
-              <Text style={uiStyles.muted}>No shift assigned today</Text>
+              <Text style={uiStyles.muted}>{t("No shift assigned today")}</Text>
             )}
             {ownAttendance?.clock_in_at && !ownAttendance.clock_out_at ? (
               <Text style={styles.time}>
-                Started{" "}
+                {" " + t("Started") + ""}{" "}
                 {formatUaeTime(ownAttendance.clock_in_at)}{" "}
                 ·{" "}
                 {formatMinutes(
@@ -169,10 +170,10 @@ export function TodayScreen({
             <AppButton
               title={
                 clock.isPending
-                  ? "Saving…"
+                  ? t("Saving…")
                   : ownAttendance?.clock_in_at && !ownAttendance.clock_out_at
-                    ? "Clock out"
-                    : "Clock in"
+                    ? t("Clock out")
+                    : t("Clock in")
               }
               disabled={
                 clock.isPending || ownAttendance?.status === "approved_leave"
@@ -199,12 +200,12 @@ export function TodayScreen({
             day: "numeric",
             month: "long",
           })
-          + " · Abu Dhabi time"}
-        title="Today"
+          + " · " + t("Abu Dhabi time")}
+        title={t("Today")}
       />
       <View style={styles.actions}>
-        <View style={styles.action}><AppButton title="Book a wash" onPress={() => onBook?.()} /></View>
-        <View style={styles.action}><AppButton title="View schedule" tone="secondary" onPress={() => onOpenJobs?.("today")} /></View>
+        <View style={styles.action}><AppButton title={t("Book a wash")} onPress={() => onBook?.()} /></View>
+        <View style={styles.action}><AppButton title={t("View schedule")} tone="secondary" onPress={() => onOpenJobs?.("today")} /></View>
       </View>
       {error ? (
         <Text style={uiStyles.error}>
@@ -229,9 +230,9 @@ export function TodayScreen({
 
           {attendanceNeedsAction ? attendanceSection : null}
           {next ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open job ${next.booking_reference}, ${next.customer_name}`} onPress={() => onOpenJob?.(next.id)}><Card>
+            <Pressable accessibilityRole="button" accessibilityLabel={t("Open job {p0}, {p1}", { p0: next.booking_reference, p1: next.customer_name })} onPress={() => onOpenJob?.(next.id)}><Card>
               <Text style={styles.kicker}>
-                {active ? "ACTIVE NOW" : "NEXT JOB"}
+                {active ? t("ACTIVE NOW") : t("NEXT JOB")}
               </Text>
               <Text style={styles.nextTime}>
                 {formatUaeTime(next.scheduled_start)}
@@ -240,16 +241,16 @@ export function TodayScreen({
                 {next.customer_name}
               </Text>
               <Text style={uiStyles.body}>
-                {next.vehicles[0] ? `${next.vehicles[0].make} ${next.vehicles[0].model} · ${next.vehicles[0].service_name}` : next.booking_reference}
+                {next.vehicles[0] ? t("{p0} {p1} · {p2}", { p0: next.vehicles[0].make, p1: next.vehicles[0].model, p2: next.vehicles[0].service_name }) : next.booking_reference}
               </Text>
               <Text style={uiStyles.muted}>{next.written_address}</Text>
               <StatusChip value={next.status} />
-              <Text style={styles.link}>View job details</Text>
+              <Text style={styles.link}>{t("View job details")}</Text>
             </Card></Pressable>
           ) : (
             <EmptyState
-              title="No jobs today"
-              body="Assigned jobs will appear here. Use Book a wash to create a new appointment."
+              title={t("No jobs today")}
+              body={t("Assigned jobs will appear here. Use Book a wash to create a new appointment.")}
             />
           )}
           {jobItems
@@ -259,7 +260,7 @@ export function TodayScreen({
                 !["completed", "cancelled"].includes(job.status),
             )
             .map((job) => (
-              <Pressable key={job.id} accessibilityRole="button" accessibilityLabel={`Open job ${job.booking_reference}, ${job.customer_name}`} onPress={() => onOpenJob?.(job.id)}><Card>
+              <Pressable key={job.id} accessibilityRole="button" accessibilityLabel={t("Open job {p0}, {p1}", { p0: job.booking_reference, p1: job.customer_name })} onPress={() => onOpenJob?.(job.id)}><Card>
                 <View style={uiStyles.row}>
                   <Text style={styles.cardTitle}>
                     {formatUaeTime(job.scheduled_start)}
@@ -269,28 +270,28 @@ export function TodayScreen({
                 <Text style={uiStyles.muted}>
                   {job.customer_name} · {job.vehicles[0]?.service_name}
                 </Text>
-                <Text style={styles.link}>View job details</Text>
+                <Text style={styles.link}>{t("View job details")}</Text>
               </Card></Pressable>
             ))}
           {!attendanceNeedsAction ? attendanceSection : null}
         </>
       )}
       {management ? (
-        <Disclosure title="Customers & management tools">
-        <Text style={uiStyles.muted}>Customer follow-ups, stock and business settings.</Text>
-        <AppButton title="Customers" tone="secondary" onPress={() => onOpenCustomers?.()} />
-        <AppButton title="Customer complaints" tone="secondary" onPress={() => onOpenComplaints?.()} />
-        <AppButton title="Inventory" tone="secondary" onPress={() => onOpenInventory?.()} />
-        <AppButton title="Services & pricing" tone="secondary" onPress={() => onOpenServices?.()} />
-        <Text style={uiStyles.muted}>Financial reports and cash handovers are in Reports → Open Finance.</Text>
+        <Disclosure title={t("Customers & management tools")}>
+        <Text style={uiStyles.muted}>{t("Customer follow-ups, stock and business settings.")}</Text>
+        <AppButton title={t("Customers")} tone="secondary" onPress={() => onOpenCustomers?.()} />
+        <AppButton title={t("Customer complaints")} tone="secondary" onPress={() => onOpenComplaints?.()} />
+        <AppButton title={t("Inventory")} tone="secondary" onPress={() => onOpenInventory?.()} />
+        <AppButton title={t("Services & pricing")} tone="secondary" onPress={() => onOpenServices?.()} />
+        <Text style={uiStyles.muted}>{t("Financial reports and cash handovers are in Reports → Open Finance.")}</Text>
         </Disclosure>
       ) : null}
-      <Disclosure title={management ? "My cash" : "My cash & inventory"}>
+      <Disclosure title={management ? t("My cash") : t("My cash & inventory")}>
         {personalCash.data ? <View style={styles.cashMetrics}>
-          <MetricCard label="Collected today" value={`${personalCash.data.currency_code} ${(personalCash.data.collected_today_minor / 100).toLocaleString()}`} />
-          <MetricCard label="Awaiting handover" value={`${personalCash.data.currency_code} ${(personalCash.data.awaiting_handover_minor / 100).toLocaleString()}`} />
-        </View> : <Text style={uiStyles.muted}>{personalCash.isPending ? "Loading cash summary…" : "Cash summary couldn't load. Pull down to retry."}</Text>}
-        {!management ? <AppButton title="Open Inventory" tone="secondary" onPress={() => onOpenInventory?.()} /> : null}
+          <MetricCard label={t("Collected today")} value={`${personalCash.data.currency_code} ${(personalCash.data.collected_today_minor / 100).toLocaleString()}`} />
+          <MetricCard label={t("Awaiting handover")} value={`${personalCash.data.currency_code} ${(personalCash.data.awaiting_handover_minor / 100).toLocaleString()}`} />
+        </View> : <Text style={uiStyles.muted}>{personalCash.isPending ? t("Loading cash summary…") : t("Cash summary couldn't load. Pull down to retry.")}</Text>}
+        {!management ? <AppButton title={t("Open Inventory")} tone="secondary" onPress={() => onOpenInventory?.()} /> : null}
       </Disclosure>
     </ScrollView>
   );
@@ -309,7 +310,7 @@ function ManagerDashboard({
   onOpenJobs?: (view?: import("./JobsScreen").JobView) => void;
   onOpenTeam?: (section?: import("./TeamScreen").TeamSection) => void;
 }) {
-  if (!value) return <EmptyState title="Dashboard unavailable" />;
+  if (!value) return <EmptyState title={t("Dashboard unavailable")} />;
   return (
     <>
       <View style={styles.metrics}>
@@ -325,7 +326,7 @@ function ManagerDashboard({
           />
         ))}
       </View>
-      <Text style={styles.section}>NEEDS ATTENTION</Text>
+      <Text style={styles.section}>{t("NEEDS ATTENTION")}</Text>
       {value.attention.length ? (
         value.attention.map((item) => (
           <Card key={item.kind}>
@@ -333,7 +334,7 @@ function ManagerDashboard({
               <Text style={styles.cardTitle}>{item.count}</Text>
               <Text style={[uiStyles.body, styles.flex]}>{item.label}</Text>
             </View>
-            <AppButton title="Review outstanding work" tone="secondary" onPress={() =>
+            <AppButton title={t("Review outstanding work")} tone="secondary" onPress={() =>
               ["leave_requests", "cancellations", "late_staff", "missed_shifts"].includes(item.kind)
                 ? onOpenTeam?.("attendance")
                 : onOpenJobs?.(item.kind.includes("unassigned") ? "unassigned" : item.kind.includes("reschedul") ? "rescheduling" : "today")} />
@@ -341,37 +342,37 @@ function ManagerDashboard({
         ))
       ) : (
         <EmptyState
-          title="Everything is under control"
-          body="No operational items need attention."
+          title={t("Everything is under control")}
+          body={t("No operational items need attention.")}
         />
       )}
-      <Text style={styles.section}>ACTIVE NOW</Text>
+      <Text style={styles.section}>{t("ACTIVE NOW")}</Text>
       {value.active_jobs.length ? (
         value.active_jobs.map((job: Job) => (
-          <Pressable key={job.id} accessibilityRole="button" accessibilityLabel={`Open job ${job.booking_reference}, ${job.customer_name}`} onPress={() => onOpenJob?.(job.id)}><Card>
+          <Pressable key={job.id} accessibilityRole="button" accessibilityLabel={t("Open job {p0}, {p1}", { p0: job.booking_reference, p1: job.customer_name })} onPress={() => onOpenJob?.(job.id)}><Card>
             <View style={uiStyles.row}>
               <View>
                 <Text style={styles.cardTitle}>
                   {job.assigned_team_name ??
                     job.assigned_staff_name ??
-                    "Unassigned"}
+                    t("Unassigned")}
                 </Text>
                 <Text style={uiStyles.muted}>
                   {job.vehicles[0]
-                    ? `${job.vehicles[0].make} ${job.vehicles[0].model}`
+                    ? t("{p0} {p1}", { p0: job.vehicles[0].make, p1: job.vehicles[0].model })
                     : job.booking_reference}
                 </Text>
               </View>
               <StatusChip value={job.status} />
             </View>
             <Text style={uiStyles.body}>{job.customer_name} · {formatUaeTime(job.scheduled_start)}</Text>
-            <Text style={styles.link}>View job details</Text>
+            <Text style={styles.link}>{t("View job details")}</Text>
           </Card></Pressable>
         ))
       ) : (
-        <EmptyState title="No active jobs" />
+        <EmptyState title={t("No active jobs")} />
       )}
-      <Disclosure title={`Team attendance · ${attendance.filter(item => item.clock_in_at && !item.clock_out_at).length} clocked in`}>
+      <Disclosure title={t("Team attendance · {p0} clocked in", { p0: attendance.filter(item => item.clock_in_at && !item.clock_out_at).length })}>
       {attendance.length ? (
         attendance.map((item) => (
           <Card key={item.staff_id}>
@@ -379,8 +380,8 @@ function ManagerDashboard({
               <View>
                 <Text style={styles.cardTitle}>{item.staff_name}</Text>
                 <Text style={uiStyles.muted}>
-                  {item.shift_name ?? "No shift today"}
-                  {item.late_minutes ? ` · ${item.late_minutes} min late` : ""}
+                  {item.shift_name ?? t("No shift today")}
+                  {item.late_minutes ? t(" · {p0} min late", { p0: item.late_minutes }) : ""}
                 </Text>
               </View>
               <StatusChip value={item.status} />
@@ -388,9 +389,9 @@ function ManagerDashboard({
           </Card>
         ))
       ) : (
-        <EmptyState title="No active staff" />
+        <EmptyState title={t("No active staff")} />
       )}
-      <AppButton title="View teams" tone="secondary" onPress={() => onOpenTeam?.()} />
+      <AppButton title={t("View teams")} tone="secondary" onPress={() => onOpenTeam?.()} />
       </Disclosure>
     </>
   );

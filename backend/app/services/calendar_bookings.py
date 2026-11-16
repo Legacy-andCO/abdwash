@@ -1,13 +1,16 @@
 import uuid
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import StaffContext
 from app.domain.enums import StaffRole
-from app.domain.errors import DomainError
+from app.domain.errors import ConflictError, DomainError
 from app.models.entities import (
     AuditEvent,
+    Booking,
     Job,
     TeamMembership,
 )
@@ -17,6 +20,7 @@ from app.schemas.public import HoldCreate
 from app.services.bookings import create_booking
 from app.services.policy_acceptance import POLICY_VERSIONS, require_current_revision
 from app.services.scheduling import create_hold
+from app.services.smart_scheduling import lock_schedule_day
 
 
 async def calendar_booking_team_scope(
@@ -50,6 +54,38 @@ async def book_from_calendar(
     overlap_team = request.overlap.team_id if request.overlap else None
     if overlap_team is not None and team_scope is not None and overlap_team not in team_scope:
         raise DomainError("TEAM_NOT_FOUND", "Team not found.", status_code=404)
+
+    if request.overlap:
+        # An exception must identify the occupied appointment the user selected.
+        # Serialize with normal booking/reschedule/cancellation before checking it.
+        await lock_schedule_day(session, business_id=context.business_id, day=request.date)
+        source = await session.scalar(
+            select(Job)
+            .join(Booking, Booking.id == Job.booking_id)
+            .where(
+                Job.id == request.overlap.job_id,
+                Job.business_id == context.business_id,
+                Booking.business_id == context.business_id,
+                Job.assigned_resource_id == overlap_team,
+                Job.status.in_(["assigned", "en_route", "arrived", "in_progress"]),
+                Booking.status == "confirmed",
+            )
+            .with_for_update()
+        )
+        if source is None:
+            raise DomainError(
+                "APPOINTMENT_NOT_FOUND", "The selected appointment is unavailable.", status_code=404
+            )
+        if source.version != request.overlap.expected_version:
+            raise ConflictError(
+                "STALE_JOB_VERSION", "This appointment changed. Refresh the calendar."
+            )
+
+        requested_start = datetime.combine(request.date, request.time, ZoneInfo(context.timezone))
+        if not source.scheduled_start <= requested_start < source.scheduled_end:
+            raise ConflictError(
+                "NO_APPOINTMENT_OVERLAP", "Choose a time inside the selected appointment."
+            )
 
     hold = await create_hold(
         session,
@@ -104,6 +140,7 @@ async def book_from_calendar(
         ]
     )
     if overlap_team is not None:
+        assert request.overlap is not None
         session.add(
             AuditEvent(
                 business_id=context.business_id,
@@ -114,6 +151,7 @@ async def book_from_calendar(
                 metadata_json={
                     "actor_staff_id": str(context.staff_id),
                     "team_id": str(overlap_team),
+                    "selected_job_id": str(request.overlap.job_id),
                     "scheduled_start": created.scheduled_start.isoformat(),
                     "scheduled_end": created.scheduled_end.isoformat(),
                     "job_id": str(job.id),
@@ -125,8 +163,8 @@ async def book_from_calendar(
         id=created.id,
         job_id=job.id,
         reference=created.reference,
-        scheduled_start=created.scheduled_start,
-        scheduled_end=created.scheduled_end,
+        scheduled_start=created.scheduled_start.astimezone(UTC),
+        scheduled_end=created.scheduled_end.astimezone(UTC),
         total_amount_minor=created.total_amount_minor,
         capacity_exception=overlap_team is not None,
     )

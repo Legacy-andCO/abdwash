@@ -9,16 +9,16 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as wall_time
-from typing import Literal
+from typing import Any, Literal, cast
 from zoneinfo import ZoneInfo
 
 import structlog
-from sqlalchemy import select, text
+from sqlalchemy import Select, literal, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import HoldStatus, JobStatus, LeaveStatus, SlotStatus
@@ -222,67 +222,51 @@ async def get_eligible_teams(
     business_id: uuid.UUID,
     day: date,
 ) -> list[TeamCandidate]:
-    teams = list(
-        (
-            await session.scalars(
-                select(ScheduleResource)
-                .where(
-                    ScheduleResource.business_id == business_id,
-                    ScheduleResource.resource_type == "mobile_team",
-                    ScheduleResource.is_active.is_(True),
-                )
-                .order_by(
-                    ScheduleResource.sort_order,
-                    ScheduleResource.created_at,
-                    ScheduleResource.id,
-                )
-            )
-        ).all()
+    # A team is eligible iff at least one active member is not on approved leave.
+    # EXISTS preserves that rule without three sequential network round trips.
+    on_leave = (
+        select(LeaveRequest.id)
+        .where(
+            LeaveRequest.business_id == business_id,
+            LeaveRequest.staff_profile_id == StaffProfile.id,
+            LeaveRequest.status == LeaveStatus.APPROVED,
+            LeaveRequest.start_date <= day,
+            LeaveRequest.end_date >= day,
+        )
+        .exists()
     )
-    if not teams:
-        return []
-    membership_rows = (
-        await session.execute(
-            select(TeamMembership.resource_id, TeamMembership.staff_profile_id)
-            .join(StaffProfile, StaffProfile.id == TeamMembership.staff_profile_id)
+    available_member = (
+        select(TeamMembership.id)
+        .join(
+            StaffProfile,
+            StaffProfile.id == TeamMembership.staff_profile_id,
+        )
+        .where(
+            TeamMembership.resource_id == ScheduleResource.id,
+            TeamMembership.is_active.is_(True),
+            StaffProfile.business_id == business_id,
+            StaffProfile.is_active.is_(True),
+            ~on_leave,
+        )
+        .exists()
+    )
+    teams = (
+        await session.scalars(
+            select(ScheduleResource)
             .where(
-                TeamMembership.resource_id.in_([team.id for team in teams]),
-                TeamMembership.is_active.is_(True),
-                StaffProfile.business_id == business_id,
-                StaffProfile.is_active.is_(True),
+                ScheduleResource.business_id == business_id,
+                ScheduleResource.resource_type == "mobile_team",
+                ScheduleResource.is_active.is_(True),
+                available_member,
             )
+            .order_by(ScheduleResource.sort_order, ScheduleResource.created_at, ScheduleResource.id)
         )
     ).all()
-    members: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
-    for resource_id, staff_id in membership_rows:
-        members[resource_id].add(staff_id)
-    staff_ids = {staff_id for values in members.values() for staff_id in values}
-    on_leave = (
-        set(
-            (
-                await session.scalars(
-                    select(LeaveRequest.staff_profile_id).where(
-                        LeaveRequest.business_id == business_id,
-                        LeaveRequest.staff_profile_id.in_(staff_ids),
-                        LeaveRequest.status == LeaveStatus.APPROVED,
-                        LeaveRequest.start_date <= day,
-                        LeaveRequest.end_date >= day,
-                    )
-                )
-            ).all()
-        )
-        if staff_ids
-        else set()
-    )
     return [
         TeamCandidate(
-            id=team.id,
-            name=team.name,
-            sort_order=team.sort_order,
-            created_at=team.created_at,
+            id=team.id, name=team.name, sort_order=team.sort_order, created_at=team.created_at
         )
         for team in teams
-        if members[team.id] and not members[team.id].issubset(on_leave)
     ]
 
 
@@ -300,7 +284,13 @@ async def load_capacity_items(
     if not resource_ids:
         return []
     day_start, day_end = _day_bounds(day, timezone)
-    job_statement = select(Job).where(
+    jobs = select(
+        Job.assigned_resource_id.label("resource_id"),
+        Job.scheduled_start.label("starts_at"),
+        Job.scheduled_end.label("ends_at"),
+        literal("job").label("source"),
+        Job.id.label("source_id"),
+    ).where(
         Job.business_id == business_id,
         Job.assigned_resource_id.in_(resource_ids),
         Job.status.in_(BLOCKING_JOB_STATUSES),
@@ -308,68 +298,51 @@ async def load_capacity_items(
         Job.scheduled_end > day_start,
     )
     if exclude_job_id is not None:
-        job_statement = job_statement.where(Job.id != exclude_job_id)
-    jobs = list((await session.scalars(job_statement)).all())
-    now = datetime.now(UTC)
-    hold_statement = select(SlotHoldGroup).where(
+        jobs = jobs.where(Job.id != exclude_job_id)
+    holds = select(
+        SlotHoldGroup.resource_id,
+        SlotHoldGroup.slot_start,
+        SlotHoldGroup.slot_end,
+        literal("hold"),
+        SlotHoldGroup.id,
+    ).where(
         SlotHoldGroup.business_id == business_id,
         SlotHoldGroup.resource_id.in_(resource_ids),
         SlotHoldGroup.status == HoldStatus.ACTIVE,
-        SlotHoldGroup.expires_at > now,
+        SlotHoldGroup.expires_at > datetime.now(UTC),
         SlotHoldGroup.slot_start < day_end,
         SlotHoldGroup.slot_end > day_start,
     )
     if exclude_hold_id is not None:
-        hold_statement = hold_statement.where(SlotHoldGroup.id != exclude_hold_id)
-    holds = list((await session.scalars(hold_statement)).all())
-    blocks = (
-        (
-            await session.scalars(
-                select(ScheduleSlot).where(
-                    ScheduleSlot.business_id == business_id,
-                    ScheduleSlot.resource_id.in_(resource_ids),
-                    ScheduleSlot.status == SlotStatus.BLOCKED,
-                    ScheduleSlot.slot_start < day_end,
-                    ScheduleSlot.slot_end > day_start,
-                )
+        holds = holds.where(SlotHoldGroup.id != exclude_hold_id)
+    statements: list[Select[Any]] = [jobs, holds]
+    if include_blocked_slots:
+        statements.append(
+            select(
+                ScheduleSlot.resource_id,
+                ScheduleSlot.slot_start,
+                ScheduleSlot.slot_end,
+                literal("blocked"),
+                ScheduleSlot.id,
+            ).where(
+                ScheduleSlot.business_id == business_id,
+                ScheduleSlot.resource_id.in_(resource_ids),
+                ScheduleSlot.status == SlotStatus.BLOCKED,
+                ScheduleSlot.slot_start < day_end,
+                ScheduleSlot.slot_end > day_start,
             )
-        ).all()
-        if include_blocked_slots
-        else []
-    )
-    return (
-        [
-            CapacityItem(
-                resource_id=job.assigned_resource_id,
-                starts_at=job.scheduled_start,
-                ends_at=job.scheduled_end,
-                source="job",
-                source_id=job.id,
-            )
-            for job in jobs
-            if job.assigned_resource_id is not None
-        ]
-        + [
-            CapacityItem(
-                resource_id=hold.resource_id,
-                starts_at=hold.slot_start,
-                ends_at=hold.slot_end,
-                source="hold",
-                source_id=hold.id,
-            )
-            for hold in holds
-        ]
-        + [
-            CapacityItem(
-                resource_id=slot.resource_id,
-                starts_at=slot.slot_start,
-                ends_at=slot.slot_end,
-                source="blocked",
-                source_id=slot.id,
-            )
-            for slot in blocks
-        ]
-    )
+        )
+    rows = (await session.execute(union_all(*statements))).all()
+    return [
+        CapacityItem(
+            resource_id=row.resource_id,
+            starts_at=row.starts_at,
+            ends_at=row.ends_at,
+            source=cast(Literal["job", "hold", "blocked"], row.source),
+            source_id=row.source_id,
+        )
+        for row in rows
+    ]
 
 
 def evaluate_team(

@@ -1,4 +1,5 @@
 import type { Role } from "./capabilities";
+import { staffLocale, t } from "./i18n";
 import type { AvailabilitySlot, Job, ReportPoint } from "./lib";
 
 export type MainTab = "today" | "jobs" | "team" | "reports" | "profile";
@@ -31,14 +32,14 @@ export const reportBarPercent = (value: number, maximum: number) =>
   Math.max(3, Math.min(100, (value / Math.max(1, maximum)) * 100));
 export const offlineMessage = (cachedAt?: string) =>
   cachedAt
-    ? `Offline · updated ${new Date(cachedAt).toLocaleTimeString()}`
-    : "Offline · no cached jobs";
+    ? t("Offline · updated {p0}", { p0: new Date(cachedAt).toLocaleTimeString(staffLocale()) })
+    : t("Offline · no cached jobs");
 export const conflictMessage = (code: string) =>
   code === "TEAM_ASSIGNMENT_CONFLICT"
-    ? "That team already has work during this appointment."
+    ? t("That team already has work during this appointment.")
     : code === "LEAVE_HAS_ASSIGNED_WORK"
-      ? "Reassign this employee's future work first."
-      : "The server did not confirm this action.";
+      ? t("Reassign this employee's future work first.")
+      : t("The server did not confirm this action.");
 export const isIsoBookingDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value);
 export const sameStringSet = (left: string[], right: string[]) => {

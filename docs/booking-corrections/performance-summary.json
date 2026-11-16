@@ -1,0 +1,10 @@
+{
+  "before_mean_ms": 6839.5,
+  "after_mean_ms": 5332.78,
+  "before_query_count": 52,
+  "after_query_count": 37,
+  "browser_confirmation_ms": 5658,
+  "notification_provider_ms_during_booking": 0,
+  "environment": "local staging API, remote isolated Supabase staging database; three API samples each",
+  "improvement_percent": 22.0
+}

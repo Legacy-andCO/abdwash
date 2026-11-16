@@ -1,3 +1,4 @@
+import { staffLocale, t } from "../i18n";
 import DateTimePicker, {
   DateTimePickerAndroid,
   type DateTimePickerEvent,
@@ -55,7 +56,7 @@ export function DatePickerField({
       <Text style={styles.label}>{label.toUpperCase()}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}, ${formatHumanDate(value)}`}
+        accessibilityLabel={t("{p0}, {p1}", { p0: label, p1: formatHumanDate(value) })}
         onPress={open}
         style={({ pressed }) => [
           styles.field,
@@ -67,6 +68,7 @@ export function DatePickerField({
       </Pressable>
       {showIos ? (
         <DateTimePicker
+          locale={String(staffLocale())}
           value={selected}
           mode="date"
           display="inline"
@@ -103,7 +105,7 @@ export function TimePickerField({ label, value, onChange }: PickerFieldProps) {
       <Text style={styles.label}>{label.toUpperCase()}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}, ${formatHumanTime(value)}`}
+        accessibilityLabel={t("{p0}, {p1}", { p0: label, p1: formatHumanTime(value) })}
         onPress={open}
         style={({ pressed }) => [
           styles.field,
@@ -115,6 +117,7 @@ export function TimePickerField({ label, value, onChange }: PickerFieldProps) {
       </Pressable>
       {showIos ? (
         <DateTimePicker
+          locale={String(staffLocale())}
           value={selected}
           mode="time"
           display="spinner"

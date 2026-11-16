@@ -1,3 +1,4 @@
+import { staffLocale } from "../i18n";
 export const UAE_TIME_ZONE = "Asia/Dubai";
 
 type TemporalValue = Date | string | number;
@@ -48,7 +49,7 @@ export function formatUaeTime(
   value: TemporalValue,
   locale?: Intl.LocalesArgument,
 ): string {
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(locale ?? staffLocale(), {
     timeZone: UAE_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
@@ -65,7 +66,7 @@ export function formatUaeDate(
     year: "numeric",
   },
 ): string {
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(locale ?? staffLocale(), {
     ...options,
     timeZone: UAE_TIME_ZONE,
   }).format(value instanceof Date ? value : new Date(value));
@@ -75,7 +76,7 @@ export function formatUaeDateTime(
   value: TemporalValue,
   locale?: Intl.LocalesArgument,
 ): string {
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(locale ?? staffLocale(), {
     timeZone: UAE_TIME_ZONE,
     weekday: "short",
     day: "numeric",
@@ -102,7 +103,7 @@ export function formatWallClockTime(
   locale?: Intl.LocalesArgument,
 ): string {
   const [hour, minute] = value.split(":").map(Number);
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(locale ?? staffLocale(), {
     timeZone: "UTC",
     hour: "numeric",
     minute: "2-digit",

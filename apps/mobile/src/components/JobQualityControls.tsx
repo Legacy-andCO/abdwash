@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { Alert } from "../alert";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -115,10 +116,10 @@ export function JobQualityControls({
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
-        "Permission needed",
+        t("Permission needed"),
         source === "camera"
-          ? "Allow camera access to capture job evidence."
-          : "Allow photo access to select job evidence.",
+          ? t("Allow camera access to capture job evidence.")
+          : t("Allow photo access to select job evidence."),
       );
       return;
     }
@@ -155,7 +156,7 @@ export function JobQualityControls({
       setDraft(null);
     } catch (reason) {
       Alert.alert(
-        "Photo not uploaded",
+        t("Photo not uploaded"),
         domainErrorMessage(reason, "Keep the preview and try uploading again."),
       );
     }
@@ -170,7 +171,7 @@ export function JobQualityControls({
       });
     } catch (reason) {
       Alert.alert(
-        "Inspection not saved",
+        t("Inspection not saved"),
         domainErrorMessage(reason, "Try again."),
       );
     }
@@ -187,7 +188,7 @@ export function JobQualityControls({
       setIssuePhotoId(null);
       setIssueOpen(false);
     } catch (reason) {
-      Alert.alert("Issue not saved", domainErrorMessage(reason, "Try again."));
+      Alert.alert(t("Issue not saved"), domainErrorMessage(reason, "Try again."));
     }
   }
 
@@ -197,7 +198,7 @@ export function JobQualityControls({
       setComplaintText("");
     } catch (reason) {
       Alert.alert(
-        "Complaint not saved",
+        t("Complaint not saved"),
         domainErrorMessage(reason, "Try again."),
       );
     }
@@ -213,13 +214,13 @@ export function JobQualityControls({
     return (
       <Card>
         <EmptyState
-          title="Vehicle condition record couldn't be loaded"
+          title={t("Vehicle condition record couldn't be loaded")}
           body={domainErrorMessage(
             error,
             "We couldn't load this job's quality record.",
           )}
         />
-        <AppButton title="Try again" tone="secondary" onPress={onRetry} />
+        <AppButton title={t("Try again")} tone="secondary" onPress={onRetry} />
       </Card>
     );
   const summary = qualitySummary(quality);
@@ -227,34 +228,31 @@ export function JobQualityControls({
   const canManage = capabilities(context.role).canManageAnyJob;
   return (
     <Card>
-      <Text style={styles.section}>JOB QUALITY</Text>
+      <Text style={styles.section}>{t("JOB QUALITY")}</Text>
       {error ? (
         <View style={styles.block}>
           <Text style={uiStyles.error}>
-            Vehicle condition record couldn't be refreshed. The last saved details remain visible.
-          </Text>
-          <AppButton title="Try again" tone="secondary" onPress={onRetry} />
+            {" " + t("Vehicle condition record couldn't be refreshed. The last saved details remain visible.") + " "}</Text>
+          <AppButton title={t("Try again")} tone="secondary" onPress={onRetry} />
         </View>
       ) : null}
       {offline ? (
         <Text style={uiStyles.error}>
-          Offline · saved quality evidence is visible, but changes and uploads
-          require a connection.
-        </Text>
+          {" " + t("Offline · saved quality evidence is visible, but changes and uploads require a connection.") + " "}</Text>
       ) : null}
       {canWork ? (
         <View style={styles.block}>
-          <Text style={styles.title}>Vehicle inspection</Text>
+          <Text style={styles.title}>{t("Vehicle inspection")}</Text>
           <TextInput
-            accessibilityLabel="Vehicle condition notes"
+            accessibilityLabel={t("Vehicle condition notes")}
             editable={!offline}
             multiline
-            placeholder="Overall condition notes"
+            placeholder={t("Overall condition notes")}
             style={[uiStyles.field, styles.multiline]}
             value={condition}
             onChangeText={setCondition}
           />
-          <Text style={uiStyles.label}>EXISTING DAMAGE</Text>
+          <Text style={uiStyles.label}>{t("EXISTING DAMAGE")}</Text>
           <View style={styles.choices}>
             {[
               "",
@@ -277,17 +275,17 @@ export function JobQualityControls({
                 onPress={() => setDamageCategory(value)}
               >
                 <Text style={styles.choiceText}>
-                  {value ? value.replaceAll("_", " ") : "None"}
+                  {value ? t(value.replaceAll("_", " ")) : t("None")}
                 </Text>
               </Pressable>
             ))}
           </View>
           {damageCategory ? (
             <TextInput
-              accessibilityLabel="Existing damage notes"
+              accessibilityLabel={t("Existing damage notes")}
               editable={!offline}
               multiline
-              placeholder="Where is the damage?"
+              placeholder={t("Where is the damage?")}
               style={[uiStyles.field, styles.multiline]}
               value={damageNotes}
               onChangeText={setDamageNotes}
@@ -296,10 +294,10 @@ export function JobQualityControls({
           <AppButton
             title={
               inspection.isPending
-                ? "Saving…"
+                ? t("Saving…")
                 : quality.inspection
-                  ? "Update inspection"
-                  : "Complete inspection"
+                  ? t("Update inspection")
+                  : t("Complete inspection")
             }
             disabled={offline || inspection.isPending}
             loading={inspection.isPending}
@@ -308,7 +306,7 @@ export function JobQualityControls({
         </View>
       ) : quality.inspection ? (
         <View style={styles.block}>
-          <Text style={styles.title}>Inspection</Text>
+          <Text style={styles.title}>{t("Inspection")}</Text>
           <Text style={uiStyles.muted}>
             {quality.inspection.completed_by_staff_name} ·{" "}
             {new Date(quality.inspection.completed_at).toLocaleString()}
@@ -320,20 +318,19 @@ export function JobQualityControls({
           ) : null}
           {quality.inspection.damage_category ? (
             <Text style={uiStyles.body}>
-              {quality.inspection.damage_category.replaceAll("_", " ")} ·{" "}
-              {quality.inspection.damage_notes || "No additional note"}
+              {t(quality.inspection.damage_category.replaceAll("_", " "))} ·{" "}
+              {quality.inspection.damage_notes || t("No additional note")}
             </Text>
           ) : null}
         </View>
       ) : (
         <Text style={uiStyles.muted}>
-          No inspection was recorded for this job.
-        </Text>
+          {" " + t("No inspection was recorded for this job.") + " "}</Text>
       )}
 
       {categories.length ? (
         <View style={styles.block}>
-          <Text style={styles.title}>Photo evidence</Text>
+          <Text style={styles.title}>{t("Photo evidence")}</Text>
           <View style={styles.choices}>
             {categories.map((category) => (
               <Pressable
@@ -352,16 +349,15 @@ export function JobQualityControls({
             <View style={styles.preview}>
               <Image source={{ uri: draft.uri }} style={styles.previewImage} />
               <Text style={uiStyles.muted}>
-                {draft.category.toUpperCase()} preview
-              </Text>
+                {draft.category.toUpperCase()} {" " + t("preview") + " "}</Text>
               <AppButton
-                title={photo.isPending ? "Uploading…" : "Upload photo"}
+                title={photo.isPending ? t("Uploading…") : t("Upload photo")}
                 disabled={offline || photo.isPending}
                 loading={photo.isPending}
                 onPress={() => void uploadDraft()}
               />
               <AppButton
-                title="Remove preview"
+                title={t("Remove preview")}
                 tone="secondary"
                 disabled={photo.isPending}
                 onPress={() => setDraft(null)}
@@ -371,14 +367,14 @@ export function JobQualityControls({
             <View style={styles.actions}>
               <View style={styles.flex}>
                 <AppButton
-                  title="Take photo"
+                  title={t("Take photo")}
                   disabled={offline}
                   onPress={() => void choosePhoto("camera")}
                 />
               </View>
               <View style={styles.flex}>
                 <AppButton
-                  title="Choose photo"
+                  title={t("Choose photo")}
                   tone="secondary"
                   disabled={offline}
                   onPress={() => void choosePhoto("library")}
@@ -394,7 +390,7 @@ export function JobQualityControls({
       {quality.checklist.length ? (
         <View style={styles.block}>
           <Text style={styles.title}>
-            Service checklist · {summary.checklist}
+            {" " + t("Service checklist ·") + " "}{summary.checklist}
           </Text>
           {quality.checklist.map((item) => (
             <Pressable
@@ -410,7 +406,7 @@ export function JobQualityControls({
                   .mutateAsync(toggledChecklist(quality.checklist, item.id))
                   .catch((reason) =>
                     Alert.alert(
-                      "Checklist not saved",
+                      t("Checklist not saved"),
                       domainErrorMessage(reason, "Try again."),
                     ),
                   )
@@ -423,29 +419,28 @@ export function JobQualityControls({
               </Text>
               <Text style={styles.checkLabel}>
                 {item.label}
-                {item.is_required ? "" : " · optional"}
+                {item.is_required ? "" : t(" · optional")}
               </Text>
             </Pressable>
           ))}
         </View>
       ) : (
         <Text style={uiStyles.muted}>
-          No checklist was configured for this historical job.
-        </Text>
+          {" " + t("No checklist was configured for this historical job.") + " "}</Text>
       )}
 
       {canWork ? (
         <View style={styles.block}>
           {!issueOpen ? (
             <AppButton
-              title="Add issue"
+              title={t("Add issue")}
               tone="secondary"
               disabled={offline}
               onPress={() => setIssueOpen(true)}
             />
           ) : (
             <>
-              <Text style={styles.title}>Report an issue</Text>
+              <Text style={styles.title}>{t("Report an issue")}</Text>
               <View style={styles.choices}>
                 {[
                   "pre_existing_damage",
@@ -464,21 +459,21 @@ export function JobQualityControls({
                     onPress={() => setIssueCategory(value)}
                   >
                     <Text style={styles.choiceText}>
-                      {value.replaceAll("_", " ")}
+                      {t(value.replaceAll("_", " "))}
                     </Text>
                   </Pressable>
                 ))}
               </View>
               <TextInput
                 multiline
-                placeholder="What happened?"
+                placeholder={t("What happened?")}
                 style={[uiStyles.field, styles.multiline]}
                 value={issueNote}
                 onChangeText={setIssueNote}
               />
               {quality.photos.length ? (
                 <>
-                  <Text style={uiStyles.label}>OPTIONAL PHOTO</Text>
+                  <Text style={uiStyles.label}>{t("OPTIONAL PHOTO")}</Text>
                   <View style={styles.choices}>
                     <Pressable
                       style={[
@@ -487,7 +482,7 @@ export function JobQualityControls({
                       ]}
                       onPress={() => setIssuePhotoId(null)}
                     >
-                      <Text style={styles.choiceText}>None</Text>
+                      <Text style={styles.choiceText}>{t("None")}</Text>
                     </Pressable>
                     {quality.photos
                       .filter((item) =>
@@ -513,7 +508,7 @@ export function JobQualityControls({
                 </>
               ) : null}
               <AppButton
-                title={issue.isPending ? "Saving…" : "Save issue"}
+                title={issue.isPending ? t("Saving…") : t("Save issue")}
                 disabled={
                   offline || issue.isPending || issueNote.trim().length < 2
                 }
@@ -521,7 +516,7 @@ export function JobQualityControls({
                 onPress={() => void saveIssue()}
               />
               <AppButton
-                title="Cancel"
+                title={t("Cancel")}
                 tone="secondary"
                 onPress={() => setIssueOpen(false)}
               />
@@ -532,11 +527,11 @@ export function JobQualityControls({
 
       {quality.issues.length ? (
         <View style={styles.block}>
-          <Text style={styles.title}>Issues</Text>
+          <Text style={styles.title}>{t("Issues")}</Text>
           {quality.issues.map((item) => (
             <View key={item.id} style={styles.record}>
               <Text style={styles.recordTitle}>
-                {item.category.replaceAll("_", " ")}
+                {t(item.category.replaceAll("_", " "))}
               </Text>
               <Text style={uiStyles.body}>{item.note}</Text>
               <Text style={uiStyles.muted}>
@@ -549,20 +544,19 @@ export function JobQualityControls({
       ) : null}
 
       <View style={styles.summary}>
-        <Summary label="Checklist" value={summary.checklist} />
-        <Summary label="Before" value={String(summary.before)} />
-        <Summary label="After" value={String(summary.after)} />
-        <Summary label="Issues" value={String(summary.issues)} />
+        <Summary label={t("Checklist")} value={summary.checklist} />
+        <Summary label={t("Before")} value={String(summary.before)} />
+        <Summary label={t("After")} value={String(summary.after)} />
+        <Summary label={t("Issues")} value={String(summary.issues)} />
       </View>
       {!quality.can_complete && job.status === "in_progress" ? (
         <Text style={uiStyles.error}>
-          Complete all required checklist items before completing the wash.
-        </Text>
+          {" " + t("Complete all required checklist items before completing the wash.") + " "}</Text>
       ) : null}
 
       {canManage && job.status === "completed" ? (
         <View style={styles.block}>
-          <Text style={styles.title}>Customer complaints</Text>
+          <Text style={styles.title}>{t("Customer complaints")}</Text>
           {quality.complaints.map((item) => (
             <View key={item.id} style={styles.record}>
               <View style={uiStyles.row}>
@@ -570,7 +564,7 @@ export function JobQualityControls({
                 <StatusChip value={item.status} />
               </View>
               <Text style={uiStyles.muted}>
-                Opened by {item.created_by_staff_name}
+                {" " + t("Opened by") + " "}{item.created_by_staff_name}
               </Text>
               {item.review_note ? (
                 <Text style={uiStyles.body}>{item.review_note}</Text>
@@ -584,7 +578,7 @@ export function JobQualityControls({
                       job={job}
                       complaint={item}
                       decision="under_review"
-                      label="Review"
+                      label={t("Review")}
                       disabled={offline}
                     />
                   ) : null}
@@ -593,7 +587,7 @@ export function JobQualityControls({
                     job={job}
                     complaint={item}
                     decision="resolved"
-                    label="Resolve"
+                    label={t("Resolve")}
                     disabled={offline}
                   />
                   <ComplaintButton
@@ -601,11 +595,11 @@ export function JobQualityControls({
                     job={job}
                     complaint={item}
                     decision="rejected"
-                    label="Reject"
+                    label={t("Reject")}
                     disabled={offline}
                   />
                   <AppButton
-                    title="Approve rewash"
+                    title={t("Approve rewash")}
                     tone="secondary"
                     disabled={offline}
                     onPress={() => setRewash(item)}
@@ -613,20 +607,20 @@ export function JobQualityControls({
                 </View>
               ) : item.correction_job_id ? (
                 <Text style={styles.rewash}>
-                  REWASH JOB · {item.correction_job_id}
+                  {" " + t("REWASH JOB ·") + " "}{item.correction_job_id}
                 </Text>
               ) : null}
             </View>
           ))}
           <TextInput
             multiline
-            placeholder="Record a customer complaint"
+            placeholder={t("Record a customer complaint")}
             style={[uiStyles.field, styles.multiline]}
             value={complaintText}
             onChangeText={setComplaintText}
           />
           <AppButton
-            title={complaint.isPending ? "Saving…" : "Add complaint"}
+            title={complaint.isPending ? t("Saving…") : t("Add complaint")}
             disabled={
               offline || complaint.isPending || complaintText.trim().length < 2
             }
@@ -703,7 +697,7 @@ function ComplaintButton({
   const mutation = useComplaintReviewMutation(context, job);
   return (
     <AppButton
-      title={mutation.isPending ? "Saving…" : label}
+      title={mutation.isPending ? t("Saving…") : label}
       disabled={disabled || mutation.isPending}
       loading={mutation.isPending}
       onPress={() =>
@@ -711,7 +705,7 @@ function ComplaintButton({
           .mutateAsync({ complaintId: complaint.id, decision })
           .catch((reason) =>
             Alert.alert(
-              "Complaint not updated",
+              t("Complaint not updated"),
               domainErrorMessage(reason, "Try again."),
             ),
           )
@@ -757,9 +751,9 @@ function RewashScheduler({
   );
   return (
     <View style={styles.scheduler}>
-      <Text style={styles.title}>Schedule complimentary rewash</Text>
+      <Text style={styles.title}>{t("Schedule complimentary rewash")}</Text>
       <DatePickerField
-        label="Correction date"
+        label={t("Correction date")}
         value={day}
         minimumDate={wallDate(uaeDateKey())}
         onChange={(value) => {
@@ -785,11 +779,11 @@ function RewashScheduler({
           </Pressable>
         ))
       ) : (
-        <EmptyState title="No correction times available" />
+        <EmptyState title={t("No correction times available")} />
       )}
       <AppButton
         title={
-          mutation.isPending ? "Approving…" : "Approve and schedule rewash"
+          mutation.isPending ? t("Approving…") : t("Approve and schedule rewash")
         }
         disabled={mutation.isPending || !choice}
         loading={mutation.isPending}
@@ -804,7 +798,7 @@ function RewashScheduler({
             .then(onClose)
             .catch((reason) =>
               Alert.alert(
-                "Rewash not scheduled",
+                t("Rewash not scheduled"),
                 domainErrorMessage(
                   reason,
                   "Choose another time and try again.",
@@ -813,7 +807,7 @@ function RewashScheduler({
             )
         }
       />
-      <AppButton title="Cancel" tone="secondary" onPress={onClose} />
+      <AppButton title={t("Cancel")} tone="secondary" onPress={onClose} />
     </View>
   );
 }

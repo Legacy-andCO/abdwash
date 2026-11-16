@@ -40,8 +40,8 @@ describe("recovery UI contracts", () => {
   it("offers Navigate and Close after a successful trip", () => {
     const jobs = source("./screens/JobsScreen.tsx");
     expect(jobs).toContain('"Trip started"');
-    expect(jobs).toContain('text: "Navigate"');
-    expect(jobs).toContain('text: "Close"');
+    expect(jobs).toContain('text: t("Navigate")');
+    expect(jobs).toContain('text: t("Close")');
     expect(jobs).toContain("Customer notification queued.");
   });
 
@@ -78,8 +78,8 @@ describe("recovery UI contracts", () => {
 
   it("shows the requested customer-search placeholder without changing its label", () => {
     const jobs = source("./screens/JobsScreen.tsx");
-    expect(jobs).toContain('placeholder="Search customer"');
-    expect(jobs).toContain('accessibilityLabel="Search customer name"');
+    expect(jobs).toContain('placeholder={t("Search customer")}');
+    expect(jobs).toContain('accessibilityLabel={t("Search customer name")}');
     expect(jobs).toContain("placeholderTextColor={colors.textSecondary}");
     expect(jobs).toMatch(/searchField:\s*\{[\s\S]*?color: colors\.text/);
   });

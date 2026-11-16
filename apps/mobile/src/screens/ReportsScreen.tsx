@@ -1,3 +1,4 @@
+import { staffMoney, t } from "../i18n";
 import { useMemo, useState } from "react";
 import {
   Pressable,
@@ -21,6 +22,7 @@ import { domainErrorMessage } from "../errors/domainErrors";
 import type { MixRow, ReportV2, StaffContext } from "../lib";
 import { useReportQuery } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
+import { ReportCharts } from "../components/ReportCharts";
 import { FinanceScreen } from "./FinanceScreen";
 import { addUaeDays, uaeDateKey, wallDate } from "../time/uaeTime";
 
@@ -83,12 +85,12 @@ export function ReportsScreen({
       contentContainerStyle={uiStyles.content}
     >
       <ScreenTitle
-        title="Reports"
-        subtitle="Booked and collected revenue stay distinct"
+        title={t("Reports")}
+        subtitle={t("Booked and collected revenue stay distinct")}
       />
-      <AppButton title="Open Finance" onPress={() => setFinanceOpen(true)} />
+      <AppButton title={t("Open Finance")} onPress={() => setFinanceOpen(true)} />
       <AppButton
-        title="Open Inventory"
+        title={t("Open Inventory")}
         tone="secondary"
         onPress={() => onOpenInventory?.()}
       />
@@ -102,20 +104,20 @@ export function ReportsScreen({
             ]}
             onPress={() => updateNavigation({ period: item })}
           >
-            <Text style={styles.periodText}>{item.toUpperCase()}</Text>
+            <Text style={styles.periodText}>{t(item.toUpperCase())}</Text>
           </Pressable>
         ))}
       </View>
       {period === "custom" ? (
         <View style={styles.custom}>
           <DatePickerField
-            label="From"
+            label={t("From")}
             value={customStart}
             maximumDate={fromIsoDate(customEnd)}
             onChange={(value) => updateNavigation({ customStart: value })}
           />
           <DatePickerField
-            label="To"
+            label={t("To")}
             value={customEnd}
             minimumDate={fromIsoDate(customStart)}
             maximumDate={wallDate(uaeDateKey())}
@@ -125,173 +127,118 @@ export function ReportsScreen({
       ) : null}
       {query.isError && report ? (
         <Text style={uiStyles.error}>
-          We couldn't refresh reports. Showing the most recent saved data.
-        </Text>
+          {" " + t("We couldn't refresh reports. Showing the most recent saved data.") + " "}</Text>
       ) : null}
       {query.isPending ? (
         <Skeleton rows={5} />
       ) : !report ? (
         <EmptyState
-          title="Reports unavailable"
+          title={t("Reports unavailable")}
           body={domainErrorMessage(
             query.error,
             "We couldn't load reports for this period.",
           )}
         />
       ) : (
-        <ReportContent report={report} />
+        <ReportContent report={report} start={range.start} end={range.end} />
       )}
     </ScrollView>
   );
 }
 
-function ReportContent({ report }: { report: ReportV2 }) {
+function ReportContent({ report, start, end }: { report: ReportV2; start: string; end: string }) {
   const summary = report.summary;
-  const maximum = Math.max(
-    1,
-    ...report.series.flatMap((point) => [
-      point.booked_sales_minor,
-      point.collected_revenue_minor,
-    ]),
-  );
   return (
     <>
       <View style={styles.metrics}>
         <MetricCard
-          label="Booked sales"
-          value={`${summary.currency_code} ${(summary.booked_sales_minor / 100).toLocaleString()}`}
+          label={t("Booked sales")}
+          value={staffMoney(summary.booked_sales_minor, summary.currency_code)}
         />
         <MetricCard
-          label="Collected"
-          value={`${summary.currency_code} ${(summary.collected_revenue_minor / 100).toLocaleString()}`}
+          label={t("Collected")}
+          value={staffMoney(summary.collected_revenue_minor, summary.currency_code)}
         />
         <MetricCard
-          label="Outstanding"
-          value={`${summary.currency_code} ${(summary.outstanding_minor / 100).toLocaleString()}`}
+          label={t("Outstanding")}
+          value={staffMoney(summary.outstanding_minor, summary.currency_code)}
         />
         <MetricCard
-          label="Completed washes"
+          label={t("Completed washes")}
           value={String(summary.completed_washes)}
         />
         {report.finance ? (
           <>
             <MetricCard
-              label="Expenses"
-              value={`${report.finance.currency_code} ${(
-                report.finance.expenses_minor / 100
-              ).toLocaleString()}`}
+              label={t("Expenses")}
+              value={staffMoney(report.finance.expenses_minor, report.finance.currency_code)}
             />
             <MetricCard
-              label="Operational profit"
-              value={`${report.finance.currency_code} ${(
-                report.finance.operational_profit_minor / 100
-              ).toLocaleString()}`}
+              label={t("Operational profit")}
+              value={staffMoney(report.finance.operational_profit_minor, report.finance.currency_code)}
             />
             <MetricCard
-              label="Margin"
+              label={t("Margin")}
               value={`${report.finance.margin_percent.toFixed(1)}%`}
             />
           </>
         ) : null}
       </View>
-      <Card>
-        <Text style={styles.cardTitle}>Revenue and jobs</Text>
-        <Text style={uiStyles.muted}>
-          Booked / collected · jobs, completed, cancelled
-        </Text>
-        {report.series.length ? (
-          report.series.map((point) => (
-            <View key={point.date} style={styles.graphRow}>
-              <Text style={styles.graphLabel}>{point.date.slice(5)}</Text>
-              <View style={styles.graphTracks}>
-                <View style={styles.track}>
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        width: `${Math.max(3, (point.booked_sales_minor / maximum) * 100)}%`,
-                      },
-                    ]}
-                  />
-                </View>
-                <View style={styles.track}>
-                  <View
-                    style={[
-                      styles.collectedBar,
-                      {
-                        width: `${Math.max(3, (point.collected_revenue_minor / maximum) * 100)}%`,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-              <Text style={styles.graphValue}>
-                {(point.booked_sales_minor / 100).toFixed(0)}/
-                {(point.collected_revenue_minor / 100).toFixed(0)} ·{" "}
-                {point.jobs}/{point.completed}/{point.cancelled}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <EmptyState title="No report data for this period" />
-        )}
-      </Card>
+      <ReportCharts report={report} start={start} end={end} />
       <Mix
-        title="SERVICE MIX"
+        title={t("SERVICE MIX")}
         rows={report.service_mix}
         currency={summary.currency_code}
       />
       <Mix
-        title="PAYMENT MIX"
+        title={t("PAYMENT MIX")}
         rows={report.payment_mix}
         currency={summary.currency_code}
       />
-      <Text style={styles.section}>EMPLOYEE PERFORMANCE</Text>
+      <Text style={styles.section}>{t("EMPLOYEE PERFORMANCE")}</Text>
       {report.staff_performance.length ? (
         report.staff_performance.map((item) => (
           <Card key={item.id}>
             <Text style={styles.cardTitle}>{item.name}</Text>
             <View style={styles.performance}>
-              <Value label="Hours" value={item.hours_worked.toFixed(1)} />
-              <Value label="Completed" value={String(item.jobs_completed)} />
-              <Value label="Avg wash" value={`${item.average_wash_minutes}m`} />
-              <Value label="Late" value={String(item.late_arrivals)} />
+              <Value label={t("Hours")} value={item.hours_worked.toFixed(1)} />
+              <Value label={t("Completed")} value={String(item.jobs_completed)} />
+              <Value label={t("Avg wash")} value={t("{p0} min", { p0: item.average_wash_minutes })} />
+              <Value label={t("Late")} value={String(item.late_arrivals)} />
             </View>
             <Text style={uiStyles.muted}>
-              Jobs / hour {item.jobs_per_worked_hour.toFixed(2)} · handled{" "}
-              {summary.currency_code}{" "}
-              {(item.job_value_handled_minor / 100).toLocaleString()}
+              {" " + t("Jobs / hour") + " "}{item.jobs_per_worked_hour.toFixed(2)} {" " + t("· handled") + ""}{" "}
+              {staffMoney(item.job_value_handled_minor, summary.currency_code)}
             </Text>
           </Card>
         ))
       ) : (
-        <EmptyState title="No employee performance data" />
+        <EmptyState title={t("No employee performance data")} />
       )}
-      <Text style={styles.section}>TEAM PERFORMANCE</Text>
+      <Text style={styles.section}>{t("TEAM PERFORMANCE")}</Text>
       {report.team_performance.length ? (
         report.team_performance.map((item) => (
           <Card key={item.id}>
             <Text style={styles.cardTitle}>{item.name}</Text>
             <View style={styles.performance}>
-              <Value label="Completed" value={String(item.completed_jobs)} />
-              <Value label="Avg wash" value={`${item.average_wash_minutes}m`} />
+              <Value label={t("Completed")} value={String(item.completed_jobs)} />
+              <Value label={t("Avg wash")} value={t("{p0} min", { p0: item.average_wash_minutes })} />
               <Value
-                label="Avg operation"
-                value={`${item.average_operational_minutes}m`}
+                label={t("Avg operation")}
+                value={t("{p0} min", { p0: item.average_operational_minutes })}
               />
               <Value
-                label="Jobs / active day"
+                label={t("Jobs / active day")}
                 value={item.jobs_per_active_day.toFixed(2)}
               />
             </View>
             <Text style={uiStyles.muted}>
-              Value handled · {summary.currency_code}{" "}
-              {(item.job_value_handled_minor / 100).toLocaleString()}
+              {" " + t("Value handled ·") + " "}{staffMoney(item.job_value_handled_minor, summary.currency_code)}
             </Text>
           </Card>
         ))
       ) : (
-        <EmptyState title="No team performance data" />
+        <EmptyState title={t("No team performance data")} />
       )}
     </>
   );
@@ -313,20 +260,19 @@ function Mix({
           <Card key={item.key}>
             <View style={uiStyles.row}>
               <View>
-                <Text style={styles.cardTitle}>{item.label}</Text>
+                <Text style={styles.cardTitle}>{t(item.label)}</Text>
                 <Text style={uiStyles.muted}>
-                  {item.count} transactions/jobs
-                </Text>
+                  {item.count} {" " + t("transactions/jobs") + " "}</Text>
               </View>
               <Text style={styles.percent}>{item.percentage.toFixed(1)}%</Text>
             </View>
             <Text style={uiStyles.muted}>
-              {currency} {(item.amount_minor / 100).toLocaleString()}
+              {staffMoney(item.amount_minor, currency)}
             </Text>
           </Card>
         ))
       ) : (
-        <EmptyState title={`No ${title.toLowerCase()} data`} />
+        <EmptyState title={t("No {p0} data", { p0: title.toLowerCase() })} />
       )}
     </>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Text } from "react-native";
 import { colors } from "../theme";
 import { elapsedLabel } from "../operations";
+import { t } from "../i18n";
 
 export function ElapsedTimer({ startedAt, prefix = "Elapsed" }: { startedAt: string; prefix?: string }) {
   const [now, setNow] = useState(Date.now());
@@ -9,5 +10,5 @@ export function ElapsedTimer({ startedAt, prefix = "Elapsed" }: { startedAt: str
     const timer = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(timer);
   }, [startedAt]);
-  return <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>{prefix} · {elapsedLabel(startedAt, now)}</Text>;
+  return <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>{t(prefix)} · {elapsedLabel(startedAt, now)}</Text>;
 }

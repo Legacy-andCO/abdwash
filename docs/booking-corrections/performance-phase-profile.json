@@ -1,0 +1,20 @@
+{
+  "api_ms": 5153.07,
+  "server_timing": "auth;dur=454.88, staff-context;dur=455.06, db-checkout;dur=677.88, sql;dur=4216.19, providers;dur=0.00, app;dur=4241.63, first-sql;dur=230.29",
+  "phases": {
+    "create_hold": {
+      "duration_ms": 1315.32,
+      "sql_count": 11
+    },
+    "create_booking": {
+      "duration_ms": 1413.48,
+      "sql_count": 12
+    }
+  },
+  "database_transaction_ms": [
+    453.42,
+    454.4,
+    4236.37
+  ],
+  "notes": "One warm real-JWT request using the unchanged ASGI application and isolated remote staging DB. Capacity is inside create_hold. create_booking includes persistence and outbox insertion; no external notification provider runs in the request. Transaction metrics and phases overlap."
+}

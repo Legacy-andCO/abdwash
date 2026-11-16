@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -48,6 +49,29 @@ from app.services.smart_scheduling import (
 
 def hold_token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+@dataclass(frozen=True)
+class FreshHold:
+    transaction: object
+    hold: SlotHoldGroup
+    slots: tuple[ScheduleSlot, ...]
+    policy: SchedulePolicy
+    resource_id: uuid.UUID
+    starts_at: datetime
+    ends_at: datetime
+
+
+def fresh_hold(session: AsyncSession, token: str) -> FreshHold | None:
+    """Only server-created holds from this still-open transaction can be reused.
+
+    A public hold confirmed in another request always takes the full lock/check path.
+    There is no client-supplied capacity override in this cache.
+    """
+    item = session.info.get("fresh_holds", {}).get(hold_token_hash(token))
+    if isinstance(item, FreshHold) and item.transaction is session.sync_session.get_transaction():
+        return item
+    return None
 
 
 def policy_from_settings(settings: BusinessSettings) -> SchedulePolicy:
@@ -437,6 +461,15 @@ async def _store_hold(
         slot.hold_expires_at = expires_at
         slot.booking_id = None
         slot.version += 1
+    session.info.setdefault("fresh_holds", {})[group.token_hash] = FreshHold(
+        session.sync_session.get_transaction(),
+        group,
+        tuple(slots),
+        policy,
+        resource_id,
+        windows[0].start,
+        operational_end,
+    )
     return HoldResponse(
         hold_token=raw_token,
         starts_at=windows[0].start,

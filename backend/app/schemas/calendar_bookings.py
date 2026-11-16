@@ -62,6 +62,8 @@ class AssistedVehicle(BookingVehicleCreate):
 
 
 class AppointmentOverlap(StrictRequest):
+    job_id: uuid.UUID
+    expected_version: int = Field(ge=1)
     team_id: uuid.UUID
     confirmed: StrictBool
 

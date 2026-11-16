@@ -1,0 +1,24 @@
+{
+  "results": [
+    {
+      "test": "Real report API, rendered values and SVG bars match synthetic AED 150 booked / AED 50 collected and 3/1/1 jobs",
+      "pass": true,
+      "point": {
+        "date": "2026-11-16",
+        "booked_sales_minor": 15000,
+        "collected_revenue_minor": 5000,
+        "jobs": 3,
+        "completed": 1,
+        "cancelled": 1
+      }
+    },
+    {
+      "test": "Arabic report labels, date labels, currency, time units and navigation translated",
+      "pass": true
+    },
+    {
+      "test": "Final modal legible and contained at 320/390/1280 pixels; review creates no booking",
+      "pass": true
+    }
+  ]
+}

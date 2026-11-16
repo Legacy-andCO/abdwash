@@ -1,4 +1,5 @@
 import type { AlertButton, AlertOptions } from "react-native";
+import { t } from "./i18n";
 
 // React Native Web's Alert is a no-op. Preserve labels and callbacks, including
 // destructive confirmations, in a keyboard-accessible browser modal.
@@ -16,14 +17,14 @@ export const Alert = {
       body.style.whiteSpace = "pre-wrap";
       dialog.append(body);
     }
-    const actions = buttons?.length ? buttons : [{ text: "OK" }];
+    const actions = buttons?.length ? buttons : [{ text: t("OK") }];
     function close() {
       dialog.close();
       dialog.remove();
     }
     for (const action of actions) {
       const button = document.createElement("button");
-      button.textContent = action.text ?? "OK";
+      button.textContent = action.text ?? t("OK");
       button.style.cssText = "min-height:44px;margin:4px;padding:8px 16px;font:inherit;cursor:pointer;";
       button.autofocus = action.style === "cancel" || actions.length === 1;
       button.onclick = () => { close(); action.onPress?.(); };

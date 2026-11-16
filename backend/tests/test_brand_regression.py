@@ -91,6 +91,10 @@ ALLOWED_BY_PATH: dict[str, tuple[str, ...]] = {
         "abdwash_outbox_dispatch_url",
         "abdwash_outbox_dispatch_secret",
     ),
+    # Verification evidence records the actual immutable Vercel project/alias.
+    "docs/trifecta-fixes/deployment-verification.json": ("abdwash-vdtc",),
+    "docs/trifecta-fixes/REPORT.md": ("abdwash-vdtc",),
+    "docs/trifecta-fixes/production-map-diagnosis.json": ("abdwash.vercel.app",),
     "supabase/notification_dispatch_cron.sql": (
         "abdwash-notification-dispatch",
         "abdwash_outbox_dispatch_url",

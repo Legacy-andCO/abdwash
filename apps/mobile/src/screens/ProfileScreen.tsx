@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { Alert } from "../alert";
 import Constants from "expo-constants";
 import { useState } from "react";
@@ -68,7 +69,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       await successHaptic();
     } catch (error) {
       Alert.alert(
-        "Profile not saved",
+        t("Profile not saved"),
         domainErrorMessage(error, "Check the details and try again."),
       );
     }
@@ -79,7 +80,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       passwordConfirmation,
     );
     if (validation) {
-      Alert.alert("Password not changed", validation);
+      Alert.alert(t("Password not changed"), validation);
       return;
     }
     try {
@@ -88,10 +89,10 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       setPasswordConfirmation("");
       setChangingPassword(false);
       await successHaptic();
-      Alert.alert("Password changed successfully.");
+      Alert.alert(t("Password changed successfully."));
     } catch (error) {
       Alert.alert(
-        "Password not changed",
+        t("Password not changed"),
         domainErrorMessage(error, "Choose a valid password and try again."),
       );
     }
@@ -110,7 +111,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       await successHaptic();
     } catch (error) {
       Alert.alert(
-        "Request not sent",
+        t("Request not sent"),
         domainErrorMessage(error, "Use a valid date and try again."),
       );
     }
@@ -132,14 +133,14 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
     return (
       <ScrollView contentContainerStyle={uiStyles.content}>
         <EmptyState
-          title="Profile unavailable"
+          title={t("Profile unavailable")}
           body={domainErrorMessage(
             profileQuery.error,
             "We couldn't load your profile.",
           )}
           action={
             <AppButton
-              title="Try again"
+              title={t("Try again")}
               onPress={() => void profileQuery.refetch()}
             />
           }
@@ -170,60 +171,60 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
         </View>
         <ScreenTitle
           title={profile.display_name}
-          subtitle={`@${profile.username}`}
+          subtitle={t("@{p0}", { p0: profile.username })}
         />
         <StatusChip value={profile.role} />
         <Text style={uiStyles.muted}>
           {profile.teams.map((team) => team.name).join(" · ") ||
-            "No team assigned"}
+            t("No team assigned")}
         </Text>
       </View>
       {profileQuery.error ? (
         <Text style={styles.offline}>
-          Offline · profile updated{" "}
+          {" " + t("Offline · profile updated") + ""}{" "}
           {new Date(profileQuery.dataUpdatedAt).toLocaleTimeString()}
         </Text>
       ) : null}
       <Card>
         {editing ? (
           <>
-            <Text style={uiStyles.label}>DISPLAY NAME</Text>
+            <Text style={uiStyles.label}>{t("DISPLAY NAME")}</Text>
             <TextInput
-              accessibilityLabel="Display name"
+              accessibilityLabel={t("Display name")}
               style={uiStyles.field}
               value={name}
               onChangeText={setName}
             />
-            <Text style={uiStyles.label}>PHONE</Text>
+            <Text style={uiStyles.label}>{t("PHONE")}</Text>
             <TextInput
-              accessibilityLabel="Phone"
+              accessibilityLabel={t("Phone")}
               style={uiStyles.field}
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
             />
             <AppButton
-              title={profileMutation.isPending ? "Saving…" : "Save profile"}
+              title={profileMutation.isPending ? t("Saving…") : t("Save profile")}
               disabled={profileMutation.isPending}
               loading={profileMutation.isPending}
               onPress={() => void save()}
             />
             <AppButton
-              title="Cancel"
+              title={t("Cancel")}
               tone="secondary"
               onPress={() => setEditing(false)}
             />
           </>
         ) : (
           <>
-            <Text style={uiStyles.label}>PHONE</Text>
-            <Text style={styles.value}>{profile.phone ?? "Not added"}</Text>
-            <Text style={uiStyles.label}>ACCOUNT STATUS</Text>
+            <Text style={uiStyles.label}>{t("PHONE")}</Text>
+            <Text style={styles.value}>{profile.phone ?? t("Not added")}</Text>
+            <Text style={uiStyles.label}>{t("ACCOUNT STATUS")}</Text>
             <Text style={styles.value}>
-              {profile.is_active ? "Active" : "Inactive"}
+              {profile.is_active ? t("Active") : t("Inactive")}
             </Text>
             <AppButton
-              title="Edit profile"
+              title={t("Edit profile")}
               tone="secondary"
               onPress={beginEdit}
             />
@@ -231,35 +232,35 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
         )}
       </Card>
       <Card>
-        <Text style={styles.sectionTitle}>PASSWORD</Text>
+        <Text style={styles.sectionTitle}>{t("PASSWORD")}</Text>
         {changingPassword ? (
           <>
             <TextInput
-              accessibilityLabel="New password"
+              accessibilityLabel={t("New password")}
               autoCapitalize="none"
               style={uiStyles.field}
               value={newPassword}
               onChangeText={setNewPassword}
-              placeholder="New password"
+              placeholder={t("New password")}
               secureTextEntry
             />
             <TextInput
-              accessibilityLabel="Confirm new password"
+              accessibilityLabel={t("Confirm new password")}
               autoCapitalize="none"
               style={uiStyles.field}
               value={passwordConfirmation}
               onChangeText={setPasswordConfirmation}
-              placeholder="Confirm new password"
+              placeholder={t("Confirm new password")}
               secureTextEntry
             />
             <AppButton
-              title={profileMutation.isPending ? "Updating…" : "Update password"}
+              title={profileMutation.isPending ? t("Updating…") : t("Update password")}
               disabled={profileMutation.isPending}
               loading={profileMutation.isPending}
               onPress={() => void changePassword()}
             />
             <AppButton
-              title="Cancel"
+              title={t("Cancel")}
               tone="secondary"
               onPress={() => {
                 setNewPassword("");
@@ -270,17 +271,17 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
           </>
         ) : (
           <AppButton
-            title="Change password"
+            title={t("Change password")}
             tone="secondary"
             onPress={() => setChangingPassword(true)}
           />
         )}
       </Card>
-      <Text style={styles.section}>TIME OFF</Text>
+      <Text style={styles.section}>{t("TIME OFF")}</Text>
       <Card>
-        <Text style={uiStyles.label}>REQUEST A DAY OFF</Text>
+        <Text style={uiStyles.label}>{t("REQUEST A DAY OFF")}</Text>
         <DatePickerField
-          label="From"
+          label={t("From")}
           value={startDate}
           minimumDate={wallDate(uaeDateKey())}
           onChange={(value) => {
@@ -289,21 +290,21 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
           }}
         />
         <DatePickerField
-          label="To"
+          label={t("To")}
           value={endDate}
           minimumDate={fromIsoDate(startDate)}
           onChange={setEndDate}
         />
         <TextInput
-          accessibilityLabel="Leave reason"
+          accessibilityLabel={t("Leave reason")}
           style={[uiStyles.field, styles.reason]}
           value={reason}
           onChangeText={setReason}
-          placeholder="Reason"
+          placeholder={t("Reason")}
           multiline
         />
         <AppButton
-          title={leaveMutation.isPending ? "Requesting…" : "Request day off"}
+          title={leaveMutation.isPending ? t("Requesting…") : t("Request day off")}
           disabled={
             leaveMutation.isPending || endDate < startDate || reason.length < 2
           }
@@ -317,7 +318,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
             <View style={uiStyles.row}>
               <Text style={styles.value}>
                 {item.start_date}
-                {item.end_date !== item.start_date ? `–${item.end_date}` : ""}
+                {item.end_date !== item.start_date ? t("–{p0}", { p0: item.end_date }) : ""}
               </Text>
               <StatusChip value={item.status} />
             </View>
@@ -325,9 +326,9 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
           </Card>
         ))
       ) : (
-        <EmptyState title="No time-off requests" />
+        <EmptyState title={t("No time-off requests")} />
       )}
-      <Text style={styles.section}>ATTENDANCE · LAST 30 DAYS</Text>
+      <Text style={styles.section}>{t("ATTENDANCE · LAST 30 DAYS")}</Text>
       {attendance.length ? (
         attendance.slice(0, 10).map((item) => (
           <Card key={item.id}>
@@ -338,19 +339,18 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
               <StatusChip value={item.status} />
             </View>
             <Text style={uiStyles.muted}>
-              {Math.floor(item.worked_minutes / 60)}h {item.worked_minutes % 60}
-              m worked
-            </Text>
+              {Math.floor(item.worked_minutes / 60)}{"" + t("h") + " "}{item.worked_minutes % 60}
+              {" " + t("m worked") + " "}</Text>
           </Card>
         ))
       ) : (
-        <EmptyState title="No attendance history yet" />
+        <EmptyState title={t("No attendance history yet")} />
       )}
       <Text style={styles.version}>
-        Trifecta Operations {Constants.expoConfig?.version ?? "1.0.0"}
+        {" " + t("Trifecta Operations") + " "}{Constants.expoConfig?.version ?? "1.0.0"}
       </Text>
       <AppButton
-        title="Sign out"
+        title={t("Sign out")}
         tone="danger"
         onPress={() =>
           void (async () => {

@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { useRef, useState, type ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import {
@@ -44,7 +45,7 @@ export function Disclosure({ title, children, initiallyOpen = false }: {
       <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ expanded: open }} aria-expanded={open}
         onPress={() => setOpen(value => !value)} style={styles.disclosureToggle}>
         <Text style={styles.disclosureTitle}>{title}</Text>
-        <Text style={styles.disclosureState}>{open ? "Hide" : "Show"}</Text>
+        <Text style={styles.disclosureState}>{open ? t("Hide") : t("Show")}</Text>
       </Pressable>
       {open ? <View style={styles.disclosureBody}>{children}</View> : null}
     </View>
@@ -125,7 +126,7 @@ export function StatusChip({ value }: { value: string }) {
         danger ? styles.chipDanger : warning ? styles.chipWarning : active ? styles.chipActive : neutral ? styles.chipNeutral : undefined,
       ]}
     >
-      {{ en_route: "On the way", in_progress: "Washing", rescheduling_required: "Needs reschedule", unpaid: "Payment due", assigned: "Scheduled" }[normalized] ?? value.replaceAll("_", " ").replace(/^./, letter => letter.toUpperCase())}
+      {t({ en_route: "On the way", in_progress: "Washing", rescheduling_required: "Needs reschedule", unpaid: "Payment due", assigned: "Scheduled" }[normalized] ?? value.replaceAll("_", " ").replace(/^./, letter => letter.toUpperCase()))}
     </Text>
   );
 }

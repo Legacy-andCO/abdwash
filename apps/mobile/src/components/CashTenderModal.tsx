@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { webSheetStyle } from "./webSheetStyle";
 import { useEffect, useState } from "react";
 import {
@@ -57,30 +58,30 @@ export function CashTenderModal({
         >
           <View style={uiStyles.row}>
             <View>
-              <Text style={styles.title}>Receive payment</Text>
-              <Text style={styles.cash}>CASH</Text>
+              <Text style={styles.title}>{t("Receive payment")}</Text>
+              <Text style={styles.cash}>{t("CASH")}</Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close cash tender"
+              accessibilityLabel={t("Close cash tender")}
               disabled={pending}
               onPress={onClose}
             >
-              <Text style={uiStyles.link}>Close</Text>
+              <Text style={uiStyles.link}>{t("Close")}</Text>
             </Pressable>
           </View>
 
           <View style={styles.amountPanel}>
-            <Text style={styles.label}>AMOUNT DUE</Text>
+            <Text style={styles.label}>{t("AMOUNT DUE")}</Text>
             <Text style={styles.due}>{formatMoney(currency, dueMinor)}</Text>
           </View>
 
           <View>
-            <Text style={uiStyles.label}>MONEY RECEIVED</Text>
+            <Text style={uiStyles.label}>{t("MONEY RECEIVED")}</Text>
             <View style={styles.moneyInputRow}>
               <Text style={styles.currency}>{currency}</Text>
               <TextInput
-                accessibilityLabel="Money received"
+                accessibilityLabel={t("Money received")}
                 autoFocus
                 editable={!pending}
                 keyboardType="decimal-pad"
@@ -96,13 +97,13 @@ export function CashTenderModal({
 
           <View style={styles.quickRow}>
             <QuickCash
-              label="Exact"
+              label={t("Exact")}
               onPress={() => setReceived(minorToInput(dueMinor))}
             />
             {denominations.map((amount) => (
               <QuickCash
                 key={amount}
-                label={`${currency} ${amount / 100}`}
+                label={t("{p0} {p1}", { p0: currency, p1: amount / 100 })}
                 onPress={() => setReceived(minorToInput(amount))}
               />
             ))}
@@ -115,14 +116,14 @@ export function CashTenderModal({
           ) : null}
 
           <View style={styles.changePanel}>
-            <Text style={styles.label}>CHANGE TO RETURN</Text>
+            <Text style={styles.label}>{t("CHANGE TO RETURN")}</Text>
             <Text style={styles.change}>
               {formatMoney(currency, calculation.changeMinor)}
             </Text>
           </View>
 
           <AppButton
-            title={pending ? "Completing payment…" : "Complete payment"}
+            title={pending ? t("Completing payment…") : t("Complete payment")}
             loading={pending}
             disabled={pending || !calculation.valid}
             onPress={() =>
@@ -133,7 +134,7 @@ export function CashTenderModal({
             }
           />
           <AppButton
-            title="Cancel"
+            title={t("Cancel")}
             tone="secondary"
             disabled={pending}
             onPress={onClose}

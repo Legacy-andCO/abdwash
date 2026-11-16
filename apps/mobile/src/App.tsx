@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { Alert } from "./alert";
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
@@ -25,6 +26,7 @@ import { LoginScreen } from "./screens/LoginScreen";
 import { colors, spacing } from "./theme";
 import { PrivilegedMfa } from "./components/PrivilegedMfa";
 import { subscribeMfaRequired } from "./mfa-events";
+import { StaffLanguage, useStaffLanguage } from "./components/StaffLanguage";
 
 function AuthenticatedApp() {
   const [session, setSession] = useState<Session | null | undefined>();
@@ -72,8 +74,8 @@ function AuthenticatedApp() {
           setError(
             reason instanceof Error &&
               reason.message === "STAFF_ACCESS_REQUIRED"
-              ? "This account does not have staff access."
-              : "Unable to verify staff access.",
+              ? t("This account does not have staff access.")
+              : t("Unable to verify staff access."),
           );
       });
     return () => {
@@ -87,16 +89,16 @@ function AuthenticatedApp() {
     return (
       <SafeAreaView style={styles.center}>
         <ActivityIndicator color={colors.primary} />
-        <Text style={styles.text}>Restoring secure session…</Text>
+        <Text style={styles.text}>{t("Restoring secure session…")}</Text>
       </SafeAreaView>
     );
   if (!session) return <LoginScreen />;
   if (!verifiedContext)
     return (
       <SafeAreaView style={styles.center}>
-        <Text style={styles.title}>{error}</Text>
+        <Text style={styles.title}>{t(error)}</Text>
         <AppButton
-          title="Back to login"
+          title={t("Back to login")}
           onPress={() => void supabase.auth.signOut()}
         />
       </SafeAreaView>
@@ -122,7 +124,7 @@ function RequiredPasswordChange({ onChanged }: { onChanged: () => void }) {
   async function submit() {
     const validation = validatePasswordConfirmation(password, confirmation);
     if (validation) {
-      Alert.alert("Password not changed", validation);
+      Alert.alert(t("Password not changed"), validation);
       return;
     }
     setBusy(true);
@@ -131,11 +133,11 @@ function RequiredPasswordChange({ onChanged }: { onChanged: () => void }) {
       setPassword("");
       setConfirmation("");
       onChanged();
-      Alert.alert("Password changed successfully.");
+      Alert.alert(t("Password changed successfully."));
     } catch {
       Alert.alert(
-        "Password not changed",
-        "Choose a valid password and try again.",
+        t("Password not changed"),
+        t("Choose a valid password and try again."),
       );
     } finally {
       setBusy(false);
@@ -144,36 +146,35 @@ function RequiredPasswordChange({ onChanged }: { onChanged: () => void }) {
   return (
     <SafeAreaView style={styles.requiredPasswordScreen}>
       <View style={styles.requiredPasswordCard}>
-        <Text style={styles.title}>Change your password</Text>
+        <Text style={styles.title}>{t("Change your password")}</Text>
         <Text style={styles.text}>
-          Your temporary password must be replaced before you continue.
-        </Text>
+          {" " + t("Your temporary password must be replaced before you continue.") + " "}</Text>
         <TextInput
-          accessibilityLabel="New password"
+          accessibilityLabel={t("New password")}
           autoCapitalize="none"
           secureTextEntry
           style={styles.field}
-          placeholder="New password"
+          placeholder={t("New password")}
           value={password}
           onChangeText={setPassword}
         />
         <TextInput
-          accessibilityLabel="Confirm new password"
+          accessibilityLabel={t("Confirm new password")}
           autoCapitalize="none"
           secureTextEntry
           style={styles.field}
-          placeholder="Confirm new password"
+          placeholder={t("Confirm new password")}
           value={confirmation}
           onChangeText={setConfirmation}
         />
         <AppButton
-          title={busy ? "Updating…" : "Update password"}
+          title={busy ? t("Updating…") : t("Update password")}
           disabled={busy}
           loading={busy}
           onPress={() => void submit()}
         />
         <AppButton
-          title="Sign out"
+          title={t("Sign out")}
           tone="secondary"
           disabled={busy}
           onPress={() =>
@@ -189,10 +190,14 @@ function RequiredPasswordChange({ onChanged }: { onChanged: () => void }) {
 }
 
 export default function App() {
+  const language = useStaffLanguage();
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <OperationsCacheProvider>
-        <AuthenticatedApp />
+        <View style={{ flex: 1, direction: language === "ar" ? "rtl" : "ltr" }}>
+          <StaffLanguage />
+          <AuthenticatedApp />
+        </View>
       </OperationsCacheProvider>
     </SafeAreaProvider>
   );

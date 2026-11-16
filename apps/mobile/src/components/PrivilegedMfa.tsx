@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -54,7 +55,7 @@ export function PrivilegedMfa({ userId, onVerified }: { userId: string; onVerifi
     void initializeAuthenticator(userId).then(value => {
       if (active) setAuthenticator(value);
     }).catch(() => {
-      if (active) setError("We couldn’t load your authenticator. Check your connection and try again.");
+      if (active) setError(t("We couldn’t load your authenticator. Check your connection and try again."));
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [userId, attempt]);
@@ -63,7 +64,7 @@ export function PrivilegedMfa({ userId, onVerified }: { userId: string; onVerifi
     if (submitting.current) return;
     submitting.current = true; setBusy(true); setError(""); setCode("");
     try { setAuthenticator(await initializeAuthenticator(userId, true)); }
-    catch { setError("Setup could not be restarted. Try again, or contact your administrator."); }
+    catch { setError(t("Setup could not be restarted. Try again, or contact your administrator.")); }
     finally { submitting.current = false; setBusy(false); }
   }
   async function verify() {
@@ -76,7 +77,7 @@ export function PrivilegedMfa({ userId, onVerified }: { userId: string; onVerifi
       if (assurance.error || assurance.data.currentLevel !== "aal2") throw new Error("Assurance required");
       setCode(""); setAuthenticator(null); onVerified();
     } catch {
-      setCode(""); setError("The code was rejected or expired. Enter the current six-digit code from your authenticator.");
+      setCode(""); setError(t("The code was rejected or expired. Enter the current six-digit code from your authenticator."));
       input.current?.focus();
     } finally { submitting.current = false; setBusy(false); }
   }
@@ -86,17 +87,17 @@ export function PrivilegedMfa({ userId, onVerified }: { userId: string; onVerifi
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         <View style={styles.form}>
           <View style={styles.intro}>
-            <Text accessibilityRole="header" style={styles.title}>{enrolling ? "Set up two-factor authentication" : "Verify your sign-in"}</Text>
-            <Text style={styles.body}>{loading ? "Loading your authenticator…" : enrolling
-              ? "Scan this QR code once with your authenticator app, then enter its six-digit code to finish setup. Keep the QR code private."
-              : "Enter the six-digit code from your existing Trifecta authenticator to continue."}</Text>
+            <Text accessibilityRole="header" style={styles.title}>{enrolling ? t("Set up two-factor authentication") : t("Verify your sign-in")}</Text>
+            <Text style={styles.body}>{loading ? t("Loading your authenticator…") : enrolling
+              ? t("Scan this QR code once with your authenticator app, then enter its six-digit code to finish setup. Keep the QR code private.")
+              : t("Enter the six-digit code from your existing Trifecta authenticator to continue.")}</Text>
           </View>
-          {authenticator?.qr ? <View style={styles.qr} accessibilityLabel="Private authenticator enrollment QR code"><SvgXml xml={authenticator.qr} width={208} height={208} /></View> : null}
-          {authenticator?.incomplete ? <Text style={styles.body}>You have an unfinished setup. If you already scanned its QR code, enter that code below. If you never scanned it, restart the unfinished setup.</Text> : null}
+          {authenticator?.qr ? <View style={styles.qr} accessibilityLabel={t("Private authenticator enrollment QR code")}><SvgXml xml={authenticator.qr} width={208} height={208} /></View> : null}
+          {authenticator?.incomplete ? <Text style={styles.body}>{t("You have an unfinished setup. If you already scanned its QR code, enter that code below. If you never scanned it, restart the unfinished setup.")}</Text> : null}
           <View style={styles.codeGroup}>
-            <Text nativeID="authenticator-code-label" style={styles.label}>Authenticator code</Text>
-            <TextInput ref={input} accessibilityLabel="Authenticator code" accessibilityLabelledBy="authenticator-code-label"
-              accessibilityHint="Enter six digits from your authenticator app" aria-invalid={!!error}
+            <Text nativeID="authenticator-code-label" style={styles.label}>{t("Authenticator code")}</Text>
+            <TextInput ref={input} accessibilityLabel={t("Authenticator code")} accessibilityLabelledBy="authenticator-code-label"
+              accessibilityHint={t("Enter six digits from your authenticator app")} aria-invalid={!!error}
               style={[styles.input, focused && styles.inputFocused, !!error && styles.inputError]}
               value={code} onChangeText={value => {
                 setCode(value.replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 0x6f0)).replace(/\D/g, "").slice(0, 6));
@@ -106,17 +107,17 @@ export function PrivilegedMfa({ userId, onVerified }: { userId: string; onVerifi
               onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} editable={!!authenticator && !busy}
               keyboardType="number-pad" inputMode="numeric" autoComplete="one-time-code" textContentType="oneTimeCode"
               autoCorrect={false} autoCapitalize="none" returnKeyType="done" onSubmitEditing={() => void verify()} />
-            <Text style={styles.hint}>Use the current code; it changes every 30 seconds.</Text>
+            <Text style={styles.hint}>{t("Use the current code; it changes every 30 seconds.")}</Text>
           </View>
-          {error ? <Text accessibilityRole="alert" style={uiStyles.error}>{error}</Text> : null}
-          <AppButton title={busy ? "Verifying…" : enrolling ? "Complete setup" : "Verify code"} disabled={!authenticator || code.length !== 6 || busy || loading} loading={busy} onPress={() => void verify()} />
-          {!authenticator && !loading ? <AppButton title="Try again" tone="secondary" onPress={() => setAttempt(value => value + 1)} /> : null}
-          {authenticator?.incomplete ? <AppButton title="Restart unfinished setup" tone="secondary" disabled={busy} onPress={() => void restartSetup()} /> : null}
+          {error ? <Text accessibilityRole="alert" style={uiStyles.error}>{t(error)}</Text> : null}
+          <AppButton title={busy ? t("Verifying…") : enrolling ? t("Complete setup") : t("Verify code")} disabled={!authenticator || code.length !== 6 || busy || loading} loading={busy} onPress={() => void verify()} />
+          {!authenticator && !loading ? <AppButton title={t("Try again")} tone="secondary" onPress={() => setAttempt(value => value + 1)} /> : null}
+          {authenticator?.incomplete ? <AppButton title={t("Restart unfinished setup")} tone="secondary" disabled={busy} onPress={() => void restartSetup()} /> : null}
           <View style={styles.recovery}>
-            <Text style={styles.recoveryTitle}>Lost your authenticator?</Text>
-            <Text style={styles.hint}>Contact an authorized company administrator for identity-verified recovery. Email or a password reset alone cannot bypass this check.</Text>
+            <Text style={styles.recoveryTitle}>{t("Lost your authenticator?")}</Text>
+            <Text style={styles.hint}>{t("Contact an authorized company administrator for identity-verified recovery. Email or a password reset alone cannot bypass this check.")}</Text>
           </View>
-          <AppButton title="Sign out" tone="secondary" disabled={busy} onPress={() => void supabase.auth.signOut()} />
+          <AppButton title={t("Sign out")} tone="secondary" disabled={busy} onPress={() => void supabase.auth.signOut()} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

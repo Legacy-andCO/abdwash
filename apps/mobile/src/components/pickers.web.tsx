@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { colors, radii, spacing } from "../theme";
 import { toIsoDate } from "./picker-values";
+import { getStaffLanguage } from "../i18n";
 
 export { fromIsoDate, toIsoDate } from "./picker-values";
 
@@ -17,6 +18,7 @@ function Picker({ label, value, onChange, minimumDate, maximumDate, type }: Pick
     <label style={{ display: "flex", flexDirection: "column", gap: spacing.sm, minWidth: 0 }}>
       <span style={{ color: colors.textSecondary, fontSize: 11, fontWeight: 900, letterSpacing: 1 }}>{label.toUpperCase()}</span>
       <input
+        lang={getStaffLanguage()}
         aria-label={label}
         type={type}
         value={type === "time" ? value.slice(0, 5) : value}

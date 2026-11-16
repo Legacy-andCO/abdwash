@@ -1,0 +1,19 @@
+{
+  "concurrent_normal_requests": [
+    {
+      "status": 409,
+      "code": "NO_TEAM_CAPACITY",
+      "booking_id": null
+    },
+    {
+      "status": 201,
+      "code": null,
+      "booking_id": "e7a14e50-4f1d-4e39-9963-9c6eca9b8682"
+    }
+  ],
+  "cancel_security": {
+    "employee_status": 403,
+    "manager_aal1_status": 403,
+    "manager_aal1_code": "MFA_REQUIRED"
+  }
+}

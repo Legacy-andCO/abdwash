@@ -176,9 +176,9 @@ async def _job_rows(
     elif view == "upcoming":
         statement = statement.where(
             Job.scheduled_start >= datetime.now(UTC),
-            Job.status.not_in([
-                JobStatus.COMPLETED, JobStatus.CANCELLED, JobStatus.RESCHEDULING_REQUIRED
-            ]),
+            Job.status.not_in(
+                [JobStatus.COMPLETED, JobStatus.CANCELLED, JobStatus.RESCHEDULING_REQUIRED]
+            ),
         )
     elif view == "history":
         statement = statement.where(Job.status.in_([JobStatus.COMPLETED, JobStatus.CANCELLED]))
@@ -186,9 +186,9 @@ async def _job_rows(
         statement = statement.where(
             Job.assigned_resource_id.is_(None),
             Job.assigned_staff_id.is_(None),
-            Job.status.not_in([
-                JobStatus.COMPLETED, JobStatus.CANCELLED, JobStatus.RESCHEDULING_REQUIRED
-            ]),
+            Job.status.not_in(
+                [JobStatus.COMPLETED, JobStatus.CANCELLED, JobStatus.RESCHEDULING_REQUIRED]
+            ),
         )
     elif view == "rescheduling":
         statement = statement.where(Job.status == JobStatus.RESCHEDULING_REQUIRED)
@@ -366,7 +366,8 @@ async def _serialize_jobs(
             version=getattr(job, "version", None),
             payment_review_required=(
                 getattr(booking, "reschedule_payment_review_required", False)
-                if context is not None and _can_manage(context) else False
+                if context is not None and _can_manage(context)
+                else False
             ),
             assigned_staff_id=job.assigned_staff_id,
             assigned_staff_name=staff_name,
@@ -550,6 +551,7 @@ _COMMUNICATION_LABELS = {
     "booking_displaced": "New appointment time required",
     "cancellation_requested": "Cancellation request received",
     "booking_cancelled": "Cancellation confirmed",
+    "customer_manual_notification_required": "Customer requires manual notification",
     "job_completed": "Service completed",
     "payment_pending": "Payment pending",
     "payment_received": "Payment received",
@@ -1358,6 +1360,16 @@ async def review_cancellation(
             status=item.status,
         )
     now = datetime.now(UTC)
+    if request.decision == CancellationStatus.APPROVED and (
+        booking.status
+        not in {
+            BookingStatus.CONFIRMED,
+            BookingStatus.CANCELLATION_REQUESTED,
+            BookingStatus.RESCHEDULING_REQUIRED,
+        }
+        or job.status in {JobStatus.IN_PROGRESS, JobStatus.COMPLETED, JobStatus.CANCELLED}
+    ):
+        raise ConflictError("BOOKING_NOT_CANCELLABLE", "This appointment cannot be cancelled.")
     item.status = request.decision
     item.reviewed_by_staff_id = context.staff_id
     item.reviewed_at = now

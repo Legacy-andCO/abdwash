@@ -1,0 +1,26 @@
+[
+  {
+    "case": 0,
+    "status": 201,
+    "client_ms": 6942.73,
+    "server_timing": "auth;dur=440.35, staff-context;dur=439.50, db-checkout;dur=655.08, sql;dur=6036.28, providers;dur=0.00, app;dur=6058.02, first-sql;dur=222.90",
+    "sql_count": "52",
+    "sql_ms": "6036.28"
+  },
+  {
+    "case": 1,
+    "status": 201,
+    "client_ms": 6821.83,
+    "server_timing": "auth;dur=439.59, staff-context;dur=440.67, db-checkout;dur=654.94, sql;dur=5955.62, providers;dur=0.00, app;dur=5937.13, first-sql;dur=221.42",
+    "sql_count": "52",
+    "sql_ms": "5955.62"
+  },
+  {
+    "case": 2,
+    "status": 201,
+    "client_ms": 6753.95,
+    "server_timing": "auth;dur=442.17, staff-context;dur=443.95, db-checkout;dur=665.15, sql;dur=5877.38, providers;dur=0.00, app;dur=5863.61, first-sql;dur=227.05",
+    "sql_count": "52",
+    "sql_ms": "5877.38"
+  }
+]

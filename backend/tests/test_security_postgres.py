@@ -485,6 +485,9 @@ async def test_staff_overlap_is_scoped_idempotent_and_does_not_displace_original
     ).status_code == 404
     key = uuid.uuid4()
     overlap = booking_payload(f, "2037-03-10", f.teams[0].id)
+    overlap["overlap"].update(
+        {"job_id": receipt["job_id"], "expected_version": original["version"]}
+    )
     second = await f.client.post(
         "/api/v1/staff/calendar-bookings", headers=headers(f, "employee", key), json=overlap
     )

@@ -27,7 +27,7 @@ describe("services and pricing management", () => {
     const today = source("./screens/TodayScreen.tsx");
     const shell = source("./navigation/OperationsShell.tsx");
     expect(today).toContain("{management ? (");
-    expect(today).toContain('title="Services & pricing"');
+    expect(today).toContain('title={t("Services & pricing")}');
     expect(shell).toContain("<ServicesPricingScreen");
   });
 
@@ -38,9 +38,9 @@ describe("services and pricing management", () => {
     expect(screen).toContain("mobile_available");
     expect(screen).toContain("shop_available");
     expect(screen).toContain("Customer bookings are mobile service only.");
-    expect(screen).not.toContain('label="Shop service"');
-    expect(screen).not.toContain('label="Available at shop"');
-    expect(screen).toContain('title="Add add-on"');
+    expect(screen).not.toContain('label={t("Shop service")}');
+    expect(screen).not.toContain('label={t("Available at shop")}');
+    expect(screen).toContain('title={t("Add add-on")}');
     expect(screen).toContain('"Deactivate service"');
   });
 
@@ -62,9 +62,9 @@ describe("services and pricing management", () => {
   it("supports manager-owned invoice identity and VAT configuration", () => {
     const screen = source("./screens/ServicesPricingScreen.tsx");
     expect(screen).toContain("INVOICE IDENTITY");
-    expect(screen).toContain('label="VAT registered"');
-    expect(screen).toContain('label="Tax registration number (TRN)"');
-    expect(screen).toContain('label="Catalogue prices include VAT"');
+    expect(screen).toContain('label={t("VAT registered")}');
+    expect(screen).toContain('label={t("Tax registration number (TRN)")}');
+    expect(screen).toContain('label={t("Catalogue prices include VAT")}');
   });
 
   it("captures supplier evidence metadata without calling the voucher a tax invoice", () => {

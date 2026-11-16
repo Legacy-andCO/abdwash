@@ -142,6 +142,8 @@ from app.schemas.staff import (
     ShiftView,
     StaffAccountCreate,
     StaffAccountUpdate,
+    StaffBookingCancellation,
+    StaffBookingCancellationResult,
     StaffCalendar,
     StaffJob,
     StaffJobList,
@@ -255,6 +257,7 @@ from app.services.staff_accounts import (
     update_own_profile,
     update_staff_account,
 )
+from app.services.staff_cancellations import cancel_staff_booking
 from app.services.staff_operations import (
     assign_job,
     assignment_options,
@@ -324,6 +327,45 @@ async def revoke_guest_access(
 
 logger = structlog.get_logger()
 StaffDep = Annotated[StaffContext, Depends(staff_context)]
+
+
+@router.post("/bookings/{booking_id}/cancel", response_model=StaffBookingCancellationResult)
+async def manager_booking_cancel(
+    booking_id: uuid.UUID,
+    payload: StaffBookingCancellation,
+    session: SessionDep,
+    context: ManagerContext,
+    idempotency_key: Annotated[uuid.UUID, Header(alias="Idempotency-Key")],
+) -> StaffBookingCancellationResult:
+    scope = f"{context.business_id}:{context.staff_id}"
+    request_hash = canonical_request_hash(
+        {"booking_id": str(booking_id), **payload.model_dump(mode="json")}
+    )
+    async with session.begin():
+        existing = await find_idempotent_response(
+            session,
+            scope=scope,
+            operation="staff_booking_cancel",
+            key=str(idempotency_key),
+            request_hash=request_hash,
+        )
+        if existing is not None:
+            return StaffBookingCancellationResult.model_validate(existing.response_json)
+        result = await cancel_staff_booking(session, context, booking_id, payload)
+        await bump_sync_revisions(
+            session, context.business_id, "jobs", "schedule", "finance", "customers"
+        )
+        store_idempotent_response(
+            session,
+            scope=scope,
+            operation="staff_booking_cancel",
+            key=str(idempotency_key),
+            request_hash=request_hash,
+            response_status=200,
+            response_json=result.model_dump(mode="json"),
+            resource_id=booking_id,
+        )
+    return result
 
 
 @router.get("/coupons", response_model=CouponList)

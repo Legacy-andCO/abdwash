@@ -9,8 +9,8 @@ describe("inventory mobile contract", () => {
     const reports = source("./screens/ReportsScreen.tsx");
     const today = source("./screens/TodayScreen.tsx");
     expect(shell).toContain("<InventoryScreen");
-    expect(reports).toContain('title="Open Inventory"');
-    expect(today).toContain('title="Open Inventory"');
+    expect(reports).toContain('title={t("Open Inventory")}');
+    expect(today).toContain('title={t("Open Inventory")}');
     expect(source("./operations.ts")).not.toContain('"inventory"');
   });
 
@@ -38,7 +38,7 @@ describe("inventory mobile contract", () => {
 
   it("stages multiple items into one batch mutation", () => {
     const screen = source("./screens/InventoryScreen.tsx");
-    expect(screen).toContain('title="Add another item"');
+    expect(screen).toContain('title={t("Add another item")}');
     expect(screen).toContain("const submittedLines = draftLines.length");
     expect(screen).toContain("lines: quantityLines");
   });
@@ -71,7 +71,7 @@ describe("inventory mobile contract", () => {
   it("provides role-appropriate recovery when no stock location exists", () => {
     const screen = source("./screens/InventoryScreen.tsx");
     expect(screen).toContain("No stock location is configured.");
-    expect(screen).toContain('title="Create Main Shop Location"');
+    expect(screen).toContain('title={t("Create Main Shop Location")}');
     expect(screen).toContain("Ask a manager to configure an inventory location.");
   });
 
@@ -87,10 +87,10 @@ describe("inventory mobile contract", () => {
     const api = source("./lib.ts");
     const queries = source("./queries/operations.ts");
     expect(screen).toContain("useInventoryAttentionQuery");
-    expect(screen).toContain('label="Needs review"');
-    expect(screen).toContain('title="Open job"');
-    expect(screen).toContain('title="Stock count"');
-    expect(screen).toContain('title="Mark reviewed"');
+    expect(screen).toContain('label={t("Needs review")}');
+    expect(screen).toContain('title={t("Open job")}');
+    expect(screen).toContain('title={t("Stock count")}');
+    expect(screen).toContain('title={t("Mark reviewed")}');
     expect(screen).toContain("Automatic consumables stock");
     expect(screen).toContain("Automatic stock location is not set.");
     expect(screen).toContain('"Set stock location"');
@@ -102,8 +102,8 @@ describe("inventory mobile contract", () => {
   it("keeps automatic consumption and direct expenses inside Job Detail", () => {
     const jobs = source("./screens/JobsScreen.tsx");
     expect(jobs).toContain("job.consumption");
-    expect(jobs).toContain("Expected {line.expected_quantity}");
-    expect(jobs).toContain("Recorded {Number(line.automatic_applied_quantity)");
+    expect(jobs).toContain('t("Expected")');
+    expect(jobs).toContain("Number(line.automatic_applied_quantity)");
     expect(jobs).toContain("Additional manual usage");
     expect(jobs).toContain("DIRECT EXPENSES");
     expect(jobs).toContain("useExpenseMutation");

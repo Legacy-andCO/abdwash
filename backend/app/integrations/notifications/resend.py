@@ -152,13 +152,43 @@ def render_email(notification_type: str, payload: dict[str, Any]) -> tuple[str, 
     if notification_type == "payment_received":
         return render_payment_received(payload)
     if notification_type == "booking_cancelled":
-        return render_simple_booking_update(
-            payload,
-            title="Your booking has been cancelled",
-            message="Your cancellation request has been approved and the booking is cancelled.",
-            subject_prefix="Your Trifecta booking was cancelled",
-        )
+        return render_booking_cancelled(payload)
     raise ValueError(f"Unsupported notification type {notification_type!r}")
+
+
+def render_booking_cancelled(payload: dict[str, Any]) -> tuple[str, str]:
+    arabic = payload.get("language") == "ar"
+    reference = escape(str(payload["booking_reference"]))
+    start, end = _scheduled_times(payload)
+    title = "تم إلغاء حجزك" if arabic else "Your booking has been cancelled"
+    date_label = "الموعد الملغى" if arabic else "Cancelled appointment"
+    address_label = "الموقع" if arabic else "Location"
+    reason_label = "سبب الإلغاء" if arabic else "Cancellation reason"
+    message = (
+        "يرجى التواصل معنا لأي استفسار. تخضع أي مبالغ مستردة لإجراءات الاسترداد المعتمدة."
+        if arabic
+        else "Please contact us with any questions. Any refund follows the approved refund process."
+    )
+    # Numeric dates avoid mixing English month names into an Arabic message.
+    content = (
+        f'<div lang="{"ar" if arabic else "en"}" dir="{"rtl" if arabic else "ltr"}">'
+        + _detail("مرجع الحجز" if arabic else "Booking reference", reference)
+        + _detail(date_label, f"{start:%Y-%m-%d} · {start:%H:%M}–{end:%H:%M}")
+        + _detail(address_label, escape(str(payload.get("written_address", ""))))
+        + _detail(reason_label, escape(str(payload.get("reason", ""))))
+        + ("<p>تم إلغاء الحجز.</p>" if arabic else "<p>Your booking is cancelled.</p>")
+        + (
+            f'<p><a href="{escape(str(payload["management_url"]), quote=True)}">'
+            + ("عرض الحجز" if arabic else "View your booking")
+            + "</a></p>"
+            if payload.get("management_url")
+            else ""
+        )
+        + f'<p>{message}</p><p><a dir="ltr" href="mailto:contact@trifecta-wash.com">'
+        "contact@trifecta-wash.com</a> · "
+        '<a dir="ltr" href="tel:+971564204954">+971 56 420 4954</a></p></div>'
+    )
+    return f"{title} — {reference}", _email_shell(title, content)
 
 
 def render_appointment_reminder(payload: dict[str, Any]) -> tuple[str, str]:
@@ -366,16 +396,17 @@ def render_booking_confirmation(payload: dict[str, Any]) -> tuple[str, str]:
     cutoff_notice = (
         f"تُغلق خدمة الإلغاء وإعادة الجدولة عبر الموقع قبل الموعد بـ{cutoff} ساعة. "
         "يمكنك التواصل مع تريفيكتا بعد ذلك. لا تسقط هذه المهلة حقوق الاسترداد أو إعادة الجدولة."
-        if arabic else
-        f"Online cancellation and rescheduling close {cutoff} hours before the appointment. "
+        if arabic
+        else f"Online cancellation and rescheduling close {cutoff} hours before the appointment. "
         "You can contact Trifecta after that. The cutoff does not remove any refund or "
         "rescheduling rights."
     )
     policy_link = (
         f'<a href="{escape(str(payload["public_web_url"]).rstrip("/"), quote=True)}'
         '/cancellation-and-refund-policy">'
-        f'{"سياسة الإلغاء والاسترداد" if arabic else "Cancellation &amp; Refund Policy"}</a>'
-        if payload.get("public_web_url") else ""
+        f"{'سياسة الإلغاء والاسترداد' if arabic else 'Cancellation &amp; Refund Policy'}</a>"
+        if payload.get("public_web_url")
+        else ""
     )
     assisted_policy_links = ""
     if payload.get("policy_language") and payload.get("public_web_url"):
@@ -426,7 +457,7 @@ def render_booking_policies(payload: dict[str, Any]) -> tuple[str, str]:
         "يرجى مراجعة سياسات الحجز" if arabic else "Please review the policies for booking"
     )
     links = _booking_policy_links(str(payload["public_web_url"]), arabic=arabic)
-    content = f'<p>{introduction} <bdi>{reference}</bdi>.</p>{links}'
+    content = f"<p>{introduction} <bdi>{reference}</bdi>.</p>{links}"
     if arabic:
         content = f'<div lang="ar" dir="rtl">{content}</div>'
     return f"{title} — {reference}", _email_shell(title, content)

@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { Alert } from "../alert";
 import { useState } from "react";
 import {
@@ -40,11 +41,11 @@ export function CouponManager({
                 ? { action: "create", body }
                 : { action: "update", couponId: editing.id, body },
             );
-            Alert.alert("Coupon saved", "New checkouts now use this coupon configuration.");
+            Alert.alert(t("Coupon saved"), t("New checkouts now use this coupon configuration."));
             setEditing(null);
           } catch (error) {
             Alert.alert(
-              "Coupon not saved",
+              t("Coupon not saved"),
               domainErrorMessage(error, "The server did not confirm this coupon."),
             );
           }
@@ -65,12 +66,10 @@ export function CouponManager({
   return (
     <>
       <Text style={uiStyles.muted}>
-        Coupons discount one eligible booking service line. Confirmed bookings keep their saved
-        discount if a coupon changes later.
-      </Text>
-      <AppButton title="Create coupon" onPress={() => setEditing("new")} />
+        {" " + t("Coupons discount one eligible booking service line. Confirmed bookings keep their saved discount if a coupon changes later.") + " "}</Text>
+      <AppButton title={t("Create coupon")} onPress={() => setEditing("new")} />
       {!items.length ? (
-        <EmptyState title="No coupons" body="Create the first checkout coupon." />
+        <EmptyState title={t("No coupons")} body={t("Create the first checkout coupon.")} />
       ) : (
         items.map((coupon) => (
           <Pressable
@@ -82,7 +81,7 @@ export function CouponManager({
               <View style={uiStyles.row}>
                 <View style={styles.flex}>
                   <Text style={styles.code}>{coupon.code}</Text>
-                  <Text style={styles.discount}>{coupon.discount_percent}% OFF</Text>
+                  <Text style={styles.discount}>{coupon.discount_percent}{t("% OFF")}</Text>
                 </View>
                 <StatusChip value={coupon.is_active ? "active" : "inactive"} />
               </View>
@@ -92,7 +91,7 @@ export function CouponManager({
               <Text style={uiStyles.muted}>
                 {coupon.vehicle_types.map(vehicleTypeLabel).join(" · ")} · {minimumLabel(coupon)}
               </Text>
-              <Text style={uiStyles.link}>Edit coupon →</Text>
+              <Text style={uiStyles.link}>{t("Edit coupon →")}</Text>
             </Card>
           </Pressable>
         ))
@@ -146,34 +145,34 @@ function CouponEditor({
   return (
     <>
       <Pressable accessibilityRole="button" onPress={onCancel}>
-        <Text style={uiStyles.link}>← Coupons</Text>
+        <Text style={uiStyles.link}>{t("← Coupons")}</Text>
       </Pressable>
-      <Text style={styles.heading}>{coupon ? "Edit coupon" : "Create coupon"}</Text>
+      <Text style={styles.heading}>{coupon ? t("Edit coupon") : t("Create coupon")}</Text>
       <Field
-        label="Coupon code"
+        label={t("Coupon code")}
         value={code}
         maxLength={6}
         onChange={(value) =>
           setCode(value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 6))
         }
-        placeholder="VIP20"
+        placeholder={t("VIP20")}
       />
-      <Text style={uiStyles.muted}>3–6 letters or numbers. Codes are saved in uppercase.</Text>
+      <Text style={uiStyles.muted}>{t("3–6 letters or numbers. Codes are saved in uppercase.")}</Text>
       <Field
         keyboard="number-pad"
-        label="Discount percent"
+        label={t("Discount percent")}
         onChange={setDiscount}
         placeholder="20"
         value={discount}
       />
       <Field
         keyboard="number-pad"
-        label="Minimum vehicles (optional)"
+        label={t("Minimum vehicles (optional)")}
         onChange={setMinimum}
-        placeholder="No minimum"
+        placeholder={t("No minimum")}
         value={minimum}
       />
-      <Text style={styles.section}>ELIGIBLE VEHICLE TYPES</Text>
+      <Text style={styles.section}>{t("ELIGIBLE VEHICLE TYPES")}</Text>
       {(catalogue?.vehicle_types ?? []).map((vehicleType) => (
         <CheckRow
           checked={vehicleTypes.has(vehicleType)}
@@ -182,7 +181,7 @@ function CouponEditor({
           onPress={() => toggle(vehicleTypes, vehicleType, setVehicleTypes)}
         />
       ))}
-      <Text style={styles.section}>ELIGIBLE SERVICES</Text>
+      <Text style={styles.section}>{t("ELIGIBLE SERVICES")}</Text>
       {(catalogue?.services ?? [])
         .filter((service) => service.is_active)
         .map((service) => (
@@ -194,9 +193,9 @@ function CouponEditor({
           />
         ))}
       <View style={styles.toggle}>
-        <Text style={styles.toggleLabel}>Active</Text>
+        <Text style={styles.toggleLabel}>{t("Active")}</Text>
         <Switch
-          accessibilityLabel="Active"
+          accessibilityLabel={t("Active")}
           onValueChange={setActive}
           thumbColor={active ? colors.primary : colors.surface}
           trackColor={{ false: colors.border, true: colors.accent }}
@@ -216,7 +215,7 @@ function CouponEditor({
             is_active: active,
           })
         }
-        title="Save coupon"
+        title={t("Save coupon")}
       />
     </>
   );
@@ -284,7 +283,7 @@ function minimumLabel(coupon: Coupon) {
 }
 
 function vehicleTypeLabel(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return t(value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
 }
 
 const styles = StyleSheet.create({

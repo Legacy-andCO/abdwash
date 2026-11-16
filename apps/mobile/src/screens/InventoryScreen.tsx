@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { Alert } from "../alert";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -112,9 +113,9 @@ export function InventoryScreen({
       contentContainerStyle={uiStyles.content}
     >
       <Pressable onPress={onBack} accessibilityRole="button">
-        <Text style={uiStyles.link}>← Management</Text>
+        <Text style={uiStyles.link}>{t("← Management")}</Text>
       </Pressable>
-      <ScreenTitle title="Inventory" subtitle="Authoritative consumables stock" />
+      <ScreenTitle title={t("Inventory")} subtitle={t("Authoritative consumables stock")} />
       <View style={styles.tabs}>
         {(management ? ["overview", "catalogue", "stock", "movements"] : ["stock", "movements"]).map((value) => (
           <Pressable
@@ -138,21 +139,21 @@ export function InventoryScreen({
       {tab !== "overview" ? (
         <>
           <TextInput
-            accessibilityLabel="Search inventory"
-            placeholder="Search item, code, or category"
+            accessibilityLabel={t("Search inventory")}
+            placeholder={t("Search item, code, or category")}
             placeholderTextColor={colors.textSecondary}
             value={search}
             onChangeText={setSearch}
             style={uiStyles.field}
           />
           <ChoiceRow
-            values={[{ id: "", label: "All locations" }, ...(locations.data ?? []).map((item) => ({ id: item.id, label: item.name }))]}
+            values={[{ id: "", label: t("All locations") }, ...(locations.data ?? []).map((item) => ({ id: item.id, label: item.name }))]}
             selected={locationId}
             onSelect={setLocationId}
           />
           {tab === "stock" ? (
             <ChoiceRow
-              values={[{ id: "", label: "All" }, { id: "low", label: "Low" }, { id: "out", label: "Out" }]}
+              values={[{ id: "", label: t("All") }, { id: "low", label: t("Low") }, { id: "out", label: t("Out") }]}
               selected={status}
               onSelect={setStatus}
             />
@@ -184,13 +185,13 @@ export function InventoryScreen({
               })
               .then(() =>
                 Alert.alert(
-                  "Stock location saved",
-                  "Expected service usage will deduct from this location.",
+                  t("Stock location saved"),
+                  t("Expected service usage will deduct from this location."),
                 ),
               )
               .catch((settingsError) =>
                 Alert.alert(
-                  "Stock location not saved",
+                  t("Stock location not saved"),
                   domainErrorMessage(
                     settingsError,
                     "The server did not confirm this stock location.",
@@ -201,10 +202,10 @@ export function InventoryScreen({
           onReview={(runId, jobId) =>
             void review
               .mutateAsync({ runId, jobId })
-              .then(() => Alert.alert("Inventory reviewed", "The historical quantities were left unchanged."))
+              .then(() => Alert.alert(t("Inventory reviewed"), t("The historical quantities were left unchanged.")))
               .catch((reviewError) =>
                 Alert.alert(
-                  "Review not saved",
+                  t("Review not saved"),
                   domainErrorMessage(reviewError, "The server did not confirm this review."),
                 ),
               )
@@ -243,15 +244,14 @@ function InventoryOverviewContent({ value, attention, locations, defaultLocation
   onReview: (runId: string, jobId: string) => void;
 }) {
   const [setupRunId, setSetupRunId] = useState<string | null>(null);
-  if (!value) return <EmptyState title="No inventory overview" body="Pull down to try again." />;
+  if (!value) return <EmptyState title={t("No inventory overview")} body={t("Pull down to try again.")} />;
   return (
     <>
       {locations.length > 1 ? (
         <Card>
-          <Text style={styles.title}>Automatic consumables stock</Text>
+          <Text style={styles.title}>{t("Automatic consumables stock")}</Text>
           <Text style={uiStyles.muted}>
-            Completed services deduct expected usage from this business stock location.
-          </Text>
+            {" " + t("Completed services deduct expected usage from this business stock location.") + " "}</Text>
           <ChoiceRow
             values={locations.map((location) => ({
               id: location.id,
@@ -260,25 +260,25 @@ function InventoryOverviewContent({ value, attention, locations, defaultLocation
             selected={defaultLocationId}
             onSelect={onSetDefaultLocation}
           />
-          {settingDefault ? <Text style={uiStyles.muted}>Saving…</Text> : null}
+          {settingDefault ? <Text style={uiStyles.muted}>{t("Saving…")}</Text> : null}
         </Card>
       ) : null}
       <View style={styles.metrics}>
-        <MetricCard label="Active items" value={String(value.active_item_count)} />
-        <MetricCard label="Low stock" value={String(value.low_stock_count)} />
-        <MetricCard label="Out of stock" value={String(value.out_of_stock_count)} />
-        <MetricCard label="Needs review" value={String(value.needs_review_count)} />
+        <MetricCard label={t("Active items")} value={String(value.active_item_count)} />
+        <MetricCard label={t("Low stock")} value={String(value.low_stock_count)} />
+        <MetricCard label={t("Out of stock")} value={String(value.out_of_stock_count)} />
+        <MetricCard label={t("Needs review")} value={String(value.needs_review_count)} />
       </View>
       {attention.length ? (
         <>
-          <Text style={styles.sectionHeading}>NEEDS REVIEW</Text>
+          <Text style={styles.sectionHeading}>{t("NEEDS REVIEW")}</Text>
           {attention.map((item) => (
             <Card key={item.id}>
-              <Text style={styles.title}>Job {item.booking_reference}</Text>
+              <Text style={styles.title}>{"" + t("Job") + " "}{item.booking_reference}</Text>
               <Text style={uiStyles.muted}>{item.customer_name}</Text>
               <Text style={uiStyles.body}>{inventoryIssueCopy(item.issue_code)}</Text>
               <AppButton
-                title="Open job"
+                title={t("Open job")}
                 tone="secondary"
                 onPress={() => onOpenJob(item.job_id)}
               />
@@ -286,7 +286,7 @@ function InventoryOverviewContent({ value, attention, locations, defaultLocation
               item.issue_code === "SOURCE_LOCATION_AMBIGUOUS" ? (
                 <>
                   <AppButton
-                    title={locations.length ? "Set stock location" : "Create stock location"}
+                    title={locations.length ? t("Set stock location") : t("Create stock location")}
                     tone="secondary"
                     onPress={() =>
                       locations.length
@@ -305,19 +305,18 @@ function InventoryOverviewContent({ value, attention, locations, defaultLocation
                     />
                   ) : null}
                   <Text style={uiStyles.muted}>
-                    Future jobs use the saved location. This historical shortfall is not replayed automatically.
-                  </Text>
+                    {" " + t("Future jobs use the saved location. This historical shortfall is not replayed automatically.") + " "}</Text>
                 </>
               ) : item.issue_code === "INVENTORY_ITEM_INACTIVE" ? (
-                <AppButton title="Open consumable setup" tone="secondary" onPress={onOpenConsumable} />
+                <AppButton title={t("Open consumable setup")} tone="secondary" onPress={onOpenConsumable} />
               ) : (
                 <>
-                  <AppButton title="Review stock" tone="secondary" onPress={onReviewStock} />
-                  <AppButton title="Stock count" tone="secondary" onPress={onStockCount} />
+                  <AppButton title={t("Review stock")} tone="secondary" onPress={onReviewStock} />
+                  <AppButton title={t("Stock count")} tone="secondary" onPress={onStockCount} />
                 </>
               )}
               <AppButton
-                title="Mark reviewed"
+                title={t("Mark reviewed")}
                 tone="secondary"
                 loading={reviewing}
                 disabled={reviewing}
@@ -330,8 +329,8 @@ function InventoryOverviewContent({ value, attention, locations, defaultLocation
       {value.locations.map((location) => (
         <Card key={location.location_id}>
           <Text style={styles.title}>{location.location_name}</Text>
-          <Text style={uiStyles.muted}>{location.location_type.replaceAll("_", " ")}</Text>
-          <Text style={uiStyles.body}>{location.low_stock_count} low · {location.out_of_stock_count} out</Text>
+          <Text style={uiStyles.muted}>{t(location.location_type.replaceAll("_", " "))}</Text>
+          <Text style={uiStyles.body}>{location.low_stock_count} {" " + t("low ·") + " "}{location.out_of_stock_count} {" " + t("out") + ""}</Text>
         </Card>
       ))}
     </>
@@ -368,43 +367,43 @@ export function inventoryIssueCopy(issueCode: string | null): string {
 }
 
 function StockContent({ items }: { items: Awaited<ReturnType<typeof import("../lib").getInventoryStock>>["items"] }) {
-  if (!items.length) return <EmptyState title="No stock found" body="Receive opening stock or change the filters." />;
+  if (!items.length) return <EmptyState title={t("No stock found")} body={t("Receive opening stock or change the filters.")} />;
   return <>{items.map((item) => (
     <Card key={`${item.item_id}:${item.location_id}`}>
       <View style={uiStyles.row}>
         <View style={styles.flex}>
           <Text style={styles.title}>{item.item_name}</Text>
-          <Text style={uiStyles.muted}>{item.location_name} · {item.category.replaceAll("_", " ")}</Text>
+          <Text style={uiStyles.muted}>{item.location_name} · {t(item.category.replaceAll("_", " "))}</Text>
         </View>
         <StatusChip value={item.status} />
       </View>
       <Text style={styles.quantity}>{quantityLabel(item.quantity, item.unit)}</Text>
-      <Text style={uiStyles.muted}>Low at {quantityLabel(item.threshold, item.unit)}</Text>
+      <Text style={uiStyles.muted}>{"" + t("Low at") + " "}{quantityLabel(item.threshold, item.unit)}</Text>
     </Card>
   ))}</>;
 }
 
 function CatalogueContent({ items, onEdit }: { items: InventoryItem[]; onEdit: (item: InventoryItem) => void }) {
-  if (!items.length) return <EmptyState title="No inventory items" body="Create the first catalogue item." />;
+  if (!items.length) return <EmptyState title={t("No inventory items")} body={t("Create the first catalogue item.")} />;
   return <>{items.map((item) => (
     <Pressable key={item.id} onPress={() => onEdit(item)} accessibilityRole="button">
       <Card>
         <View style={uiStyles.row}>
           <View style={styles.flex}>
             <Text style={styles.title}>{item.name}</Text>
-            <Text style={uiStyles.muted}>{item.category.replaceAll("_", " ")} · {item.unit}</Text>
+            <Text style={uiStyles.muted}>{t(item.category.replaceAll("_", " "))} · {item.unit}</Text>
           </View>
           <StatusChip value={item.is_active ? "active" : "inactive"} />
         </View>
         <Text style={styles.quantity}>{quantityLabel(item.total_quantity, item.unit)}</Text>
-        <Text style={uiStyles.link}>Edit item →</Text>
+        <Text style={uiStyles.link}>{t("Edit item →")}</Text>
       </Card>
     </Pressable>
   ))}</>;
 }
 
 function MovementContent({ items }: { items: Awaited<ReturnType<typeof import("../lib").getInventoryMovements>>["items"] }) {
-  if (!items.length) return <EmptyState title="No movements found" body="Stock history will appear here." />;
+  if (!items.length) return <EmptyState title={t("No movements found")} body={t("Stock history will appear here.")} />;
   return <>{items.map((item) => (
     <Card key={item.id}>
       <View style={uiStyles.row}>
@@ -413,8 +412,8 @@ function MovementContent({ items }: { items: Awaited<ReturnType<typeof import(".
           {item.signed_quantity > 0 ? "+" : ""}{quantityLabel(item.signed_quantity, item.unit)}
         </Text>
       </View>
-      <Text style={uiStyles.muted}>{item.movement_type.replaceAll("_", " ")} · {item.location_name}</Text>
-      {item.booking_reference ? <Text style={uiStyles.body}>Job {item.booking_reference}</Text> : null}
+      <Text style={uiStyles.muted}>{t(item.movement_type.replaceAll("_", " "))} · {item.location_name}</Text>
+      {item.booking_reference ? <Text style={uiStyles.body}>{"" + t("Job") + " "}{item.booking_reference}</Text> : null}
       <Text style={uiStyles.muted}>{item.actor_name} · {new Date(item.created_at).toLocaleString()}</Text>
     </Card>
   ))}</>;
@@ -507,10 +506,10 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
           ? { action, itemId: initialItem.id, body }
           : { action: action as Exclude<InventoryAction, "edit_item">, body },
       );
-      Alert.alert("Inventory updated", `${actionLabel(action)} was recorded successfully.`);
+      Alert.alert(t("Inventory updated"), t("{p0} was recorded successfully.", { p0: actionLabel(action) }));
       onBack();
     } catch (error) {
-      Alert.alert("Inventory not updated", domainErrorMessage(error, "The server did not confirm this stock operation."));
+      Alert.alert(t("Inventory not updated"), domainErrorMessage(error, "The server did not confirm this stock operation."));
     }
   }
   async function createMainShop() {
@@ -519,10 +518,10 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
         action: "create_location",
         body: { name: "Main Shop", location_type: "main", linked_team_id: null },
       });
-      Alert.alert("Main Shop created", "The primary stock location is ready.");
+      Alert.alert(t("Main Shop created"), t("The primary stock location is ready."));
     } catch (error) {
       Alert.alert(
-        "Location not created",
+        t("Location not created"),
         domainErrorMessage(error, "The server did not confirm this location."),
       );
     }
@@ -532,20 +531,20 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
     return (
       <ScrollView contentContainerStyle={uiStyles.content}>
         <Pressable onPress={onBack} accessibilityRole="button">
-          <Text style={uiStyles.link}>← Inventory</Text>
+          <Text style={uiStyles.link}>{t("← Inventory")}</Text>
         </Pressable>
-        <ScreenTitle title={actionLabel(action)} subtitle="A stock location is required" />
+        <ScreenTitle title={actionLabel(action)} subtitle={t("A stock location is required")} />
         <Card>
-          <Text style={styles.title}>No stock location is configured.</Text>
+          <Text style={styles.title}>{t("No stock location is configured.")}</Text>
           <Text style={uiStyles.muted}>
             {management
-              ? "Create the primary Main Shop location to continue."
-              : "Ask a manager to configure an inventory location."}
+              ? t("Create the primary Main Shop location to continue.")
+              : t("Ask a manager to configure an inventory location.")}
           </Text>
         </Card>
         {management ? (
           <AppButton
-            title="Create Main Shop Location"
+            title={t("Create Main Shop Location")}
             onPress={() => void createMainShop()}
             loading={mutation.isPending}
           />
@@ -555,25 +554,25 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
   }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
-      <Pressable onPress={onBack}><Text style={uiStyles.link}>← Inventory</Text></Pressable>
-      <ScreenTitle title={actionLabel(action)} subtitle="Stock changes are recorded in the audit ledger" />
+      <Pressable onPress={onBack}><Text style={uiStyles.link}>{t("← Inventory")}</Text></Pressable>
+      <ScreenTitle title={actionLabel(action)} subtitle={t("Stock changes are recorded in the audit ledger")} />
       {["create_item", "edit_item"].includes(action) ? (
         <>
-          <Field label="Item name" value={name} onChange={setName} placeholder="Interior Cleaner" />
-          <Field label="SKU / code (optional)" value={code} onChange={setCode} placeholder="CHEM-001" />
-          <Label text="Category" /><ChoiceRow values={inventoryCategories.map((value) => ({ id: value, label: value.replaceAll("_", " ") }))} selected={category} onSelect={setCategory} />
-          <Label text="Unit" /><ChoiceRow values={inventoryUnits.map((value) => ({ id: value, label: value }))} selected={unit} onSelect={setUnit} />
-          <Field label="Low-stock threshold" value={threshold} onChange={setThreshold} keyboard="decimal-pad" />
+          <Field label={t("Item name")} value={name} onChange={setName} placeholder={t("Interior Cleaner")} />
+          <Field label={t("SKU / code (optional)")} value={code} onChange={setCode} placeholder={t("CHEM-001")} />
+          <Label text={t("Category")} /><ChoiceRow values={inventoryCategories.map((value) => ({ id: value, label: t(value.replaceAll("_", " ")) }))} selected={category} onSelect={setCategory} />
+          <Label text={t("Unit")} /><ChoiceRow values={inventoryUnits.map((value) => ({ id: value, label: value }))} selected={unit} onSelect={setUnit} />
+          <Field label={t("Low-stock threshold")} value={threshold} onChange={setThreshold} keyboard="decimal-pad" />
         </>
       ) : action === "create_location" ? (
         <>
-          <Field label="Location name" value={name} onChange={setName} placeholder="Main Shop" />
-          <Label text="Type" /><ChoiceRow values={["main", "mobile_team", "van", "other"].map((value) => ({ id: value, label: value.replaceAll("_", " ") }))} selected={locationType} onSelect={setLocationType} />
-          {locationType === "mobile_team" ? <><Label text="Linked team" /><ChoiceRow values={(teams.data ?? []).map((value) => ({ id: value.id, label: value.name }))} selected={teamId} onSelect={setTeamId} /></> : null}
+          <Field label={t("Location name")} value={name} onChange={setName} placeholder={t("Main Shop")} />
+          <Label text={t("Type")} /><ChoiceRow values={["main", "mobile_team", "van", "other"].map((value) => ({ id: value, label: t(value.replaceAll("_", " ")) }))} selected={locationType} onSelect={setLocationType} />
+          {locationType === "mobile_team" ? <><Label text={t("Linked team")} /><ChoiceRow values={(teams.data ?? []).map((value) => ({ id: value.id, label: value.name }))} selected={teamId} onSelect={setTeamId} /></> : null}
         </>
       ) : (
         <>
-          <Label text="Item" /><ChoiceRow values={items.map((value) => ({ id: value.id, label: value.name }))} selected={itemId} onSelect={setItemId} />
+          <Label text={t("Item")} /><ChoiceRow values={items.map((value) => ({ id: value.id, label: value.name }))} selected={itemId} onSelect={setItemId} />
           <Label text={action === "transfer" ? "From" : "Location"} />
           {locations.length === 1 ? (
             <View style={styles.selectedLocation}>
@@ -582,32 +581,32 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
           ) : (
             <ChoiceRow values={locations.map((value) => ({ id: value.id, label: value.name }))} selected={locationId} onSelect={setLocationId} />
           )}
-          {action === "transfer" ? <><Label text="To" /><ChoiceRow values={locations.filter((value) => value.id !== locationId).map((value) => ({ id: value.id, label: value.name }))} selected={destinationId} onSelect={setDestinationId} /></> : null}
-          <Field label={isCount ? "Counted quantity" : `Quantity${selected ? ` (${selected.unit})` : ""}`} value={quantity} onChange={setQuantity} keyboard="decimal-pad" />
+          {action === "transfer" ? <><Label text={t("To")} /><ChoiceRow values={locations.filter((value) => value.id !== locationId).map((value) => ({ id: value.id, label: value.name }))} selected={destinationId} onSelect={setDestinationId} /></> : null}
+          <Field label={isCount ? t("Counted quantity") : t("Quantity{p0}", { p0: selected ? ` (${selected.unit})` : "" })} value={quantity} onChange={setQuantity} keyboard="decimal-pad" />
           {draftLines.map((line) => {
             const draftItem = items.find((item) => item.id === line.item_id);
             return (
               <Card key={line.item_id}>
                 <View style={uiStyles.row}>
                   <View style={styles.flex}>
-                    <Text style={styles.title}>{draftItem?.name ?? "Inventory item"}</Text>
+                    <Text style={styles.title}>{draftItem?.name ?? t("Inventory item")}</Text>
                     <Text style={uiStyles.muted}>{quantityLabel(Number(line.quantity), draftItem?.unit ?? "")}</Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove ${draftItem?.name ?? "inventory item"}`}
+                    accessibilityLabel={t("Remove {p0}", { p0: draftItem?.name ?? "inventory item" })}
                     onPress={() => setDraftLines((current) => current.filter((value) => value.item_id !== line.item_id))}
                   >
-                    <Text style={uiStyles.link}>Remove</Text>
+                    <Text style={uiStyles.link}>{t("Remove")}</Text>
                   </Pressable>
                 </View>
               </Card>
             );
           })}
-          <AppButton title="Add another item" tone="secondary" onPress={addDraftLine} disabled={!hasCurrentLine} />
-          {action === "usage" ? <Field label="Job ID (required for employees)" value={jobId} onChange={setJobId} placeholder="Job UUID" /> : null}
-          {action === "receive" ? <Field label="Purchase total AED (optional expense)" value={expenseAmount} onChange={setExpenseAmount} keyboard="decimal-pad" /> : null}
-          <Field label={["wastage", "stock_count"].includes(action) ? "Reason" : "Reference / notes (optional)"} value={reason} onChange={setReason} placeholder={action === "wastage" ? "Spilled during refill" : ""} />
+          <AppButton title={t("Add another item")} tone="secondary" onPress={addDraftLine} disabled={!hasCurrentLine} />
+          {action === "usage" ? <Field label={t("Job ID (required for employees)")} value={jobId} onChange={setJobId} placeholder={t("Job UUID")} /> : null}
+          {action === "receive" ? <Field label={t("Purchase total AED (optional expense)")} value={expenseAmount} onChange={setExpenseAmount} keyboard="decimal-pad" /> : null}
+          <Field label={["wastage", "stock_count"].includes(action) ? t("Reason") : t("Reference / notes (optional)")} value={reason} onChange={setReason} placeholder={action === "wastage" ? t("Spilled during refill") : ""} />
         </>
       )}
       {!validation.canSubmit && validation.reason ? (
@@ -618,14 +617,14 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
       <AppButton title={actionLabel(action)} onPress={() => void submit()} disabled={!validation.canSubmit} loading={mutation.isPending} />
       {action === "edit_item" && initialItem ? (
         <AppButton
-          title={initialItem.is_active ? "Deactivate item" : "Reactivate item"}
+          title={initialItem.is_active ? t("Deactivate item") : t("Reactivate item")}
           tone={initialItem.is_active ? "danger" : "secondary"}
           loading={mutation.isPending}
           onPress={() => void mutation.mutateAsync({
             action: "edit_item",
             itemId: initialItem.id,
             body: { is_active: !initialItem.is_active },
-          }).then(onBack).catch((error) => Alert.alert("Item not updated", domainErrorMessage(error, "The server did not confirm this change.")))}
+          }).then(onBack).catch((error) => Alert.alert(t("Item not updated"), domainErrorMessage(error, "The server did not confirm this change.")))}
         />
       ) : null}
     </ScrollView>

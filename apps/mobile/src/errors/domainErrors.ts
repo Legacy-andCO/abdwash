@@ -1,3 +1,5 @@
+import { getStaffLanguage, t } from "../i18n";
+
 export class ApiError extends Error {
   constructor(
     public readonly code: string,
@@ -12,6 +14,12 @@ export class ApiError extends Error {
 }
 
 const messages: Record<string, string> = {
+  MFA_REQUIRED: "Verify your authenticator to continue.",
+  MFA_REAUTHENTICATION_REQUIRED: "Sign out and sign in again, then verify your authenticator before continuing.",
+  STALE_JOB_VERSION: "This appointment changed. Refresh its details.",
+  BOOKING_NOT_CANCELLABLE: "This appointment cannot be cancelled.",
+  APPOINTMENT_NOT_FOUND: "The selected appointment is no longer available. Refresh the calendar.",
+  REPORT_MIXED_CURRENCY: "This report contains multiple currencies. Select a period with a single currency.",
   OFFLINE: "Unable to reach Trifecta. Check your connection and try again.",
   REQUEST_TIMEOUT: "The request took too long. Please try again.",
   RESCHEDULE_UNCONFIRMED:
@@ -66,12 +74,16 @@ const messages: Record<string, string> = {
 };
 
 export function domainErrorMessage(error: unknown, fallback: string): string {
+  const translatedFallback = t(fallback);
+  const safeFallback = getStaffLanguage() === "ar" && !/[\u0600-\u06ff]/.test(translatedFallback)
+    ? t("We couldn't complete this action. Please try again.")
+    : translatedFallback;
   if (error instanceof ApiError) {
-    if (messages[error.code]) return messages[error.code];
-    if (error.status >= 500 || error.code === "REQUEST_FAILED") return fallback;
-    return error.message || fallback;
+    if (messages[error.code]) return t(messages[error.code]);
+    if (getStaffLanguage() === "ar" || error.status >= 500 || error.code === "REQUEST_FAILED") return safeFallback;
+    return error.message || safeFallback;
   }
   if (error instanceof Error && messages[error.message])
-    return messages[error.message];
-  return fallback;
+    return t(messages[error.message]);
+  return safeFallback;
 }

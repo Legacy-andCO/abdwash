@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, case, distinct, func, or_, select
+from sqlalchemy import and_, case, distinct, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import StaffContext
@@ -187,7 +187,7 @@ async def list_teams(
             .where(
                 ScheduleResource.business_id == context.business_id,
                 ScheduleResource.resource_type == "mobile_team",
-                True
+                true()
                 if context.role in {"manager", "admin"}
                 else ScheduleResource.id.in_(
                     select(TeamMembership.resource_id)
@@ -1250,7 +1250,7 @@ async def report_v2(
                 func.count(Booking.id),
                 func.count(Booking.id).filter(Booking.status == BookingStatus.COMPLETED),
                 func.count(Booking.id).filter(Booking.status == BookingStatus.CANCELLED),
-                func.max(Booking.currency_code),
+                func.array_agg(func.distinct(Booking.currency_code)),
             )
             .join(Payment, Payment.booking_id == Booking.id)
             .where(
@@ -1262,6 +1262,13 @@ async def report_v2(
             .order_by(local_date)
         )
     ).all()
+    currencies = {currency for row in rows for currency in row[6] if currency}
+    if len(currencies) > 1:
+        raise DomainError(
+            "REPORT_MIXED_CURRENCY",
+            "Select a report period containing a single currency.",
+            status_code=422,
+        )
     series = [
         ReportPoint(
             date=day,
@@ -1277,7 +1284,7 @@ async def report_v2(
     booked_total = sum(int(row[1]) for row in rows)
     collected_total = sum(int(row[2]) for row in rows)
     completed_total = sum(int(row[4]) for row in rows)
-    report_currency = next((str(row[6]) for row in rows if row[6]), "AED")
+    report_currency = next(iter(currencies), "AED")
     summary = ReportSummary(
         start_date=start_date,
         end_date=end_date,
