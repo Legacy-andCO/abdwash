@@ -23,6 +23,7 @@ import type {
   Vehicle,
 } from "./types";
 import { normalizePhone } from "./phone";
+import { locationMapsUrl } from "./location";
 import { POLICY_REVISION } from "./policies";
 import type { Language } from "./i18n";
 import { getSupabaseAccessToken } from "./supabase-client";
@@ -167,7 +168,7 @@ export function createBooking(input: {
     },
     location: {
       written_address: input.location.written_address,
-      location_url: input.location.location_url,
+      location_url: locationMapsUrl(input.location),
       latitude: input.location.latitude,
       longitude: input.location.longitude,
       instructions: input.location.instructions,

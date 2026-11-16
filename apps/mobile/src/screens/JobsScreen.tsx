@@ -187,9 +187,11 @@ export function JobsScreen({
         <Pressable
           accessibilityRole="tab"
           accessibilityState={{ selected: view === item }}
+          aria-selected={view === item}
           key={item}
           style={[
             styles.segmentItem,
+            ["today", "upcoming", "calendar"].includes(item) ? styles.primarySegmentItem : undefined,
             view === item ? styles.segmentActive : undefined,
           ]}
           onPress={() => updateNavigation({ view: item, offset: 0 })}
@@ -199,7 +201,7 @@ export function JobsScreen({
   );
   const tabs = (
     <View style={{ gap: spacing.sm }}>
-      <View style={styles.segment}>
+      <View accessibilityRole="tablist" accessibilityLabel="Job views" style={[styles.segment, styles.primarySegment]}>
         {views.filter(item => ["today", "upcoming", "calendar"].includes(item)).map(viewButton)}
       </View>
       <Disclosure title={!["today", "upcoming", "calendar"].includes(view) ? `More job views · ${label(view)}` : "More job views"}>
@@ -1698,8 +1700,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: 8,
   },
+  primarySegment: { width: "100%", flexWrap: "nowrap" },
+  primarySegmentItem: { flex: 1, flexBasis: 0, minWidth: 0, alignItems: "center", paddingHorizontal: spacing.xs },
   segmentActive: { backgroundColor: colors.surface },
-    segmentText: { color: colors.text, fontWeight: "600", fontSize: 14 },
+  segmentText: { color: colors.text, fontWeight: "600", fontSize: 14, textAlign: "center" },
   searchRow: {
     alignItems: "center",
     flexDirection: "row",

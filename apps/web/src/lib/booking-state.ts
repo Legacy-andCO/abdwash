@@ -516,7 +516,7 @@ export function contactErrors(
       "booking.validation.locationNotes",
       "Add location notes so our team can find you.",
     );
-  if (!isSupportedGoogleMapsUrl(location.location_url))
+  if (location.location_url.trim() && !isSupportedGoogleMapsUrl(location.location_url.trim()))
     errors.location_url = errorMessage(
       t,
       "booking.validation.mapsUrl",

@@ -50,6 +50,7 @@ import {
   todayInTimezone,
 } from "@/lib/dates";
 import { normalizePhone } from "@/lib/phone";
+import { locationMapsUrl } from "@/lib/location";
 import type {
   AvailabilitySlot,
   CouponValidation,
@@ -894,7 +895,7 @@ function ReviewStep({ state, dispatch }: StepProps) {
         >
           <strong>{state.location.written_address}</strong>
           <a
-            href={state.location.location_url}
+            href={locationMapsUrl(state.location)}
             target="_blank"
             rel="noreferrer"
           >

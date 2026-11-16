@@ -5,10 +5,19 @@ import {
   googleMapsUrl,
   isSupportedGoogleMapsUrl,
   locationWithCoordinates,
+  locationMapsUrl,
   requestCurrentCoordinates,
 } from "./location";
 
 describe("location handling", () => {
+  it("creates a text search link for an Arabic written address without inventing coordinates", () => {
+    const location = { ...initialBookingState.location, written_address: "جزيرة الريم، أبوظبي" };
+    const url = new URL(locationMapsUrl(location));
+    expect(url.origin).toBe("https://www.google.com");
+    expect(url.searchParams.get("query")).toBe(location.written_address);
+    expect(location.latitude).toBeNull();
+    expect(location.longitude).toBeNull();
+  });
   it("accepts supported full and short Google Maps links", () => {
     expect(isSupportedGoogleMapsUrl("https://www.google.com/maps/place/Yas+Acres")).toBe(true);
     expect(isSupportedGoogleMapsUrl("https://maps.app.goo.gl/AbCd1234")).toBe(true);

@@ -1,0 +1,160 @@
+{
+  "results": [
+    {
+      "test": "MFA input visible at 320px",
+      "pass": true,
+      "box": {
+        "x": 32,
+        "y": 305,
+        "width": 256,
+        "height": 65
+      }
+    },
+    {
+      "test": "MFA input visible at 360px",
+      "pass": true,
+      "box": {
+        "x": 32,
+        "y": 314,
+        "width": 296,
+        "height": 65
+      }
+    },
+    {
+      "test": "MFA input visible at 390px",
+      "pass": true,
+      "box": {
+        "x": 32,
+        "y": 314,
+        "width": 326,
+        "height": 65
+      }
+    },
+    {
+      "test": "MFA input visible at 1280px",
+      "pass": true,
+      "box": {
+        "x": 436,
+        "y": 352,
+        "width": 408,
+        "height": 65
+      }
+    },
+    {
+      "test": "real provider rejects invalid TOTP",
+      "pass": true
+    },
+    {
+      "test": "real provider rejects expired TOTP",
+      "pass": true
+    },
+    {
+      "test": "existing staging manager verifies with AAL2 and no enrollment",
+      "pass": true
+    },
+    {
+      "test": "manager equal-width Jobs tabs at 320px",
+      "pass": true,
+      "widths": [
+        92,
+        92,
+        92
+      ]
+    },
+    {
+      "test": "manager equal-width Jobs tabs at 360px",
+      "pass": true,
+      "widths": [
+        105.328125,
+        105.34375,
+        105.328125
+      ]
+    },
+    {
+      "test": "manager equal-width Jobs tabs at 390px",
+      "pass": true,
+      "widths": [
+        115.328125,
+        115.34375,
+        115.328125
+      ]
+    },
+    {
+      "test": "manager equal-width Jobs tabs at 1280px",
+      "pass": true,
+      "widths": [
+        385.328125,
+        385.34375,
+        385.328125
+      ]
+    },
+    {
+      "test": "manager Today/Upcoming/Calendar navigation",
+      "pass": true
+    },
+    {
+      "test": "manager signs out and back in with the same verified factor and no QR",
+      "pass": true
+    },
+    {
+      "test": "synthetic staging manager initial enrollment verifies exactly once",
+      "pass": true
+    },
+    {
+      "test": "newly enrolled manager signs out/back in using the same authenticator",
+      "pass": true
+    },
+    {
+      "test": "existing admin authenticator and manager-only navigation preserved",
+      "pass": true
+    },
+    {
+      "test": "employee equal-width Jobs tabs at 320px",
+      "pass": true,
+      "widths": [
+        92,
+        92,
+        92
+      ]
+    },
+    {
+      "test": "employee equal-width Jobs tabs at 360px",
+      "pass": true,
+      "widths": [
+        105.328125,
+        105.34375,
+        105.328125
+      ]
+    },
+    {
+      "test": "employee equal-width Jobs tabs at 390px",
+      "pass": true,
+      "widths": [
+        115.328125,
+        115.34375,
+        115.328125
+      ]
+    },
+    {
+      "test": "employee equal-width Jobs tabs at 1280px",
+      "pass": true,
+      "widths": [
+        385.328125,
+        385.34375,
+        385.328125
+      ]
+    },
+    {
+      "test": "employee Today/Upcoming/Calendar navigation",
+      "pass": true
+    },
+    {
+      "test": "employee Jobs and permissions preserved without MFA gate",
+      "pass": true
+    },
+    {
+      "test": "staff browser JavaScript errors absent",
+      "pass": true
+    }
+  ]
+}

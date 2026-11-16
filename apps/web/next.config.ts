@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
       "script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
+      "worker-src 'self' blob:",
       "img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com",
       `connect-src 'self' ${origins.join(" ")} https://*.googleapis.com https://*.gstatic.com${process.env.NODE_ENV === "development" ? " http://localhost:* ws://localhost:*" : ""}`,
     ].join("; ");
@@ -25,7 +26,9 @@ const nextConfig: NextConfig = {
       { key: "Content-Security-Policy", value: csp },
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "X-Frame-Options", value: "DENY" },
-      { key: "Referrer-Policy", value: "no-referrer" },
+      // Google validates website-restricted Maps keys using the requesting origin.
+      // Paths and query strings (including booking tokens) remain private cross-origin.
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
     ] }];

@@ -66,6 +66,16 @@ function bookingInput(idempotencyKey: string) {
 }
 
 describe("central API client", () => {
+  it("submits a written-only location with a safe text-search Maps link and no GPS", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: "synthetic-booking" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const input = bookingInput("written-address-only");
+    await createBooking({ ...input, location: { ...input.location, location_url: "", latitude: null, longitude: null } });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.location.latitude).toBeNull();
+    expect(body.location.longitude).toBeNull();
+    expect(new URL(body.location.location_url).searchParams.get("query")).toBe("Abu Dhabi");
+  });
   it("does not send JSON content type for catalogue GET requests", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ services: [] }));
     vi.stubGlobal("fetch", fetchMock);

@@ -19,6 +19,15 @@ export function googleMapsUrl(coordinates: Coordinates): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+/** Keep written addresses bookable without geocoding, GPS, or a loaded Maps SDK. */
+export function locationMapsUrl(location: Location): string {
+  if (location.location_url.trim()) return location.location_url.trim();
+  if (location.latitude !== null && location.longitude !== null) {
+    return googleMapsUrl({ latitude: location.latitude, longitude: location.longitude });
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.written_address.trim())}`;
+}
+
 export function isSupportedGoogleMapsUrl(value: string): boolean {
   try {
     const url = new URL(value);

@@ -1,0 +1,11 @@
+{
+  "project": "abdwash-vdtc",
+  "id": "prj_MNIgizCevSDA1RPoJFD3tHMNZRT9",
+  "production_domain": "https://www.trifecta-wash.com",
+  "redirect_domain": "https://trifecta-wash.com",
+  "deployment_url": "https://abdwash-vdtc-9whnnpp4v-legacy-andcos-projects.vercel.app",
+  "deployment_target": "production",
+  "commit": "388fe55be2e0871e62d3e2430136cdd8a53e097b",
+  "environment_metadata": "Vercel returned 403 projectEnvVars; no settings changed",
+  "diagnosis": "Production CSP blocks Google blob workers; no-referrer suppresses Google API referrers; map container 322x218 at 390px viewport; live autocomplete returns Abu Dhabi suggestions."
+}

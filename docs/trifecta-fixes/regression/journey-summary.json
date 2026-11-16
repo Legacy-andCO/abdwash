@@ -1,0 +1,215 @@
+{
+  "passed": 41,
+  "failed": 0,
+  "initial_preview_reload_timeouts": 2,
+  "results": [
+    {
+      "role": "manager",
+      "name": "Today primary booking opens directly",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Create booking, review, edit, confirm and see receipt",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Today cards open the correct customer and job",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Calendar agenda and deliberate double-book confirmation",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Outstanding work opens the matching queue",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Customers remains reachable",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Customer complaints remains reachable",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Inventory remains reachable",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Services & pricing remains reachable",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Teams, staff, shifts and attendance navigation",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Reports and finance remain accessible",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Manager reschedule opens and preserves version check",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Profile and account functions",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Phone, tablet, desktop and landscape fit",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "Keyboard activates disclosure and exposes expanded state",
+      "pass": true
+    },
+    {
+      "role": "manager",
+      "name": "No uncaught browser errors",
+      "pass": true,
+      "errors": []
+    },
+    {
+      "role": "employee",
+      "name": "Today primary booking opens directly",
+      "pass": true
+    },
+    {
+      "role": "employee",
+      "name": "Create booking, review, edit, confirm and see receipt",
+      "pass": true
+    },
+    {
+      "role": "employee",
+      "name": "Today cards open the correct customer and job",
+      "pass": true
+    },
+    {
+      "role": "employee",
+      "name": "Calendar agenda and deliberate double-book confirmation",
+      "pass": true
+    },
+    {
+      "role": "employee",
+      "name": "Employee navigation retains role limits",
+      "pass": true
+    },
+    {
+      "role": "employee",
+      "name": "Profile and account functions",
+      "pass": true
+    },
+    {
+      "role": "employee",
+      "name": "Phone, tablet, desktop and landscape fit",
+      "pass": true
+    },
+    {
+      "role": "employee",
+      "name": "Keyboard activates disclosure and exposes expanded state",
+      "pass": true
+    },
+    {
+      "role": "employee",
+      "name": "No uncaught browser errors",
+      "pass": true,
+      "errors": []
+    },
+    {
+      "role": "admin",
+      "name": "Today primary booking opens directly",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Create booking, review, edit, confirm and see receipt",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Today cards open the correct customer and job",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Calendar agenda and deliberate double-book confirmation",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Outstanding work opens the matching queue",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Customers remains reachable",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Customer complaints remains reachable",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Inventory remains reachable",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Services & pricing remains reachable",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Teams, staff, shifts and attendance navigation",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Reports and finance remain accessible",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Manager reschedule opens and preserves version check",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Profile and account functions",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Phone, tablet, desktop and landscape fit",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "Keyboard activates disclosure and exposes expanded state",
+      "pass": true
+    },
+    {
+      "role": "admin",
+      "name": "No uncaught browser errors",
+      "pass": true,
+      "errors": []
+    }
+  ]
+}

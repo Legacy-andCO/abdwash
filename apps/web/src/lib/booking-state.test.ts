@@ -335,6 +335,9 @@ describe("booking state", () => {
   it("accepts complete contact and secure location details", () => {
     expect(contactErrors(contact, location)).toEqual({});
   });
+  it("accepts a written address and notes without optional Maps or GPS", () => {
+    expect(contactErrors(contact, { ...location, location_url: "", latitude: null, longitude: null })).toEqual({});
+  });
   it("rejects an invalid email address", () => {
     expect(
       contactErrors({ ...contact, email: "wrong" }, location).email,

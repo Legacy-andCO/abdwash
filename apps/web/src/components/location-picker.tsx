@@ -7,7 +7,7 @@ import type { Location } from "@/lib/types";
 import { useI18n } from "./i18n-provider";
 
 const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-const googleMapsMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "DEMO_MAP_ID";
+const googleMapsMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() || "DEMO_MAP_ID";
 const uaeCenter = { lat: 24.4539, lng: 54.3773 };
 const uaeSearchBias = {
   north: 26.4,
@@ -44,11 +44,30 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
   const places = useRef<google.maps.PlacesLibrary | null>(null);
   const autocompleteSession = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const searchRequest = useRef(0);
+  const selectionRequest = useRef(0);
+  const searchElement = useRef<HTMLDivElement>(null);
+  const [searchActive, setSearchActive] = useState(false);
   const [mapState, setMapState] = useState<MapState>("idle");
   const [gpsState, setGpsState] = useState<GpsState>("idle");
   const [searchState, setSearchState] = useState<SearchState>("idle");
   const [searchText, setSearchText] = useState("");
   const [suggestions, setSuggestions] = useState<google.maps.places.PlacePrediction[]>([]);
+
+  function closeSuggestions() {
+    searchRequest.current++;
+    setSearchActive(false);
+    setSuggestions([]);
+    setSearchState("idle");
+  }
+
+  useEffect(() => {
+    const selection = selectionRequest;
+    const outside = (event: PointerEvent) => {
+      if (!searchElement.current?.contains(event.target as Node)) closeSuggestions();
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => { document.removeEventListener("pointerdown", outside); selection.current++; };
+  }, []);
 
   useEffect(() => { locationRef.current = location; }, [location]);
   useEffect(() => { coordinatesCallbackRef.current = onCoordinatesChange; }, [onCoordinatesChange]);
@@ -59,13 +78,19 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
     let mapsGlobal: typeof google | null = null;
     let markerListener: google.maps.MapsEventListener | null = null;
     let mapClickListener: google.maps.MapsEventListener | null = null;
+    let tilesListener: google.maps.MapsEventListener | null = null;
+    let renderTimeout: ReturnType<typeof setTimeout> | undefined;
     const mapNode = mapElement.current;
+    const mapsWindow = window as Window & { gm_authFailure?: () => void };
+    const previousAuthFailure = mapsWindow.gm_authFailure;
 
     const cleanupComponentObjects = () => {
       markerListener?.remove();
       markerListener = null;
       mapClickListener?.remove();
       mapClickListener = null;
+      tilesListener?.remove();
+      clearTimeout(renderTimeout);
       if (marker.current) marker.current.map = null;
       marker.current = null;
       if (map.current && mapsGlobal) mapsGlobal.maps.event.clearInstanceListeners(map.current);
@@ -75,6 +100,14 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
       autocompleteSession.current = null;
       mapNode?.replaceChildren();
     };
+    const authFailure = () => {
+      previousAuthFailure?.();
+      if (!active) return;
+      reportMapsFailure("loader_failed");
+      cleanupComponentObjects();
+      setMapState("failed");
+    };
+    mapsWindow.gm_authFailure = authFailure;
 
     async function reverseGeocode(coordinates: Coordinates): Promise<string | undefined> {
       try {
@@ -109,10 +142,9 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
             throw error;
           }
         };
-        const [mapsLibrary, markerLibrary, placesLibrary] = await Promise.all([
+        const [mapsLibrary, markerLibrary] = await Promise.all([
           importLibrary<google.maps.MapsLibrary>("maps", "maps_library_failed"),
           importLibrary<google.maps.MarkerLibrary>("marker", "marker_library_failed"),
-          importLibrary<google.maps.PlacesLibrary>("places", "places_library_failed"),
         ]);
         if (!active || !mapNode.isConnected) return;
 
@@ -134,12 +166,10 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
           reportMapsFailure("map_construction_failed");
           throw error;
         }
-        try {
-          geocoder.current = new readyGoogle.maps.Geocoder();
-        } catch (error) {
-          reportMapsFailure("geocoder_construction_failed");
-          throw error;
-        }
+        // Geocoding and Places are optional enhancements, never prerequisites for tiles.
+        void readyGoogle.maps.importLibrary("geocoding").then((library) => {
+          if (active) geocoder.current = new (library as google.maps.GeocodingLibrary).Geocoder();
+        }).catch(() => reportMapsFailure("geocoder_construction_failed"));
         try {
           marker.current = new markerLibrary.AdvancedMarkerElement({
             map: hasCoordinates ? map.current : null,
@@ -166,7 +196,14 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
           });
         });
 
-        places.current = placesLibrary;
+        void importLibrary<google.maps.PlacesLibrary>("places", "places_library_failed").then((library) => {
+          if (active) places.current = library;
+        }).catch(() => { if (active) setSearchState("failed"); });
+        // A constructed Map is not proof that Google authorized and rendered its tiles.
+        renderTimeout = setTimeout(() => {
+          if (active) { cleanupComponentObjects(); setMapState("failed"); }
+        }, 20_000);
+        tilesListener = map.current.addListener("tilesloaded", () => clearTimeout(renderTimeout));
         if (active) setMapState("ready");
       } catch {
         cleanupComponentObjects();
@@ -176,20 +213,23 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
     }
 
     void initialize();
-    return () => { active = false; cleanupComponentObjects(); };
+    return () => {
+      active = false;
+      if (mapsWindow.gm_authFailure === authFailure) mapsWindow.gm_authFailure = previousAuthFailure;
+      cleanupComponentObjects();
+    };
   }, []);
 
   useEffect(() => {
     const value = searchText.trim();
-    if (mapState !== "ready" || !places.current || value.length < 2) {
-      setSuggestions([]);
-      setSearchState("idle");
+    if (!searchActive || mapState !== "ready" || value.length < 2) {
       return;
     }
     const requestId = ++searchRequest.current;
+    const requests = searchRequest;
     const timer = window.setTimeout(async () => {
       const library = places.current;
-      if (!library) return;
+      if (!library) { setSearchState("failed"); return; }
       setSearchState("loading");
       try {
         autocompleteSession.current ??= new library.AutocompleteSessionToken();
@@ -213,14 +253,18 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
         setSearchState("failed");
       }
     }, 250);
-    return () => window.clearTimeout(timer);
-  }, [mapState, searchText]);
+    return () => { window.clearTimeout(timer); requests.current++; };
+  }, [mapState, searchText, searchActive]);
 
   async function selectPlace(prediction: google.maps.places.PlacePrediction) {
+    closeSuggestions();
+    setSearchText(prediction.text.text);
+    const requestId = ++selectionRequest.current;
     setSearchState("loading");
     try {
       const place = prediction.toPlace();
       await place.fetchFields({ fields: ["formattedAddress", "location"] });
+      if (requestId !== selectionRequest.current) return;
       if (!place.location) throw new Error("Place has no location");
       const address = place.formattedAddress ?? prediction.text.text;
       setSearchText(address);
@@ -232,6 +276,7 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
       );
       setSearchState("idle");
     } catch (error) {
+      if (requestId !== selectionRequest.current) return;
       console.error("[Trifecta Maps] place selection failed", error);
       setSearchState("failed");
     }
@@ -275,7 +320,26 @@ export function LocationPicker({ location, errors, onFieldChange, onCoordinatesC
     <div className="location-divider"><span>{t("location.or")}</span></div>
 
     {mapState !== "failed" ? <>
-      <label className={mapState === "ready" ? "places-search" : "places-search pending"} htmlFor="places-search-input"><span id="places-label">{t("location.searchLabel")}</span><input id="places-search-input" type="search" role="combobox" aria-autocomplete="list" autoComplete="off" placeholder={t("location.searchPlaceholder")} value={searchText} aria-controls="places-suggestions" aria-expanded={suggestions.length > 0} aria-describedby={searchState === "failed" ? "places-search-error" : undefined} onChange={(event) => setSearchText(event.target.value)} />{searchState === "loading" && <small className="field-hint" role="status">{t("location.searching")}</small>}{searchState === "failed" && <small className="field-error" id="places-search-error" role="alert">{t("location.searchFailed")}</small>}{suggestions.length > 0 && <ul className="places-suggestions" id="places-suggestions" role="listbox">{suggestions.map((prediction) => <li key={prediction.placeId} role="option" aria-selected="false"><button type="button" onClick={() => void selectPlace(prediction)}><strong>{prediction.mainText?.text ?? prediction.text.text}</strong>{prediction.secondaryText?.text && <span>{prediction.secondaryText.text}</span>}</button></li>)}</ul>}</label>
+      <div ref={searchElement} className={mapState === "ready" ? "places-search" : "places-search pending"}
+        onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); closeSuggestions(); } }}
+        onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) closeSuggestions(); }}>
+        <label htmlFor="places-search-input" id="places-label">{t("location.searchLabel")}</label>
+        <input id="places-search-input" type="search" role="combobox" aria-autocomplete="list" autoComplete="off"
+          placeholder={t("location.searchPlaceholder")} value={searchText} aria-controls="places-suggestions"
+          aria-expanded={suggestions.length > 0} aria-describedby={searchState === "failed" ? "places-search-error" : undefined}
+          onKeyDown={(event) => { if (event.key === "ArrowDown" && suggestions.length) { event.preventDefault(); searchElement.current?.querySelector<HTMLButtonElement>(".places-suggestions button")?.focus(); } }}
+          onChange={(event) => {
+            searchRequest.current++; selectionRequest.current++;
+            setSuggestions([]); setSearchState("idle"); setSearchText(event.target.value); setSearchActive(!!event.target.value.trim());
+          }} />
+        {searchState === "loading" && <small className="field-hint" role="status">{t("location.searching")}</small>}
+        {searchState === "failed" && <small className="field-error" id="places-search-error" role="alert">{t("location.searchFailed")}</small>}
+        {suggestions.length > 0 && <ul className="places-suggestions" id="places-suggestions" role="listbox">
+          {suggestions.map((prediction) => <li key={prediction.placeId} role="option" aria-selected="false">
+            <button type="button" onPointerDown={(event) => event.preventDefault()} onClick={() => void selectPlace(prediction)}><strong>{prediction.mainText?.text ?? prediction.text.text}</strong>{prediction.secondaryText?.text && <span>{prediction.secondaryText.text}</span>}</button>
+          </li>)}
+        </ul>}
+      </div>
       <div className={hasCoordinates ? "map-preview visible" : "map-preview"} aria-busy={mapIsPending}><div ref={mapElement} className="map-canvas" aria-label={t("location.mapLabel")} />{mapIsPending && <div className="map-loading" role="status"><span className="spinner dark" /> {t("location.loadingMap")}</div>}</div>
     </> : <div className="inline-notice map-fallback" role="status"><strong>{t("location.mapUnavailable")}</strong><span>{t("location.mapFallback")}</span></div>}
 

@@ -1,0 +1,318 @@
+{
+  "mode": "corrected local production build, browser-local routing under real frontend origin; staging data; live Google APIs; no deployment",
+  "results": [
+    {
+      "test": "Google map initializes with nonzero dimensions",
+      "pass": true,
+      "box": {
+        "x": 34,
+        "y": 1189,
+        "width": 322,
+        "height": 218
+      }
+    },
+    {
+      "test": "English Abu Dhabi selection populates address, closes suggestions and updates marker",
+      "pass": true,
+      "english": [
+        "Yas IslandAbu Dhabi",
+        "Ferrari World Yas Island, Abu DhabiAbu Dhabi",
+        "Abu Dhabi Islamic Bank - Yas MallYas Island - Abu Dhabi",
+        "Warner Bros. World™ Yas Island, Abu DhabiAbu Dhabi",
+        "The St. Regis Saadiyat Island Resort, Abu DhabiAbu Dhabi"
+      ],
+      "position": {
+        "lat": 24.495838499999998,
+        "lng": 54.6040121
+      }
+    },
+    {
+      "test": "location picker fits 320px",
+      "pass": true,
+      "boxes": [
+        {
+          "x": 33,
+          "width": 254
+        },
+        {
+          "x": 33,
+          "width": 254
+        }
+      ]
+    },
+    {
+      "test": "location picker fits 390px",
+      "pass": true,
+      "boxes": [
+        {
+          "x": 33,
+          "width": 324
+        },
+        {
+          "x": 33,
+          "width": 324
+        }
+      ]
+    },
+    {
+      "test": "location picker fits 1280px",
+      "pass": true,
+      "boxes": [
+        {
+          "x": 469,
+          "width": 630
+        },
+        {
+          "x": 469,
+          "width": 630
+        }
+      ]
+    },
+    {
+      "test": "Escape closes suggestions without clearing address",
+      "pass": true
+    },
+    {
+      "test": "outside click closes suggestions without clearing address",
+      "pass": true
+    },
+    {
+      "test": "clear closes suggestions",
+      "pass": true
+    },
+    {
+      "test": "Arabic Abu Dhabi search/selection and marker movement in RTL",
+      "pass": true,
+      "arabic": [
+        "جزيرة الريمأبوظبي - Abu Dhabi",
+        "سنو أبوظبيStreet - جزيرة الريم - Abu Dhabi"
+      ],
+      "position": {
+        "lat": 24.4942437,
+        "lng": 54.4068603
+      }
+    },
+    {
+      "test": "no browser JavaScript, CSP or Google Maps API errors; no failed network responses",
+      "pass": true
+    },
+    {
+      "test": "written-only address advances to scheduling when Google is unavailable",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "failed": [
+    {
+      "origin": "https://maps.gstatic.com",
+      "path": "/mapfiles/transparent.png",
+      "error": "net::ERR_ABORTED"
+    }
+  ],
+  "responses": [
+    {
+      "path": "/maps/api/js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/main.js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/marker.js",
+      "status": 200
+    },
+    {
+      "path": "/maps/api/mapsjs/gen_204",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/map.js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/common.js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/util.js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/geocoder.js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/places_impl.js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/controls.js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/places.js",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/log.js",
+      "status": 200
+    },
+    {
+      "path": "/maps/api/js/StaticMapService.GetMapImage",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.internal.maps.mapsjs.v1.MapsJsInternalService/GetViewportInfo",
+      "status": 200
+    },
+    {
+      "path": "/maps/api/mapsjs/mapConfigs:batchGet",
+      "status": 200
+    },
+    {
+      "path": "/mapfiles/openhand_8_8.cur",
+      "status": 200
+    },
+    {
+      "path": "/mapfiles/api-3/images/drag-cross.png",
+      "status": 200
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/onion.js",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/css",
+      "status": 200
+    },
+    {
+      "path": "/css",
+      "status": 200
+    },
+    {
+      "path": "/s/roboto/v51/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBA.woff2",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.maps.places.v1.Places/AutocompletePlaces",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.maps.places.v1.Places/GetPlace",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.internal.maps.mapsjs.v1.MapsJsInternalService/GetViewportInfo",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.maps.places.v1.Places/AutocompletePlaces",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.maps.places.v1.Places/AutocompletePlaces",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.maps.places.v1.Places/AutocompletePlaces",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.maps.places.v1.Places/AutocompletePlaces",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.maps.places.v1.Places/GetPlace",
+      "status": 200
+    },
+    {
+      "path": "/$rpc/google.internal.maps.mapsjs.v1.MapsJsInternalService/GetViewportInfo",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    },
+    {
+      "path": "/maps/vt",
+      "status": 200
+    }
+  ]
+}

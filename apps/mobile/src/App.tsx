@@ -82,7 +82,7 @@ function AuthenticatedApp() {
   }, [session?.user.id, session?.access_token, revision]);
   const verifiedContext =
     session && contextUserId === session.user.id ? context : null;
-  if (session && mfaRequired) return <PrivilegedMfa onVerified={() => { setMfaRequired(false); setRevision(v => v + 1); }} />;
+  if (session && mfaRequired) return <PrivilegedMfa key={session.user.id} userId={session.user.id} onVerified={() => { setMfaRequired(false); setRevision(v => v + 1); }} />;
   if (session === undefined || (session && !verifiedContext && !error))
     return (
       <SafeAreaView style={styles.center}>

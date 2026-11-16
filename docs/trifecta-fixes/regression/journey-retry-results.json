@@ -1,0 +1,12 @@
+[
+  {
+    "role": "admin",
+    "name": "Phone, tablet, desktop and landscape fit",
+    "pass": true
+  },
+  {
+    "role": "admin",
+    "name": "Keyboard activates disclosure and exposes expanded state",
+    "pass": true
+  }
+]

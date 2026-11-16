@@ -1,0 +1,107 @@
+{
+  "url": "https://www.trifecta-wash.com/book",
+  "headers": {
+    "referrer": "no-referrer",
+    "csp": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com; connect-src 'self' https://abdwash.vercel.app https://cbejmfjycvzdpqbfiskc.supabase.co https://*.googleapis.com https://*.gstatic.com"
+  },
+  "console": [
+    "Creating a worker from 'blob:https://www.trifecta-wash.com/eff37d10-4a72-40f8-a6d2-a46235f0b393' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com\". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+    "Creating a worker from 'blob:https://www.trifecta-wash.com/b1cd84a6-cb77-4d45-b5f8-90a69c95deb5' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com\". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+    "Creating a worker from 'blob:https://www.trifecta-wash.com/42f94d98-88f2-464c-bbc4-3b98d3fe154f' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com\". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+    "Creating a worker from 'blob:https://www.trifecta-wash.com/78c9f7d8-aa69-4f9d-8150-bfc914486830' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com\". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
+    "Creating a worker from 'blob:https://www.trifecta-wash.com/b1cd84a6-cb77-4d45-b5f8-90a69c95deb5' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com\". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked."
+  ],
+  "requests": [
+    {
+      "path": "/maps/api/js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/main.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps/api/mapsjs/gen_204",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/common.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/map.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/util.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/marker.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/controls.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/places_impl.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/places.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/geocoder.js",
+      "referrer": null
+    },
+    {
+      "path": "/mapfiles/api-3/images/drag-cross.png",
+      "referrer": null
+    },
+    {
+      "path": "/maps/api/js/StaticMapService.GetMapImage",
+      "referrer": null
+    },
+    {
+      "path": "/mapfiles/openhand_8_8.cur",
+      "referrer": "https://www.trifecta-wash.com/"
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/log.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps/api/mapsjs/mapConfigs:batchGet",
+      "referrer": null
+    },
+    {
+      "path": "/$rpc/google.internal.maps.mapsjs.v1.MapsJsInternalService/GetViewportInfo",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/webgl.js",
+      "referrer": null
+    },
+    {
+      "path": "/maps-api-v3/api/js/66/13d/onion.js",
+      "referrer": null
+    }
+  ],
+  "failed": [],
+  "dimensions": {
+    "x": 34,
+    "y": 528,
+    "width": 322,
+    "height": 218
+  },
+  "suggestions": [
+    "Yas IslandAbu Dhabi",
+    "Ferrari World Yas Island, Abu DhabiAbu Dhabi",
+    "Abu Dhabi Islamic Bank - Yas MallYas Island - Abu Dhabi",
+    "Warner Bros. Worldâ„¢ Yas Island, Abu DhabiAbu Dhabi",
+    "The St. Regis Saadiyat Island Resort, Abu DhabiAbu Dhabi"
+  ],
+  "picker": "âŒ–\nUse my current location\nOR\nSearch for an address or place\nAddress\nLocation notes\nRequired\nHave a Google Maps link instead?"
+}
