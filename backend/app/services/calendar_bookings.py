@@ -15,7 +15,11 @@ from app.models.entities import (
     TeamMembership,
 )
 from app.repositories.business import BusinessConfiguration
-from app.schemas.calendar_bookings import StaffBookingCreate, StaffBookingReceipt
+from app.schemas.calendar_bookings import (
+    CalendarDoubleBookingCreate,
+    StaffBookingCreate,
+    StaffBookingReceipt,
+)
 from app.schemas.public import HoldCreate
 from app.services.bookings import create_booking
 from app.services.policy_acceptance import POLICY_VERSIONS, require_current_revision
@@ -43,6 +47,12 @@ async def book_from_calendar(
     configuration: BusinessConfiguration,
     request: StaffBookingCreate,
 ) -> StaffBookingReceipt:
+    if request.overlap and not isinstance(request, CalendarDoubleBookingCreate):
+        raise DomainError(
+            "CALENDAR_ACTION_REQUIRED",
+            "Use the selected calendar appointment to double-book.",
+            status_code=403,
+        )
     require_current_revision(request.policy_revision)
     team_scope = await calendar_booking_team_scope(session, context, lock=True)
     if team_scope == set():
@@ -67,7 +77,7 @@ async def book_from_calendar(
                 Job.business_id == context.business_id,
                 Booking.business_id == context.business_id,
                 Job.assigned_resource_id == overlap_team,
-                Job.status.in_(["assigned", "en_route", "arrived", "in_progress"]),
+                Job.status == "assigned",
                 Booking.status == "confirmed",
             )
             .with_for_update()

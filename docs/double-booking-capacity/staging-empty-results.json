@@ -1,0 +1,20 @@
+[
+  {
+    "role": "employee",
+    "no_times_message": true,
+    "no_time_buttons": true,
+    "vehicle_change_recalculates": true
+  },
+  {
+    "role": "manager",
+    "no_times_message": true,
+    "no_time_buttons": true,
+    "vehicle_change_recalculates": true
+  },
+  {
+    "role": "admin",
+    "no_times_message": true,
+    "no_time_buttons": true,
+    "vehicle_change_recalculates": true
+  }
+]

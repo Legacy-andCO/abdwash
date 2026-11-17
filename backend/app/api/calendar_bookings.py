@@ -6,8 +6,11 @@ from fastapi import APIRouter, Depends, Header, Query
 
 from app.auth.dependencies import SessionDep, StaffContext, staff_context
 from app.core.config import get_settings
+from app.domain.errors import DomainError
 from app.repositories.business import load_staff_business
 from app.schemas.calendar_bookings import (
+    CalendarDoubleBookingCreate,
+    NormalStaffBookingCreate,
     StaffBookingCatalogue,
     StaffBookingCreate,
     StaffBookingReceipt,
@@ -45,24 +48,55 @@ async def availability(
     context: Staff,
     day: Annotated[date, Query(alias="date")],
     service_ids: Annotated[list[uuid.UUID], Query(alias="service_id", min_length=1, max_length=20)],
+    addon_ids: Annotated[list[uuid.UUID] | None, Query(alias="addon_id", max_length=200)] = None,
 ) -> AvailabilityResponse:
     configuration = await load_staff_business(session, context.business_id)
-    return await availability_for_date(
+    result = await availability_for_date(
         session,
         day=day,
         vehicle_count=len(service_ids),
         service_ids=service_ids,
+        addon_ids=addon_ids,
         configuration=configuration,
         allowed_team_ids=await calendar_booking_team_scope(session, context),
     )
+    result.slots = [slot for slot in result.slots if slot.available]
+    return result
 
 
 @router.post("", response_model=StaffBookingReceipt, status_code=201)
 async def create(
-    payload: StaffBookingCreate,
+    payload: NormalStaffBookingCreate,
     session: SessionDep,
     context: Staff,
     idempotency_key: Annotated[uuid.UUID, Header(alias="Idempotency-Key")],
+) -> StaffBookingReceipt:
+    return await _create(payload, session, context, idempotency_key, "staff_calendar_booking")
+
+
+@router.post("/{job_id}/double-book", response_model=StaffBookingReceipt, status_code=201)
+async def double_book(
+    job_id: uuid.UUID,
+    payload: CalendarDoubleBookingCreate,
+    session: SessionDep,
+    context: Staff,
+    idempotency_key: Annotated[uuid.UUID, Header(alias="Idempotency-Key")],
+) -> StaffBookingReceipt:
+    if payload.overlap.job_id != job_id:
+        raise DomainError(
+            "APPOINTMENT_NOT_FOUND", "The selected appointment is unavailable.", status_code=404
+        )
+    return await _create(
+        payload, session, context, idempotency_key, "staff_calendar_double_booking"
+    )
+
+
+async def _create(
+    payload: StaffBookingCreate,
+    session: SessionDep,
+    context: Staff,
+    idempotency_key: uuid.UUID,
+    operation: str,
 ) -> StaffBookingReceipt:
     scope = f"{context.business_id}:{context.staff_id}"
     key = str(idempotency_key)
@@ -71,7 +105,7 @@ async def create(
         existing = await find_idempotent_response(
             session,
             scope=scope,
-            operation="staff_calendar_booking",
+            operation=operation,
             key=key,
             request_hash=request_hash,
         )
@@ -85,7 +119,7 @@ async def create(
         store_idempotent_response(
             session,
             scope=scope,
-            operation="staff_calendar_booking",
+            operation=operation,
             key=key,
             request_hash=request_hash,
             response_status=201,

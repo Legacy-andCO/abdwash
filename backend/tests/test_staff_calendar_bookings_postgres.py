@@ -225,7 +225,9 @@ def payload(foundation, day, *, time_value="09:00", service=0, email=None, overl
 
 
 async def submit(foundation, body, actor="employee", key=None):
-    return await foundation.client.post(BOOK, json=body, headers=headers(actor, key))
+    overlap = body.get("overlap")
+    endpoint = f"{BOOK}/{overlap.get('job_id', uuid.uuid4())}/double-book" if overlap else BOOK
+    return await foundation.client.post(endpoint, json=body, headers=headers(actor, key))
 
 
 async def created(foundation, body, actor="employee"):
@@ -757,3 +759,99 @@ async def test_reports_keep_revenue_and_job_counts_accurate_and_reject_mixed_cur
     response = await foundation.client.get(endpoint, headers=headers("manager"))
     assert response.status_code == 422
     assert response.json()["code"] == "REPORT_MIXED_CURRENCY"
+
+
+@pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+async def test_capacity_boundary_for_every_role(foundation, actor):
+    day = {"employee": "2037-01-10", "manager": "2037-01-11", "admin": "2037-01-12"}[actor]
+    body = payload(foundation, day)
+    original = await created(foundation, body)
+    # A second eligible team keeps the time available to management only.
+    url = f"{BOOK}/availability?date={day}&service_id={foundation.services[0].id}"
+    availability = await foundation.client.get(url, headers=headers(actor))
+    assert availability.status_code == 200
+    assert ("09:00:00" in [s["time"] for s in availability.json()["slots"]]) == (
+        actor != "employee"
+    )
+    await created(foundation, body, actor="other")
+    unavailable = await foundation.client.get(url, headers=headers(actor))
+    assert all(s["available"] for s in unavailable.json()["slots"])
+    assert "09:00:00" not in [s["time"] for s in unavailable.json()["slots"]]
+    rejected = await foundation.client.post(BOOK, json=body, headers=headers(actor))
+    assert rejected.status_code == 409 and rejected.json()["code"] == "NO_TEAM_CAPACITY"
+    explicit = {
+        **body,
+        "overlap": {
+            "job_id": original["job_id"],
+            "team_id": str(foundation.team_a),
+            "expected_version": 1,
+            "confirmed": True,
+        },
+    }
+    # This is the previous shared-endpoint bypass: even a valid exception is forbidden here.
+    assert (
+        await foundation.client.post(BOOK, json=explicit, headers=headers(actor))
+    ).status_code == 422
+    assert (
+        await foundation.client.post(
+            f"{BOOK}/{uuid.uuid4()}/double-book", json=explicit, headers=headers(actor)
+        )
+    ).status_code == 404
+    extra = await created(foundation, explicit, actor=actor)
+    assert extra["capacity_exception"] and extra["id"] != original["id"]
+    async with foundation.sessions() as session:
+        for receipt in (original, extra):
+            record = await session.get(Booking, uuid.UUID(receipt["id"]))
+            assert record.status == BookingStatus.CONFIRMED
+            assert record.version == 1
+    assert (
+        await foundation.client.post(BOOK, json=body, headers=headers(actor))
+    ).status_code == 409
+
+
+@pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+async def test_full_duration_multivehicle_and_concurrency(foundation, actor):
+    day = {"employee": "2037-02-10", "manager": "2037-02-11", "admin": "2037-02-12"}[actor]
+    # Occupy B, leaving precisely one eligible team for each role.
+    await created(foundation, payload(foundation, day, service=1), actor="other")
+    multi = payload(foundation, day)
+    multi["vehicles"] *= 2
+    multi["expected_amount_minor"] *= 2
+    results = await asyncio.gather(*(submit(foundation, multi, actor) for _ in range(2)))
+    assert sorted(r.status_code for r in results) == [201, 409]
+    assert (
+        await submit(foundation, payload(foundation, day, time_value="11:00"), actor)
+    ).status_code == 409
+    query = [("date", day), ("service_id", str(foundation.services[0].id))]
+    available = await foundation.client.get(
+        f"{BOOK}/availability", params=query, headers=headers(actor)
+    )
+    assert "11:00:00" not in [s["time"] for s in available.json()["slots"]]
+    # A 4h selection cannot start at 19:00 when closing is 21:00.
+    query.append(("service_id", str(foundation.services[0].id)))
+    available = await foundation.client.get(
+        f"{BOOK}/availability", params=query, headers=headers(actor)
+    )
+    assert "19:00:00" not in [s["time"] for s in available.json()["slots"]]
+    assert (await submit(foundation, {**multi, "time": "19:00"}, actor)).json()[
+        "code"
+    ] == "OUTSIDE_OPERATING_HOURS"
+
+
+@pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+async def test_normal_endpoint_rejects_valid_calendar_exception(foundation, actor):
+    day = {"employee": "2037-04-10", "manager": "2037-04-11", "admin": "2037-04-12"}[actor]
+    original = await created(foundation, payload(foundation, day))
+    await created(foundation, payload(foundation, day), actor="other")
+    body = payload(
+        foundation,
+        day,
+        overlap={
+            "job_id": original["job_id"],
+            "team_id": str(foundation.team_a),
+            "expected_version": 1,
+            "confirmed": True,
+        },
+    )
+    response = await foundation.client.post(BOOK, json=body, headers=headers(actor))
+    assert response.status_code == 422, response.text

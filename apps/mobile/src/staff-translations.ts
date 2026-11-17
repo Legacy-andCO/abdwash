@@ -1,5 +1,7 @@
 /** Staff catalogue; interpolation and language preferences share the existing Trifecta i18n engine. */
 export const staffArabic: Record<string, string> = {
+  "No available times for this date": "لا توجد أوقات متاحة لهذا التاريخ",
+  "This time is no longer available. Please choose another available time.": "هذا الوقت لم يعد متاحًا. يرجى اختيار وقت آخر متاح.",
   " · optional": "· اختياري",
   " · {p0}": "· {p0}",
   " · {p0} min late": "· تأخير {p0} دقيقة",

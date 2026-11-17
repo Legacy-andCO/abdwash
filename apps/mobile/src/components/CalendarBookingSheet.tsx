@@ -123,13 +123,16 @@ export function CalendarBookingSheet({
   const services = (catalogue.data?.services ?? []).filter((service) => service.customer_bookable);
   const serviceIds = vehicles.map((vehicle) => vehicle.service_id);
   const availability = useQuery({
-    queryKey: ["calendar-booking-availability", scope, day, serviceIds],
+    queryKey: ["calendar-booking-availability", scope, day, serviceIds, vehicles.map((vehicle) => vehicle.vehicle_type)],
     queryFn: ({ signal }) => {
       const query = new URLSearchParams({ date: day });
       serviceIds.forEach((id) => query.append("service_id", id));
       return api<Availability>(`${path}/availability?${query}`, { signal });
     },
     enabled: !overlap && serviceIds.every(Boolean),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 15_000,
   });
   const prices = vehicles.map((vehicle) =>
     services.find((service) => service.id === vehicle.service_id)
@@ -141,7 +144,7 @@ export function CalendarBookingSheet({
 
   function updateVehicle(index: number, fields: Partial<VehicleInput>) {
     setVehicles((items) => items.map((item, i) => i === index ? { ...item, ...fields } : item));
-    if ("service_id" in fields && !overlap) setStart("");
+    if (("service_id" in fields || "vehicle_type" in fields) && !overlap) setStart("");
   }
 
   function prepareReview() {
@@ -197,7 +200,7 @@ export function CalendarBookingSheet({
     setBusy(true);
     setError("");
     try {
-      const result = await api<BookingReceipt>(path, {
+      const result = await api<BookingReceipt>(overlap ? `${path}/${overlap.job_id}/double-book` : path, {
         method: "POST",
         headers: { "Idempotency-Key": attempt.current.key },
         body: attempt.current.body,
@@ -216,7 +219,7 @@ export function CalendarBookingSheet({
       if (!uncertainResult) {
         attempt.current = null;
         setReview(false);
-        if (!overlap) void availability.refetch();
+        if (!overlap) { setStart(""); void availability.refetch(); }
         void catalogue.refetch();
       }
       setConfirmOverlap(false);
@@ -325,7 +328,7 @@ export function CalendarBookingSheet({
                   {availability.isFetching && <Text style={uiStyles.muted}>{t("Checking team capacity…")}</Text>}
                   {availability.isError && <AppButton title={t("Retry checking times")} tone="secondary" onPress={() => void availability.refetch()} />}
                   {availability.data && !availability.data.slots.some((slot) => slot.available) && (
-                    <Text style={uiStyles.muted}>{t("No capacity for this selection. Choose another date or open an occupied appointment in the agenda to intentionally double-book the team.")}</Text>
+                    <Text style={uiStyles.muted}>{t("No available times for this date")}</Text>
                   )}
                   <View style={styles.choices}>
                     {availability.data?.slots.filter((slot) => slot.available).map((slot) => (

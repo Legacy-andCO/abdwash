@@ -1,0 +1,17 @@
+
+> @trifecta/mobile@0.1.0 test
+> vitest run --reporter=dot
+
+
+ RUN  v4.1.12 C:/Users/Lenovo/Desktop/abdwash/apps/mobile
+
+stderr | src/web-adapters.test.js > browser adapters > persists a Supabase password session, restores it, refreshes it and removes it on logout
+GoTrueClient@staff-browser-test:1 (2.112.4) 2026-11-17T07:23:55.703Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+··································································································································································································
+
+ Test Files  44 passed (44)
+      Tests  194 passed (194)
+   Start at  10:23:50
+   Duration  6.04s (transform 5.87s, setup 0ms, import 14.15s, tests 2.01s, environment 8.77s)
+

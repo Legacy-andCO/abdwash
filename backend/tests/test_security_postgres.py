@@ -274,7 +274,10 @@ async def test_all_protected_endpoints_reject_anonymous(boundary):
                 "result": "PASS" if response.status_code == 401 else "FAIL",
             }
         )
-    out = Path(__file__).parents[2] / "docs/security-audit/follow-up/local-endpoint-anonymous-results.json"
+    out = (
+        Path(__file__).parents[2]
+        / "docs/security-audit/follow-up/local-endpoint-anonymous-results.json"
+    )
     out.write_text(json.dumps(results, indent=2))
     assert results and all(r["result"] == "PASS" for r in results), [
         r for r in results if r["result"] != "PASS"
@@ -329,9 +332,9 @@ async def test_every_business_table_denies_client_roles_and_runtime_cannot_trunc
         assert await db.scalar(text("SELECT count(*) FROM public.customer_profiles")) == 2
         with pytest.raises(DBAPIError):
             await db.execute(text("TRUNCATE public.customer_profiles CASCADE"))
-    (Path(__file__).parents[2] / "docs/security-audit/follow-up/local-role-results.json").write_text(
-        json.dumps(outcomes, indent=2)
-    )
+    (
+        Path(__file__).parents[2] / "docs/security-audit/follow-up/local-role-results.json"
+    ).write_text(json.dumps(outcomes, indent=2))
 
 
 async def test_customer_ownership_and_metadata_cannot_grant_staff_access(boundary):
@@ -439,12 +442,15 @@ async def test_old_employee_session_cannot_change_its_password(boundary, monkeyp
             calls.append(user_id)
 
     monkeypatch.setattr("app.api.staff._admin", lambda request: SyntheticAuthAdmin())
-    claims = jwt.decode(f.tokens["employee"], SECRET, algorithms=["HS256"], options={"verify_aud": False})
+    claims = jwt.decode(
+        f.tokens["employee"], SECRET, algorithms=["HS256"], options={"verify_aud": False}
+    )
     claims["aal"] = "aal1"
     claims["amr"] = [{"method": "password", "timestamp": datetime.now(UTC).timestamp() - 600}]
     token = jwt.encode(claims, SECRET, algorithm="HS256")
     response = await f.client.patch(
-        "/api/v1/staff/profile", headers={"Authorization": f"Bearer {token}"},
+        "/api/v1/staff/profile",
+        headers={"Authorization": f"Bearer {token}"},
         json={"password": "Synthetic-Replacement-123!"},
     )
     assert response.status_code == 403, response.text
@@ -453,7 +459,8 @@ async def test_old_employee_session_cannot_change_its_password(boundary, monkeyp
     claims["amr"] = [{"method": "password", "timestamp": datetime.now(UTC).timestamp()}]
     recent = jwt.encode(claims, SECRET, algorithm="HS256")
     legitimate = await f.client.patch(
-        "/api/v1/staff/profile", headers={"Authorization": f"Bearer {recent}"},
+        "/api/v1/staff/profile",
+        headers={"Authorization": f"Bearer {recent}"},
         json={"password": "Synthetic-Replacement-123!"},
     )
     assert legitimate.status_code == 200, legitimate.text
@@ -488,13 +495,15 @@ async def test_staff_overlap_is_scoped_idempotent_and_does_not_displace_original
     overlap["overlap"].update(
         {"job_id": receipt["job_id"], "expected_version": original["version"]}
     )
-    second = await f.client.post(
-        "/api/v1/staff/calendar-bookings", headers=headers(f, "employee", key), json=overlap
-    )
+    endpoint = f"/api/v1/staff/calendar-bookings/{receipt['job_id']}/double-book"
+    assert (
+        await f.client.post(
+            "/api/v1/staff/calendar-bookings", headers=headers(f, "employee"), json=overlap
+        )
+    ).status_code == 422
+    second = await f.client.post(endpoint, headers=headers(f, "employee", key), json=overlap)
     assert second.status_code == 201, second.text
-    retry = await f.client.post(
-        "/api/v1/staff/calendar-bookings", headers=headers(f, "employee", key), json=overlap
-    )
+    retry = await f.client.post(endpoint, headers=headers(f, "employee", key), json=overlap)
     assert retry.json() == second.json()
     unchanged = (
         await f.client.get(
@@ -502,15 +511,9 @@ async def test_staff_overlap_is_scoped_idempotent_and_does_not_displace_original
         )
     ).json()
     assert unchanged == original
+    assert (await f.client.post(endpoint, headers=headers(f, "a"), json=overlap)).status_code == 403
     assert (
-        await f.client.post(
-            "/api/v1/staff/calendar-bookings", headers=headers(f, "a"), json=overlap
-        )
-    ).status_code == 403
-    assert (
-        await f.client.post(
-            "/api/v1/staff/calendar-bookings", headers=headers(f, "other_employee"), json=overlap
-        )
+        await f.client.post(endpoint, headers=headers(f, "other_employee"), json=overlap)
     ).status_code == 404
 
 

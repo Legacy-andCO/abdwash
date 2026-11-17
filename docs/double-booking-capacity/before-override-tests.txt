@@ -1,0 +1,101 @@
+C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\pytest_asyncio\plugin.py:299: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_______ test_normal_endpoint_rejects_valid_calendar_exception[employee] _______
+
+foundation = namespace(client=<httpx.AsyncClient object at 0x000001A6A2A01010>, sessions=async_sessionmaker(class_='AsyncSession', ...app.models.entities.Service object at 0x000001A6A2A00D70>, <app.models.entities.Service object at 0x000001A6A3DF1310>])
+actor = 'employee'
+
+    @pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+    async def test_normal_endpoint_rejects_valid_calendar_exception(foundation, actor):
+        day = {"employee": "2037-04-10", "manager": "2037-04-11", "admin": "2037-04-12"}[actor]
+        original = await created(foundation, payload(foundation, day))
+        await created(foundation, payload(foundation, day), actor="other")
+        body = payload(
+            foundation,
+            day,
+            overlap={
+                "job_id": original["job_id"],
+                "team_id": str(foundation.team_a),
+                "expected_version": 1,
+                "confirmed": True,
+            },
+        )
+        response = await foundation.client.post(BOOK, json=body, headers=headers(actor))
+>       assert response.status_code == 422, response.text
+E       AssertionError: {"id":"d925afa8-358a-4a86-9bec-3b1d825f3c68","job_id":"036ced5c-a080-4af7-8f86-aaeedb0b19dd","reference":"AW-B880CB4843","scheduled_start":"2037-04-10T05:00:00Z","scheduled_end":"2037-04-10T07:00:00Z","total_amount_minor":5000,"capacity_exception":true}
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tmp\capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py:857: AssertionError
+_______ test_normal_endpoint_rejects_valid_calendar_exception[manager] ________
+
+foundation = namespace(client=<httpx.AsyncClient object at 0x000001A6A2A01010>, sessions=async_sessionmaker(class_='AsyncSession', ...app.models.entities.Service object at 0x000001A6A2A00D70>, <app.models.entities.Service object at 0x000001A6A3DF1310>])
+actor = 'manager'
+
+    @pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+    async def test_normal_endpoint_rejects_valid_calendar_exception(foundation, actor):
+        day = {"employee": "2037-04-10", "manager": "2037-04-11", "admin": "2037-04-12"}[actor]
+        original = await created(foundation, payload(foundation, day))
+        await created(foundation, payload(foundation, day), actor="other")
+        body = payload(
+            foundation,
+            day,
+            overlap={
+                "job_id": original["job_id"],
+                "team_id": str(foundation.team_a),
+                "expected_version": 1,
+                "confirmed": True,
+            },
+        )
+        response = await foundation.client.post(BOOK, json=body, headers=headers(actor))
+>       assert response.status_code == 422, response.text
+E       AssertionError: {"id":"c77db034-bdac-4558-b606-a52a37684e48","job_id":"1e04d308-77e0-470a-98db-e0c675dc42e1","reference":"AW-B6C3D6B03D","scheduled_start":"2037-04-11T05:00:00Z","scheduled_end":"2037-04-11T07:00:00Z","total_amount_minor":5000,"capacity_exception":true}
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tmp\capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py:857: AssertionError
+________ test_normal_endpoint_rejects_valid_calendar_exception[admin] _________
+
+foundation = namespace(client=<httpx.AsyncClient object at 0x000001A6A2A01010>, sessions=async_sessionmaker(class_='AsyncSession', ...app.models.entities.Service object at 0x000001A6A2A00D70>, <app.models.entities.Service object at 0x000001A6A3DF1310>])
+actor = 'admin'
+
+    @pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+    async def test_normal_endpoint_rejects_valid_calendar_exception(foundation, actor):
+        day = {"employee": "2037-04-10", "manager": "2037-04-11", "admin": "2037-04-12"}[actor]
+        original = await created(foundation, payload(foundation, day))
+        await created(foundation, payload(foundation, day), actor="other")
+        body = payload(
+            foundation,
+            day,
+            overlap={
+                "job_id": original["job_id"],
+                "team_id": str(foundation.team_a),
+                "expected_version": 1,
+                "confirmed": True,
+            },
+        )
+        response = await foundation.client.post(BOOK, json=body, headers=headers(actor))
+>       assert response.status_code == 422, response.text
+E       AssertionError: {"id":"0c0804e9-1ca1-4f7c-a46d-0deb3dd20f99","job_id":"189ba5dd-58f5-4db2-afc8-8cca872981d6","reference":"AW-788A034467","scheduled_start":"2037-04-12T05:00:00Z","scheduled_end":"2037-04-12T07:00:00Z","total_amount_minor":5000,"capacity_exception":true}
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tmp\capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py:857: AssertionError
+============================== warnings summary ===============================
+backend\.venv\Lib\site-packages\anyio\pytest_plugin.py:14
+  C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\anyio\pytest_plugin.py:14: PytestRemovedIn10Warning: _pytest.python.CallSpec2 has been renamed to CallSpec.
+  The CallSpec2 alias will be removed in pytest 10.
+  Update imports to use CallSpec instead.
+  See https://docs.pytest.org/en/stable/deprecations.html#callspec2-renamed
+    from _pytest.python import CallSpec2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tmp\capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py::test_normal_endpoint_rejects_valid_calendar_exception[employee]
+FAILED tmp\capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py::test_normal_endpoint_rejects_valid_calendar_exception[manager]
+FAILED tmp\capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py::test_normal_endpoint_rejects_valid_calendar_exception[admin]
+3 failed, 15 deselected, 1 warning in 3.65s

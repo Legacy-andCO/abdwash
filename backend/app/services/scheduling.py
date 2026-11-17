@@ -198,8 +198,11 @@ async def availability_for_date(
             continue
         sequence_fits = index + required <= len(windows)
         operational_end = window.start + timedelta(minutes=expected_minutes)
+        duration_fits = not staff_booking or operational_end <= datetime.combine(
+            day, policy.closing_time, zone
+        )
         available = False
-        if sequence_fits and window.start > now:
+        if sequence_fits and duration_fits and window.start > now:
             needed = windows[index : index + required]
             for team in teams:
                 if all(not occupancy.get((team.id, item.start), False) for item in needed):
@@ -216,7 +219,7 @@ async def availability_for_date(
         reason = None
         if window.start <= now:
             reason = "PAST_SLOT"
-        elif not sequence_fits:
+        elif not sequence_fits or not duration_fits:
             reason = "CONSECUTIVE_SLOT_OUTSIDE_HOURS"
         elif not available:
             reason = "NO_TEAM_CAPACITY"
@@ -292,10 +295,10 @@ async def create_hold(
     )
     operational_end = windows[0].start + timedelta(minutes=expected_minutes)
     if staff_booking and operational_end > datetime.combine(
-        request.date + timedelta(days=1), datetime.min.time(), ZoneInfo(policy.timezone)
+        request.date, policy.closing_time, ZoneInfo(policy.timezone)
     ):
         raise ConflictError(
-            "OUTSIDE_OPERATING_HOURS", "The appointment must finish on the same day."
+            "OUTSIDE_OPERATING_HOURS", "The appointment must finish within business hours."
         )
     await lock_schedule_day(session, business_id=configuration.business.id, day=request.date)
     if staff_booking and windows[0].start <= datetime.now(UTC):

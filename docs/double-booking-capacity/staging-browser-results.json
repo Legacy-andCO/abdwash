@@ -1,0 +1,139 @@
+[
+  {
+    "role": "employee",
+    "day": "2026-11-24",
+    "normal_api": 409,
+    "occupied_time_hidden": true,
+    "explicit_api": 201,
+    "originals": [
+      {
+        "id": "d5f0b5d9-4876-46a9-9731-1b6a7990f3a4",
+        "job_id": "46adb983-003b-4108-8de7-1c23293d0493",
+        "reference": "AW-DF19D3A602",
+        "scheduled_start": "2026-11-24T05:00:00Z",
+        "scheduled_end": "2026-11-24T07:00:00Z",
+        "total_amount_minor": 5000,
+        "capacity_exception": false
+      }
+    ],
+    "extra": {
+      "id": "dde16f69-cd38-426c-a9f3-214032b4707f",
+      "job_id": "b4c1be16-f9a0-46ab-95ce-e0d999a95c19",
+      "reference": "AW-A58B09713F",
+      "scheduled_start": "2026-11-24T05:00:00Z",
+      "scheduled_end": "2026-11-24T07:00:00Z",
+      "total_amount_minor": 5000,
+      "capacity_exception": true
+    },
+    "calendar_jobs": [
+      {
+        "job_id": "46adb983-003b-4108-8de7-1c23293d0493",
+        "status": "assigned"
+      },
+      {
+        "job_id": "b4c1be16-f9a0-46ab-95ce-e0d999a95c19",
+        "status": "assigned"
+      }
+    ]
+  },
+  {
+    "role": "manager",
+    "day": "2026-11-25",
+    "normal_api": 409,
+    "occupied_time_hidden": true,
+    "explicit_api": 201,
+    "originals": [
+      {
+        "id": "5cc7e548-8fea-4420-9a5a-e57b71e6e822",
+        "job_id": "aaffc6a9-43d9-424c-820b-404cd7e4e07e",
+        "reference": "AW-CC6C27F9F3",
+        "scheduled_start": "2026-11-25T05:00:00Z",
+        "scheduled_end": "2026-11-25T07:00:00Z",
+        "total_amount_minor": 5000,
+        "capacity_exception": false
+      },
+      {
+        "id": "8a82bbda-077c-4cea-af29-7aa9c99a0d4e",
+        "job_id": "5706e57b-5a4e-462a-b6c7-d173324a630f",
+        "reference": "AW-2DCA45CE85",
+        "scheduled_start": "2026-11-25T05:00:00Z",
+        "scheduled_end": "2026-11-25T07:00:00Z",
+        "total_amount_minor": 5000,
+        "capacity_exception": false
+      }
+    ],
+    "extra": {
+      "id": "503fd81f-684f-4b1a-85fa-e79314036ac0",
+      "job_id": "4e1e06d9-485f-4e12-8aa2-291d7512d3d4",
+      "reference": "AW-55E9FC86AE",
+      "scheduled_start": "2026-11-25T05:00:00Z",
+      "scheduled_end": "2026-11-25T07:00:00Z",
+      "total_amount_minor": 5000,
+      "capacity_exception": true
+    },
+    "calendar_jobs": [
+      {
+        "job_id": "4e1e06d9-485f-4e12-8aa2-291d7512d3d4",
+        "status": "assigned"
+      },
+      {
+        "job_id": "5706e57b-5a4e-462a-b6c7-d173324a630f",
+        "status": "assigned"
+      },
+      {
+        "job_id": "aaffc6a9-43d9-424c-820b-404cd7e4e07e",
+        "status": "assigned"
+      }
+    ]
+  },
+  {
+    "role": "admin",
+    "day": "2026-11-26",
+    "normal_api": 409,
+    "occupied_time_hidden": true,
+    "explicit_api": 201,
+    "originals": [
+      {
+        "id": "8a234ee8-9f2e-4804-b954-160db7ca6860",
+        "job_id": "0bc1a422-7b47-4d3b-9b73-82b73e9d4fcf",
+        "reference": "AW-22AAA34FE8",
+        "scheduled_start": "2026-11-26T05:00:00Z",
+        "scheduled_end": "2026-11-26T07:00:00Z",
+        "total_amount_minor": 5000,
+        "capacity_exception": false
+      },
+      {
+        "id": "4242fe39-63d7-4369-8cf3-0742cf830f40",
+        "job_id": "cc6e7c1a-ae9e-4b13-aa01-bc73e911ce3e",
+        "reference": "AW-1E58FFB1FC",
+        "scheduled_start": "2026-11-26T05:00:00Z",
+        "scheduled_end": "2026-11-26T07:00:00Z",
+        "total_amount_minor": 5000,
+        "capacity_exception": false
+      }
+    ],
+    "extra": {
+      "id": "f94a25d8-fb6a-4a3d-bc6c-011f1de57a0f",
+      "job_id": "f677ef6a-f2f0-4793-9f33-226d980fdbeb",
+      "reference": "AW-C96C07B93B",
+      "scheduled_start": "2026-11-26T05:00:00Z",
+      "scheduled_end": "2026-11-26T07:00:00Z",
+      "total_amount_minor": 5000,
+      "capacity_exception": true
+    },
+    "calendar_jobs": [
+      {
+        "job_id": "0bc1a422-7b47-4d3b-9b73-82b73e9d4fcf",
+        "status": "assigned"
+      },
+      {
+        "job_id": "cc6e7c1a-ae9e-4b13-aa01-bc73e911ce3e",
+        "status": "assigned"
+      },
+      {
+        "job_id": "f677ef6a-f2f0-4793-9f33-226d980fdbeb",
+        "status": "assigned"
+      }
+    ]
+  }
+]

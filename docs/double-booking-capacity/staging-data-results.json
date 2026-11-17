@@ -1,0 +1,103 @@
+{
+  "records": [
+    {
+      "role": "employee",
+      "booking_id": "d5f0b5d9-4876-46a9-9731-1b6a7990f3a4",
+      "status": "confirmed",
+      "version": 1,
+      "payment": "unpaid",
+      "amount_minor": 5000
+    },
+    {
+      "role": "employee",
+      "booking_id": "dde16f69-cd38-426c-a9f3-214032b4707f",
+      "status": "confirmed",
+      "version": 1,
+      "payment": "unpaid",
+      "amount_minor": 5000
+    },
+    {
+      "role": "manager",
+      "booking_id": "5cc7e548-8fea-4420-9a5a-e57b71e6e822",
+      "status": "confirmed",
+      "version": 1,
+      "payment": "unpaid",
+      "amount_minor": 5000
+    },
+    {
+      "role": "manager",
+      "booking_id": "8a82bbda-077c-4cea-af29-7aa9c99a0d4e",
+      "status": "confirmed",
+      "version": 1,
+      "payment": "unpaid",
+      "amount_minor": 5000
+    },
+    {
+      "role": "manager",
+      "booking_id": "503fd81f-684f-4b1a-85fa-e79314036ac0",
+      "status": "confirmed",
+      "version": 1,
+      "payment": "unpaid",
+      "amount_minor": 5000
+    },
+    {
+      "role": "admin",
+      "booking_id": "8a234ee8-9f2e-4804-b954-160db7ca6860",
+      "status": "confirmed",
+      "version": 1,
+      "payment": "unpaid",
+      "amount_minor": 5000
+    },
+    {
+      "role": "admin",
+      "booking_id": "4242fe39-63d7-4369-8cf3-0742cf830f40",
+      "status": "confirmed",
+      "version": 1,
+      "payment": "unpaid",
+      "amount_minor": 5000
+    },
+    {
+      "role": "admin",
+      "booking_id": "f94a25d8-fb6a-4a3d-bc6c-011f1de57a0f",
+      "status": "confirmed",
+      "version": 1,
+      "payment": "unpaid",
+      "amount_minor": 5000
+    }
+  ],
+  "capacity": [
+    {
+      "role": "employee",
+      "date": "2038-03-10",
+      "concurrent_statuses": [
+        201,
+        409
+      ],
+      "partial_overlap": 409,
+      "closing_time": 409,
+      "override_flag": 422
+    },
+    {
+      "role": "manager",
+      "date": "2038-03-11",
+      "concurrent_statuses": [
+        201,
+        409
+      ],
+      "partial_overlap": 409,
+      "closing_time": 409,
+      "override_flag": 422
+    },
+    {
+      "role": "admin",
+      "date": "2038-03-12",
+      "concurrent_statuses": [
+        201,
+        409
+      ],
+      "partial_overlap": 409,
+      "closing_time": 409,
+      "override_flag": 422
+    }
+  ]
+}

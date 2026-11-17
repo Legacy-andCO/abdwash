@@ -34,7 +34,7 @@ const messages: Record<string, string> = {
   TEAM_TURNAROUND_CONFLICT:
     "This team needs more turnaround time. Confirm the override to continue.",
   TEAM_NOT_AVAILABLE: "This team is not operationally available.",
-  NO_TEAM_CAPACITY: "No team is available for this appointment.",
+  NO_TEAM_CAPACITY: "This time is no longer available. Please choose another available time.",
   BOOKING_ASSIGNMENT_CHANGED:
     "The existing manual assignment cannot keep this time. Review the assignment.",
   SHIFT_ASSIGNMENT_CONFLICT: "This employee already has a shift on this date.",

@@ -1,0 +1,14 @@
+
+> @trifecta/web@0.1.0 test
+> vitest run --reporter=dot
+
+
+ RUN  v4.1.12 C:/Users/Lenovo/Desktop/abdwash/apps/web
+
+······································································································································································································································
+
+ Test Files  40 passed (40)
+      Tests  230 passed (230)
+   Start at  10:28:30
+   Duration  18.74s (transform 5.56s, setup 0ms, import 50.13s, tests 32.41s, environment 183.69s)
+

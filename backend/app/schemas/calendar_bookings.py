@@ -96,6 +96,15 @@ class StaffBookingCatalogue(CatalogueResponse):
     public_web_url: str | None
 
 
+class NormalStaffBookingCreate(StaffBookingCreate):
+    # Backwards compatible with clients sending null, never an exception payload.
+    overlap: None = None
+
+
+class CalendarDoubleBookingCreate(StaffBookingCreate):
+    overlap: AppointmentOverlap
+
+
 class StaffBookingReceipt(StrictRequest):
     id: uuid.UUID
     job_id: uuid.UUID

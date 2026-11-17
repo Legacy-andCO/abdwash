@@ -1,0 +1,20 @@
+[
+  {
+    "role": "employee",
+    "stale_submission_status": 409,
+    "recovery_message": true,
+    "occupied_time_removed": true
+  },
+  {
+    "role": "manager",
+    "stale_submission_status": 409,
+    "recovery_message": true,
+    "occupied_time_removed": true
+  },
+  {
+    "role": "admin",
+    "stale_submission_status": 409,
+    "recovery_message": true,
+    "occupied_time_removed": true
+  }
+]

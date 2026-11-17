@@ -1,0 +1,21 @@
+{
+  "project_ref": "mgfzfgvlrxwyyftwukwf",
+  "executed_at": "2026-11-17T07:31:50.215958+00:00",
+  "tests": [
+    {
+      "test": "native password login employee",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "native password login manager",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "test": "native password login admin",
+      "status": "PASS",
+      "http_status": 200
+    }
+  ]
+}
