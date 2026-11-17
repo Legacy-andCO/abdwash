@@ -1,0 +1,10 @@
+{
+  "base_commit": "e8908b869a70e81da44131bffba983d6c4b3c355",
+  "changed_module": "backend/app/services/smart_scheduling.py",
+  "changed_module_sha256": "89536a023e531ce2f061b2ae1f2e4e3a196e84657ff35fd898a62f17d7ff6615",
+  "source_archive_sha256": "ad2cf4a82f7571d849d375f6060ae07fc2125f016fb350cd1543cd25e2e69dc8",
+  "file_count": 196,
+  "archive": "tmp/hosted-capacity-release/source.zip",
+  "secrets_included": false,
+  "deployment_performed": false
+}

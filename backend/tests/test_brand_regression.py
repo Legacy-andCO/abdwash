@@ -17,6 +17,8 @@ SCANNED_ROOTS = (
 
 IGNORED_PARTS = {
     "security-audit",  # Audit evidence includes immutable deployed identifiers and source paths.
+    "double-booking-capacity",  # Test transcripts preserve original filesystem paths.
+    "hosted-capacity-investigation",  # Evidence preserves immutable deployment URLs and IDs.
     ".git",
     ".mypy_cache",
     ".next",

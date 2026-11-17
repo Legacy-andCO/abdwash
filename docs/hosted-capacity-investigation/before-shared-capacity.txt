@@ -1,0 +1,116 @@
+C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\pytest_asyncio\plugin.py:299: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+________ test_shared_person_is_one_capacity_across_team_ids[employee] _________
+
+foundation = namespace(client=<httpx.AsyncClient object at 0x00000139B4BC52B0>, sessions=async_sessionmaker(class_='AsyncSession', ...app.models.entities.Service object at 0x00000139B4BC5010>, <app.models.entities.Service object at 0x00000139B602D450>])
+actor = 'employee'
+
+    @pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+    async def test_shared_person_is_one_capacity_across_team_ids(foundation, actor):
+        day = {"employee": "2039-01-10", "manager": "2039-01-11", "admin": "2039-01-12"}[actor]
+        async with foundation.sessions() as session, session.begin():
+            membership = TeamMembership(
+                resource_id=foundation.team_b, staff_profile_id=foundation.staff["employee"].id
+            )
+            session.add(membership)
+            await session.flush()
+            membership_id = membership.id
+        try:
+            body = payload(foundation, day)
+            original = await created(foundation, body, actor="other")
+            url = f"{BOOK}/availability?date={day}&service_id={foundation.services[0].id}"
+            availability = await foundation.client.get(url, headers=headers(actor))
+            rejected = await submit(foundation, body, actor)
+>           assert (
+                "09:00:00" in [s["time"] for s in availability.json()["slots"]],
+                rejected.status_code,
+            ) == (False, 409), rejected.text
+E           AssertionError: {"id":"a17fb900-0e56-44cf-8ddf-b59e463d2b16","job_id":"8f61b61e-b38b-4cd0-8e66-4fce8c724e7b","reference":"AW-BC47B753F7","scheduled_start":"2039-01-10T05:00:00Z","scheduled_end":"2039-01-10T07:00:00Z","total_amount_minor":5000,"capacity_exception":false}
+E           assert (True, 201) == (False, 409)
+E             
+E             At index 0 diff: True != False
+E             Use -v to get more diff
+
+tmp\shared-capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py:876: AssertionError
+_________ test_shared_person_is_one_capacity_across_team_ids[manager] _________
+
+foundation = namespace(client=<httpx.AsyncClient object at 0x00000139B4BC52B0>, sessions=async_sessionmaker(class_='AsyncSession', ...app.models.entities.Service object at 0x00000139B4BC5010>, <app.models.entities.Service object at 0x00000139B602D450>])
+actor = 'manager'
+
+    @pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+    async def test_shared_person_is_one_capacity_across_team_ids(foundation, actor):
+        day = {"employee": "2039-01-10", "manager": "2039-01-11", "admin": "2039-01-12"}[actor]
+        async with foundation.sessions() as session, session.begin():
+            membership = TeamMembership(
+                resource_id=foundation.team_b, staff_profile_id=foundation.staff["employee"].id
+            )
+            session.add(membership)
+            await session.flush()
+            membership_id = membership.id
+        try:
+            body = payload(foundation, day)
+            original = await created(foundation, body, actor="other")
+            url = f"{BOOK}/availability?date={day}&service_id={foundation.services[0].id}"
+            availability = await foundation.client.get(url, headers=headers(actor))
+            rejected = await submit(foundation, body, actor)
+>           assert (
+                "09:00:00" in [s["time"] for s in availability.json()["slots"]],
+                rejected.status_code,
+            ) == (False, 409), rejected.text
+E           AssertionError: {"id":"de14a81a-a8aa-4fca-b70f-ab4305e7272c","job_id":"5358fb1e-ec66-4104-8d0e-dfaec28cfff3","reference":"AW-2B729809C2","scheduled_start":"2039-01-11T05:00:00Z","scheduled_end":"2039-01-11T07:00:00Z","total_amount_minor":5000,"capacity_exception":false}
+E           assert (True, 201) == (False, 409)
+E             
+E             At index 0 diff: True != False
+E             Use -v to get more diff
+
+tmp\shared-capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py:876: AssertionError
+__________ test_shared_person_is_one_capacity_across_team_ids[admin] __________
+
+foundation = namespace(client=<httpx.AsyncClient object at 0x00000139B4BC52B0>, sessions=async_sessionmaker(class_='AsyncSession', ...app.models.entities.Service object at 0x00000139B4BC5010>, <app.models.entities.Service object at 0x00000139B602D450>])
+actor = 'admin'
+
+    @pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+    async def test_shared_person_is_one_capacity_across_team_ids(foundation, actor):
+        day = {"employee": "2039-01-10", "manager": "2039-01-11", "admin": "2039-01-12"}[actor]
+        async with foundation.sessions() as session, session.begin():
+            membership = TeamMembership(
+                resource_id=foundation.team_b, staff_profile_id=foundation.staff["employee"].id
+            )
+            session.add(membership)
+            await session.flush()
+            membership_id = membership.id
+        try:
+            body = payload(foundation, day)
+            original = await created(foundation, body, actor="other")
+            url = f"{BOOK}/availability?date={day}&service_id={foundation.services[0].id}"
+            availability = await foundation.client.get(url, headers=headers(actor))
+            rejected = await submit(foundation, body, actor)
+>           assert (
+                "09:00:00" in [s["time"] for s in availability.json()["slots"]],
+                rejected.status_code,
+            ) == (False, 409), rejected.text
+E           AssertionError: {"id":"8135c521-9f8c-479b-9fa3-b82356e4ccbb","job_id":"22aa5523-113b-4773-b3b1-908cde33a56a","reference":"AW-A451F18BBE","scheduled_start":"2039-01-12T05:00:00Z","scheduled_end":"2039-01-12T07:00:00Z","total_amount_minor":5000,"capacity_exception":false}
+E           assert (True, 201) == (False, 409)
+E             
+E             At index 0 diff: True != False
+E             Use -v to get more diff
+
+tmp\shared-capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py:876: AssertionError
+============================== warnings summary ===============================
+backend\.venv\Lib\site-packages\anyio\pytest_plugin.py:14
+  C:\Users\Lenovo\Desktop\abdwash\backend\.venv\Lib\site-packages\anyio\pytest_plugin.py:14: PytestRemovedIn10Warning: _pytest.python.CallSpec2 has been renamed to CallSpec.
+  The CallSpec2 alias will be removed in pytest 10.
+  Update imports to use CallSpec instead.
+  See https://docs.pytest.org/en/stable/deprecations.html#callspec2-renamed
+    from _pytest.python import CallSpec2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tmp\shared-capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py::test_shared_person_is_one_capacity_across_team_ids[employee]
+FAILED tmp\shared-capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py::test_shared_person_is_one_capacity_across_team_ids[manager]
+FAILED tmp\shared-capacity-baseline\backend\tests\test_staff_calendar_bookings_postgres.py::test_shared_person_is_one_capacity_across_team_ids[admin]
+3 failed, 18 deselected, 1 warning in 3.40s

@@ -1,0 +1,72 @@
+{
+  "inspectedAt": "2026-11-17",
+  "sourceCommit": "e8908b869a70e81da44131bffba983d6c4b3c355",
+  "deployments": [
+    {
+      "alias": "staff.trifecta-wash.com",
+      "id": "dpl_4vKDYCVAzAa484QhCq1RU4WqkV9V",
+      "url": "trifecta-caeslikm4-legacy-andcos-projects.vercel.app",
+      "commit": "e8908b869a70e81da44131bffba983d6c4b3c355",
+      "target": "production",
+      "ready": 1794901378222
+    },
+    {
+      "alias": "abdwash.vercel.app",
+      "id": "dpl_4MUu4PP2qmFydsmjKBy1ULD33Sat",
+      "url": "abdwash-lr1f4qkzf-legacy-andcos-projects.vercel.app",
+      "commit": "e8908b869a70e81da44131bffba983d6c4b3c355",
+      "target": "production",
+      "ready": 1794901415096
+    },
+    {
+      "alias": "trifecta-wash.com",
+      "id": "dpl_4vhX9U5iWfyXGXUnm5PRx2Eye8V4",
+      "url": "abdwash-vdtc-8sfqeaq4r-legacy-andcos-projects.vercel.app",
+      "commit": "e8908b869a70e81da44131bffba983d6c4b3c355",
+      "target": "production",
+      "ready": 1794901251643
+    }
+  ],
+  "liveApiContract": {
+    "normalRequestSchema": {
+      "$ref": "#/components/schemas/NormalStaffBookingCreate"
+    },
+    "overlap": {
+      "type": "null",
+      "title": "Overlap"
+    },
+    "doubleBookingPath": "/api/v1/staff/calendar-bookings/{job_id}/double-book"
+  },
+  "productionReadOnlyFinding": {
+    "teams": [
+      {
+        "id": "6783c947-c632-444c-ac80-95cae1bb7d0f",
+        "name": "Teams1"
+      },
+      {
+        "id": "98f6be30-acf2-44e6-942f-a3eb086f2821",
+        "name": "Mobile Team 1"
+      }
+    ],
+    "soleActiveStaffIdSharedByBoth": "53f380f9-2ee5-4f0e-b197-d3c48d299d45",
+    "bookings": [
+      {
+        "reference": "AW-A1C46766EA",
+        "team": "98f6be30-acf2-44e6-942f-a3eb086f2821",
+        "start": "2026-11-18T05:00:00Z",
+        "end": "2026-11-18T07:00:00Z",
+        "created": "2026-11-17T07:15:06.270462Z",
+        "exceptionAudit": false
+      },
+      {
+        "reference": "AW-B32827E77D",
+        "team": "6783c947-c632-444c-ac80-95cae1bb7d0f",
+        "start": "2026-11-18T05:00:00Z",
+        "end": "2026-11-18T07:00:00Z",
+        "created": "2026-11-17T07:45:15.706969Z",
+        "exceptionAudit": false
+      }
+    ],
+    "alembic": "c7e833583da3"
+  }
+}

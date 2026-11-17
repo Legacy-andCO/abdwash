@@ -283,6 +283,33 @@ async def load_capacity_items(
 ) -> list[CapacityItem]:
     if not resource_ids:
         return []
+    # Team IDs are not independent capacity when they share active people.
+    # Read all memberships (including currently ineligible teams with existing
+    # work) so renaming/reorganising a team cannot make its staff available twice.
+    memberships = (
+        await session.execute(
+            select(TeamMembership.resource_id, TeamMembership.staff_profile_id)
+            .join(StaffProfile, StaffProfile.id == TeamMembership.staff_profile_id)
+            .where(
+                StaffProfile.business_id == business_id,
+                StaffProfile.is_active.is_(True),
+                TeamMembership.is_active.is_(True),
+            )
+        )
+    ).all()
+    members: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for resource_id, staff_id in memberships:
+        members.setdefault(resource_id, set()).add(staff_id)
+    capacity_sources = {
+        target: {
+            source
+            for source, people in members.items()
+            if source == target or people & members.get(target, set())
+        }
+        | {target}
+        for target in resource_ids
+    }
+    source_ids = set().union(*capacity_sources.values())
     day_start, day_end = _day_bounds(day, timezone)
     jobs = select(
         Job.assigned_resource_id.label("resource_id"),
@@ -292,7 +319,7 @@ async def load_capacity_items(
         Job.id.label("source_id"),
     ).where(
         Job.business_id == business_id,
-        Job.assigned_resource_id.in_(resource_ids),
+        Job.assigned_resource_id.in_(source_ids),
         Job.status.in_(BLOCKING_JOB_STATUSES),
         Job.scheduled_start < day_end,
         Job.scheduled_end > day_start,
@@ -307,7 +334,7 @@ async def load_capacity_items(
         SlotHoldGroup.id,
     ).where(
         SlotHoldGroup.business_id == business_id,
-        SlotHoldGroup.resource_id.in_(resource_ids),
+        SlotHoldGroup.resource_id.in_(source_ids),
         SlotHoldGroup.status == HoldStatus.ACTIVE,
         SlotHoldGroup.expires_at > datetime.now(UTC),
         SlotHoldGroup.slot_start < day_end,
@@ -326,7 +353,7 @@ async def load_capacity_items(
                 ScheduleSlot.id,
             ).where(
                 ScheduleSlot.business_id == business_id,
-                ScheduleSlot.resource_id.in_(resource_ids),
+                ScheduleSlot.resource_id.in_(source_ids),
                 ScheduleSlot.status == SlotStatus.BLOCKED,
                 ScheduleSlot.slot_start < day_end,
                 ScheduleSlot.slot_end > day_start,
@@ -335,13 +362,15 @@ async def load_capacity_items(
     rows = (await session.execute(union_all(*statements))).all()
     return [
         CapacityItem(
-            resource_id=row.resource_id,
+            resource_id=target,
             starts_at=row.starts_at,
             ends_at=row.ends_at,
             source=cast(Literal["job", "hold", "blocked"], row.source),
             source_id=row.source_id,
         )
         for row in rows
+        for target, sources in capacity_sources.items()
+        if row.resource_id in sources
     ]
 
 

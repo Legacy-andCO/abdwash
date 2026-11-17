@@ -855,3 +855,62 @@ async def test_normal_endpoint_rejects_valid_calendar_exception(foundation, acto
     )
     response = await foundation.client.post(BOOK, json=body, headers=headers(actor))
     assert response.status_code == 422, response.text
+
+
+@pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
+async def test_shared_person_is_one_capacity_across_team_ids(foundation, actor):
+    day = {"employee": "2039-01-10", "manager": "2039-01-11", "admin": "2039-01-12"}[actor]
+    async with foundation.sessions() as session, session.begin():
+        membership = TeamMembership(
+            resource_id=foundation.team_b, staff_profile_id=foundation.staff["employee"].id
+        )
+        session.add(membership)
+        await session.flush()
+        membership_id = membership.id
+    try:
+        body = payload(foundation, day)
+        original = await created(foundation, body, actor="other")
+        url = f"{BOOK}/availability?date={day}&service_id={foundation.services[0].id}"
+        availability = await foundation.client.get(url, headers=headers(actor))
+        rejected = await submit(foundation, body, actor)
+        assert (
+            "09:00:00" in [s["time"] for s in availability.json()["slots"]],
+            rejected.status_code,
+        ) == (False, 409), rejected.text
+        extra = await created(
+            foundation,
+            {
+                **body,
+                "overlap": {
+                    "job_id": original["job_id"],
+                    "expected_version": 1,
+                    "team_id": str(foundation.team_b),
+                    "confirmed": True,
+                },
+            },
+            actor,
+        )
+        assert extra["capacity_exception"]
+        async with foundation.sessions() as session:
+            for receipt in (original, extra):
+                assert (await session.get(Booking, uuid.UUID(receipt["id"]))).status == "confirmed"
+        # Same person, different team IDs, fresh day and simultaneous requests.
+        race_body = {**body, "date": day.replace("01-", "02-")}
+        raced = await asyncio.gather(
+            submit(foundation, race_body, actor), submit(foundation, race_body, "other")
+        )
+        assert sorted(r.status_code for r in raced) == [201, 409]
+        # Public/customer hold allocation uses the same shared-person capacity.
+        public = await foundation.client.post(
+            "/api/v1/public/holds",
+            json={
+                "date": day,
+                "start_time": "09:00",
+                "vehicle_count": 1,
+                "service_ids": [str(foundation.services[0].id)],
+            },
+        )
+        assert public.status_code == 409
+    finally:
+        async with foundation.sessions() as session, session.begin():
+            await session.delete(await session.get(TeamMembership, membership_id))

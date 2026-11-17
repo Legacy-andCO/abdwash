@@ -1,0 +1,14 @@
+# Hosted staging release awaiting approval
+
+Prepared source: `tmp/hosted-capacity-release/source.zip`, with hashes in `release-manifest.json`. Base is deployed commit e8908b869a70e81da44131bffba983d6c4b3c355 plus the shared-person capacity patch. No production environment files, keys or credentials are included.
+
+Requested deployment scope:
+
+1. Create two separate Vercel staging projects under team `team_K6Bp5X6RhqqqSNAduW7iva9Z`: `trifecta-capacity-staging-api` (backend root) and `trifecta-capacity-staging-staff` (staff root). Do not change, promote or alias any production project. Deploy the prepared source only after approval. Record returned deployment IDs and artifact hashes. Keep Vercel protection enabled and obtain temporary test access.
+2. Configure backend APP_ENV=staging, TLS, restricted runtime login for synthetic Supabase `mgfzfgvlrxwyyftwukwf`, staging Supabase Auth URL, exact staging frontend HTTPS CORS origin, existing staging-only signing/dispatch secrets. Disable external email/payment providers. No production environment variables are copied. Staff build must use the returned staging API URL and the staging Supabase publishable configuration. List-environment permissions returned 403 from the connector, so environment configuration access may require the dashboard or an authorized CLI session.
+3. Reproduce production's shared-person configuration only in staging: synthetic A1 and A2 must share their sole active employee. Save and restore synthetic memberships after verification. Preserve existing production data and all original staging appointments. Use fresh fixture dates, synthetic contacts and unique idempotency keys.
+4. First host the deployed baseline commit, use normal Book a Wash to create the first appointment, capture available 9:00 AM and second normal booking response. Then host corrected source on the same isolated configuration, with fresh dates. Run employee and manager browser journeys (also admin), normal direct API requests, concurrent normal requests, full/partial durations and multiple vehicles. Explicit override must be entered through Calendar → date → existing appointment → Double-book this time → confirmation.
+5. Capture sanitized availability responses, selected times, request JSON, endpoint URLs, response status/body and Vercel request IDs. Record original/extra booking IDs, assigned team IDs and statuses via staging database queries. Confirm originals are unchanged and no extra normal booking was inserted after rejection. Redact auth tokens, passwords, customer information and secrets.
+6. Production release remains a separate approval. A production data workaround (removing a duplicate membership/deactivating a duplicate team) is NOT included in this request and has not been performed.
+
+Status: no hosted staging deployment created during this investigation. Hosted browser verification is pending approval; localhost outcomes are not substituted for it.
