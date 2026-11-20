@@ -1,3 +1,5 @@
+import { PaymentReviewList } from "../components/PaymentReviewList";
+import { parseMoneyToMinor } from "../cash/cashTender";
 import { t } from "../i18n";
 import { Platform } from "react-native";
 import { Alert } from "../alert";
@@ -37,7 +39,6 @@ import { domainErrorMessage } from "../errors/domainErrors";
 import {
   canConfirmCashHandover,
   cashDifference,
-  cashDifferenceLabel,
   expenseAmountMinor,
   expenseCategories,
 } from "../finance/financeState";
@@ -61,7 +62,7 @@ import { colors, radii, spacing } from "../theme";
 import { operationalScope } from "../cache/policy";
 import { addUaeDays, uaeDateKey, wallDate } from "../time/uaeTime";
 
-type FinanceSection = "overview" | "expenses" | "cash";
+type FinanceSection = "overview" | "expenses" | "cash" | "payments";
 
 const money = (currency: string, amount: number) =>
   `${currency} ${(amount / 100).toLocaleString(undefined, {
@@ -150,7 +151,7 @@ export function FinanceScreen({
         </View>
       ) : null}
       <View style={styles.tabs}>
-        {(["overview", "expenses", "cash"] as const).map((item) => (
+        {(["overview", "payments", "expenses", "cash"] as const).map((item) => (
           <Pressable
             accessibilityRole="tab"
             accessibilityState={{ selected: section === item }}
@@ -164,6 +165,8 @@ export function FinanceScreen({
       </View>
       {section === "overview" ? (
         <Overview value={overview.data} pending={overview.isPending} error={overview.error} />
+      ) : section === "payments" ? (
+        <PaymentReviewList context={context}/>
       ) : section === "expenses" ? (
         <Expenses context={context} start={range.start} end={range.end} />
       ) : (
@@ -755,7 +758,7 @@ function CashHandover({
   const [declared, setDeclared] = useState((staff.expected_cash_minor / 100).toFixed(2));
   const [note, setNote] = useState("");
   const eventIds = useRef(new ClientEventIdStore()).current;
-  const declaredMinor = Math.round(Number(declared) * 100);
+  const declaredMinor = parseMoneyToMinor(declared) ?? 0;
   const difference = cashDifference(
     detail.data?.expected_cash_minor ?? staff.expected_cash_minor,
     declaredMinor,
@@ -777,14 +780,10 @@ function CashHandover({
       ))}
       <Text style={uiStyles.label}>{t("CASH HANDED IN")}</Text>
       <TextInput accessibilityLabel={t("Cash handed in")} keyboardType="decimal-pad" value={declared} onChangeText={setDeclared} style={uiStyles.field} />
-      <Text style={difference === 0 ? uiStyles.body : uiStyles.error}>
-        {" " + t("Difference") + " "}{money(staff.currency_code, difference)} · {cashDifferenceLabel(difference).toUpperCase()}
-      </Text>
-      {difference !== 0 ? (
-        <TextInput accessibilityLabel={t("Cash discrepancy reason")} placeholder={t("Reason required")} value={note} onChangeText={setNote} multiline style={uiStyles.field} />
-      ) : null}
+      <Text style={uiStyles.body}>{t("Remaining cash")} · {money(staff.currency_code, Math.max(0,-difference))}</Text>
+      <TextInput accessibilityLabel={t("Notes")} placeholder={t("Notes (optional)")} value={note} onChangeText={setNote} style={uiStyles.field} />
       <AppButton
-        title={difference === 0 ? t("Confirm handover") : t("Confirm discrepancy")}
+        title={t("Confirm handover")}
         loading={reconcile.isPending}
         disabled={!canConfirmCashHandover(paymentIds.length, declaredMinor, difference, note)}
         onPress={() =>

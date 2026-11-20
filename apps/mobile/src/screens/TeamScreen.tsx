@@ -1,3 +1,5 @@
+import { AttendanceHistory } from "../components/AttendanceHistory";
+import { formatUaeTime } from "../time/uaeTime";
 import { t } from "../i18n";
 import { Alert } from "../alert";
 import { useEffect, useMemo, useState } from "react";
@@ -79,6 +81,12 @@ import { colors, radii, spacing } from "../theme";
 import { sameStringSet } from "../operations";
 
 export type TeamSection = "teams" | "staff" | "shifts" | "attendance";
+const teamSectionLabels: Record<TeamSection, string> = {
+  teams: "Teams",
+  staff: "Staff",
+  shifts: "Shifts",
+  attendance: "Attendance",
+};
 export function TeamScreen({
   context,
   initialSection = "teams",
@@ -95,6 +103,8 @@ export function TeamScreen({
         {(["teams", "staff", "shifts", "attendance"] as const).map((item) => (
           <Pressable
             key={item}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: section === item }}
             onPress={() => {
               setSection(item);
               onSectionChange?.(item);
@@ -110,7 +120,7 @@ export function TeamScreen({
                 section === item ? styles.segmentTextActive : undefined,
               ]}
             >
-              {item[0].toUpperCase() + item.slice(1)}
+              {t(teamSectionLabels[item])}
             </Text>
           </Pressable>
         ))}
@@ -585,8 +595,9 @@ function AttendancePane({ context }: { context: StaffContext }) {
     <ScrollView contentContainerStyle={uiStyles.content}>
       <ScreenTitle
         title={t("Attendance")}
-        subtitle={t("Working, late, clocked out, absent, off and approved leave")}
+        subtitle={t("Today’s team attendance")}
       />
+      <AttendanceHistory context={context} management />
       {attendance.isError && items.length ? (
         <Text style={uiStyles.error}>
           {" " + t("Attendance could not refresh. Showing saved data.") + " "}</Text>
@@ -613,16 +624,10 @@ function AttendancePane({ context }: { context: StaffContext }) {
             </View>
             {item.clock_in_at ? (
               <Text style={uiStyles.muted}>
-                {new Date(item.clock_in_at).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}{" "}
+                {formatUaeTime(item.clock_in_at)}{" "}
                 →{" "}
                 {item.clock_out_at
-                  ? new Date(item.clock_out_at).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })
+                  ? formatUaeTime(item.clock_out_at)
                   : t("Now")}
               </Text>
             ) : null}

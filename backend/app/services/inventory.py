@@ -56,6 +56,8 @@ from app.schemas.inventory import (
     InventoryUsageCreate,
     InventoryUsageReport,
     InventoryWastageCreate,
+    ProductConsumptionUpdate,
+    ProductConsumptionView,
     ServiceConsumptionTemplateLine,
     ServiceConsumptionTemplateUpdate,
     StockLine,
@@ -92,6 +94,7 @@ def _audit(
     event_type: str,
     entity_type: str,
     entity_id: uuid.UUID | None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     session.add(
         AuditEvent(
@@ -100,7 +103,7 @@ def _audit(
             event_type=event_type,
             entity_type=entity_type,
             entity_id=entity_id,
-            metadata_json={},
+            metadata_json=metadata if metadata is not None else {},
         )
     )
 
@@ -255,7 +258,7 @@ async def update_item(
     item = await session.scalar(
         select(InventoryItem).where(
             InventoryItem.id == item_id, InventoryItem.business_id == context.business_id
-        )
+        ).with_for_update(key_share=True)
     )
     if item is None:
         raise DomainError("INVENTORY_ITEM_NOT_FOUND", "Inventory item not found.", status_code=404)
@@ -276,10 +279,14 @@ async def update_item(
             .where(InventoryMovement.inventory_item_id == item.id)
             .limit(1)
         )
-        if has_movement:
+        if has_movement or await session.scalar(
+            select(ServiceInventoryTemplate.id)
+            .where(ServiceInventoryTemplate.inventory_item_id == item.id)
+            .limit(1)
+        ):
             raise ConflictError(
                 "INVENTORY_UNIT_IMMUTABLE",
-                "The unit cannot change after stock movement has been recorded.",
+                "The unit cannot change while consumption rates or stock movements exist.",
             )
     for key, value in changes.items():
         if key in {"name", "code"} and isinstance(value, str):
@@ -643,17 +650,17 @@ def _combine(lines: Iterable[InventoryQuantityLine]) -> list[tuple[uuid.UUID, De
 
 
 async def _items(
-    session: AsyncSession, context: StaffContext, item_ids: Sequence[uuid.UUID]
+    session: AsyncSession, context: StaffContext, item_ids: Sequence[uuid.UUID], *,
+    lock: bool = False,
 ) -> dict[uuid.UUID, InventoryItem]:
-    rows = (
-        await session.scalars(
-            select(InventoryItem).where(
-                InventoryItem.business_id == context.business_id,
-                InventoryItem.id.in_(item_ids),
-                InventoryItem.is_active.is_(True),
-            )
-        )
-    ).all()
+    statement = select(InventoryItem).where(
+        InventoryItem.business_id == context.business_id,
+        InventoryItem.id.in_(item_ids),
+        InventoryItem.is_active.is_(True),
+    )
+    if lock:
+        statement = statement.order_by(InventoryItem.id).with_for_update(key_share=True)
+    rows = (await session.scalars(statement)).all()
     result = {item.id: item for item in rows}
     if len(result) != len(set(item_ids)):
         raise DomainError(
@@ -1462,6 +1469,7 @@ async def get_service_template(
             .where(
                 ServiceInventoryTemplate.business_id == context.business_id,
                 ServiceInventoryTemplate.service_id == service_id,
+                ServiceInventoryTemplate.vehicle_type == "all",
                 InventoryItem.is_active.is_(True),
             )
             .order_by(InventoryItem.name)
@@ -1485,19 +1493,29 @@ async def update_service_template(
     service = await session.scalar(
         select(Service.id).where(
             Service.id == service_id, Service.business_id == context.business_id
-        )
+        ).with_for_update()
     )
     if service is None:
         raise DomainError("SERVICE_NOT_FOUND", "Service not found.", status_code=404)
     item_ids = [line.item_id for line in request.lines]
     if len(set(item_ids)) != len(item_ids):
         raise DomainError("DUPLICATE_TEMPLATE_ITEM", "Each template item must be unique.")
-    await _items(session, context, item_ids)
-    await session.execute(
-        delete(ServiceInventoryTemplate).where(
-            ServiceInventoryTemplate.business_id == context.business_id,
-            ServiceInventoryTemplate.service_id == service_id,
+    await _items(session, context, item_ids, lock=True)
+    service_rates = (
+        ServiceInventoryTemplate.business_id == context.business_id,
+        ServiceInventoryTemplate.service_id == service_id,
+        ServiceInventoryTemplate.vehicle_type == "all",
+    )
+    originals = (
+        await session.execute(
+            select(
+                ServiceInventoryTemplate.inventory_item_id,
+                ServiceInventoryTemplate.expected_quantity,
+            ).where(*service_rates)
         )
+    ).all()
+    await session.execute(
+        delete(ServiceInventoryTemplate).where(*service_rates)
     )
     session.add_all(
         [
@@ -1511,5 +1529,121 @@ async def update_service_template(
         ]
     )
     await session.flush()
-    _audit(session, context, "service_inventory_template_updated", "service", service_id)
+    _audit(
+        session, context, "service_inventory_template_updated", "service", service_id,
+        {
+            "before": {str(item_id): str(quantity) for item_id, quantity in originals},
+            "after": {
+                str(line.item_id): str(_decimal(line.expected_quantity)) for line in request.lines
+            },
+        },
+    )
     return await get_service_template(session, context, service_id)
+
+
+def _convert_consumption(quantity: Decimal, unit: str, stock_unit: str) -> Decimal:
+    if unit != stock_unit:
+        factors: dict[tuple[str, str], int | Decimal] = {
+            ("liter", "milliliter"): 1000,
+            ("milliliter", "liter"): Decimal("0.001"),
+            ("kilogram", "gram"): 1000,
+            ("gram", "kilogram"): Decimal("0.001"),
+        }
+        factor = factors.get((unit, stock_unit))
+        if factor is None:
+            raise DomainError(
+                "INCOMPATIBLE_CONSUMPTION_UNIT", "Choose a compatible stock unit.", status_code=422
+            )
+        quantity *= factor
+    converted = _decimal(quantity)
+    if converted != quantity or converted >= Decimal("100000000000"):
+        raise DomainError(
+            "INVALID_CONSUMPTION_PRECISION",
+            "Use a quantity that fits the stock unit with up to three decimal places.",
+            status_code=422,
+        )
+    return converted
+
+
+async def get_product_consumption(
+    session: AsyncSession, context: StaffContext, item_id: uuid.UUID,
+) -> list[ProductConsumptionView]:
+    _manager(context)
+    await get_item(session, context, item_id)
+    rows = await session.scalars(
+        select(ServiceInventoryTemplate).where(
+            ServiceInventoryTemplate.business_id == context.business_id,
+            ServiceInventoryTemplate.inventory_item_id == item_id,
+        )
+    )
+    settings: dict[uuid.UUID, ProductConsumptionView] = {}
+    for row in rows:
+        view = settings.setdefault(
+            row.service_id,
+            ProductConsumptionView(service_id=row.service_id, fallback=None, rates={}),
+        )
+        if row.vehicle_type == "all":
+            view.fallback = row.expected_quantity
+        else:
+            view.rates[row.vehicle_type] = row.expected_quantity
+    return list(settings.values())
+
+
+async def update_product_consumption(
+    session: AsyncSession, context: StaffContext, item_id: uuid.UUID, service_id: uuid.UUID,
+    request: ProductConsumptionUpdate,
+) -> ProductConsumptionView:
+    _manager(context)
+    service = await session.scalar(
+        select(Service.id).where(
+            Service.id == service_id, Service.business_id == context.business_id
+        ).with_for_update()
+    )
+    if service is None:
+        raise DomainError("SERVICE_NOT_FOUND", "Service not found.", status_code=404)
+    item = (await _items(session, context, [item_id], lock=True))[item_id]
+    rates = {
+        category: _convert_consumption(quantity, request.unit, item.unit)
+        for category, quantity in request.rates.items()
+    }
+    rows = (
+        await session.scalars(
+            select(ServiceInventoryTemplate).where(
+                ServiceInventoryTemplate.business_id == context.business_id,
+                ServiceInventoryTemplate.inventory_item_id == item_id,
+                ServiceInventoryTemplate.service_id == service_id,
+            )
+        )
+    ).all()
+    existing = {row.vehicle_type: row for row in rows if row.vehicle_type != "all"}
+    before = {category: row.expected_quantity for category, row in existing.items()}
+    if before != rates:
+        for category, row in existing.items():
+            if category not in rates:
+                await session.delete(row)
+            else:
+                row.expected_quantity = rates[category]
+        for category in rates.keys() - existing.keys():
+            session.add(ServiceInventoryTemplate(
+                business_id=context.business_id,
+                service_id=service_id,
+                inventory_item_id=item_id,
+                vehicle_type=category,
+                expected_quantity=rates[category],
+            ))
+        session.add(AuditEvent(
+            business_id=context.business_id,
+            actor_auth_user_id=context.auth_user_id,
+            event_type="product_consumption_updated",
+            entity_type="inventory_item",
+            entity_id=item_id,
+            metadata_json={
+                "service_id": str(service_id),
+                "unit": item.unit,
+                "before": {category: str(quantity) for category, quantity in before.items()},
+                "after": {category: str(quantity) for category, quantity in rates.items()},
+            },
+        ))
+        await session.flush()
+    fallback = next((row.expected_quantity for row in rows if row.vehicle_type == "all"), None)
+    return ProductConsumptionView(service_id=service_id, fallback=fallback, rates=rates)

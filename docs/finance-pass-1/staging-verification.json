@@ -1,0 +1,21 @@
+{
+  "project": "mgfzfgvlrxwyyftwukwf",
+  "revision": "a19772ea5f12",
+  "job_id": "da433b40-5d8c-43b7-a0eb-27811bce89ba",
+  "booking_id": "399866db-8b16-4d77-ac1f-b91cd807dd2c",
+  "utc": "2026-11-18T16:47:41.581639+00:00",
+  "receipts": 3,
+  "verified_minor": 5000,
+  "rejected_minor": 100,
+  "invoices": 1,
+  "handed_over_minor": 2000,
+  "outstanding_minor": 0,
+  "cash_remaining_minor": 0,
+  "reporting_verified": [
+    "reports/summary",
+    "reports/v2",
+    "finance/overview"
+  ],
+  "temporary_refund_deposit_adjustment_balance_minor": 1200,
+  "after_rollback_minor": 0
+}

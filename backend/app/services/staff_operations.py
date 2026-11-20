@@ -1,3 +1,5 @@
+import base64
+import binascii
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
@@ -8,7 +10,6 @@ from sqlalchemy import case, exists, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import StaffContext
-from app.domain.cash import authoritative_cash_change
 from app.domain.enums import (
     BookingStatus,
     CancellationStatus,
@@ -53,6 +54,7 @@ from app.schemas.staff import (
     JobDelayNotification,
     JobDirectExpense,
     JobTimelineEvent,
+    PaymentReview,
     ReportSummary,
     StaffCalendar,
     StaffJob,
@@ -66,9 +68,17 @@ from app.services.customer_communications import (
     discard_unsent_appointment_reminders,
     queue_customer_email_if_available,
 )
+from app.services.image_validation import validate_image
 from app.services.invoices import issue_revenue_invoice
 from app.services.job_consumption import consumption_summaries, process_job_consumption
 from app.services.loyalty import evaluate_loyalty_for_job, release_booking_rewards
+from app.services.payment_balances import (
+    adjusted_charge,
+    balance_due,
+    completed_balance,
+    pending_amount,
+    verified_amount,
+)
 from app.services.scheduling import _lock_slot_sequence
 from app.services.smart_scheduling import (
     choose_team_for_booking,
@@ -136,6 +146,8 @@ async def _job_rows(
             Job,
             Booking,
             Payment,
+            completed_balance().label("outstanding_minor"),
+            pending_amount().label("pending_verification_minor"),
             StaffProfile.display_name.label("assigned_staff_name"),
             ScheduleResource.name.label("assigned_team_name"),
         )
@@ -396,6 +408,8 @@ async def _serialize_jobs(
             latitude=float(booking.latitude) if booking.latitude is not None else None,
             longitude=float(booking.longitude) if booking.longitude is not None else None,
             location_instructions=booking.location_instructions,
+            outstanding_minor=getattr(rows[index], "outstanding_minor", 0),
+            pending_verification_minor=getattr(rows[index], "pending_verification_minor", 0),
             payment_status=payment.status,
             payment_method=payment.method,
             total_amount_minor=booking.total_amount_minor,
@@ -414,7 +428,7 @@ async def _serialize_jobs(
                 else None
             ),
         )
-        for job, booking, payment, staff_name, team_name in unpacked
+        for index, (job, booking, payment, staff_name, team_name) in enumerate(unpacked)
     ]
 
 
@@ -765,6 +779,8 @@ async def transition_job(
     job, booking, payment, _staff_name, _team_name = _job_row_values(
         await _locked_job(session, context, job_id)
     )
+    if target == JobStatus.COMPLETED and job.status == JobStatus.COMPLETED:
+        return await get_job(session, context, job.id)
     if await _duplicate_event(session, job.id, request.client_event_id):
         return await get_job(session, context, job.id)
     if target == JobStatus.COMPLETED:
@@ -875,57 +891,69 @@ async def record_cash(
     job, booking, payment, _staff_name, _team_name = _job_row_values(
         await _locked_job(session, context, job_id)
     )
-    if await _duplicate_event(session, job.id, request.client_event_id):
-        transaction = await session.scalar(
-            select(PaymentTransaction).where(
+    kind = f"{request.method}_payment"
+    reference = (request.reference or "").strip() or None
+    if request.method == "cash" and (reference or request.screenshot):
+        raise DomainError(
+            "INVALID_CASH_PROOF", "Proof is available for card payments.", status_code=422
+        )
+    screenshot = None
+    if request.screenshot is not None:
+        try:
+            screenshot = base64.b64decode(request.screenshot, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise DomainError("INVALID_IMAGE", "Invalid screenshot.", status_code=422) from exc
+        validate_image(screenshot, "image/jpeg", 512_000)
+    existing = (
+        await session.execute(
+            select(PaymentTransaction, PaymentTransaction.screenshot).where(
                 PaymentTransaction.payment_id == payment.id,
                 PaymentTransaction.client_event_id == request.client_event_id,
             )
         )
-        if transaction is None or transaction.cash_tendered_minor is None:
-            raise ConflictError(
-                "PAYMENT_RECEIPT_UNAVAILABLE",
-                "The payment was recorded, but its cash receipt is unavailable.",
-            )
+    ).one_or_none()
+    if existing:
+        txn, previous_image = existing
+        if (
+            txn.actor_staff_id != context.staff_id
+            or txn.transaction_type != kind
+            or txn.amount_minor != request.tendered_minor - request.change_minor
+            or (txn.cash_change_minor or 0) != request.change_minor
+            or txn.provider_transaction_id != reference
+            or previous_image != screenshot
+        ):
+            raise ConflictError("PAYMENT_EVENT_REUSED", "Payment request details have changed.")
         return CashPaymentResult(
             job=await get_job(session, context, job.id),
-            amount_applied_minor=transaction.amount_minor,
-            tendered_minor=transaction.cash_tendered_minor,
-            change_minor=transaction.cash_change_minor or 0,
+            amount_applied_minor=txn.amount_minor,
+            tendered_minor=request.tendered_minor,
+            change_minor=request.change_minor,
         )
-    if payment.status == PaymentStatus.PAID:
-        raise ConflictError("PAYMENT_ALREADY_PAID", "This booking is already paid.")
-    if job.status != JobStatus.COMPLETED:
+    if job.status != JobStatus.COMPLETED or booking.status != "completed":
         raise ConflictError(
-            "CASH_PAYMENT_JOB_NOT_COMPLETED",
-            "Cash can be recorded only after the job is completed.",
+            "CASH_PAYMENT_JOB_NOT_COMPLETED", "Complete the job before recording a payment."
         )
-    if payment.amount_minor <= 0:
-        raise ConflictError(
-            "CASH_PAYMENT_NOT_REQUIRED",
-            "This booking has no cash balance to settle.",
-        )
-    authoritative_change = authoritative_cash_change(
-        due_minor=payment.amount_minor,
-        tendered_minor=request.tendered_minor,
-        submitted_change_minor=request.change_minor,
+    available = await session.scalar(
+        select(balance_due() - pending_amount()).where(Payment.id == payment.id)
     )
-    now = datetime.now(UTC)
-    payment.status = PaymentStatus.PAID
-    payment.method = "cash"
-    payment.paid_at = now
-    payment.version += 1
-    booking.payment_status = PaymentStatus.PAID
-    booking.version += 1
+    applied = min(request.tendered_minor, available or 0)
+    if (
+        applied <= 0
+        or request.change_minor != request.tendered_minor - applied
+        or (request.method == "card" and request.change_minor)
+    ):
+        raise ConflictError("PAYMENT_AMOUNT_CHANGED", "Check the amount available for collection.")
     transaction = PaymentTransaction(
         payment_id=payment.id,
-        transaction_type="cash_payment",
-        status="succeeded",
-        amount_minor=payment.amount_minor,
+        transaction_type=kind,
+        status="pending",
+        amount_minor=applied,
         actor_staff_id=context.staff_id,
         client_event_id=request.client_event_id,
-        cash_tendered_minor=request.tendered_minor,
-        cash_change_minor=authoritative_change,
+        cash_tendered_minor=request.tendered_minor if request.method == "cash" else None,
+        cash_change_minor=request.change_minor if request.method == "cash" else None,
+        provider_transaction_id=reference,
+        screenshot=screenshot,
         provider_metadata={},
     )
     session.add(transaction)
@@ -934,43 +962,103 @@ async def record_cash(
             job_id=job.id,
             booking_id=booking.id,
             actor_staff_id=context.staff_id,
-            event_type="cash_payment_recorded",
+            event_type=f"{kind}_recorded",
             client_event_id=request.client_event_id,
             client_timestamp=request.client_timestamp,
-            metadata_json={
-                "amount_minor": payment.amount_minor,
-                "tendered_minor": request.tendered_minor,
-                "change_minor": authoritative_change,
-            },
+            metadata_json={"amount_minor": applied},
         )
     )
     await session.flush()
-    invoice = await issue_revenue_invoice(
-        session,
-        booking=booking,
-        payment=payment,
-        transaction=transaction,
-    )
-    queue_customer_email_if_available(
-        session,
-        business_id=context.business_id,
-        booking_id=booking.id,
-        notification_type="payment_received",
-        dedupe_key=f"payment-received:{invoice.id}",
-        recipient=booking.customer_email,
-        payload={
-            "booking_reference": booking.reference,
-            "invoice_id": str(invoice.id),
-        },
-        next_attempt_at=now,
-    )
-    await evaluate_loyalty_for_job(session, business_id=context.business_id, job_id=job.id)
     return CashPaymentResult(
         job=await get_job(session, context, job.id),
-        amount_applied_minor=payment.amount_minor,
+        amount_applied_minor=applied,
         tendered_minor=request.tendered_minor,
-        change_minor=authoritative_change,
+        change_minor=request.change_minor,
     )
+
+
+async def review_payment(
+    session: AsyncSession,
+    context: StaffContext,
+    job_id: uuid.UUID,
+    transaction_id: uuid.UUID,
+    review: PaymentReview,
+) -> None:
+    if not _can_manage(context):
+        raise DomainError("INSUFFICIENT_ROLE", "Manager access required.", status_code=403)
+    job, booking, payment, *_ = _job_row_values(await _locked_job(session, context, job_id))
+    txn = await session.scalar(
+        select(PaymentTransaction)
+        .where(
+            PaymentTransaction.id == transaction_id,
+            PaymentTransaction.payment_id == payment.id,
+            PaymentTransaction.transaction_type.in_(("cash_payment", "card_payment")),
+        )
+        .with_for_update()
+    )
+    if txn is None:
+        raise DomainError("PAYMENT_NOT_FOUND", "Payment not found.", status_code=404)
+    target = "succeeded" if review.decision == "confirm" else "rejected"
+    reason = (review.reason or "").strip() if target == "rejected" else None
+    if target == "rejected" and not reason:
+        raise DomainError("REASON_REQUIRED", "Enter a rejection reason.", status_code=422)
+    if txn.status != "pending":
+        if (
+            txn.status == target
+            and txn.reviewed_by_staff_id == context.staff_id
+            and txn.rejection_reason == reason
+        ):
+            return
+        raise ConflictError("PAYMENT_ALREADY_REVIEWED", "Payment was already reviewed.")
+    if target == "succeeded":
+        current_due = await session.scalar(select(balance_due()).where(Payment.id == payment.id))
+        if txn.amount_minor > (current_due or 0):
+            raise ConflictError(
+                "PAYMENT_EXCEEDS_BALANCE", "This report exceeds the current balance."
+            )
+    txn.status = target
+    txn.reviewed_at = datetime.now(UTC)
+    txn.reviewed_by_staff_id = context.staff_id
+    txn.rejection_reason = reason
+    await session.flush()
+    due = await session.scalar(select(balance_due()).where(Payment.id == payment.id))
+    if target == "succeeded" and due == 0:
+        payment.status = booking.payment_status = PaymentStatus.PAID
+        methods = set(
+            await session.scalars(
+                select(PaymentTransaction.transaction_type).where(
+                    PaymentTransaction.payment_id == payment.id,
+                    PaymentTransaction.status == "succeeded",
+                    PaymentTransaction.transaction_type.in_(
+                        ("cash_payment", "card_payment", "deposit", "capture", "charge", "payment")
+                    ),
+                )
+            )
+        )
+        payment.method = (
+            txn.transaction_type.removesuffix("_payment") if len(methods) == 1 else "mixed"
+        )
+        payment.paid_at = txn.reviewed_at
+        payment.version += 1
+        booking.version += 1
+        await session.flush()
+        invoiced_charge = await session.scalar(
+            select(adjusted_charge()).where(Payment.id == payment.id)
+        )
+        invoice = await issue_revenue_invoice(
+            session, booking=booking, payment=payment, transaction=txn, charge_minor=invoiced_charge
+        )
+        queue_customer_email_if_available(
+            session,
+            business_id=context.business_id,
+            booking_id=booking.id,
+            notification_type="payment_received",
+            dedupe_key=f"payment-received:{invoice.id}",
+            recipient=booking.customer_email,
+            payload={"booking_reference": booking.reference, "invoice_id": str(invoice.id)},
+            next_attempt_at=txn.reviewed_at,
+        )
+        await evaluate_loyalty_for_job(session, business_id=context.business_id, job_id=job.id)
 
 
 async def assign_job(
@@ -1262,12 +1350,8 @@ async def report_summary(
                 func.count(Booking.id),
                 func.count(Booking.id).filter(Booking.status == BookingStatus.COMPLETED),
                 func.coalesce(func.sum(Booking.total_amount_minor), 0),
-                func.coalesce(
-                    func.sum(
-                        case((Payment.status == PaymentStatus.PAID, Payment.amount_minor), else_=0)
-                    ),
-                    0,
-                ),
+                func.coalesce(func.sum(verified_amount()), 0),
+                func.coalesce(func.sum(completed_balance()), 0),
                 func.coalesce(func.avg(Booking.total_amount_minor), 0),
                 func.max(Booking.currency_code),
             )
@@ -1279,7 +1363,7 @@ async def report_summary(
             )
         )
     ).one()
-    bookings, completed, booked, collected, average, currency = row
+    bookings, completed, booked, collected, outstanding, average, currency = row
     return ReportSummary(
         start_date=start_date,
         end_date=end_date,
@@ -1287,7 +1371,7 @@ async def report_summary(
         completed_washes=completed,
         booked_sales_minor=booked,
         collected_revenue_minor=collected,
-        outstanding_minor=max(0, booked - collected),
+        outstanding_minor=outstanding,
         average_booking_value_minor=int(average),
         currency_code=currency or "AED",
     )

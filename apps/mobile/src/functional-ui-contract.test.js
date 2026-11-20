@@ -49,7 +49,8 @@ describe("recovery UI contracts", () => {
     const app = source("./App.tsx");
     const profile = source("./screens/ProfileScreen.tsx");
     expect(app).toContain("prepareOperationalLogout");
-    expect(profile).toContain("prepareOperationalLogout");
+    expect(profile).toContain("signOutFromStaffApp");
+    expect(source("./authSignOut.ts")).toContain("prepareOperationalLogout");
     expect(profile).not.toContain("clearOperationalCache");
   });
 
@@ -91,8 +92,8 @@ describe("recovery UI contracts", () => {
     expect(jobs).toContain("tendered_minor: tenderedMinor");
     expect(jobs).toContain("change_minor: changeMinor");
     expect(tender).toContain("CHANGE TO RETURN");
-    expect(tender).toContain("Complete payment");
-    expect(tender).toContain("5_000, 10_000, 20_000, 50_000");
+    expect(tender).toContain("Submit for verification");
+    expect(tender).toContain("Available to collect");
     expect(customers).toContain("Search name, phone, email or plate");
     expect(customers).toContain("Adjust loyalty");
     expect(customers).toContain("onOpenJob(item.job_id!)");

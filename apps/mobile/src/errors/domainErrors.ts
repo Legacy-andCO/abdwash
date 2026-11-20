@@ -15,7 +15,7 @@ export class ApiError extends Error {
 
 const messages: Record<string, string> = {
   MFA_REQUIRED: "Verify your authenticator to continue.",
-  MFA_REAUTHENTICATION_REQUIRED: "Sign out and sign in again, then verify your authenticator before continuing.",
+  MFA_REAUTHENTICATION_REQUIRED: "Verify your authenticator before continuing.",
   STALE_JOB_VERSION: "This appointment changed. Refresh its details.",
   BOOKING_NOT_CANCELLABLE: "This appointment cannot be cancelled.",
   APPOINTMENT_NOT_FOUND: "The selected appointment is no longer available. Refresh the calendar.",
@@ -69,6 +69,12 @@ const messages: Record<string, string> = {
     "The uploaded photo could not be confirmed. Keep the preview and try again.",
   INVALID_JOB_PHOTO:
     "That photo could not be confirmed. Choose it again and retry.",
+  JOB_PHOTO_LIMIT: "This job has reached its photo limit.",
+  JOB_PHOTO_UPLOAD_TIMEOUT: "The photo upload timed out. Please try again.",
+  JOB_PHOTO_TOO_LARGE: "The prepared photo is too large to upload.",
+  PHOTO_NOT_AVAILABLE: "This photo category is unavailable at the current job stage.",
+  INCOMPATIBLE_CONSUMPTION_UNIT: "Choose a compatible stock unit.",
+  INVALID_CONSUMPTION_PRECISION: "Use an amount that fits the stock unit with up to three decimal places.",
   CHECKLIST_NOT_AVAILABLE:
     "Start the wash before updating its service checklist.",
 };

@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -51,6 +51,12 @@ from app.schemas.staff import (
 from app.services.management_tokens import create_management_token, management_token_hash
 from app.services.scheduling import hold_token_hash
 from app.services.staff_operations import _job_row_values, _job_rows
+
+MAX_JOB_PHOTOS = 48
+
+
+def _photo_limit_error() -> ConflictError:
+    return ConflictError("JOB_PHOTO_LIMIT", "This job has reached its photo limit.")
 
 
 async def _authorized_job(
@@ -441,7 +447,7 @@ async def prepare_photo_upload(
     job_id: uuid.UUID,
     payload: JobPhotoCreate,
 ) -> JobPhoto:
-    job, _booking = await _authorized_job(session, context, job_id)
+    job, _booking = await _authorized_job(session, context, job_id, lock=True)
     existing = await session.scalar(
         select(JobPhoto).where(
             JobPhoto.business_id == context.business_id,
@@ -451,6 +457,7 @@ async def prepare_photo_upload(
     if existing:
         if (
             existing.job_id != job.id
+            or existing.created_by_staff_id != context.staff_id
             or existing.category != payload.category
             or existing.content_type != payload.content_type
         ):
@@ -466,6 +473,16 @@ async def prepare_photo_upload(
         )
     if payload.category == "after" and job.status != JobStatus.IN_PROGRESS:
         raise ConflictError("PHOTO_NOT_AVAILABLE", "After photos are available during the wash.")
+    photo_count = await session.scalar(
+        select(func.count(JobPhoto.id)).where(
+            JobPhoto.job_id == job.id,
+            JobPhoto.business_id == context.business_id,
+            (JobPhoto.status == JobPhotoStatus.READY)
+            | (JobPhoto.created_at >= datetime.now(UTC) - timedelta(hours=2)),
+        )
+    )
+    if photo_count is not None and photo_count >= MAX_JOB_PHOTOS:
+        raise _photo_limit_error()
     photo_id = uuid.uuid4()
     extension = {
         "image/jpeg": "jpg",
@@ -504,7 +521,7 @@ async def load_pending_photo(
             JobPhoto.business_id == context.business_id,
         )
     )
-    if photo is None:
+    if photo is None or photo.created_by_staff_id != context.staff_id:
         raise DomainError("JOB_PHOTO_NOT_FOUND", "Photo not found.", status_code=404)
     return photo
 
@@ -528,10 +545,19 @@ async def confirm_photo(
         )
         .with_for_update()
     )
-    if photo is None:
+    if photo is None or photo.created_by_staff_id != context.staff_id:
         raise DomainError("JOB_PHOTO_NOT_FOUND", "Photo not found.", status_code=404)
     if photo.status == JobPhotoStatus.READY:
         return
+    ready_count = await session.scalar(
+        select(func.count(JobPhoto.id)).where(
+            JobPhoto.job_id == job.id,
+            JobPhoto.business_id == context.business_id,
+            JobPhoto.status == JobPhotoStatus.READY,
+        )
+    )
+    if ready_count is not None and ready_count >= MAX_JOB_PHOTOS:
+        raise _photo_limit_error()
     size = int(object_info.get("size") or object_info.get("metadata", {}).get("size") or 0)
     mimetype = str(
         object_info.get("mimetype")

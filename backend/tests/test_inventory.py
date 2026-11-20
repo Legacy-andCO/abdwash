@@ -4,11 +4,8 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from pydantic import ValidationError
-from sqlalchemy.dialects import postgresql
-
 import app.services.inventory as inventory
+import pytest
 from app.api.staff import router as staff_router
 from app.auth.dependencies import StaffContext
 from app.domain.enums import StaffRole
@@ -28,7 +25,10 @@ from app.schemas.inventory import (
     InventoryStockCountCreate,
     InventoryTransferCreate,
     InventoryWastageCreate,
+    ProductConsumptionUpdate,
 )
+from pydantic import ValidationError
+from sqlalchemy.dialects import postgresql
 
 
 def context(role: StaffRole = StaffRole.MANAGER) -> StaffContext:
@@ -85,6 +85,41 @@ def test_catalogue_schema_uses_controlled_categories_units_and_decimal_quantity(
     assert value.default_low_stock_threshold == Decimal("3.125")
     with pytest.raises(ValidationError):
         InventoryItemCreate(name="Polisher", category="fixed_asset", unit="machine")
+
+
+@pytest.mark.parametrize(("amount", "unit", "stock_unit", "expected"), [
+    ("60", "milliliter", "liter", "0.060"),
+    ("0.1255", "liter", "milliliter", "125.500"),
+    ("125", "gram", "kilogram", "0.125"),
+    ("0.25", "kilogram", "gram", "250.000"),
+    ("2", "piece", "piece", "2.000"),
+    ("0", "box", "box", "0.000"),
+])
+def test_product_consumption_converts_in_stock_units(
+    amount: str, unit: str, stock_unit: str, expected: str,
+) -> None:
+    assert inventory._convert_consumption(Decimal(amount), unit, stock_unit) == Decimal(expected)
+
+
+@pytest.mark.parametrize(("amount", "unit", "stock_unit", "code"), [
+    ("1", "liter", "piece", "INCOMPATIBLE_CONSUMPTION_UNIT"),
+    ("0.1", "gram", "kilogram", "INVALID_CONSUMPTION_PRECISION"),
+    ("100000000000", "piece", "piece", "INVALID_CONSUMPTION_PRECISION"),
+])
+def test_product_consumption_rejects_imprecise_or_incompatible_rates(
+    amount: str, unit: str, stock_unit: str, code: str,
+) -> None:
+    with pytest.raises(DomainError) as error:
+        inventory._convert_consumption(Decimal(amount), unit, stock_unit)
+    assert error.value.code == code
+
+
+@pytest.mark.parametrize("rates", [
+    {"sedan": "-1"}, {"van": "NaN"}, {"suv": "Infinity"}, {"all": "2"}, {"truck": "1"},
+])
+def test_product_consumption_validates_request(rates: dict[str, str]) -> None:
+    with pytest.raises(ValidationError):
+        ProductConsumptionUpdate.model_validate({"unit": "liter", "rates": rates})
 
 
 def test_inventory_models_keep_balance_ledger_and_idempotency_invariants() -> None:

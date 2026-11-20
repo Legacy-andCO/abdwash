@@ -335,7 +335,7 @@ def test_pending_cash_query_filters_authoritative_successful_cash_transactions()
         statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
     )
     assert "payment_transactions.transaction_type = 'cash_payment'" in sql
-    assert "payment_transactions.status = 'succeeded'" in sql
+    assert "payment_transactions.status IN ('pending', 'succeeded', 'rejected')" in sql
     assert "cash_reconciliation_payments.active IS true" in sql
     assert "bookings.business_id" in sql
 
@@ -360,6 +360,7 @@ def reconciliation_rows(context: StaffContext, amount: int = 8_600) -> list[tupl
             uuid.uuid4(),
             "Mobile Team 1",
             "AED",
+            amount,
         )
     ]
 
@@ -373,7 +374,7 @@ async def test_cash_reconciliation_uses_transaction_amount_not_cash_tender(
     execute_result = MagicMock()
     execute_result.all.return_value = rows
     session = MagicMock()
-    session.scalar = AsyncMock(side_effect=[None, 0])
+    session.scalar = AsyncMock(side_effect=[context.staff_id, None])
     session.execute = AsyncMock(return_value=execute_result)
     session.add = MagicMock()
     session.add_all = MagicMock()
@@ -404,13 +405,13 @@ async def test_cash_reconciliation_uses_transaction_amount_not_cash_tender(
 
 
 @pytest.mark.asyncio
-async def test_cash_reconciliation_difference_requires_note() -> None:
+async def test_cash_reconciliation_rejects_excess_cash() -> None:
     context = manager_context()
     rows = reconciliation_rows(context)
     execute_result = MagicMock()
     execute_result.all.return_value = rows
     session = MagicMock()
-    session.scalar = AsyncMock(side_effect=[None, 0])
+    session.scalar = AsyncMock(side_effect=[context.staff_id, None])
     session.execute = AsyncMock(return_value=execute_result)
 
     with pytest.raises(DomainError) as raised:
@@ -420,11 +421,11 @@ async def test_cash_reconciliation_difference_requires_note() -> None:
             CashReconciliationCreate(
                 staff_id=context.staff_id,
                 payment_transaction_ids=[rows[0][0].id],
-                declared_cash_minor=8_000,
+                declared_cash_minor=9_000,
                 client_event_id="handover-event-124",
             ),
         )
-    assert raised.value.code == "CASH_DISCREPANCY_NOTE_REQUIRED"
+    assert raised.value.code == "INVALID_HANDOVER_AMOUNT"
 
 
 @pytest.mark.asyncio

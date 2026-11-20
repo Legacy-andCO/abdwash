@@ -659,6 +659,12 @@
     text-decoration: underline;
     text-underline-offset: 4px;
   }
+  @media (pointer: coarse), (max-width: 700px) {
+    .language-switcher button {
+      min-width: 44px;
+      min-height: 44px;
+    }
+  }
   .language-switcher > span {
     color: var(--brand-border);
   }

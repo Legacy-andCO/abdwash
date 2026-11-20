@@ -1,0 +1,19 @@
+{
+  "supabase_project": "mgfzfgvlrxwyyftwukwf",
+  "auth_and_database": "staging",
+  "photo_storage": "local fault-injection fixture",
+  "english_and_arabic": true,
+  "widths_px": [
+    320,
+    390
+  ],
+  "horizontal_overflow": false,
+  "gallery_multiple_selection": true,
+  "removed_before_upload": true,
+  "duplicate_selection_skipped": true,
+  "objects_written": 2,
+  "interrupted_confirmations": 1,
+  "duplicate_recoveries": 1,
+  "cross_booking_confirmation_denied": true,
+  "signed_view_ok": true
+}

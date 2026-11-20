@@ -15,6 +15,7 @@ from app.models.entities import (
     AuditEvent,
     Booking,
     BookingService,
+    BookingVehicle,
     BusinessSettings,
     InventoryItem,
     InventoryLocation,
@@ -59,6 +60,7 @@ class _LineDraft:
     unit: str
     expected: Decimal
     item_active: bool
+    vehicle_type: str
     manual: Decimal = ZERO
     automatic: Decimal = ZERO
     shortfall: Decimal = ZERO
@@ -140,12 +142,27 @@ async def process_job_consumption(
                 BookingService.service_name,
                 BookingService.quantity,
                 ServiceInventoryTemplate.inventory_item_id,
-                ServiceInventoryTemplate.expected_quantity,
+                func.coalesce(
+                    func.max(case((
+                        ServiceInventoryTemplate.vehicle_type == BookingVehicle.vehicle_type,
+                        ServiceInventoryTemplate.expected_quantity,
+                    ))),
+                    func.max(case((
+                        ServiceInventoryTemplate.vehicle_type == "all",
+                        ServiceInventoryTemplate.expected_quantity,
+                    ))),
+                ),
                 InventoryItem.name,
                 InventoryItem.unit,
                 InventoryItem.is_active,
+                BookingVehicle.vehicle_type,
             )
             .select_from(BookingService)
+            .join(
+                BookingVehicle,
+                (BookingVehicle.id == BookingService.booking_vehicle_id)
+                & (BookingVehicle.booking_id == BookingService.booking_id),
+            )
             .join(
                 ServiceInventoryTemplate,
                 (ServiceInventoryTemplate.service_id == BookingService.service_id)
@@ -159,6 +176,12 @@ async def process_job_consumption(
             .where(
                 BookingService.booking_id == job.booking_id,
                 ServiceInventoryTemplate.business_id == context.business_id,
+            )
+            .group_by(
+                BookingService.id,
+                ServiceInventoryTemplate.inventory_item_id,
+                InventoryItem.id,
+                BookingVehicle.vehicle_type,
             )
             .order_by(BookingService.id, ServiceInventoryTemplate.inventory_item_id)
         )
@@ -186,6 +209,8 @@ async def process_job_consumption(
             unit=row[7],
             expected=_decimal(row[5]) * int(row[3]),
             item_active=bool(row[8]),
+            vehicle_type=row[9],
+            issue_code="VEHICLE_CONSUMPTION_MISSING" if row[5] is None else None,
         )
         for row in template_rows
     ]
@@ -211,6 +236,8 @@ async def process_job_consumption(
     remaining_manual = dict(manual_by_item)
     automatic_needed: dict[uuid.UUID, Decimal] = defaultdict(lambda: ZERO)
     for draft in drafts:
+        if draft.issue_code is not None or draft.expected == ZERO:
+            continue
         available_manual = remaining_manual.get(draft.item_id, ZERO)
         draft.manual = min(draft.expected, available_manual)
         remaining_manual[draft.item_id] = max(ZERO, available_manual - draft.manual)
@@ -284,6 +311,7 @@ async def process_job_consumption(
                 inventory_item_id=draft.item_id,
                 item_name_snapshot=draft.item_name,
                 unit_snapshot=draft.unit,
+                vehicle_type_snapshot=draft.vehicle_type,
                 expected_quantity=draft.expected,
                 automatic_applied_quantity=draft.automatic,
                 preexisting_manual_quantity=draft.manual,
@@ -406,6 +434,7 @@ async def consumption_summaries(
                     item_id=line.inventory_item_id,
                     item_name=line.item_name_snapshot,
                     unit=line.unit_snapshot,
+                    vehicle_type=line.vehicle_type_snapshot,
                     expected_quantity=_decimal(line.expected_quantity),
                     automatic_applied_quantity=_decimal(line.automatic_applied_quantity),
                     preexisting_manual_quantity=_decimal(line.preexisting_manual_quantity),

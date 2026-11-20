@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useNetInfo } from "@react-native-community/netinfo";
 import * as ImagePicker from "expo-image-picker";
+import { CryptoDigestAlgorithm, digest } from "expo-crypto";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { capabilities } from "../capabilities";
 import { DatePickerField } from "./pickers";
@@ -25,7 +26,6 @@ import {
   uiStyles,
 } from "./ui";
 import { domainErrorMessage } from "../errors/domainErrors";
-import { newClientEventId } from "../idempotency/clientEventId";
 import type {
   Job,
   JobComplaint,
@@ -49,13 +49,57 @@ import {
   toggledChecklist,
 } from "../quality/qualityState";
 import { colors, radii, spacing } from "../theme";
-import { formatUaeTime, uaeDateKey, wallDate } from "../time/uaeTime";
+import { formatUaeDateTime, formatUaeTime, uaeDateKey, wallDate } from "../time/uaeTime";
 
 type PhotoDraft = {
   uri: string;
   category: JobPhoto["category"];
   clientRequestId: string;
+  failure?: { reason: unknown };
 };
+
+const MAX_PHOTO_QUEUE = 8;
+const MAX_JOB_PHOTOS = 48;
+const MAX_PREPARED_BYTES = 8 * 1024 * 1024;
+const PHOTO_TYPES = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif",
+]);
+
+function photoCategoryLabel(category: JobPhoto["category"]) {
+  return t({
+    before: "Before service",
+    after: "After service",
+    damage: "Damage",
+    issue: "Issue",
+  }[category]);
+}
+
+async function preparePhoto(asset: ImagePicker.ImagePickerAsset) {
+  const mimeType = asset.mimeType || asset.file?.type;
+  if (
+    (mimeType && !PHOTO_TYPES.has(mimeType)) ||
+    (asset.fileSize ?? asset.file?.size ?? 0) > 30 * 1024 * 1024 ||
+    asset.width * asset.height > 60_000_000
+  ) {
+    throw new Error("Invalid source image");
+  }
+  const manipulator = ImageManipulator.manipulate(asset.uri);
+  if (Math.max(asset.width, asset.height) > 1600) {
+    manipulator.resize(asset.height > asset.width ? { height: 1600 } : { width: 1600 });
+  }
+  const rendered = await manipulator.renderAsync();
+  const prepared = await rendered.saveAsync({ compress: 0.75, format: SaveFormat.JPEG });
+  const response = await fetch(prepared.uri);
+  const bytes = await response.arrayBuffer();
+  if (!bytes.byteLength || bytes.byteLength > MAX_PREPARED_BYTES) {
+    throw new Error("Invalid prepared image size");
+  }
+  const hash = await digest(CryptoDigestAlgorithm.SHA256, bytes);
+  return {
+    uri: prepared.uri,
+    hash: Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join(""),
+  };
+}
 
 export function JobQualityControls({
   context,
@@ -84,7 +128,12 @@ export function JobQualityControls({
   const [damageNotes, setDamageNotes] = useState("");
   const [photoCategory, setPhotoCategory] =
     useState<JobPhoto["category"]>("before");
-  const [draft, setDraft] = useState<PhotoDraft | null>(null);
+  const [drafts, setDrafts] = useState<PhotoDraft[]>([]);
+  const [photoPicking, setPhotoPicking] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [uploadedPhotos, setUploadedPhotos] = useState(0);
+  const [pickNotice, setPickNotice] = useState("");
+  const photoBusy = useRef(false);
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueCategory, setIssueCategory] = useState("other");
   const [issueNote, setIssueNote] = useState("");
@@ -108,58 +157,94 @@ export function JobQualityControls({
     if (categories.length && !categories.includes(photoCategory))
       setPhotoCategory(categories[0]);
   }, [categories, photoCategory]);
+  const queueLimit = Math.min(MAX_PHOTO_QUEUE, MAX_JOB_PHOTOS - (quality?.photos.length ?? 0));
+  const photoWorking = photoPicking || uploadProgress !== null;
 
   async function choosePhoto(source: "camera" | "library") {
-    const permission = Platform.OS === "web" ? { granted: true } :
-      source === "camera"
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        t("Permission needed"),
-        source === "camera"
-          ? t("Allow camera access to capture job evidence.")
-          : t("Allow photo access to select job evidence."),
-      );
-      return;
+    const slots = queueLimit - drafts.length;
+    if (photoBusy.current || slots <= 0) return;
+    setPickNotice("");
+    setUploadedPhotos(0);
+    // On web, the picker must open on the tap, and some browsers omit cancellation.
+    let ownsPicker = Platform.OS !== "web";
+    if (ownsPicker) {
+      photoBusy.current = true;
+      setPhotoPicking(true);
     }
-    const result =
-      source === "camera"
-        ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ["images"],
-            quality: 0.9,
-          })
+    try {
+      if (source === "camera" && Platform.OS !== "web") {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setPickNotice("Allow camera access to capture job evidence.");
+          return;
+        }
+      }
+      const options: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 1 };
+      const result = source === "camera"
+        ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ["images"],
-            quality: 0.9,
-            allowsMultipleSelection: false,
-          });
-    if (result.canceled || !result.assets[0]) return;
-    const manipulator = ImageManipulator.manipulate(result.assets[0].uri);
-    manipulator.resize({ width: 1600 });
-    const rendered = await manipulator.renderAsync();
-    const prepared = await rendered.saveAsync({
-      compress: 0.75,
-      format: SaveFormat.JPEG,
-    });
-    setDraft({
-      uri: prepared.uri,
-      category: photoCategory,
-      clientRequestId: newClientEventId(),
-    });
+          ...options, allowsMultipleSelection: true, selectionLimit: slots,
+        });
+      if (result.canceled || (Platform.OS === "web" && photoBusy.current)) return;
+      ownsPicker = true;
+      photoBusy.current = true;
+      setPhotoPicking(true);
+      const selected: PhotoDraft[] = [];
+      const queued = new Set(drafts.map((item) => item.clientRequestId));
+      let rejected = 0;
+      let duplicates = 0;
+      for (const asset of result.assets.slice(0, MAX_PHOTO_QUEUE)) {
+        if (selected.length === slots) break;
+        try {
+          const { uri, hash } = await preparePhoto(asset);
+          const clientRequestId = `photo:${job.id}:${context.staff_id}:${photoCategory}:${hash}`;
+          if (queued.has(clientRequestId)) {
+            duplicates += 1;
+            continue;
+          }
+          queued.add(clientRequestId);
+          selected.push({ uri, category: photoCategory, clientRequestId });
+        } catch {
+          rejected += 1;
+        }
+      }
+      setDrafts((previous) => [...previous, ...selected.filter(
+        (item) => !previous.some((draft) => draft.clientRequestId === item.clientRequestId),
+      )].slice(0, queueLimit));
+      if (rejected) setPickNotice("Some images could not be added. Choose a supported image under 30 MB.");
+      else if (duplicates) setPickNotice("Duplicate photos were skipped.");
+      else if (result.assets.length > slots) setPickNotice("The photo queue is full. Upload or remove photos to add more.");
+    } catch {
+      setPickNotice("Could not open photos. Check permissions and try again.");
+    } finally {
+      if (ownsPicker) {
+        photoBusy.current = false;
+        setPhotoPicking(false);
+      }
+    }
   }
 
-  async function uploadDraft() {
-    if (!draft) return;
-    try {
-      await photo.mutateAsync(draft);
-      setDraft(null);
-    } catch (reason) {
-      Alert.alert(
-        t("Photo not uploaded"),
-        domainErrorMessage(reason, "Keep the preview and try uploading again."),
-      );
+  async function uploadDrafts() {
+    if (photoBusy.current || !drafts.length) return;
+    photoBusy.current = true;
+    setUploadedPhotos(0);
+    setPickNotice("");
+    let uploaded = 0;
+    for (const [index, draft] of drafts.entries()) {
+      setUploadProgress({ current: index + 1, total: drafts.length });
+      try {
+        await photo.mutateAsync(draft);
+        setDrafts((items) => items.filter((item) => item.clientRequestId !== draft.clientRequestId));
+        uploaded += 1;
+      } catch (reason) {
+        setDrafts((items) => items.map((item) => item.clientRequestId === draft.clientRequestId
+          ? { ...item, failure: { reason } }
+          : item));
+      }
     }
+    photoBusy.current = false;
+    setUploadProgress(null);
+    setUploadedPhotos(uploaded);
   }
 
   async function saveInspection() {
@@ -309,7 +394,7 @@ export function JobQualityControls({
           <Text style={styles.title}>{t("Inspection")}</Text>
           <Text style={uiStyles.muted}>
             {quality.inspection.completed_by_staff_name} ·{" "}
-            {new Date(quality.inspection.completed_at).toLocaleString()}
+            {formatUaeDateTime(quality.inspection.completed_at)}
           </Text>
           {quality.inspection.condition_notes ? (
             <Text style={uiStyles.body}>
@@ -328,60 +413,88 @@ export function JobQualityControls({
           {" " + t("No inspection was recorded for this job.") + " "}</Text>
       )}
 
-      {categories.length ? (
+      {categories.length || drafts.length || uploadedPhotos ? (
         <View style={styles.block}>
           <Text style={styles.title}>{t("Photo evidence")}</Text>
           <View style={styles.choices}>
             {categories.map((category) => (
               <Pressable
                 key={category}
+                accessibilityRole="button"
+                accessibilityState={{ selected: photoCategory === category }}
+                disabled={photoWorking}
                 style={[
                   styles.choice,
                   photoCategory === category ? styles.selected : undefined,
                 ]}
                 onPress={() => setPhotoCategory(category)}
               >
-                <Text style={styles.choiceText}>{category.toUpperCase()}</Text>
+                <Text style={styles.choiceText}>{photoCategoryLabel(category)}</Text>
               </Pressable>
             ))}
           </View>
-          {draft ? (
-            <View style={styles.preview}>
-              <Image source={{ uri: draft.uri }} style={styles.previewImage} />
-              <Text style={uiStyles.muted}>
-                {draft.category.toUpperCase()} {" " + t("preview") + " "}</Text>
-              <AppButton
-                title={photo.isPending ? t("Uploading…") : t("Upload photo")}
-                disabled={offline || photo.isPending}
-                loading={photo.isPending}
-                onPress={() => void uploadDraft()}
-              />
-              <AppButton
-                title={t("Remove preview")}
-                tone="secondary"
-                disabled={photo.isPending}
-                onPress={() => setDraft(null)}
-              />
-            </View>
-          ) : (
+          {categories.length ? (
             <View style={styles.actions}>
               <View style={styles.flex}>
                 <AppButton
                   title={t("Take photo")}
-                  disabled={offline}
+                  disabled={offline || photoWorking || drafts.length >= queueLimit}
                   onPress={() => void choosePhoto("camera")}
                 />
               </View>
               <View style={styles.flex}>
                 <AppButton
-                  title={t("Choose photo")}
+                  title={t("Choose photos")}
                   tone="secondary"
-                  disabled={offline}
+                  disabled={offline || photoWorking || drafts.length >= queueLimit}
                   onPress={() => void choosePhoto("library")}
                 />
               </View>
             </View>
-          )}
+          ) : null}
+          {photoPicking ? <Text accessibilityLiveRegion="polite" style={uiStyles.muted}>{t("Preparing photos…")}</Text> : null}
+          {pickNotice ? <Text accessibilityLiveRegion="polite" style={uiStyles.body}>{t(pickNotice)}</Text> : null}
+          {queueLimit <= 0 && categories.length ? (
+            <Text style={uiStyles.muted}>{t("This job has reached its photo limit.")}</Text>
+          ) : null}
+          {drafts.length ? (
+            <>
+              <Text style={uiStyles.label}>{t("{count} photos to upload", { count: drafts.length })}</Text>
+              {drafts.map((draft, index) => (
+                <View key={draft.clientRequestId} style={styles.preview}>
+                  <Image source={{ uri: draft.uri }} style={styles.thumb} resizeMode="cover"
+                    accessibilityLabel={t("Selected photo {number}", { number: index + 1 })} />
+                  <View style={styles.flex}>
+                    <Text style={uiStyles.body}>{photoCategoryLabel(draft.category)}</Text>
+                    {draft.failure ? (
+                      <Text accessibilityLiveRegion="polite" style={uiStyles.error}>
+                        {domainErrorMessage(draft.failure.reason, "Photo could not be uploaded. Try again.")}
+                      </Text>
+                    ) : null}
+                    <Pressable accessibilityRole="button"
+                      accessibilityLabel={t("Remove selected photo {number}", { number: index + 1 })}
+                      disabled={photoWorking} style={styles.removePhoto}
+                      onPress={() => setDrafts((items) => items.filter((item) => item.clientRequestId !== draft.clientRequestId))}>
+                      <Text style={uiStyles.link}>{t("Remove")}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+              <AppButton
+                title={uploadProgress !== null
+                  ? t("Uploading photo {current} of {total}", uploadProgress)
+                  : drafts.some((draft) => draft.failure) ? t("Retry remaining photos") : t("Upload photos")}
+                disabled={offline || photoWorking || !categories.length}
+                loading={uploadProgress !== null}
+                onPress={() => void uploadDrafts()}
+              />
+            </>
+          ) : null}
+          {uploadedPhotos ? (
+            <Text accessibilityLiveRegion="polite" style={uiStyles.body}>
+              {t("{count} photos uploaded", { count: uploadedPhotos })}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -536,7 +649,7 @@ export function JobQualityControls({
               <Text style={uiStyles.body}>{item.note}</Text>
               <Text style={uiStyles.muted}>
                 {item.created_by_staff_name} ·{" "}
-                {new Date(item.created_at).toLocaleString()}
+                {formatUaeDateTime(item.created_at)}
               </Text>
             </View>
           ))}
@@ -650,12 +763,14 @@ function PhotoStrip({ photos }: { photos: JobPhoto[] }) {
         return matching.length ? (
           <View key={category}>
             <Text style={uiStyles.label}>
-              {category.toUpperCase()} · {matching.length}
+              {photoCategoryLabel(category)} · {matching.length}
             </Text>
             <View style={styles.photos}>
               {matching.map((item) => (
                 <Pressable
                   key={item.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("View {category} photo", { category: photoCategoryLabel(category) })}
                   disabled={!item.access_url}
                   onPress={() =>
                     item.access_url && void Linking.openURL(item.access_url)
@@ -844,14 +959,9 @@ const styles = StyleSheet.create({
   choiceText: { color: colors.text, fontSize: 12, fontWeight: "800" },
   actions: { flexDirection: "row", gap: spacing.sm },
   complaintActions: { gap: spacing.sm },
-  flex: { flex: 1 },
-  preview: { gap: spacing.sm },
-  previewImage: {
-    width: "100%",
-    height: 220,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceElevated,
-  },
+  flex: { flex: 1, minWidth: 0 },
+  preview: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  removePhoto: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center" },
   photos: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   thumb: {
     width: 76,

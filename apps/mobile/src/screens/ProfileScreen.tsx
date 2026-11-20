@@ -1,3 +1,4 @@
+import { AttendanceHistory } from "../components/AttendanceHistory";
 import { t } from "../i18n";
 import { Alert } from "../alert";
 import Constants from "expo-constants";
@@ -10,7 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { prepareOperationalLogout } from "../cache/queryClient";
+import { signOutFromStaffApp } from "../authSignOut";
 import { DatePickerField, fromIsoDate } from "../components/pickers";
 import {
   AppButton,
@@ -24,22 +25,18 @@ import {
 import { domainErrorMessage } from "../errors/domainErrors";
 import { validatePasswordConfirmation } from "../forms/password";
 import { successHaptic } from "../haptics";
-import { supabase, type StaffContext } from "../lib";
+import type { StaffContext } from "../lib";
 import {
-  useAttendanceHistoryQuery,
   useLeaveQuery,
   useProfileQuery,
   useRequestLeaveMutation,
   useUpdateProfileMutation,
 } from "../queries/operations";
 import { colors, spacing } from "../theme";
-import { addUaeDays, uaeDateKey, wallDate } from "../time/uaeTime";
+import { uaeDateKey, wallDate } from "../time/uaeTime";
 
 export function ProfileScreen({ context }: { context: StaffContext }) {
-  const end = uaeDateKey();
-  const start = addUaeDays(end, -30);
   const profileQuery = useProfileQuery(context);
-  const attendanceQuery = useAttendanceHistoryQuery(context, start, end);
   const leaveQuery = useLeaveQuery(context);
   const profileMutation = useUpdateProfileMutation(context);
   const leaveMutation = useRequestLeaveMutation(context);
@@ -119,7 +116,6 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
   async function refresh() {
     await Promise.all([
       profileQuery.refetch(),
-      attendanceQuery.refetch(),
       leaveQuery.refetch(),
     ]);
   }
@@ -148,7 +144,6 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       </ScrollView>
     );
   if (!profile) return null;
-  const attendance = attendanceQuery.data?.items ?? [];
   const leave = leaveQuery.data ?? [];
   return (
     <ScrollView
@@ -157,7 +152,6 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
         <RefreshControl
           refreshing={
             profileQuery.isRefetching ||
-            attendanceQuery.isRefetching ||
             leaveQuery.isRefetching
           }
           onRefresh={() => void refresh()}
@@ -165,6 +159,7 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       }
       contentContainerStyle={uiStyles.content}
     >
+      <AttendanceHistory context={context} />
       <View style={styles.identity}>
         <View style={styles.avatar}>
           <Text style={styles.initials}>{initials(profile.display_name)}</Text>
@@ -328,36 +323,13 @@ export function ProfileScreen({ context }: { context: StaffContext }) {
       ) : (
         <EmptyState title={t("No time-off requests")} />
       )}
-      <Text style={styles.section}>{t("ATTENDANCE · LAST 30 DAYS")}</Text>
-      {attendance.length ? (
-        attendance.slice(0, 10).map((item) => (
-          <Card key={item.id}>
-            <View style={uiStyles.row}>
-              <Text style={styles.value}>
-                {new Date(item.clock_in_at).toLocaleDateString()}
-              </Text>
-              <StatusChip value={item.status} />
-            </View>
-            <Text style={uiStyles.muted}>
-              {Math.floor(item.worked_minutes / 60)}{"" + t("h") + " "}{item.worked_minutes % 60}
-              {" " + t("m worked") + " "}</Text>
-          </Card>
-        ))
-      ) : (
-        <EmptyState title={t("No attendance history yet")} />
-      )}
       <Text style={styles.version}>
         {" " + t("Trifecta Operations") + " "}{Constants.expoConfig?.version ?? "1.0.0"}
       </Text>
       <AppButton
         title={t("Sign out")}
         tone="danger"
-        onPress={() =>
-          void (async () => {
-            await prepareOperationalLogout();
-            await supabase.auth.signOut();
-          })()
-        }
+        onPress={() => void signOutFromStaffApp()}
       />
     </ScrollView>
   );

@@ -1,6 +1,6 @@
 import { t } from "../i18n";
 import { Alert } from "../alert";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   RefreshControl,
   Pressable,
@@ -34,6 +34,8 @@ import {
 } from "../queries/operations";
 import { colors, spacing } from "../theme";
 import { formatUaeDate, formatUaeTime, uaeDateKey } from "../time/uaeTime";
+
+import { ClientEventIdStore } from "../idempotency/clientEventId";
 
 const today = uaeDateKey;
 
@@ -113,19 +115,27 @@ export function TodayScreen({
           ],
     );
   }
+  const clockEvents = useRef(new ClientEventIdStore()).current;
+  const clockBusy = useRef(false);
   async function toggleClock() {
+    if (clockBusy.current) return;
+    clockBusy.current = true;
+    const clockingOut = Boolean(ownAttendance?.clock_in_at && !ownAttendance.clock_out_at);
+    const action = clockingOut ? "clock-out" : "clock-in";
+    const attendanceId = clockingOut ? ownAttendance?.attendance_id : undefined;
+    const key = attendanceId ?? action;
     try {
-      await clock.mutateAsync(
-        ownAttendance?.clock_in_at && !ownAttendance.clock_out_at
-          ? "clock-out"
-          : "clock-in",
-      );
+      await clock.mutateAsync({ action, attendanceId, eventId: clockEvents.get(key) });
+      clockEvents.succeeded(key);
       await successHaptic();
     } catch (reason) {
+      clockEvents.failed(key, reason);
       Alert.alert(
         t("Attendance not changed"),
         domainErrorMessage(reason, "The server did not confirm attendance."),
       );
+    } finally {
+      clockBusy.current = false;
     }
   }
   const attendanceNeedsAction = !attendance.isPending && !attendance.error && !ownAttendance?.clock_in_at && ownAttendance?.status !== "approved_leave";

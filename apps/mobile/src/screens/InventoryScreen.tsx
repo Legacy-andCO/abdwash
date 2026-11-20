@@ -36,6 +36,7 @@ import {
   useTeamsQuery,
 } from "../queries/operations";
 import { colors, radii, spacing } from "../theme";
+import { ProductConsumptionScreen } from "./ProductConsumptionScreen";
 
 type InventoryTab = "overview" | "catalogue" | "stock" | "movements";
 type DraftQuantityLine = { item_id: string; quantity: string };
@@ -125,7 +126,7 @@ export function InventoryScreen({
             onPress={() => setTab(value as InventoryTab)}
             style={[styles.tab, tab === value ? styles.tabActive : undefined]}
           >
-            <Text style={styles.tabText}>{value.toUpperCase()}</Text>
+            <Text style={styles.tabText}>{t(value.toUpperCase())}</Text>
           </Pressable>
         ))}
       </View>
@@ -307,7 +308,7 @@ function InventoryOverviewContent({ value, attention, locations, defaultLocation
                   <Text style={uiStyles.muted}>
                     {" " + t("Future jobs use the saved location. This historical shortfall is not replayed automatically.") + " "}</Text>
                 </>
-              ) : item.issue_code === "INVENTORY_ITEM_INACTIVE" ? (
+              ) : ["INVENTORY_ITEM_INACTIVE", "VEHICLE_CONSUMPTION_MISSING"].includes(item.issue_code ?? "") ? (
                 <AppButton title={t("Open consumable setup")} tone="secondary" onPress={onOpenConsumable} />
               ) : (
                 <>
@@ -351,6 +352,9 @@ export function effectiveDefaultLocationId(
 }
 
 export function inventoryIssueCopy(issueCode: string | null): string {
+  if (issueCode === "VEHICLE_CONSUMPTION_MISSING") {
+    return "A consumable has no rate for this vehicle category.";
+  }
   if (
     issueCode === "SOURCE_LOCATION_MISSING" ||
     issueCode === "SOURCE_LOCATION_AMBIGUOUS"
@@ -430,6 +434,7 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
   const mutation = useInventoryMutation(context);
   const teams = useTeamsQuery(context);
   const [name, setName] = useState(initialItem?.name ?? "");
+  const [consumptionOpen, setConsumptionOpen] = useState(false);
   const [code, setCode] = useState(initialItem?.code ?? "");
   const [category, setCategory] = useState<string>(initialItem?.category ?? inventoryCategories[0]);
   const [unit, setUnit] = useState<string>(initialItem?.unit ?? inventoryUnits[0]);
@@ -552,10 +557,22 @@ function InventoryActionScreen({ context, action, items, locations, initialItem,
       </ScrollView>
     );
   }
+  if (consumptionOpen && initialItem) {
+    return (
+      <ProductConsumptionScreen
+        context={context}
+        item={items.find((item) => item.id === initialItem.id) ?? initialItem}
+        onBack={() => setConsumptionOpen(false)}
+      />
+    );
+  }
   return (
     <ScrollView contentContainerStyle={uiStyles.content}>
       <Pressable onPress={onBack}><Text style={uiStyles.link}>{t("← Inventory")}</Text></Pressable>
-      <ScreenTitle title={actionLabel(action)} subtitle={t("Stock changes are recorded in the audit ledger")} />
+      <ScreenTitle title={t(actionLabel(action))} subtitle={t("Stock changes are recorded in the audit ledger")} />
+      {action === "edit_item" && initialItem?.is_active ? (
+        <AppButton title={t("Automatic consumption")} tone="secondary" onPress={() => setConsumptionOpen(true)} />
+      ) : null}
       {["create_item", "edit_item"].includes(action) ? (
         <>
           <Field label={t("Item name")} value={name} onChange={setName} placeholder={t("Interior Cleaner")} />

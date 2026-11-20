@@ -61,6 +61,7 @@ def data():
         "bookings",
         "jobs",
         "payments",
+        "payment_transactions",
         "job_events",
         "booking_vehicles",
         "booking_services",
@@ -74,6 +75,7 @@ def data():
     for name in names:
         Base.metadata.tables[name].create(engine)
     with engine.connect() as connection:
+        connection.connection.create_function("greatest", -1, max)
         connection.connection.create_function(
             "concat_ws",
             -1,

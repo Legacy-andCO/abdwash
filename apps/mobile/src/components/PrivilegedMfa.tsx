@@ -1,4 +1,5 @@
 import { t } from "../i18n";
+import { signOutFromStaffApp } from "../authSignOut";
 import { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -117,7 +118,7 @@ export function PrivilegedMfa({ userId, onVerified }: { userId: string; onVerifi
             <Text style={styles.recoveryTitle}>{t("Lost your authenticator?")}</Text>
             <Text style={styles.hint}>{t("Contact an authorized company administrator for identity-verified recovery. Email or a password reset alone cannot bypass this check.")}</Text>
           </View>
-          <AppButton title={t("Sign out")} tone="secondary" disabled={busy} onPress={() => void supabase.auth.signOut()} />
+          <AppButton title={t("Sign out")} tone="secondary" disabled={busy} onPress={() => void signOutFromStaffApp()} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

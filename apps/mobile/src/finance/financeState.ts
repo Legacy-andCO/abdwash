@@ -35,12 +35,11 @@ export function canConfirmCashHandover(
   paymentCount: number,
   declaredMinor: number,
   differenceMinor: number,
-  note: string,
+  _note: string,
 ) {
   return (
     paymentCount > 0 &&
     Number.isFinite(declaredMinor) &&
-    declaredMinor >= 0 &&
-    (differenceMinor === 0 || Boolean(note.trim()))
+    declaredMinor > 0 && differenceMinor <= 0
   );
 }

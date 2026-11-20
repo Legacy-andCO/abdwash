@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, case, distinct, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.auth.dependencies import StaffContext
 from app.domain.enums import (
@@ -12,7 +13,6 @@ from app.domain.enums import (
     CancellationStatus,
     JobStatus,
     LeaveStatus,
-    PaymentStatus,
 )
 from app.domain.errors import ConflictError, DomainError
 from app.models.entities import (
@@ -25,6 +25,7 @@ from app.models.entities import (
     Job,
     LeaveRequest,
     Payment,
+    PaymentTransaction,
     ScheduleResource,
     Shift,
     StaffProfile,
@@ -33,6 +34,8 @@ from app.models.entities import (
 )
 from app.schemas.staff import (
     AttendanceAction,
+    AttendanceCorrection,
+    AttendanceCorrectionView,
     AttendanceList,
     AttendanceOverviewItem,
     AttendanceRecord,
@@ -60,6 +63,7 @@ from app.schemas.staff import (
     TeamUpdate,
 )
 from app.services.finance import finance_overview
+from app.services.payment_balances import RECEIPTS, RETURNS, completed_balance, verified_amount
 from app.services.staff_accounts import _profile_data
 from app.services.staff_operations import list_jobs
 
@@ -410,6 +414,14 @@ async def _owned_team(
     return team
 
 
+async def _lock_attendance_staff(session: AsyncSession, context: StaffContext) -> None:
+    await session.scalar(
+        select(StaffProfile.id)
+        .where(StaffProfile.id == context.staff_id, StaffProfile.business_id == context.business_id)
+        .with_for_update()
+    )
+
+
 async def clock_in(
     session: AsyncSession,
     context: StaffContext,
@@ -418,14 +430,16 @@ async def clock_in(
     # Serialize clock-in attempts on the owned staff row before checking the partial
     # unique index. This makes simultaneous device taps idempotent instead of surfacing
     # a database uniqueness error from two transactions that both observed no open row.
-    await session.scalar(
-        select(StaffProfile.id)
-        .where(
-            StaffProfile.id == context.staff_id,
-            StaffProfile.business_id == context.business_id,
+    await _lock_attendance_staff(session, context)
+    if request.client_event_id:
+        retry = await session.scalar(
+            select(AttendanceSession).where(
+                AttendanceSession.staff_profile_id == context.staff_id,
+                AttendanceSession.clock_in_event_id == request.client_event_id,
+            )
         )
-        .with_for_update()
-    )
+        if retry is not None:
+            return await _attendance_view(session, context, retry)
     existing = (
         await session.scalars(
             select(AttendanceSession)
@@ -443,6 +457,7 @@ async def clock_in(
         staff_profile_id=context.staff_id,
         clock_in_at=datetime.now(UTC),
         clock_in_client_timestamp=request.client_timestamp,
+        clock_in_event_id=request.client_event_id,
     )
     session.add(item)
     await session.flush()
@@ -455,11 +470,26 @@ async def clock_out(
     context: StaffContext,
     request: AttendanceAction,
 ) -> AttendanceRecord:
+    await _lock_attendance_staff(session, context)
+    statement = select(AttendanceSession).where(
+        AttendanceSession.staff_profile_id == context.staff_id,
+        AttendanceSession.business_id == context.business_id,
+    )
+    if request.client_event_id:
+        retry = await session.scalar(
+            statement.where(AttendanceSession.clock_out_event_id == request.client_event_id)
+        )
+        if retry is not None:
+            return await _attendance_view(session, context, retry)
+    if request.attendance_id:
+        statement = statement.where(AttendanceSession.id == request.attendance_id)
     item = (
         await session.scalars(
-            select(AttendanceSession)
-            .where(AttendanceSession.staff_profile_id == context.staff_id)
-            .order_by(AttendanceSession.clock_in_at.desc())
+            statement.order_by(
+                AttendanceSession.clock_out_at.is_(None).desc(),
+                AttendanceSession.clock_in_at.desc(),
+                AttendanceSession.id.desc(),
+            )
             .limit(1)
             .with_for_update()
         )
@@ -469,7 +499,105 @@ async def clock_out(
     if item.clock_out_at is None:
         item.clock_out_at = datetime.now(UTC)
         item.clock_out_client_timestamp = request.client_timestamp
+        item.clock_out_event_id = request.client_event_id
         _audit(session, context, "attendance_clocked_out", "attendance_session", item.id)
+        await session.flush()
+    return await _attendance_view(session, context, item)
+
+
+def _closed_worked_minutes() -> ColumnElement[int]:
+    return func.greatest(
+        0,
+        func.floor(
+            func.extract(
+                "epoch",
+                AttendanceSession.clock_out_at - AttendanceSession.clock_in_at,
+            )
+            / 60
+        )
+        - func.coalesce(AttendanceSession.break_minutes, 0),
+    )
+
+
+async def correct_attendance(
+    session: AsyncSession,
+    context: StaffContext,
+    attendance_id: uuid.UUID,
+    request: AttendanceCorrection,
+) -> AttendanceRecord:
+    if context.role not in {"manager", "admin"}:
+        raise DomainError("INSUFFICIENT_ROLE", "Manager access required.", status_code=403)
+    await session.scalar(
+        select(StaffProfile.id)
+        .join(AttendanceSession, AttendanceSession.staff_profile_id == StaffProfile.id)
+        .where(
+            AttendanceSession.id == attendance_id,
+            StaffProfile.business_id == context.business_id,
+            AttendanceSession.business_id == context.business_id,
+        )
+        .with_for_update(of=StaffProfile)
+    )
+    item = await session.scalar(
+        select(AttendanceSession)
+        .where(
+            AttendanceSession.id == attendance_id,
+            AttendanceSession.business_id == context.business_id,
+        )
+        .with_for_update()
+    )
+    if item is None:
+        raise DomainError("ATTENDANCE_NOT_FOUND", "Attendance record not found.", status_code=404)
+    elapsed = request.clock_out_at - request.clock_in_at
+    reason = request.reason.strip()
+    if (
+        len(reason) < 2
+        or elapsed < timedelta(minutes=request.break_minutes or 0)
+        or request.clock_out_at > datetime.now(UTC)
+    ):
+        raise DomainError(
+            "INVALID_ATTENDANCE_CORRECTION", "Check the times, break and reason.", status_code=422
+        )
+    overlap = await session.scalar(
+        select(AttendanceSession.id)
+        .where(
+            AttendanceSession.staff_profile_id == item.staff_profile_id,
+            AttendanceSession.business_id == context.business_id,
+            AttendanceSession.id != item.id,
+            AttendanceSession.clock_in_at < request.clock_out_at,
+            or_(
+                AttendanceSession.clock_out_at.is_(None),
+                AttendanceSession.clock_out_at > request.clock_in_at,
+            ),
+        )
+        .limit(1)
+    )
+    if overlap is not None:
+        raise ConflictError(
+            "ATTENDANCE_OVERLAP", "The correction overlaps another attendance session."
+        )
+
+    before = {
+        "clock_in_at": item.clock_in_at.isoformat(),
+        "clock_out_at": item.clock_out_at.isoformat() if item.clock_out_at else None,
+        "break_minutes": item.break_minutes,
+    }
+    after = {
+        "clock_in_at": request.clock_in_at.astimezone(UTC).isoformat(),
+        "clock_out_at": request.clock_out_at.astimezone(UTC).isoformat(),
+        "break_minutes": request.break_minutes,
+    }
+    if before != after:
+        item.clock_in_at = request.clock_in_at
+        item.clock_out_at = request.clock_out_at
+        item.break_minutes = request.break_minutes
+        _audit(
+            session,
+            context,
+            "attendance_corrected",
+            "attendance_session",
+            item.id,
+            {"before": before, "after": after, "reason": reason},
+        )
         await session.flush()
     return await _attendance_view(session, context, item)
 
@@ -484,6 +612,14 @@ async def list_attendance(
     offset: int,
     limit: int,
 ) -> AttendanceList:
+    if end_date < start_date or (end_date - start_date).days > 366:
+        raise DomainError(
+            "INVALID_ATTENDANCE_RANGE", "Choose a date range of up to 367 days.", status_code=422
+        )
+    if context.role == "employee" and staff_id and staff_id != context.staff_id:
+        raise DomainError(
+            "INSUFFICIENT_ROLE", "You can only view your own attendance.", status_code=403
+        )
     start, _ = _day_bounds(start_date, context.timezone)
     _, end = _day_bounds(end_date, context.timezone)
     statement = (
@@ -499,9 +635,26 @@ async def list_attendance(
         statement = statement.where(AttendanceSession.staff_profile_id == context.staff_id)
     elif staff_id is not None:
         statement = statement.where(AttendanceSession.staff_profile_id == staff_id)
+    work_day = func.date(func.timezone(context.timezone, AttendanceSession.clock_in_at))
+    totals = dict(
+        (
+            await session.execute(
+                statement.with_only_columns(
+                    work_day,
+                    func.sum(_closed_worked_minutes()).filter(
+                        AttendanceSession.clock_out_at.is_not(None)
+                    ),
+                ).group_by(work_day)
+            )
+        )
+        .tuples()
+        .all()
+    )
     rows = (
         await session.execute(
-            statement.order_by(AttendanceSession.clock_in_at.desc()).offset(offset).limit(limit + 1)
+            statement.order_by(AttendanceSession.clock_in_at.desc(), AttendanceSession.id.desc())
+            .offset(offset)
+            .limit(limit + 1)
         )
     ).all()
     selected = rows[:limit]
@@ -533,6 +686,9 @@ async def list_attendance(
             )
         )
     ) or 0
+    corrections = await _attendance_corrections(
+        session, context, [item.id for item, _name in selected]
+    )
     records = [
         await _attendance_view(
             session,
@@ -547,11 +703,14 @@ async def list_attendance(
             ),
             grace_minutes=grace_minutes,
             prefetched=True,
+            corrections=corrections.get(item.id, []),
         )
         for item, name in selected
     ]
     return AttendanceList(
         items=records,
+        total_worked_minutes=sum(int(v or 0) for v in totals.values()),
+        daily_worked_minutes={day: int(v or 0) for day, v in totals.items()},
         next_offset=offset + limit if len(rows) > limit else None,
     )
 
@@ -604,8 +763,11 @@ async def attendance_overview(
                 .where(
                     AttendanceSession.business_id == context.business_id,
                     AttendanceSession.staff_profile_id.in_(staff_ids),
-                    AttendanceSession.clock_in_at >= start,
                     AttendanceSession.clock_in_at < end,
+                    or_(
+                        AttendanceSession.clock_in_at >= start,
+                        AttendanceSession.clock_out_at.is_(None),
+                    ),
                 )
                 .order_by(AttendanceSession.clock_in_at.desc())
             )
@@ -650,8 +812,8 @@ async def attendance_overview(
         late = (
             attendance_late_minutes(
                 staff_session.clock_in_at,
-                day,
-                shift_start,
+                staff_session.clock_in_at.astimezone(zone).date(),
+                shift_start if staff_session.clock_in_at >= start else None,
                 context.timezone,
                 grace_minutes,
             )
@@ -677,7 +839,11 @@ async def attendance_overview(
         )
         finished = (staff_session.clock_out_at or current) if staff_session is not None else current
         worked = (
-            max(0, int((finished - staff_session.clock_in_at).total_seconds() // 60))
+            max(
+                0,
+                int((finished - staff_session.clock_in_at).total_seconds() // 60)
+                - (staff_session.break_minutes or 0),
+            )
             if staff_session is not None
             else 0
         )
@@ -686,6 +852,7 @@ async def attendance_overview(
                 staff_id=staff_id,
                 staff_name=staff_name,
                 status=status,
+                attendance_id=staff_session.id if staff_session else None,
                 shift_name=assignment[0] if assignment else None,
                 shift_start=shift_start,
                 shift_end=shift_end,
@@ -699,6 +866,34 @@ async def attendance_overview(
     return result
 
 
+async def _attendance_corrections(
+    session: AsyncSession,
+    context: StaffContext,
+    ids: list[uuid.UUID],
+) -> dict[uuid.UUID, list[AttendanceCorrectionView]]:
+    grouped: dict[uuid.UUID, list[AttendanceCorrectionView]] = {}
+    if ids:
+        rows = await session.scalars(
+            select(AuditEvent)
+            .where(
+                AuditEvent.business_id == context.business_id,
+                AuditEvent.entity_type == "attendance_session",
+                AuditEvent.event_type == "attendance_corrected",
+                AuditEvent.entity_id.in_(ids),
+            )
+            .order_by(AuditEvent.occurred_at, AuditEvent.id)
+        )
+        for row in rows:
+            if row.entity_id is not None:
+                grouped.setdefault(row.entity_id, []).append(
+                    AttendanceCorrectionView(
+                        occurred_at=row.occurred_at,
+                        **row.metadata_json,
+                    )
+                )
+    return grouped
+
+
 async def _attendance_view(
     session: AsyncSession,
     context: StaffContext,
@@ -708,6 +903,7 @@ async def _attendance_view(
     shift_start: time | None = None,
     grace_minutes: int | None = None,
     prefetched: bool = False,
+    corrections: list[AttendanceCorrectionView] | None = None,
 ) -> AttendanceRecord:
     if staff_name is None:
         staff_name = (
@@ -740,15 +936,27 @@ async def _attendance_view(
         context.timezone,
         grace_minutes or 0,
     )
-    finished = item.clock_out_at or datetime.now(UTC)
-    worked = max(0, int((finished - item.clock_in_at).total_seconds() // 60))
-    status = "working" if item.clock_out_at is None else "clocked_out"
-    if late:
-        status = "late" if item.clock_out_at is None else "clocked_out_late"
+    worked = 0
+    if item.clock_out_at is not None:
+        worked = max(
+            0,
+            int((item.clock_out_at - item.clock_in_at).total_seconds() // 60)
+            - (item.break_minutes or 0),
+        )
+    status = (
+        "incomplete"
+        if item.clock_out_at is None
+        else ("clocked_out_late" if late else "clocked_out")
+    )
+    if corrections is None:
+        corrections = (await _attendance_corrections(session, context, [item.id])).get(item.id, [])
     return AttendanceRecord(
         id=item.id,
         staff_id=item.staff_profile_id,
         staff_name=staff_name,
+        work_date=local_day,
+        break_minutes=item.break_minutes,
+        corrections=corrections,
         clock_in_at=item.clock_in_at,
         clock_out_at=item.clock_out_at,
         worked_minutes=worked,
@@ -1142,12 +1350,7 @@ async def operations_dashboard(
                 func.count(Job.id).filter(Job.status == JobStatus.IN_PROGRESS),
                 func.coalesce(func.sum(Booking.total_amount_minor).filter(scheduled), 0),
                 func.coalesce(
-                    func.sum(
-                        case(
-                            (Payment.status == PaymentStatus.PAID, Payment.amount_minor),
-                            else_=0,
-                        )
-                    ),
+                    func.sum(verified_amount()),
                     0,
                 ),
                 func.max(Booking.currency_code),
@@ -1239,18 +1442,14 @@ async def report_v2(
                 local_date,
                 func.coalesce(func.sum(Booking.total_amount_minor), 0),
                 func.coalesce(
-                    func.sum(
-                        case(
-                            (Payment.status == PaymentStatus.PAID, Payment.amount_minor),
-                            else_=0,
-                        )
-                    ),
+                    func.sum(verified_amount()),
                     0,
                 ),
                 func.count(Booking.id),
                 func.count(Booking.id).filter(Booking.status == BookingStatus.COMPLETED),
                 func.count(Booking.id).filter(Booking.status == BookingStatus.CANCELLED),
                 func.array_agg(func.distinct(Booking.currency_code)),
+                func.coalesce(func.sum(completed_balance()), 0),
             )
             .join(Payment, Payment.booking_id == Booking.id)
             .where(
@@ -1278,7 +1477,7 @@ async def report_v2(
             completed=completed,
             cancelled=cancelled,
         )
-        for day, booked, collected, jobs, completed, cancelled, _currency in rows
+        for day, booked, collected, jobs, completed, cancelled, _currency, _due in rows
     ]
     booking_count = sum(int(row[3]) for row in rows)
     booked_total = sum(int(row[1]) for row in rows)
@@ -1292,7 +1491,7 @@ async def report_v2(
         completed_washes=completed_total,
         booked_sales_minor=booked_total,
         collected_revenue_minor=collected_total,
-        outstanding_minor=max(0, booked_total - collected_total),
+        outstanding_minor=sum(int(row[7]) for row in rows),
         average_booking_value_minor=(booked_total // booking_count if booking_count else 0),
         currency_code=report_currency,
     )
@@ -1302,15 +1501,14 @@ async def report_v2(
             (
                 func.coalesce(
                     func.sum(
-                        func.extract(
-                            "epoch",
-                            func.coalesce(AttendanceSession.clock_out_at, datetime.now(UTC))
-                            - AttendanceSession.clock_in_at,
+                        case(
+                            (AttendanceSession.clock_out_at.is_not(None), _closed_worked_minutes()),
+                            else_=0,
                         )
                     ),
                     0,
                 )
-                / 3600.0
+                / 60.0
             ).label("hours"),
         )
         .where(
@@ -1444,23 +1642,30 @@ async def report_v2(
         for key, label, count, amount in service_rows
     ]
 
+    method = case(
+        (PaymentTransaction.transaction_type == "cash_payment", "cash"),
+        (PaymentTransaction.transaction_type == "card_payment", "card"),
+        else_=func.coalesce(Payment.method, PaymentTransaction.transaction_type),
+    )
+    net = case(
+        (PaymentTransaction.transaction_type.in_(RETURNS), -PaymentTransaction.amount_minor),
+        else_=PaymentTransaction.amount_minor,
+    )
     payment_rows = (
         await session.execute(
-            select(
-                Payment.method,
-                func.count(Payment.id),
-                func.coalesce(func.sum(Payment.amount_minor), 0),
-            )
+            select(method, func.count(PaymentTransaction.id), func.sum(net))
+            .select_from(PaymentTransaction)
+            .join(Payment, Payment.id == PaymentTransaction.payment_id)
             .join(Booking, Booking.id == Payment.booking_id)
             .where(
                 Booking.business_id == context.business_id,
                 Booking.scheduled_start >= start,
                 Booking.scheduled_start < end,
-                Payment.status == PaymentStatus.PAID,
-                Payment.method.is_not(None),
+                PaymentTransaction.status == "succeeded",
+                PaymentTransaction.transaction_type.in_(RECEIPTS + RETURNS),
             )
-            .group_by(Payment.method)
-            .order_by(func.sum(Payment.amount_minor).desc())
+            .group_by(method)
+            .order_by(func.sum(net).desc())
         )
     ).all()
     payment_total = sum(int(amount) for _method, _count, amount in payment_rows)

@@ -29,10 +29,10 @@ describe("finance input rules", () => {
     expect(cashDifferenceLabel(cashDifference(63_000, 65_000))).toBe("over");
   });
 
-  it("requires a note only for a discrepancy", () => {
+  it("accepts partial handovers and blocks excess amounts", () => {
     expect(canConfirmCashHandover(3, 63_000, 0, "")).toBe(true);
-    expect(canConfirmCashHandover(3, 60_000, -3_000, "")).toBe(false);
-    expect(canConfirmCashHandover(3, 60_000, -3_000, "Count checked")).toBe(true);
+    expect(canConfirmCashHandover(3, 60_000, -3_000, "")).toBe(true);
+    expect(canConfirmCashHandover(3, 60_000, 3_000, "Count checked")).toBe(false);
     expect(canConfirmCashHandover(0, 0, 0, "")).toBe(false);
   });
 

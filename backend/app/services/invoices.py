@@ -61,9 +61,10 @@ async def issue_revenue_invoice(
     booking: Booking,
     payment: Payment,
     transaction: PaymentTransaction,
+    charge_minor: int | None = None,
 ) -> RevenueInvoice:
     existing = await session.scalar(
-        select(RevenueInvoice).where(RevenueInvoice.payment_transaction_id == transaction.id)
+        select(RevenueInvoice).where(RevenueInvoice.payment_id == payment.id)
     )
     if existing is not None:
         return existing
@@ -114,17 +115,27 @@ async def issue_revenue_invoice(
             }
         )
     line_gross = sum(cast(int, item["line_total_minor"]) for item in lines)
-    if line_gross != transaction.amount_minor:
+    if line_gross != payment.amount_minor:
         raise DomainError(
             "INVOICE_TOTAL_MISMATCH",
             "The payment cannot be invoiced because its immutable booking total does not match.",
             status_code=409,
         )
-    vat_minor = (
-        _vat_portion(transaction.amount_minor, settings.vat_rate) if settings.vat_registered else 0
-    )
+    total = payment.amount_minor if charge_minor is None else charge_minor
+    if total != line_gross:
+        difference = total - line_gross
+        lines.append(
+            {
+                "description": "Booking adjustment",
+                "quantity": 1,
+                "unit_price_minor": difference,
+                "discount_minor": 0,
+                "line_total_minor": difference,
+            }
+        )
+    vat_minor = _vat_portion(total, settings.vat_rate) if settings.vat_registered else 0
     discount_minor = sum(cast(int, item["discount_minor"]) for item in lines)
-    subtotal_minor = transaction.amount_minor + discount_minor - vat_minor
+    subtotal_minor = total + discount_minor - vat_minor
     now = datetime.now(UTC)
     local_now = now.astimezone(ZoneInfo(settings.timezone))
     invoice = RevenueInvoice(
@@ -166,7 +177,7 @@ async def issue_revenue_invoice(
         subtotal_minor=subtotal_minor,
         discount_minor=discount_minor,
         vat_amount_minor=vat_minor,
-        total_minor=transaction.amount_minor,
+        total_minor=total,
         payment_method=payment.method or "unknown",
         payment_reference=(transaction.provider_transaction_id or payment.provider_payment_id),
     )

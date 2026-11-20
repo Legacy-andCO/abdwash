@@ -4,20 +4,20 @@ import { describe, expect, it } from "vitest";
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 describe("job quality mobile contracts", () => {
-  it("keeps permission requests user-initiated and retains a failed photo preview", () => {
+  it("opens the picker on demand and retains only failed previews for retry", () => {
     const quality = source("./components/JobQualityControls.tsx");
     const chooseStart = quality.indexOf("async function choosePhoto");
-    const uploadStart = quality.indexOf("async function uploadDraft");
+    const uploadStart = quality.indexOf("async function uploadDrafts");
     const inspectionStart = quality.indexOf("async function saveInspection");
     const uploadFlow = quality.slice(uploadStart, inspectionStart);
     expect(chooseStart).toBeGreaterThan(0);
     expect(quality.indexOf("requestCameraPermissionsAsync", chooseStart)).toBeGreaterThan(
       chooseStart,
     );
-    expect(uploadFlow.indexOf("setDraft(null)")).toBeLessThan(
-      uploadFlow.indexOf("} catch"),
-    );
-    expect(uploadFlow).toContain("Keep the preview and try uploading again.");
+    expect(quality).toContain("allowsMultipleSelection: true");
+    expect(uploadFlow).toContain("await photo.mutateAsync(draft)");
+    expect(uploadFlow).toContain("items.filter((item) => item.clientRequestId !== draft.clientRequestId)");
+    expect(uploadFlow).toContain("items.map((item) => item.clientRequestId === draft.clientRequestId");
   });
 
   it("renders inspection, checklist, issue, evidence, and summary controls", () => {
@@ -28,6 +28,12 @@ describe("job quality mobile contracts", () => {
     expect(quality).toContain("Photo evidence");
     expect(quality).toContain('<Summary label={t("Checklist")}');
     expect(quality).toContain("qualityWritesDisabled");
+  });
+
+  it("formats quality history in the staff language and Abu Dhabi time", () => {
+    const quality = source("./components/JobQualityControls.tsx");
+    expect(quality).toContain("formatUaeDateTime(quality.inspection.completed_at)");
+    expect(quality).toContain("formatUaeDateTime(item.created_at)");
   });
 
   it("shows manager complaint decisions and correction scheduling", () => {

@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import secrets
 import time
 import uuid
@@ -12,6 +13,7 @@ import structlog
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
+from sqlalchemy.orm import aliased
 
 from app.auth.dependencies import (
     ManagerContext,
@@ -28,7 +30,15 @@ from app.domain.errors import DomainError
 from app.integrations.eta import GoogleRoutesEtaProvider
 from app.integrations.supabase_admin import SupabaseAdminClient
 from app.integrations.supabase_storage import SupabaseStorageAdminClient
-from app.models.entities import AuditEvent, Booking, Job, JobPhoto
+from app.models.entities import (
+    AuditEvent,
+    Booking,
+    Job,
+    JobPhoto,
+    Payment,
+    PaymentTransaction,
+    StaffProfile,
+)
 from app.schemas.catalogue import (
     AddonInput,
     AddonPatch,
@@ -63,7 +73,9 @@ from app.schemas.finance import (
     ExpenseView,
     ExpenseVoid,
     FinanceOverview,
+    OutstandingPayment,
     PersonalCashSummary,
+    RecordedPayment,
 )
 from app.schemas.inventory import (
     InventoryAttentionList,
@@ -86,6 +98,8 @@ from app.schemas.inventory import (
     InventoryUsageReport,
     InventoryWastageCreate,
     JobConsumptionSummary,
+    ProductConsumptionUpdate,
+    ProductConsumptionView,
     ServiceConsumptionTemplateLine,
     ServiceConsumptionTemplateUpdate,
     StockLine,
@@ -108,6 +122,7 @@ from app.schemas.reviews import ReviewModerationUpdate, ReviewModerationView
 from app.schemas.staff import (
     AssignmentAction,
     AttendanceAction,
+    AttendanceCorrection,
     AttendanceList,
     AttendanceOverviewItem,
     AttendanceRecord,
@@ -134,6 +149,7 @@ from app.schemas.staff import (
     LeaveView,
     OperationsDashboard,
     OwnProfileUpdate,
+    PaymentReview,
     ReportSummary,
     ReportV2,
     ShiftAssignmentCreate,
@@ -191,6 +207,7 @@ from app.services.inventory import (
     create_item,
     create_location,
     get_item,
+    get_product_consumption,
     get_service_template,
     inventory_overview,
     list_items,
@@ -205,6 +222,7 @@ from app.services.inventory import (
     transfer_stock,
     update_item,
     update_location,
+    update_product_consumption,
     update_service_template,
     update_threshold,
     usage_report,
@@ -237,6 +255,7 @@ from app.services.manager_customers import (
     update_manager_customer,
     update_manager_vehicle,
 )
+from app.services.payment_balances import completed_balance, pending_amount
 from app.services.policy_acceptance import POLICY_REVISION, record_staff_provision
 from app.services.reviews import hide_customer_review
 from app.services.service_catalogue import (
@@ -271,6 +290,7 @@ from app.services.staff_operations import (
     record_cash,
     report_summary,
     review_cancellation,
+    review_payment,
     set_booking_archived,
     start_trip,
     transition_job,
@@ -281,6 +301,7 @@ from app.services.workforce import (
     attendance_overview,
     clock_in,
     clock_out,
+    correct_attendance,
     create_leave,
     create_shift,
     create_team,
@@ -710,6 +731,19 @@ async def attendance_clock_out(
         return result
 
 
+@router.patch("/attendance/{attendance_id}/correction", response_model=AttendanceRecord)
+async def attendance_correction(
+    attendance_id: uuid.UUID,
+    payload: AttendanceCorrection,
+    session: SessionDep,
+    context: ManagerContext,
+) -> AttendanceRecord:
+    async with session.begin():
+        result = await correct_attendance(session, context, attendance_id, payload)
+        await bump_sync_revisions(session, context.business_id, "workforce")
+        return result
+
+
 @router.get("/shifts", response_model=list[ShiftView])
 async def shifts(session: SessionDep, context: StaffDep) -> list[ShiftView]:
     return await list_shifts(session, context)
@@ -1115,6 +1149,29 @@ async def inventory_item_update(
         return result
 
 
+@router.get("/inventory/items/{item_id}/consumption", response_model=list[ProductConsumptionView])
+async def inventory_product_consumption(
+    item_id: uuid.UUID, session: SessionDep, context: ManagerContext,
+) -> list[ProductConsumptionView]:
+    return await get_product_consumption(session, context, item_id)
+
+
+@router.put(
+    "/inventory/items/{item_id}/consumption/{service_id}", response_model=ProductConsumptionView
+)
+async def inventory_product_consumption_update(
+    item_id: uuid.UUID,
+    service_id: uuid.UUID,
+    payload: ProductConsumptionUpdate,
+    session: SessionDep,
+    context: ManagerContext,
+) -> ProductConsumptionView:
+    async with session.begin():
+        result = await update_product_consumption(session, context, item_id, service_id, payload)
+        await bump_sync_revisions(session, context.business_id, "inventory")
+        return result
+
+
 @router.get("/inventory/locations", response_model=list[InventoryLocationView])
 async def inventory_locations(
     session: SessionDep, context: StaffDep, active: bool | None = True
@@ -1499,7 +1556,19 @@ async def job_quality_photo_upload(
     async with session.begin():
         photo = await prepare_photo_upload(session, context, job_id, payload)
     settings = get_settings()
-    token = await _photo_storage(request).create_signed_upload(photo.storage_path)
+    token = None
+    if photo.status != "ready":
+        storage = _photo_storage(request)
+        try:
+            token = await storage.create_signed_upload(photo.storage_path)
+        except DomainError as grant_error:
+            if grant_error.code != "JOB_PHOTO_UPLOAD_GRANT_FAILED":
+                raise
+            # A completed Storage upload can outlive a lost confirmation response.
+            try:
+                await storage.object_info(photo.storage_path)
+            except DomainError:
+                raise grant_error from None
     return JobPhotoUploadGrant(
         photo=JobPhotoView(
             id=photo.id,
@@ -1526,13 +1595,23 @@ async def job_quality_photo_complete(
     context: StaffDep,
 ) -> None:
     photo = await load_pending_photo(session, context, job_id, photo_id)
+    if photo.status == "ready":
+        await session.rollback()
+        return
     photo_path = photo.storage_path
     content_type = photo.content_type
     await session.rollback()
     storage = _photo_storage(request)
-    await storage.validate_uploaded_content(
-        photo_path, content_type, get_settings().job_photo_max_bytes
-    )
+    try:
+        await storage.validate_uploaded_content(
+            photo_path, content_type, get_settings().job_photo_max_bytes
+        )
+    except DomainError as error:
+        if error.code == "INVALID_EVIDENCE":
+            raise DomainError(
+                "INVALID_JOB_PHOTO", "Uploaded photo is invalid.", status_code=error.status_code
+            ) from error
+        raise
     object_info = await storage.object_info(photo_path)
     async with session.begin():
         await confirm_photo(
@@ -1662,6 +1741,105 @@ async def job_complete(
         return result
 
 
+@router.get("/finance/outstanding")
+async def outstanding_jobs(
+    session: SessionDep, context: ManagerContext, offset: Annotated[int, Query(ge=0)] = 0
+) -> list[OutstandingPayment]:
+    rows = await session.execute(
+        select(
+            Job.id.label("job_id"),
+            Booking.reference,
+            Booking.customer_first_name,
+            Booking.customer_surname,
+            Payment.currency_code,
+            completed_balance().label("remaining_minor"),
+            pending_amount().label("pending_minor"),
+        )
+        .select_from(Job)
+        .join(Booking, Booking.id == Job.booking_id)
+        .join(Payment, Payment.booking_id == Booking.id)
+        .where(Job.business_id == context.business_id, completed_balance() > 0)
+        .order_by(Job.scheduled_start, Job.id)
+        .offset(offset)
+        .limit(50)
+    )
+    return [OutstandingPayment.model_validate(row) for row in rows.mappings()]
+
+
+@router.get("/finance/payment-history")
+async def payment_history(
+    session: SessionDep, context: ManagerContext, offset: Annotated[int, Query(ge=0)] = 0
+) -> list[RecordedPayment]:
+    tx = PaymentTransaction
+    reviewer = aliased(StaffProfile)
+    rows = await session.execute(
+        select(
+            tx.id,
+            Job.id.label("job_id"),
+            Booking.reference,
+            Booking.customer_first_name,
+            Booking.customer_surname,
+            Payment.currency_code,
+            tx.amount_minor,
+            tx.status,
+            tx.transaction_type,
+            tx.provider_transaction_id,
+            tx.created_at,
+            tx.reviewed_at,
+            tx.reviewed_by_staff_id,
+            reviewer.display_name.label("reviewer"),
+            tx.rejection_reason,
+            StaffProfile.display_name,
+            tx.screenshot.is_not(None).label("has_screenshot"),
+        )
+        .select_from(tx)
+        .join(Payment, Payment.id == tx.payment_id)
+        .join(Booking, Booking.id == Payment.booking_id)
+        .join(Job, Job.booking_id == Booking.id)
+        .outerjoin(StaffProfile, StaffProfile.id == tx.actor_staff_id)
+        .outerjoin(reviewer, reviewer.id == tx.reviewed_by_staff_id)
+        .where(
+            Booking.business_id == context.business_id,
+            tx.transaction_type.in_(("cash_payment", "card_payment")),
+        )
+        .order_by((tx.status == "pending").desc(), tx.created_at.desc(), tx.id)
+        .offset(offset)
+        .limit(50)
+    )
+    return [RecordedPayment.model_validate(row) for row in rows.mappings()]
+
+
+@router.get("/finance/payments/{transaction_id}/screenshot")
+async def payment_screenshot(
+    transaction_id: uuid.UUID, session: SessionDep, context: ManagerContext, response: Response
+) -> dict[str, str]:
+    image = await session.scalar(
+        select(PaymentTransaction.screenshot)
+        .join(Payment)
+        .join(Booking)
+        .where(Booking.business_id == context.business_id, PaymentTransaction.id == transaction_id)
+    )
+    if image is None:
+        raise DomainError("IMAGE_NOT_FOUND", "Screenshot not found.", status_code=404)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"jpeg": base64.b64encode(image).decode("ascii")}
+
+
+@router.post("/jobs/{job_id}/payments/{transaction_id}/review", status_code=204)
+async def job_payment_review(
+    job_id: uuid.UUID,
+    transaction_id: uuid.UUID,
+    payload: PaymentReview,
+    session: SessionDep,
+    context: ManagerContext,
+) -> Response:
+    async with session.begin():
+        await review_payment(session, context, job_id, transaction_id, payload)
+        await bump_sync_revisions(session, context.business_id, "jobs", "finance", "customers")
+    return Response(status_code=204)
+
+
+@router.post("/jobs/{job_id}/payments", response_model=CashPaymentResult)
 @router.post("/jobs/{job_id}/cash-payment", response_model=CashPaymentResult)
 async def job_cash(
     job_id: uuid.UUID,

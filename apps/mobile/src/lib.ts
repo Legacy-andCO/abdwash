@@ -1,5 +1,5 @@
 import { authStorage } from "./authStorage";
-import { requestMfa } from "./mfa-events";
+import { notifySessionRejected, requestMfa } from "./mfa-events";
 import { createClient, type Session } from "@supabase/supabase-js";
 import "react-native-url-polyfill/auto";
 import { alreadyUploaded } from "./network/immutableUpload";
@@ -64,6 +64,7 @@ export type JobConsumptionLine = {
   booking_service_id: string;
   service_id: string | null;
   service_name: string;
+  vehicle_type?: string | null;
   item_id: string | null;
   item_name: string;
   unit: string;
@@ -97,6 +98,8 @@ export type JobDirectExpense = {
   currency_code: string;
 };
 export type Job = {
+  outstanding_minor?: number;
+  pending_verification_minor?: number;
   archived_at?: string | null;
   id: string;
   booking_id: string;
@@ -186,7 +189,16 @@ export type Team = {
   active_job_status: string | null;
 };
 export type TeamDetail = Team & { members: Profile[]; jobs: Job[] };
+export type AttendanceCorrection = {
+  occurred_at: string;
+  reason: string;
+  before: { clock_in_at: string; clock_out_at: string | null; break_minutes: number | null };
+  after: { clock_in_at: string; clock_out_at: string | null; break_minutes: number | null };
+};
 export type Attendance = {
+  work_date: string;
+  corrections: AttendanceCorrection[];
+  break_minutes: number | null;
   id: string;
   staff_id: string;
   staff_name: string;
@@ -197,6 +209,7 @@ export type Attendance = {
   status: string;
 };
 export type AttendanceOverview = {
+  attendance_id?: string | null;
   staff_id: string;
   staff_name: string;
   status: string;
@@ -747,6 +760,11 @@ export type ServiceConsumptionTemplateLine = {
   unit: string;
   expected_quantity: number;
 };
+export type ProductConsumption = {
+  service_id: string;
+  fallback: string | null;
+  rates: Record<string, string>;
+};
 export type JobInspection = {
   id: string;
   condition_notes: string | null;
@@ -815,7 +833,7 @@ export type JobPhotoUploadGrant = {
   photo: JobPhoto;
   bucket: string;
   path: string;
-  upload_token: string;
+  upload_token: string | null;
   max_bytes: number;
 };
 export type ExpenseEvidenceUploadGrant = {
@@ -834,22 +852,18 @@ export type ExpenseEvidenceUploadGrant = {
 const DEFAULT_TIMEOUT_MS = 15_000;
 const AVAILABILITY_TIMEOUT_MS = 20_000;
 
-async function token(session?: Session | null): Promise<string | undefined> {
-  return (
-    session?.access_token ??
-    (await supabase.auth.getSession()).data.session?.access_token
-  );
-}
 export async function api<T>(
   path: string,
   init?: RequestInit,
   session?: Session | null,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  retriedAfterRotation = false,
 ): Promise<T> {
   const requestStartedAt = Date.now();
   const diagnosticRoute = apiRouteTemplate(path);
   const headers = new Headers(init?.headers);
-  const access = await token(session);
+  const credential = session ?? (await supabase.auth.getSession()).data.session;
+  const access = credential?.access_token;
   if (access) headers.set("Authorization", `Bearer ${access}`);
   if (init?.body) headers.set("Content-Type", "application/json");
   const trackedWrite =
@@ -916,7 +930,20 @@ export async function api<T>(
       await response.json().catch(() => ({})),
       response.status,
     );
-      requestMfa(parsed.code);
+      if (response.status === 401 || response.status === 403) {
+      const latest = (await supabase.auth.getSession()).data.session;
+      if (latest && latest.access_token === access && response.status === 403) requestMfa(parsed.code);
+      if (latest && latest.access_token === access && response.status === 401 &&
+          parsed.code === "INVALID_TOKEN" && path !== "/api/v1/staff/context") {
+        notifySessionRejected();
+      }
+      // A response from an earlier token must not replace a newer auth state.
+      if (response.status === 401 && latest && credential &&
+          latest.user.id === credential.user.id && latest.access_token !== access &&
+          !retriedAfterRotation && [undefined, "GET", "HEAD"].includes(init?.method)) {
+        return api<T>(path, init, latest, timeoutMs, true);
+      }
+    }
     const requestId =
       parsed.requestId ?? response.headers.get("X-Request-ID") ?? undefined;
     if (__DEV__) {
@@ -1106,6 +1133,11 @@ export async function uploadJobPhoto(
     caption: caption?.trim() || null,
     client_request_id: clientRequestId,
   });
+  if (grant.photo.status === "ready") return grant.photo.id;
+  if (!grant.upload_token) {
+    await completeJobPhotoUpload(jobId, grant.photo.id);
+    return grant.photo.id;
+  }
   const response = await fetch(uri);
   const bytes = await response.arrayBuffer();
   if (bytes.byteLength > grant.max_bytes)
@@ -1119,7 +1151,7 @@ export async function uploadJobPhoto(
       .from(grant.bucket)
       .uploadToSignedUrl(grant.path, grant.upload_token, bytes, {
         contentType: "image/jpeg",
-        cacheControl: "3600",
+        cacheControl: "0",
       }),
   );
   if (error && !alreadyUploaded(error))
@@ -1152,7 +1184,7 @@ export const mutateJob = (
 ) => api<Job>(`/api/v1/staff/jobs/${jobId}/${action}`, json("POST", body));
 export const recordCashPayment = (jobId: string, body: object) =>
   api<CashPaymentResult>(
-    `/api/v1/staff/jobs/${jobId}/cash-payment`,
+    `/api/v1/staff/jobs/${jobId}/payments`,
     json("POST", body),
   );
 export const getManagerCustomers = (
@@ -1304,16 +1336,24 @@ export const updateTeamMembers = (id: string, staffIds: string[]) =>
   );
 export const getDashboard = (day = today()) =>
   api<Dashboard>(`/api/v1/staff/dashboard?day=${day}`);
-export const getAttendance = (start = today(), end = today()) =>
-  api<{ items: Attendance[] }>(
-    `/api/v1/staff/attendance?start_date=${start}&end_date=${end}`,
-  );
+export const getAttendance = (start: string, end: string, offset = 0, staffId?: string) => {
+  const params = new URLSearchParams({ start_date: start, end_date: end, offset: String(offset) });
+  if (staffId) params.set("staff_id", staffId);
+  return api<{
+    items: Attendance[];
+    next_offset: number | null;
+    total_worked_minutes: number;
+    daily_worked_minutes: Record<string, number>;
+  }>(`/api/v1/staff/attendance?${params}`);
+};
+export const correctAttendance = (id: string, body: object) =>
+  api<Attendance>(`/api/v1/staff/attendance/${id}/correction`, json("PATCH", body));
 export const getAttendanceOverview = (day = today()) =>
   api<AttendanceOverview[]>(`/api/v1/staff/attendance/overview?day=${day}`);
-export const clockAttendance = (action: "clock-in" | "clock-out") =>
+export const clockAttendance = (action: "clock-in" | "clock-out", request: object) =>
   api<Attendance>(
     `/api/v1/staff/attendance/${action}`,
-    json("POST", { client_timestamp: new Date().toISOString() }),
+    json("POST", request),
   );
 export const getShifts = () => api<Shift[]>("/api/v1/staff/shifts");
 export const getShiftAssignments = (start = today(), end = today()) =>
@@ -1425,6 +1465,17 @@ export const getPersonalCash = (day: string) =>
   api<PersonalCashSummary>(`/api/v1/staff/finance/cash/mine?day=${day}`);
 export const getInventoryOverview = () =>
   api<InventoryOverview>("/api/v1/staff/inventory/overview");
+export const getProductConsumption = (itemId: string) =>
+  api<ProductConsumption[]>(`/api/v1/staff/inventory/items/${itemId}/consumption`);
+export const saveProductConsumption = (
+  itemId: string,
+  serviceId: string,
+  body: { unit: string; rates: Record<string, string> },
+) =>
+  api<ProductConsumption>(
+    `/api/v1/staff/inventory/items/${itemId}/consumption/${serviceId}`,
+    json("PUT", body),
+  );
 export const getInventoryAttention = () =>
   api<{ items: InventoryAttention[]; next_offset: number | null }>(
     "/api/v1/staff/inventory/consumption/attention",

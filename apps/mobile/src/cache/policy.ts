@@ -107,6 +107,8 @@ export const queryKeys = {
     ["personal-cash", scope, day] as const,
   inventoryOverview: (scope: string) => ["inventory-overview", scope] as const,
   inventoryAttention: (scope: string) => ["inventory-attention", scope] as const,
+  productConsumption: (scope: string, itemId: string) =>
+    ["inventory-product-consumption", scope, itemId] as const,
   inventoryItems: (scope: string, search: string, offset: number) =>
     ["inventory-items", scope, search, offset] as const,
   inventoryLocations: (scope: string) => ["inventory-locations", scope] as const,

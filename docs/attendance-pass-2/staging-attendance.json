@@ -1,0 +1,16 @@
+{
+  "project": "mgfzfgvlrxwyyftwukwf",
+  "migration": "4c2630a391be",
+  "employee_self_only": true,
+  "admin_verified_factor_reused": true,
+  "expired_totp_rejected": true,
+  "revoked_session_rejected": true,
+  "parallel_clock_requests": 2,
+  "duplicate_clock_events": 0,
+  "clock_ins": 1,
+  "clock_outs": 1,
+  "approved_corrections": 1,
+  "break_minutes": 45,
+  "overnight_worked_minutes": 435,
+  "financial_history_access_ok": true
+}

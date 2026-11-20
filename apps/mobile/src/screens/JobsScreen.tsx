@@ -1,4 +1,4 @@
-import { t } from "../i18n";
+import { staffMoney, t } from "../i18n";
 import { webSheetStyle } from "../components/webSheetStyle";
 import { Alert } from "../alert";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -531,14 +531,16 @@ function JobDetail({
   async function completeCashPayment(
     tenderedMinor: number,
     changeMinor: number,
+    method: "cash" | "card", reference: string, screenshot: string | null,
   ) {
-    const eventKey = `${job.id}:cash-payment:${tenderedMinor}`;
+    const eventKey = `${job.id}:${method}:${tenderedMinor}:${changeMinor}:${reference}`;
     try {
       const receipt = await cashMutation.mutateAsync({
         jobId: job.id,
         body: {
           client_event_id: actionEventIds.get(eventKey),
           client_timestamp: new Date().toISOString(),
+          method, reference: reference || null, screenshot,
           tendered_minor: tenderedMinor,
           change_minor: changeMinor,
         },
@@ -547,8 +549,9 @@ function JobDetail({
       await successHaptic();
       setCashTender(false);
       Alert.alert(
-        t("Payment complete"),
-        t("{p0} {p1} applied. Return {p2} {p3} change.", { p0: receipt.job.currency_code, p1: (receipt.amount_applied_minor / 100).toFixed(2), p2: receipt.job.currency_code, p3: (receipt.change_minor / 100).toFixed(2) }),
+        t("Pending verification"),
+        [staffMoney(receipt.amount_applied_minor, receipt.job.currency_code),
+         receipt.change_minor ? t("CHANGE TO RETURN") + " · " + staffMoney(receipt.change_minor, receipt.job.currency_code) : null].filter(Boolean).join("\n"),
       );
     } catch (error) {
       actionEventIds.failed(eventKey, error);
@@ -713,17 +716,17 @@ function JobDetail({
               }
             />
           </>
-        ) : job.status === "completed" && job.payment_status !== "paid" ? (
+        ) : job.status === "completed" && (job.outstanding_minor ?? 0) > 0 ? (
           <>
             <Text style={styles.sectionTitle}>{t("PAYMENT REQUIRED")}</Text>
             <Text style={styles.vehicle}>
-              {job.currency_code} {(job.total_amount_minor / 100).toFixed(2)}
+              {job.currency_code} {((job.outstanding_minor ?? 0) / 100).toFixed(2)}
             </Text>
             <Text style={uiStyles.muted}>
-              {" " + t("Confirm only after the cash is in hand.") + " "}</Text>
+              {(job.pending_verification_minor ?? 0) > 0 ? t("Pending verification") + " · " + job.currency_code + " " + ((job.pending_verification_minor ?? 0) / 100).toFixed(2) : null}</Text>
             <AppButton
-              title={t("Record cash received")}
-              disabled={cashMutation.isPending}
+              title={t("Receive payment")}
+              disabled={cashMutation.isPending || (job.outstanding_minor ?? 0) <= (job.pending_verification_minor ?? 0)}
               onPress={() => setCashTender(true)}
             />
           </>
@@ -750,7 +753,7 @@ function JobDetail({
       ) : null}
       <CashTenderModal
         visible={cashTender}
-        dueMinor={job.total_amount_minor}
+        dueMinor={Math.max(0, (job.outstanding_minor ?? 0) - (job.pending_verification_minor ?? 0))}
         currency={job.currency_code}
         pending={cashMutation.isPending}
         onClose={() => setCashTender(false)}
@@ -892,7 +895,9 @@ function JobDetail({
             job.consumption.lines.map((line) => (
               <View key={line.id} style={styles.consumptionLine}>
                 <Text style={styles.vehicle}>{line.item_name}</Text>
-                <Text style={uiStyles.muted}>{line.service_name}</Text>
+                <Text style={uiStyles.muted}>
+                  {line.service_name}{line.vehicle_type ? ` · ${t(line.vehicle_type)}` : ""}
+                </Text>
                 <Text style={uiStyles.body}>
                   {" " + t("Expected") + " "}{line.expected_quantity} {line.unit} {" " + t("· Recorded") + " "}{Number(line.automatic_applied_quantity) + Number(line.preexisting_manual_quantity)} {line.unit}
                 </Text>

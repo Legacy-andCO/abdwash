@@ -761,6 +761,88 @@ async def test_reports_keep_revenue_and_job_counts_accurate_and_reject_mixed_cur
     assert response.json()["code"] == "REPORT_MIXED_CURRENCY"
 
 
+async def test_completed_receivable_credits_refunds_and_mfa(foundation):
+    from app.models.entities import PaymentTransaction
+
+    created_booking = await created(foundation, payload(foundation, "2036-04-10"))
+    job_id = created_booking["job_id"]
+    history_url = f"{STAFF}/finance/outstanding"
+
+    async def balances():
+        response = await foundation.client.get(history_url, headers=headers("manager"))
+        assert response.status_code == 200
+        return [row for row in response.json() if row["job_id"] == job_id]
+
+    assert not await balances()
+    async with foundation.sessions() as session, session.begin():
+        job = await session.get(Job, uuid.UUID(job_id))
+        booking = await session.get(Booking, job.booking_id)
+        booking.status = job.status = "completed"
+        payment = await session.scalar(select(Payment).where(Payment.booking_id == booking.id))
+        for kind, amount in (
+            ("deposit", 2000),
+            ("refund", 300),
+            ("credit_adjustment", 500),
+            ("debit_adjustment", 100),
+        ):
+            session.add(
+                PaymentTransaction(
+                    payment_id=payment.id,
+                    created_at=job.scheduled_start,
+                    transaction_type=kind,
+                    status="succeeded",
+                    amount_minor=amount,
+                    provider_metadata={},
+                )
+            )
+    assert (await balances())[0]["remaining_minor"] == 2900
+    for endpoint in ("reports/summary", "reports/v2", "finance/overview"):
+        response = await foundation.client.get(
+            f"{STAFF}/{endpoint}",
+            params={"start_date": "2036-04-10", "end_date": "2036-04-10"},
+            headers=headers("manager"),
+        )
+        assert response.status_code == 200, response.text
+        report = response.json().get("summary", response.json())
+        assert report["outstanding_minor"] == 2900
+        assert report["collected_revenue_minor"] == 1700
+    url = f"{STAFF}/jobs/{job_id}/payments"
+    result = await foundation.client.post(
+        url,
+        headers=headers("employee"),
+        json={
+            "method": "card",
+            "tendered_minor": 100,
+            "change_minor": 0,
+            "reference": "SYNTH-REF",
+            "client_event_id": str(uuid.uuid4()),
+        },
+    )
+    assert result.status_code == 200, result.text
+    records = await foundation.client.get(
+        f"{STAFF}/finance/payment-history", headers=headers("manager")
+    )
+    txn = next(row for row in records.json() if row["job_id"] == job_id)
+    review = url + "/" + txn["id"] + "/review"
+    for actor in ("manager-aal1", "manager-stale", "employee"):
+        response = await foundation.client.post(
+            review, headers=headers(actor), json={"decision": "confirm"}
+        )
+        assert response.status_code == 403
+    results = await asyncio.gather(
+        foundation.client.post(review, headers=headers("manager"), json={"decision": "confirm"}),
+        foundation.client.post(
+            review,
+            headers=headers("admin"),
+            json={"decision": "reject", "reason": "Different terminal"},
+        ),
+    )
+    assert sorted(r.status_code for r in results) == [204, 409]
+    assert (await balances())[0]["remaining_minor"] == (
+        2800 if results[0].status_code == 204 else 2900
+    )
+
+
 @pytest.mark.parametrize("actor", ["employee", "manager", "admin"])
 async def test_capacity_boundary_for_every_role(foundation, actor):
     day = {"employee": "2037-01-10", "manager": "2037-01-11", "admin": "2037-01-12"}[actor]

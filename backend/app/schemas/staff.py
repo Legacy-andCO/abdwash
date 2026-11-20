@@ -1,8 +1,9 @@
+import re
 import uuid
 from datetime import date, datetime, time
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
 from app.schemas.finance import FinanceOverview
 from app.schemas.inventory import JobConsumptionSummary
@@ -43,6 +44,8 @@ class StaffJob(BaseModel):
     booking_id: uuid.UUID
     booking_reference: str
     version: int | None = None
+    outstanding_minor: int = 0
+    pending_verification_minor: int = 0
     payment_review_required: bool = False
     assigned_staff_id: uuid.UUID | None
     assigned_staff_name: str | None
@@ -217,7 +220,7 @@ class JobPhotoUploadGrant(BaseModel):
     photo: JobPhotoView
     bucket: str
     path: str
-    upload_token: str
+    upload_token: str | None
     max_bytes: int
 
 
@@ -310,9 +313,28 @@ class JobAction(StrictRequest):
     client_timestamp: datetime | None = None
 
 
+class PaymentReview(StrictRequest):
+    decision: Literal["confirm", "reject"]
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class CashTenderAction(JobAction):
-    tendered_minor: int = Field(ge=0)
-    change_minor: int = Field(ge=0)
+    method: Literal["cash", "card"] = "cash"
+    reference: str | None = Field(default=None, max_length=100)
+    screenshot: str | None = Field(default=None, max_length=700000)
+    tendered_minor: int = Field(gt=0, le=2147483647)
+    change_minor: int = Field(ge=0, le=2147483647)
+
+    @field_validator("reference")
+    @classmethod
+    def receipt_reference_only(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if re.search(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)", value) or re.search(
+            r"\b(?:cvv2?|cvc2?|pin)\s*[:=-]?\s*\d", value, re.IGNORECASE
+        ):
+            raise ValueError("Use a transaction reference without card details.")
+        return value.strip() or None
 
 
 class CashPaymentResult(BaseModel):
@@ -482,6 +504,22 @@ class TeamDetail(TeamSummary):
 
 class AttendanceAction(StrictRequest):
     client_timestamp: datetime | None = None
+    client_event_id: uuid.UUID | None = None
+    attendance_id: uuid.UUID | None = None
+
+
+class AttendanceCorrection(StrictRequest):
+    clock_in_at: AwareDatetime
+    clock_out_at: AwareDatetime
+    break_minutes: int | None = Field(default=None, ge=0, le=10080)
+    reason: str = Field(min_length=2, max_length=500)
+
+
+class AttendanceCorrectionView(BaseModel):
+    occurred_at: datetime
+    reason: str
+    before: dict[str, str | int | None]
+    after: dict[str, str | int | None]
 
 
 class AttendanceRecord(BaseModel):
@@ -490,6 +528,9 @@ class AttendanceRecord(BaseModel):
     staff_name: str
     clock_in_at: datetime
     clock_out_at: datetime | None
+    work_date: date
+    break_minutes: int | None = None
+    corrections: list[AttendanceCorrectionView] = Field(default_factory=list)
     worked_minutes: int
     late_minutes: int
     status: str
@@ -497,6 +538,8 @@ class AttendanceRecord(BaseModel):
 
 class AttendanceList(BaseModel):
     items: list[AttendanceRecord]
+    total_worked_minutes: int = 0
+    daily_worked_minutes: dict[date, int] = Field(default_factory=dict)
     next_offset: int | None
 
 
@@ -512,6 +555,7 @@ class AttendanceOverviewItem(BaseModel):
         "off_today",
         "approved_leave",
     ]
+    attendance_id: uuid.UUID | None = None
     shift_name: str | None = None
     shift_start: time | None = None
     shift_end: time | None = None

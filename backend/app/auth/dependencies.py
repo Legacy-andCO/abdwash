@@ -71,6 +71,23 @@ async def required_identity(
     return identity
 
 
+# These existing operational writes still require verified AAL2 for privileged roles.
+# All other writes retain the five-minute step-up, including finance and access changes.
+ROUTINE_STAFF_WRITES = {
+    ("POST", "/api/v1/staff/attendance/clock-in"),
+    ("POST", "/api/v1/staff/attendance/clock-out"),
+    ("POST", "/api/v1/staff/jobs/{job_id}/start-trip"),
+    ("POST", "/api/v1/staff/jobs/{job_id}/arrive"),
+    ("POST", "/api/v1/staff/jobs/{job_id}/start"),
+    ("POST", "/api/v1/staff/jobs/{job_id}/complete"),
+    ("PUT", "/api/v1/staff/jobs/{job_id}/quality/checklist"),
+    ("PUT", "/api/v1/staff/jobs/{job_id}/quality/inspection"),
+    ("POST", "/api/v1/staff/jobs/{job_id}/quality/issues"),
+    ("POST", "/api/v1/staff/jobs/{job_id}/quality/photos/upload"),
+    ("POST", "/api/v1/staff/jobs/{job_id}/quality/photos/{photo_id}/complete"),
+}
+
+
 async def staff_context(
     request: Request,
     identity: Annotated[VerifiedIdentity, Depends(required_identity)],
@@ -120,7 +137,12 @@ async def staff_context(
             )
             if context.role in {StaffRole.MANAGER, StaffRole.ADMIN}:
                 require_privileged_totp(
-                    identity, sensitive=request.method not in {"GET", "HEAD", "OPTIONS"}
+                    identity,
+                    sensitive=(
+                        request.method not in {"GET", "HEAD", "OPTIONS"}
+                        and (request.method, getattr(request.scope.get("route"), "path", ""))
+                        not in ROUTINE_STAFF_WRITES
+                    ),
                 )
                 if get_settings().is_deployed:
                     active_factor = await session.scalar(

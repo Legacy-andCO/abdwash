@@ -695,14 +695,13 @@ export function useAttendanceHistoryQuery(
   context: StaffContext,
   start: string,
   end: string,
+  offset = 0,
+  staffId?: string,
 ) {
   return useQuery({
-    queryKey: queryKeys.attendanceHistory(
-      operationalScope(context),
-      start,
-      end,
-    ),
-    queryFn: () => getAttendance(start, end),
+    queryKey: [...queryKeys.attendanceHistory(operationalScope(context), start, end), staffId, offset],
+    queryFn: () => getAttendance(start, end, offset, staffId),
+    enabled: end >= start,
     staleTime: cacheTimes.attendance,
     meta: persistedQueryMeta(retentionTimes.attendance),
   });
@@ -1538,7 +1537,12 @@ export function useClockMutation(context: StaffContext) {
   const client = useQueryClient();
   const scope = operationalScope(context);
   return useMutation({
-    mutationFn: (action: "clock-in" | "clock-out") => clockAttendance(action),
+    mutationFn: (request: { action: "clock-in" | "clock-out"; attendanceId?: string | null; eventId: string }) =>
+      clockAttendance(request.action, {
+        client_event_id: request.eventId,
+        attendance_id: request.attendanceId ?? null,
+        client_timestamp: new Date().toISOString(),
+      }),
     onSuccess: (item: Attendance) => {
       void client.invalidateQueries({ queryKey: ["attendance", scope] });
       void client.invalidateQueries({

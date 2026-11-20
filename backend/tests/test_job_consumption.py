@@ -4,9 +4,8 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 import app.services.job_consumption as consumption
+import pytest
 from app.auth.dependencies import StaffContext
 from app.domain.enums import JobStatus, StaffRole
 from app.domain.errors import DomainError
@@ -68,6 +67,7 @@ def template_row(
         "Car Shampoo",
         "milliliter",
         active,
+        "sedan",
     )
 
 

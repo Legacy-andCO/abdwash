@@ -68,7 +68,7 @@ def test_cash_change_uses_integer_minor_units_and_rejects_underpayment() -> None
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("customer_email", "expected_notifications"),
-    [("customer@example.com", ["payment_received"]), (None, [])],
+    [("customer@example.com", []), (None, [])],
 )
 async def test_cash_payment_records_due_tender_and_change_without_inflating_revenue(
     monkeypatch: pytest.MonkeyPatch,
@@ -103,6 +103,10 @@ async def test_cash_payment_records_due_tender_and_change_without_inflating_reve
     session = MagicMock()
     session.add = MagicMock()
     session.flush = AsyncMock()
+    session.execute = AsyncMock()
+    session.execute.return_value = MagicMock()
+    session.execute.return_value.one_or_none.return_value = None
+    session.scalar = AsyncMock(return_value=8600)
     monkeypatch.setattr(
         staff_operations,
         "_locked_job",
@@ -141,11 +145,12 @@ async def test_cash_payment_records_due_tender_and_change_without_inflating_reve
     assert transaction.cash_change_minor == 1_400
     assert transaction.actor_staff_id == context.staff_id
     assert transaction.client_event_id == "cash-event-123"
-    assert payment.status == PaymentStatus.PAID
+    assert transaction.status == "pending"
+    assert payment.status == PaymentStatus.UNPAID
     assert receipt.amount_applied_minor == 8_600
     assert receipt.change_minor == 1_400
-    evaluate.assert_awaited_once()
-    issue_invoice.assert_awaited_once()
+    evaluate.assert_not_awaited()
+    issue_invoice.assert_not_awaited()
     payment_notifications = [
         call.args[0]
         for call in session.add.call_args_list
@@ -172,7 +177,9 @@ async def test_cash_payment_retry_returns_original_receipt_without_second_transa
         cash_change_minor=1_400,
     )
     session = MagicMock()
-    session.scalar = AsyncMock(return_value=transaction)
+    transaction.actor_staff_id = context.staff_id
+    session.execute = AsyncMock(return_value=MagicMock())
+    session.execute.return_value.one_or_none.return_value = (transaction, None)
     monkeypatch.setattr(
         staff_operations,
         "_locked_job",
@@ -280,12 +287,15 @@ async def test_first_review_bonus_awards_one_point_once(
 
     session.reset_mock()
     session.scalar = AsyncMock(return_value=uuid.uuid4())
-    assert await award_first_review_bonus(
-        session,
-        business_id=business_id,
-        customer_profile_id=customer_id,
-        booking_id=uuid.uuid4(),
-    ) is False
+    assert (
+        await award_first_review_bonus(
+            session,
+            business_id=business_id,
+            customer_profile_id=customer_id,
+            booking_id=uuid.uuid4(),
+        )
+        is False
+    )
     session.add.assert_not_called()
 
 

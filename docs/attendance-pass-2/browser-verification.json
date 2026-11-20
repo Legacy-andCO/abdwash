@@ -1,0 +1,17 @@
+{
+  "project": "mgfzfgvlrxwyyftwukwf",
+  "restorationAfterReload": true,
+  "reportsTabPreservedOnRefresh": true,
+  "freezeResume": true,
+  "offlineNavigationAndReconnect": true,
+  "refreshStatuses": [
+    200
+  ],
+  "apiStatuses": {
+    "200": 30,
+    "401": 1,
+    "403": 1
+  },
+  "rtl": true,
+  "csvVerified": true
+}

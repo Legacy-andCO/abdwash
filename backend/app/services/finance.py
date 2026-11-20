@@ -4,9 +4,8 @@ from html import escape
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, case, exists, func, or_, select, update
+from sqlalchemy import and_, case, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
 
 from app.auth.dependencies import StaffContext
 from app.domain.errors import ConflictError, DomainError
@@ -43,6 +42,7 @@ from app.schemas.finance import (
     PersonalCashSummary,
     TeamContribution,
 )
+from app.services.payment_balances import RECEIPTS, RETURNS, completed_balance
 
 
 def expense_evidence_view(evidence: ExpenseEvidence) -> ExpenseEvidenceView:
@@ -523,20 +523,16 @@ async def void_expense(
 
 
 def _pending_base(context: StaffContext) -> Any:
-    reversal = aliased(PaymentTransaction)
-    active_link = exists(
-        select(CashReconciliationPayment.id).where(
+    allocated = (
+        select(func.coalesce(func.sum(CashReconciliationPayment.allocated_minor), 0))
+        .where(
             CashReconciliationPayment.payment_transaction_id == PaymentTransaction.id,
             CashReconciliationPayment.active.is_(True),
         )
+        .correlate(PaymentTransaction)
+        .scalar_subquery()
     )
-    reversed_payment = exists(
-        select(reversal.id).where(
-            reversal.payment_id == PaymentTransaction.payment_id,
-            reversal.status == "succeeded",
-            reversal.transaction_type.in_(("refund", "reversal", "void")),
-        )
-    )
+    remaining = PaymentTransaction.amount_minor - allocated
     return (
         select(
             PaymentTransaction,
@@ -546,6 +542,7 @@ def _pending_base(context: StaffContext) -> Any:
             Job.assigned_resource_id,
             ScheduleResource.name.label("team_name"),
             Payment.currency_code,
+            remaining.label("remaining_minor"),
         )
         .select_from(PaymentTransaction)
         .join(Payment, Payment.id == PaymentTransaction.payment_id)
@@ -556,10 +553,9 @@ def _pending_base(context: StaffContext) -> Any:
         .where(
             Booking.business_id == context.business_id,
             PaymentTransaction.transaction_type == "cash_payment",
-            PaymentTransaction.status == "succeeded",
+            PaymentTransaction.status.in_(("pending", "succeeded", "rejected")),
             PaymentTransaction.actor_staff_id.is_not(None),
-            ~active_link,
-            ~reversed_payment,
+            remaining > 0,
         )
     )
 
@@ -577,12 +573,12 @@ async def pending_cash(
                 pending.c.actor_staff_id,
                 pending.c.display_name,
                 func.count(pending.c.id),
-                func.sum(pending.c.amount_minor),
+                func.sum(pending.c.remaining_minor),
                 func.max(pending.c.currency_code),
                 func.min(pending.c.created_at),
             )
             .group_by(pending.c.actor_staff_id, pending.c.display_name)
-            .order_by(func.sum(pending.c.amount_minor).desc())
+            .order_by(func.sum(pending.c.remaining_minor).desc())
         )
     ).all()
     return CashPendingList(
@@ -632,11 +628,11 @@ async def pending_cash_detail(
             payment_transaction_id=transaction.id,
             booking_reference=reference,
             job_id=job_id,
-            amount_minor=transaction.amount_minor,
+            amount_minor=remaining,
             currency_code=currency,
             collected_at=transaction.created_at,
         )
-        for transaction, reference, job_id, _name, _team_id, _team_name, currency in rows
+        for transaction, reference, job_id, _name, _team_id, _team_name, currency, remaining in rows
     ]
     return CashPendingDetail(
         staff_id=staff_id,
@@ -672,7 +668,13 @@ async def _reconciliation_view(
     reconciliation, staff_name, team_name = row
     payment_rows = (
         await session.execute(
-            select(PaymentTransaction, Booking.reference, Job.id, Payment.currency_code)
+            select(
+                PaymentTransaction,
+                Booking.reference,
+                Job.id,
+                Payment.currency_code,
+                CashReconciliationPayment.allocated_minor,
+            )
             .join(
                 CashReconciliationPayment,
                 CashReconciliationPayment.payment_transaction_id == PaymentTransaction.id,
@@ -689,11 +691,11 @@ async def _reconciliation_view(
             payment_transaction_id=transaction.id,
             booking_reference=reference,
             job_id=job_id,
-            amount_minor=transaction.amount_minor,
+            amount_minor=remaining,
             currency_code=currency,
             collected_at=transaction.created_at,
         )
-        for transaction, reference, job_id, currency in payment_rows
+        for transaction, reference, job_id, currency, remaining in payment_rows
     ]
     difference_label: Literal["exact", "short", "over"] = (
         "exact"
@@ -739,6 +741,11 @@ async def create_reconciliation(
     context: StaffContext,
     request: CashReconciliationCreate,
 ) -> CashReconciliationView:
+    await session.scalar(
+        select(StaffProfile.id)
+        .where(StaffProfile.id == request.staff_id, StaffProfile.business_id == context.business_id)
+        .with_for_update()
+    )
     duplicate = await session.scalar(
         select(CashReconciliation.id).where(
             CashReconciliation.business_id == context.business_id,
@@ -746,7 +753,27 @@ async def create_reconciliation(
         )
     )
     if duplicate is not None:
-        return await _reconciliation_view(session, context, duplicate)
+        prior = await _reconciliation_view(session, context, duplicate)
+        if (
+            prior.staff_id != request.staff_id
+            or prior.created_by_staff_id != context.staff_id
+            or prior.declared_cash_minor != request.declared_cash_minor
+            or prior.note != ((request.note or "").strip() or None)
+        ):
+            raise ConflictError("HANDOVER_EVENT_REUSED", "Handover details have changed.")
+        selected = await session.scalar(
+            select(AuditEvent.metadata_json).where(
+                AuditEvent.entity_id == duplicate,
+                AuditEvent.event_type == "cash_reconciliation_confirmed",
+            )
+        )
+        if (
+            selected
+            and "selected_receipts" in selected
+            and selected["selected_receipts"] != sorted(map(str, request.payment_transaction_ids))
+        ):
+            raise ConflictError("HANDOVER_EVENT_REUSED", "The selected receipts have changed.")
+        return prior
     rows = (
         await session.execute(
             _pending_base(context)
@@ -763,24 +790,10 @@ async def create_reconciliation(
             "CASH_RECONCILIATION_CONFLICT",
             "One or more cash payments are no longer available for handover.",
         )
-    active_links = await session.scalar(
-        select(func.count(CashReconciliationPayment.id)).where(
-            CashReconciliationPayment.payment_transaction_id.in_(request.payment_transaction_ids),
-            CashReconciliationPayment.active.is_(True),
-        )
-    )
-    if active_links:
+    expected = request.declared_cash_minor
+    if expected <= 0 or expected > sum(row[7] for row in rows):
         raise ConflictError(
-            "CASH_RECONCILIATION_CONFLICT",
-            "One or more cash payments were already handed over.",
-        )
-    expected = sum(row[0].amount_minor for row in rows)
-    difference = request.declared_cash_minor - expected
-    if difference and not request.note:
-        raise DomainError(
-            "CASH_DISCREPANCY_NOTE_REQUIRED",
-            "Explain the cash difference before confirming handover.",
-            status_code=422,
+            "INVALID_HANDOVER_AMOUNT", "Enter an amount within the remaining cash balance."
         )
     currencies = {row[6] for row in rows}
     if len(currencies) != 1:
@@ -799,7 +812,7 @@ async def create_reconciliation(
         period_end=max(row[0].created_at for row in rows),
         expected_cash_minor=expected,
         declared_cash_minor=request.declared_cash_minor,
-        difference_minor=difference,
+        difference_minor=0,
         currency_code=next(iter(currencies)),
         status="confirmed",
         note=request.note.strip() if request.note else None,
@@ -810,24 +823,32 @@ async def create_reconciliation(
     )
     session.add(reconciliation)
     await session.flush()
-    session.add_all(
-        [
+    unallocated = expected
+    for row in rows:
+        allocation = min(row[7], unallocated)
+        session.add(
             CashReconciliationPayment(
                 reconciliation_id=reconciliation.id,
                 payment_transaction_id=row[0].id,
+                allocated_minor=allocation,
                 active=True,
             )
-            for row in rows
-        ]
-    )
-    event = "cash_discrepancy_confirmed" if difference else "cash_reconciliation_confirmed"
+        )
+        unallocated -= allocation
+        if not unallocated:
+            break
+    event = "cash_reconciliation_confirmed"
     _audit(
         session,
         context,
         event,
         "cash_reconciliation",
         reconciliation.id,
-        {"staff_id": str(request.staff_id), "difference_minor": difference},
+        {
+            "staff_id": str(request.staff_id),
+            "received_minor": expected,
+            "selected_receipts": sorted(map(str, request.payment_transaction_ids)),
+        },
     )
     await session.flush()
     return await _reconciliation_view(session, context, reconciliation.id)
@@ -957,7 +978,7 @@ async def finance_overview(
     start, end = _bounds(start_date, end_date, context.timezone)
     pending_transactions = _pending_base(context).subquery()
     cash_pending_query = (
-        select(func.coalesce(func.sum(pending_transactions.c.amount_minor), 0))
+        select(func.coalesce(func.sum(pending_transactions.c.remaining_minor), 0))
         .correlate(None)
         .scalar_subquery()
     )
@@ -977,12 +998,7 @@ async def finance_overview(
             select(
                 func.coalesce(func.sum(Booking.total_amount_minor), 0),
                 func.coalesce(
-                    func.sum(
-                        case(
-                            (Payment.status != "paid", Payment.amount_minor),
-                            else_=0,
-                        )
-                    ),
+                    func.sum(completed_balance()),
                     0,
                 ),
                 func.max(Booking.currency_code),
@@ -1023,6 +1039,7 @@ async def finance_overview(
             .where(
                 Booking.business_id == context.business_id,
                 PaymentTransaction.status == "succeeded",
+                PaymentTransaction.transaction_type.in_(RECEIPTS + RETURNS),
                 PaymentTransaction.created_at >= start,
                 PaymentTransaction.created_at < end,
             )
@@ -1134,7 +1151,7 @@ async def personal_cash_summary(
         select(func.coalesce(func.sum(PaymentTransaction.amount_minor), 0)).where(
             PaymentTransaction.actor_staff_id == context.staff_id,
             PaymentTransaction.transaction_type == "cash_payment",
-            PaymentTransaction.status == "succeeded",
+            PaymentTransaction.status.in_(("succeeded", "pending", "rejected")),
             PaymentTransaction.created_at >= start,
             PaymentTransaction.created_at < end,
         )

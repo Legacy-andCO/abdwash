@@ -1,0 +1,35 @@
+{
+  "project": "mgfzfgvlrxwyyftwukwf",
+  "alembic_revision": "d38bf74a923c",
+  "test_data": "Synthetic bookings and stock",
+  "inventory": {
+    "standard_wash_ml": { "sedan": 60, "suv": 100, "van": 150 },
+    "premium_wash_ml": { "sedan": 125, "van_using_legacy_fallback": 200 },
+    "five_vehicle_total_ml": 635,
+    "parallel_completion_requests": 2,
+    "completion_events_after_parallel_requests_and_replays": 1,
+    "stock_movements_after_parallel_requests_and_replays": 1,
+    "rate_edit_ml": { "previous": 60, "updated": 80, "next_job": 80, "historical_job": 60 },
+    "audited_stock_adjustment_liters": 0.215,
+    "stock_after_adjustment_liters": 2.5,
+    "missing_category_flagged_without_deduction": true,
+    "explicit_zero_skipped_without_warning": true,
+    "unconfigured_service_recorded_as_no_template": true,
+    "injected_failure_rolled_back_job_and_inventory": true,
+    "negative_nonfinite_incompatible_and_unrepresentable_rates_rejected": true,
+    "employee_rate_access_denied": true
+  },
+  "photos": {
+    "unassigned_employee_quality_access_denied": true,
+    "unsupported_content_type_rejected": true,
+    "hosted_bucket_is_private": true,
+    "hosted_bucket_max_bytes": 8388608,
+    "hosted_bucket_allowed_types": ["image/jpeg", "image/png", "image/webp"]
+  },
+  "regressions": {
+    "pass_1_admin_payment_history": "passed",
+    "pass_2_employee_attendance_overview_and_history": "passed",
+    "pass_2_employee_access_to_another_staff_history": "denied",
+    "staging_authentication": "Real employee JWT and verified admin TOTP"
+  }
+}

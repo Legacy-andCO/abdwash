@@ -6,6 +6,35 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.public import StrictRequest
 
+
+class BookingPaymentView(BaseModel):
+    job_id: uuid.UUID
+    reference: str
+    customer_first_name: str
+    customer_surname: str
+    currency_code: str
+
+
+class OutstandingPayment(BookingPaymentView):
+    remaining_minor: int
+    pending_minor: int
+
+
+class RecordedPayment(BookingPaymentView):
+    id: uuid.UUID
+    amount_minor: int
+    transaction_type: str
+    status: str
+    display_name: str | None
+    provider_transaction_id: str | None
+    created_at: datetime
+    reviewed_at: datetime | None
+    reviewed_by_staff_id: uuid.UUID | None
+    reviewer: str | None
+    rejection_reason: str | None
+    has_screenshot: bool
+
+
 ExpenseCategory = Literal[
     "chemicals_supplies",
     "fuel",
@@ -154,7 +183,7 @@ class CashPendingDetail(BaseModel):
 class CashReconciliationCreate(StrictRequest):
     staff_id: uuid.UUID
     payment_transaction_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
-    declared_cash_minor: int = Field(ge=0)
+    declared_cash_minor: int = Field(gt=0, le=2147483647)
     note: str | None = Field(default=None, max_length=4000)
     client_event_id: str = Field(min_length=8, max_length=160)
 

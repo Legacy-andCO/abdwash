@@ -715,3 +715,72 @@ async def test_migration_downgrade_and_upgrade_preserve_customer_rows(boundary):
         await conn.run_sync(roundtrip)
     async with boundary.owner() as db:
         assert await db.scalar(text("SELECT count(*) FROM public.customer_profiles")) == before
+
+
+async def test_migrated_runtime_records_review_and_partial_custody(boundary):
+    f = boundary
+    prefix = "/api/v1/staff"
+    created = await f.client.post(
+        prefix + "/calendar-bookings",
+        headers=headers(f, "employee"),
+        json=booking_payload(f, "2037-08-12"),
+    )
+    assert created.status_code == 201, created.text
+    job = created.json()["job_id"]
+    async with f.owner() as db, db.begin():
+        await db.execute(text("UPDATE jobs SET status='completed' WHERE id=:id"), {"id": job})
+        await db.execute(
+            text(
+                "UPDATE bookings SET status='completed' WHERE id=(SELECT booking_id FROM jobs WHERE id=:id)"
+            ),
+            {"id": job},
+        )
+    payments_url = f"{prefix}/jobs/{job}/payments"
+    result = await f.client.post(
+        payments_url,
+        headers=headers(f, "employee"),
+        json={"client_event_id": str(uuid.uuid4()), "tendered_minor": 5000, "change_minor": 0},
+    )
+    assert result.status_code == 200, result.text
+    history = await f.client.get(prefix + "/finance/payment-history", headers=headers(f))
+    tx = next(item["id"] for item in history.json() if item["job_id"] == job)
+    response = await f.client.post(
+        payments_url + "/" + tx + "/review", headers=headers(f), json={"decision": "confirm"}
+    )
+    assert response.status_code == 204, response.text
+    held = (await f.client.get(prefix + "/finance/cash/pending", headers=headers(f))).json()[
+        "items"
+    ]
+    collector = next(item["staff_id"] for item in held if item["staff_name"] == "employee")
+    response = await f.client.post(
+        prefix + "/finance/cash/reconciliations",
+        headers=headers(f),
+        json={
+            "staff_id": collector,
+            "declared_cash_minor": 2000,
+            "payment_transaction_ids": [tx],
+            "client_event_id": str(uuid.uuid4()),
+        },
+    )
+    assert response.status_code == 201, response.text
+    detail = await f.client.get(prefix + "/finance/cash/pending/" + collector, headers=headers(f))
+    assert detail.json()["expected_cash_minor"] == 3000
+    async with f.runtime() as db:
+        assert (
+            await db.scalar(
+                text(
+                    "SELECT count(*) FROM revenue_invoices WHERE booking_id=(SELECT booking_id FROM jobs WHERE id=:id)"
+                ),
+                {"id": job},
+            )
+            == 1
+        )
+        assert (
+            await db.scalar(
+                text(
+                    "SELECT allocated_minor FROM cash_reconciliation_payments WHERE payment_transaction_id=:id"
+                ),
+                {"id": tx},
+            )
+            == 2000
+        )

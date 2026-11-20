@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -459,12 +460,26 @@ class AttendanceSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     clock_in_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     clock_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    break_minutes: Mapped[int | None] = mapped_column(Integer)
+    clock_in_event_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    clock_out_event_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     clock_in_client_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     clock_out_client_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (
         CheckConstraint(
             "clock_out_at IS NULL OR clock_out_at >= clock_in_at",
             name="attendance_chronological",
+        ),
+        UniqueConstraint(
+            "staff_profile_id", "clock_in_event_id", name="uq_attendance_clock_in_event"
+        ),
+        UniqueConstraint(
+            "staff_profile_id", "clock_out_event_id", name="uq_attendance_clock_out_event"
+        ),
+        CheckConstraint(
+            "break_minutes IS NULL OR (break_minutes >= 0 AND clock_out_at IS NOT NULL "
+            "AND break_minutes * interval '1 minute' <= clock_out_at - clock_in_at)",
+            name="attendance_valid_break",
         ),
         Index("ix_attendance_business_clock_in", "business_id", "clock_in_at"),
         Index("ix_attendance_staff_clock_in", "staff_profile_id", "clock_in_at"),
@@ -833,15 +848,9 @@ class CustomerReviewPromptState(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     next_prompt_after: Mapped[int] = mapped_column(Integer, nullable=False)
     last_prompted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (
-        UniqueConstraint(
-            "customer_profile_id", name="uq_customer_review_prompt_customer"
-        ),
-        CheckConstraint(
-            "opens_since_last_prompt >= 0", name="nonnegative_review_prompt_opens"
-        ),
-        CheckConstraint(
-            "next_prompt_after BETWEEN 1 AND 3", name="review_prompt_threshold"
-        ),
+        UniqueConstraint("customer_profile_id", name="uq_customer_review_prompt_customer"),
+        CheckConstraint("opens_since_last_prompt >= 0", name="nonnegative_review_prompt_opens"),
+        CheckConstraint("next_prompt_after BETWEEN 1 AND 3", name="review_prompt_threshold"),
         Index("ix_review_prompt_business_customer", "business_id", "customer_profile_id"),
     )
 
@@ -1186,6 +1195,10 @@ class PaymentTransaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     amount_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     actor_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
     client_event_id: Mapped[str | None] = mapped_column(String(160))
+    reviewed_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("staff_profiles.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejection_reason: Mapped[str | None] = mapped_column(String(500))
+    screenshot: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     cash_tendered_minor: Mapped[int | None] = mapped_column(Integer)
     cash_change_minor: Mapped[int | None] = mapped_column(Integer)
     provider_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
@@ -1497,12 +1510,22 @@ class ServiceInventoryTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("inventory_items.id", ondelete="RESTRICT"), nullable=False
     )
     expected_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    vehicle_type: Mapped[str] = mapped_column(
+        String(80), nullable=False, default="all", server_default="all"
+    )
     __table_args__ = (
         CheckConstraint(
-            "expected_quantity > 0", name="service_inventory_template_positive_quantity"
+            "vehicle_type IN ('all','sedan','suv','hatchback','coupe','pickup','van','other')",
+            name="vehicle_type",
+        ),
+        CheckConstraint(
+            "expected_quantity >= 0 AND expected_quantity <> 'NaN' "
+            "AND (vehicle_type <> 'all' OR expected_quantity > 0)",
+            name="valid_quantity",
         ),
         UniqueConstraint(
-            "service_id", "inventory_item_id", name="uq_service_inventory_template_item"
+            "service_id", "inventory_item_id", "vehicle_type",
+            name="uq_service_inventory_template_vehicle",
         ),
         Index("ix_service_inventory_templates_business", "business_id"),
         Index("ix_service_inventory_templates_item", "inventory_item_id"),
@@ -1587,6 +1610,7 @@ class JobInventoryConsumptionLine(UUIDPrimaryKeyMixin, Base):
     )
     item_name_snapshot: Mapped[str] = mapped_column(String(160), nullable=False)
     unit_snapshot: Mapped[str] = mapped_column(String(24), nullable=False)
+    vehicle_type_snapshot: Mapped[str | None] = mapped_column(String(80))
     expected_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
     automatic_applied_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
     preexisting_manual_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
@@ -1596,7 +1620,9 @@ class JobInventoryConsumptionLine(UUIDPrimaryKeyMixin, Base):
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False
     )
     __table_args__ = (
-        CheckConstraint("expected_quantity > 0", name="job_inventory_line_positive_expected"),
+        CheckConstraint(
+            "expected_quantity >= 0 AND expected_quantity <> 'NaN'", name="expected_quantity"
+        ),
         CheckConstraint(
             "automatic_applied_quantity >= 0 AND preexisting_manual_quantity >= 0 "
             "AND shortfall_quantity >= 0",
@@ -1799,18 +1825,14 @@ class CashReconciliationPayment(UUIDPrimaryKeyMixin, Base):
     payment_transaction_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("payment_transactions.id"), nullable=False
     )
+    allocated_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
     )
     __table_args__ = (
         Index("ix_cash_reconciliation_payments_reconciliation", "reconciliation_id"),
         Index("ix_cash_reconciliation_payments_transaction", "payment_transaction_id"),
-        Index(
-            "uq_cash_reconciliation_payment_active",
-            "payment_transaction_id",
-            unique=True,
-            postgresql_where=text("active IS TRUE"),
-        ),
+        CheckConstraint("allocated_minor >= 0", name="cash_allocation_nonnegative"),
     )
 
 

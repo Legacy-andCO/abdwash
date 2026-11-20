@@ -155,7 +155,17 @@ class StubAuthVerifier:
         user_id = self.identities.get(token)
         if user_id is None:
             raise AuthenticationError("Unknown integration token")
-        return VerifiedIdentity(user_id=user_id, claims={"sub": str(user_id), "aal":"aal2", "amr":[{"method":"totp","timestamp":datetime.now(UTC).timestamp()},{"method":"password","timestamp":datetime.now(UTC).timestamp()}]})
+        return VerifiedIdentity(
+            user_id=user_id,
+            claims={
+                "sub": str(user_id),
+                "aal": "aal2",
+                "amr": [
+                    {"method": "totp", "timestamp": datetime.now(UTC).timestamp()},
+                    {"method": "password", "timestamp": datetime.now(UTC).timestamp()},
+                ],
+            },
+        )
 
 
 class StubSupabaseAdmin:
@@ -1556,17 +1566,108 @@ async def test_staff_write_workflow_uses_real_context_dependency_without_leaking
             "Service completed",
         } <= events
         assert complete_response.json()["status"] == "completed"
-        cash_response = await client.post(
-            f"/api/v1/staff/jobs/{job_id}/cash-payment",
-            headers=employee_headers,
-            json={
-                "client_event_id": str(uuid.uuid4()),
-                "tendered_minor": booking.total_amount_minor,
-                "change_minor": 0,
-            },
+        total = booking.total_amount_minor
+        endpoint = f"/api/v1/staff/jobs/{job_id}/payments"
+
+        async def collect(amount, method, **extras):
+            payload = dict(
+                client_event_id=str(uuid.uuid4()),
+                tendered_minor=amount,
+                change_minor=0,
+                method=method,
+                **extras,
+            )
+            for _ in range(2):
+                result = await client.post(endpoint, headers=employee_headers, json=payload)
+                assert result.status_code == 200, result.text
+            return result.json()["job"]
+
+        async def history():
+            response = await client.get(
+                "/api/v1/staff/finance/payment-history", headers=manager_headers
+            )
+            assert response.status_code == 200, response.text
+            return [r for r in response.json() if r["job_id"] == str(job_id)]
+
+        async def outstanding():
+            response = await client.get(
+                "/api/v1/staff/finance/outstanding", headers=manager_headers
+            )
+            assert response.status_code == 200, response.text
+            return [r for r in response.json() if r["job_id"] == str(job_id)]
+
+        assert (await outstanding())[0]["remaining_minor"] == total
+        await collect(100, "card")
+        (first,) = await history()
+        review_url = endpoint + "/" + first["id"] + "/review"
+        denied = await client.post(
+            review_url, headers=employee_headers, json={"decision": "confirm"}
         )
-        assert cash_response.status_code == 200, cash_response.text
-        assert cash_response.json()["job"]["payment_status"] == "paid"
+        assert denied.status_code == 403
+        rejected = await client.post(
+            review_url,
+            headers=manager_headers,
+            json={"decision": "reject", "reason": "Terminal declined"},
+        )
+        assert rejected.status_code == 204
+        assert (await outstanding())[0]["remaining_minor"] == total
+        partial = total // 2
+        reported = await collect(partial, "cash")
+        assert reported["pending_verification_minor"] == partial
+        cash, _ = await history()
+        confirm_url = endpoint + "/" + cash["id"] + "/review"
+        decisions = await asyncio.gather(
+            *(
+                client.post(confirm_url, headers=manager_headers, json={"decision": "confirm"})
+                for _ in range(2)
+            )
+        )
+        assert [r.status_code for r in decisions] == [204, 204]
+        assert (await outstanding())[0]["remaining_minor"] == total - partial
+        import base64
+        import io
+
+        from PIL import Image
+
+        jpeg = io.BytesIO()
+        Image.new("RGB", (4, 4)).save(jpeg, format="JPEG")
+        screenshot = base64.b64encode(jpeg.getvalue()).decode("ascii")
+        await collect(total - partial, "card", reference="SYNTH-412", screenshot=screenshot)
+        card = next(r for r in await history() if r["status"] == "pending")
+        assert card["provider_transaction_id"] == "SYNTH-412" and card["has_screenshot"]
+        proof = await client.get(
+            "/api/v1/staff/finance/payments/" + card["id"] + "/screenshot", headers=manager_headers
+        )
+        assert proof.json()["jpeg"] == screenshot
+        verified = await client.post(
+            endpoint + "/" + card["id"] + "/review",
+            headers=manager_headers,
+            json={"decision": "confirm"},
+        )
+        assert verified.status_code == 204, verified.text
+        assert await outstanding() == []
+        custody_url = "/api/v1/staff/finance/cash/pending"
+        custody = (await client.get(custody_url, headers=manager_headers)).json()["items"]
+        holder = next(r for r in custody if r["expected_cash_minor"] == partial)
+        for amount in (partial // 2, partial - partial // 2):
+            handover = dict(
+                staff_id=holder["staff_id"],
+                payment_transaction_ids=[cash["id"]],
+                declared_cash_minor=amount,
+                client_event_id=str(uuid.uuid4()),
+            )
+            ids = []
+            for _ in range(2):
+                result = await client.post(
+                    "/api/v1/staff/finance/cash/reconciliations",
+                    headers=manager_headers,
+                    json=handover,
+                )
+                assert result.status_code == 201, result.text
+                ids.append(result.json()["id"])
+            assert ids[0] == ids[1]
+        custody = (await client.get(custody_url, headers=manager_headers)).json()["items"]
+        assert not any(r["staff_id"] == holder["staff_id"] for r in custody)
 
         rejected_response = await client.post(
             f"/api/v1/staff/cancellations/{rejected_cancellation_id}/review",

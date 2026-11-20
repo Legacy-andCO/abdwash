@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.catalogue import VehicleType
 from app.schemas.public import StrictRequest
 
 InventoryCategory = Literal[
@@ -281,6 +282,20 @@ class ServiceConsumptionTemplateLine(BaseModel):
     expected_quantity: Decimal
 
 
+ConsumptionQuantity = Annotated[Decimal, Field(ge=0, max_digits=17, decimal_places=6)]
+
+
+class ProductConsumptionUpdate(StrictRequest):
+    unit: InventoryUnit
+    rates: dict[VehicleType, ConsumptionQuantity] = Field(max_length=7)
+
+
+class ProductConsumptionView(BaseModel):
+    service_id: uuid.UUID
+    fallback: Decimal | None
+    rates: dict[str, Decimal]
+
+
 class JobConsumptionLineView(BaseModel):
     id: uuid.UUID
     booking_service_id: uuid.UUID
@@ -289,6 +304,7 @@ class JobConsumptionLineView(BaseModel):
     item_id: uuid.UUID | None
     item_name: str
     unit: str
+    vehicle_type: str | None = None
     expected_quantity: Decimal
     automatic_applied_quantity: Decimal
     preexisting_manual_quantity: Decimal

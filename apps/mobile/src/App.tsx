@@ -1,9 +1,12 @@
 import { t } from "./i18n";
 import { Alert } from "./alert";
+import { signOutFromStaffApp } from "./authSignOut";
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -25,7 +28,7 @@ import { OperationsShell } from "./navigation/OperationsShell";
 import { LoginScreen } from "./screens/LoginScreen";
 import { colors, spacing } from "./theme";
 import { PrivilegedMfa } from "./components/PrivilegedMfa";
-import { subscribeMfaRequired } from "./mfa-events";
+import { subscribeMfaRequired, subscribeSessionRejected } from "./mfa-events";
 import { StaffLanguage, useStaffLanguage } from "./components/StaffLanguage";
 
 function AuthenticatedApp() {
@@ -35,18 +38,34 @@ function AuthenticatedApp() {
   const [error, setError] = useState("");
   const [mfaRequired, setMfaRequired] = useState(false);
   const [revision, setRevision] = useState(0);
+  useEffect(() => subscribeSessionRejected(() => {
+    setContext(null);
+    setRevision(v => v + 1);
+  }), []);
   useEffect(() => subscribeMfaRequired(() => { setMfaRequired(true); setContext(null); }), []);
   useEffect(() => {
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => setSession(data.session));
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, value) => {
       if (event === "SIGNED_OUT") { setMfaRequired(false); void prepareOperationalLogout(); }
       setSession(value);
     });
-    return () => subscription.unsubscribe();
+    if (Platform.OS === "web") return () => subscription.unsubscribe();
+    const updateRefresh = (state: string | null) => {
+      if (state === "active") {
+        void supabase.auth.startAutoRefresh();
+        setRevision(v => v + 1);
+      } else {
+        void supabase.auth.stopAutoRefresh();
+      }
+    };
+    updateRefresh(AppState.currentState);
+    const lifecycle = AppState.addEventListener("change", updateRefresh);
+    return () => {
+      lifecycle.remove();
+      subscription.unsubscribe();
+      void supabase.auth.stopAutoRefresh();
+    };
   }, []);
   useEffect(() => {
     if (session === undefined) return;
@@ -57,9 +76,8 @@ function AuthenticatedApp() {
       return;
     }
     setError("");
-    setContext(null);
     let active = true;
-    void getContext(session)
+    void getContext()
       .then((value) => {
         if (active) {
           setContext(value);
@@ -70,6 +88,7 @@ function AuthenticatedApp() {
         if (active && ["MFA_REQUIRED", "MFA_REAUTHENTICATION_REQUIRED"].includes(reason?.code ?? reason?.message)) {
           setMfaRequired(true); setContext(null); return;
         }
+        if (active && [401, 403].includes(reason?.status)) setContext(null);
         if (active)
           setError(
             reason instanceof Error &&
@@ -97,9 +116,10 @@ function AuthenticatedApp() {
     return (
       <SafeAreaView style={styles.center}>
         <Text style={styles.title}>{t(error)}</Text>
+        <AppButton title={t("Try again")} onPress={() => setRevision(v => v + 1)} />
         <AppButton
           title={t("Back to login")}
-          onPress={() => void supabase.auth.signOut()}
+          onPress={() => void signOutFromStaffApp()}
         />
       </SafeAreaView>
     );
@@ -177,12 +197,7 @@ function RequiredPasswordChange({ onChanged }: { onChanged: () => void }) {
           title={t("Sign out")}
           tone="secondary"
           disabled={busy}
-          onPress={() =>
-            void (async () => {
-              await prepareOperationalLogout();
-              await supabase.auth.signOut();
-            })()
-          }
+          onPress={() => void signOutFromStaffApp()}
         />
       </View>
     </SafeAreaView>

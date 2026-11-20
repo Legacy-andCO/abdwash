@@ -6,7 +6,7 @@ export type CashTenderCalculation = {
 };
 
 export function parseMoneyToMinor(value: string): number | null {
-  const normalized = value.trim().replaceAll(",", "");
+  const normalized = value.trim().replace(/[٠-٩]/g, char => String(char.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, char => String(char.charCodeAt(0) - 1776)).replace("٫", ".");
   if (!/^\d+(?:\.\d{0,2})?$/.test(normalized)) return null;
   const [whole, fraction = ""] = normalized.split(".");
   const minor = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
